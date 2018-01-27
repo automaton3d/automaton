@@ -9,21 +9,23 @@
 #define TUPLE_H_
 
 #include <windows.h>
+#include "common.h"
 #include "params.h"
 
 typedef struct { int x, y, z; } Tuple;
 
-extern Tuple dirs [6];
+/// Functions ///
 
-void initDirs();
 void rectify(Tuple *v);
 boolean isNull(Tuple t);
 boolean isEqual(Tuple t1, Tuple t2);
 boolean isOpposite(Tuple t1, Tuple t2);
 void invertTuple(Tuple *t);
 void addTuples(Tuple *a, Tuple b);
+void addRectify(Tuple *a, Tuple b);
 void subTuples(Tuple *a, Tuple b);
 void subTuples3(Tuple *r, Tuple a, Tuple b);
+void subRectify(Tuple *a, Tuple b);
 double modTuple(Tuple *v);
 double mod2Tuple(Tuple *v);
 void normalizeTuple(Tuple *t);
@@ -35,5 +37,7 @@ void tupleAbs(Tuple *t);
 void tupleCopy(Tuple *a, Tuple b);
 void resetTuple(Tuple *t);
 void scaleTuple(Tuple *t, int s);
+Tuple getUnit(Tuple *t);
+Tuple getDirection(Tuple a, Tuple b);
 
 #endif /* TUPLE_H_ */
