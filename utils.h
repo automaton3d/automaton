@@ -1,4 +1,4 @@
-/*
+//*
  * utils.h
  *
  *  Created on: 11/10/2016
@@ -8,6 +8,16 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-BOOL voronoi(double x, double y, double z, Tuple *preon);
+#include <windows.h>
+#include "vector3d.h"
+
+extern double radius;
+
+void pick(Vector3d *p, LPARAM lparam);
+double distance3d(Vector3d v, Vector3d b);
+int opposite(int dir);
+int rndSignal();
+unsigned rndCoord();
+int signum(int a);
 
 #endif /* UTILS_H_ */
