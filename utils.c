@@ -5,11 +5,17 @@
  *      Author: Alexandre
  */
 
-#include <stdio.h>
+#include "utils.h"
 #include <math.h>
-#include <windows.h>
-#include "tuple.h"
-#include "vector3d.h"
+#include "plot3d.h"
+
+int opposite(int dir)
+{
+	if(dir % 2 == 0)
+		return dir + 1;
+	else
+		return dir - 1;
+}
 
 /*
  * Calculates the signum function.
@@ -23,54 +29,38 @@ int signum(int a)
 	return 0;
 }
 
+double distance3d(Vector3d v, Vector3d b)
+{
+	Vector3d ab, av, bv, prod;
+	add3d(&ab, b);
+	add3d(&av, v);
+	if(dot3d(av, ab) <= 0)
+	     return module3d(&av);
+	add3d(&bv, v);
+	sub3d(&bv, b);
+	if(dot3d(bv, ab) >= 0.0)
+	     return module3d(&bv);
+	cross3d(ab, av, &prod);
+	return module3d(&prod) / module3d(&ab);
+}
+
 /*
  * Voronoi cell intersection test.
  */
-BOOL voronoi(double x, double y, double z, Tuple *cell)
+boolean voronoi(Vector3d probe, Tuple cell)
 {
-	Vector3d min;
-	min.x = cell->x - 0.5;
-	min.y = cell->y - 0.5;
-	min.z = cell->z - 0.5;
-	Vector3d max;
-	max.x = cell->x + 0.5;
-	max.y = cell->y + 0.5;
-	max.z = cell->z + 0.5;
-	//
-	double EPSILON = 1e-300;
-	Vector3d d;
-	d.x = x * 0.5;
-	d.y = y * 0.5;
-	d.z = z * 0.5;
-	Vector3d e;
-	e.x = (max.x - min.x) * 0.5;
-	e.y = (max.y - min.y) * 0.5;
-	e.z = (max.z - min.z) * 0.5;
-	Vector3d c;
-	c.x = d.x - (min.x + max.x) * 0.5;
-	c.y = d.y - (min.y + max.y) * 0.5;
-	c.z = d.z - (min.z + max.z) * 0.5;
-	Vector3d ad;
-	ad.x = d.x;
-	ad.y = d.y;
-	ad.z = d.z;
-	absV3d(&ad);
-	if(abs(c.x) > e.x + ad.x)
-		return FALSE;
-	if(abs(c.y) > e.y + ad.y)
-		return FALSE;
-	if(abs(c.z) > e.z + ad.z)
-		return FALSE;
-	if(abs(d.y * c.z - d.z * c.y) > e.y * ad.z + e.z * ad.y + EPSILON)
-		return FALSE;
-	if(abs(d.z * c.x - d.x * c.z) > e.z * ad.x + e.x * ad.z + EPSILON)
-		return FALSE;
-	if(abs(d.x * c.y - d.y * c.x) > e.x * ad.y + e.y * ad.x + EPSILON)
-		return FALSE;
-    return TRUE;
+	return fabs(cell.x - probe.x) <= 0.5 && fabs(cell.y - probe.y) <= 0.5 && fabs(cell.z - probe.z) <= 0.5;
 }
 
+unsigned rndCoord()
+{
+	return (SIDE * (long) rand()) / RAND_MAX;
+}
 
+int rndSignal()
+{
+	return rand() < RAND_MAX / 2 ? -1 : +1;
+}
 
 
 
