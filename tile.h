@@ -1,37 +1,27 @@
 /*
- * preon.h
+ * tile.h
  *
  *  Created on: 23/01/2016
  *      Author: Alexandre
  */
 
-#ifndef PREON_H_
-#define PREON_H_
+#ifndef TILE_H_
+#define TILE_H_
 
-// p2 role
+#include "tuple.h"
 
-#define NIL		0
-#define REAL		1
-#define VIRT		2
-#define GRAV		3
+// General code
 
-// p3 messenger type
+#define UNDEF		0
 
-#define IDLE		0
-#define PLAIN		1
-#define FORCING		2
-#define COLL		3
-#define FORMING		4
+// p4 chirality
 
-// p9 chirality
+#define LHM			-1
+#define RHMLHAM		0
+#define RHM			+1
 
-#define LEFTMATTER	-1
-#define RHM_LHAM	0
-#define RIGHTMATTER	+1
+// p5 color
 
-// p10 color
-
-#define UNDEFINED		0x00
 #define RED    			0x20
 #define GREEN  			0x10
 #define BLUE   			0x08
@@ -40,108 +30,82 @@
 #define ANTIBLUE   		0x01
 #define WHITE			(RED | GREEN | BLUE)
 #define ANTIWHITE		(ANTIRED | ANTIGREEN | ANTIBLUE)
-#define LEPTONIC		0x07
-#define ANTILEPTONIC	0xc8
+#define LEPT			0x07
+#define ANTILEPT		0xc8
 
-//#define COLOR		(RED | GREEN | BLUE)				// filter
-//#define ANTICOLOR	(ANTIRED | ANTIGREEN | ANTIBLUE)	// filter
+// p14 preon classification
 
-// p11 gravity
+#define U			1			// unpaired
+#define P			2			// pair
 
-#define ON			1
-#define OFF			0
+// p14 preon interactions
 
-// p16 interaction
+#define UXU			6
+#define UXP			7
+#define PXP			8
+#define UXT			9
+#define UXG			10
+#define ZXP			11
 
-#define ND			0x0000			// empty
-#define U			0x0001			// unpaired
-#define P			0x0002			// pair
-#define B			0x0003			// bread
-#define Z			0x0004			// cheese
-#define G			0x0005			// graviton
+// p17 status
 
-#define UXU			0x0011
-#define UXP			0x0012
-#define PXP			0x0022
-#define UXZ			0x0014
-#define UXG			0x0015
-#define ZXP			0x0015
+#define	PREON		0X01
+#define SEED		0X02
+#define GRAV		0X04
 
-#define WZBOSON		0x0016
-#define HADRON		0x0017
+// p29 pair classification
 
-// Pair types
-
-#define KNP			1			// kinetic
-#define MGP			2			// massgen
-#define EMP			3			// static
-#define VCP			4			// vacuum
-#define GLP			5			// gluonic
-#define MSP			6			// mesonic
-#define PHP			7			// photonic
-#define NTP			8			// neutrino
-
-#include "tuple.h"
-
-/*
- * Wavefront synchronization subfields
- */
-typedef struct
-{
-	char d;						// immediate motion direction
-	long t0, t1;				// timing
-
-} Wavefront;
+#define VCP			1
+#define KNP			2
+#define NTP			3
+#define GLP			4
+#define EMP			5
+#define PHP			6
+#define MSP			7
 
 /*
  * Preon structure
  */
 typedef struct
 {
-	long			p1;		// clock
-	unsigned char	p2;		// role
-	unsigned char	p3;		// messenger
-	unsigned char	p4;		// helicity
-	unsigned		p5;		// level
-	Tuple			p6;		// origin vector
-	Tuple			p7;		// momentum direction
-	char			p8;		// electric charge
-	char			p9;		// chirality
-	unsigned char	p10;	// color
-	unsigned char	p11;	// gravity
-	Tuple			p12;	// spin direction
-	unsigned		p13;	// entanglement
+	Tuple			p0;		// xyz position
+	unsigned		p1;		// clock
+	Tuple			p2;		// origin vector
+	char			p3;		// electric charge
+	char			p4;		// chirality
+	unsigned char	p5;		// color and conjugation
+	Tuple			p6;		// spin direction
+	unsigned char	p7;		// gravity charge
+	unsigned		p8;		// entanglement
+	unsigned char	p9;		// sinusoid pwm
+	int 			p10;	// frequency
+	unsigned char	p11;	// helicity
+	unsigned char	p12;	// interaction
+	int				p13;	// interference
+	Tuple			p14;	// return path
+	unsigned char	p15;	// safe-conduct
 	//
-	double 			p141;	// a1
-	double			p142;	// a2
-	int 			p143;	// ramp
-	boolean 		p144;	// pwm
+	// Auxiliary
 	//
-	boolean			p15E;	// electric polarization
-	boolean			p15M;	// magnetic polarization
-	//
-	unsigned char	p16;	// interaction
-	unsigned		p17;	// number of light steps since last visit
-	int				p18;	// interference
-	Tuple			p19;	// return path
-	//
-	char			p201;	// wavefront tree: d
-	unsigned		p202;	// wavefront tree: depth
-	long			p203;	// wavefront synch: t0
-	long			p204;	// wavefront synch: t1
-	//
-	unsigned		p21;	// frequency
-	unsigned char	p22;	// pair type
-	//
-	// Exploration channels
-	//
-	void *n [7];			// six 3d neighbors and one w neighbor pointers
+	unsigned		p16;	// w address
+	unsigned char	p17;	// status
+	unsigned char	p18;	// pair classification
+	unsigned char	p19;	// messenger
+	unsigned short	p20;	// level
+	double 			p21a1;	// a1
+	double			p21a2;	// a2
+	unsigned char	p22;	// wf direction
+	unsigned		p23;	// wavefront synch: t1
+	unsigned		p24;	// timeout of virtual pairs
+	Tuple			p25;	// burst origin vector;
+	unsigned char	p26;	// burst direction
 
 } Tile;
 
-char *preon2str(Tile *preon);
-void copy(Tile *dst, Tile *org);
-void cleanCell(Tile *iu);
-void entangle(Tile *p1, Tile *p2);
+// Functions declarations
+
+char *tile2str(Tile *t);
+void copyTile(Tile *dst, Tile *org);
+void cleanTile(Tile *t);
 
 #endif /* PREON_H_ */
