@@ -5,38 +5,16 @@
  *      Author: Alexandre
  */
 
+#include "tuple.h"
 #include <math.h>
 #include <stdio.h>
-#include "tuple.h"
+#include "utils.h"
 
-char tupleBuf[4][30];
+const Tuple dirs[] = {{+1,0,0}, {-1,0,0}, {0,+1,0}, {0,-1,0}, {0,0,+1}, {0,0,-1}};
 
-void initDirs()
-{
-	dirs[0].x = 1;
-	dirs[0].y = 0;
-	dirs[0].z = 0;
-	//
-	dirs[1].x = -1;
-	dirs[1].y = 0;
-	dirs[1].z = 0;
-	//
-	dirs[2].x = 0;
-	dirs[2].y = 1;
-	dirs[2].z = 0;
-	//
-	dirs[3].x = 0;
-	dirs[3].y = -1;
-	dirs[3].z = 0;
-	//
-	dirs[4].x = 0;
-	dirs[4].y = 0;
-	dirs[4].z = 1;
-	//
-	dirs[5].x = 0;
-	dirs[5].y = 0;
-	dirs[5].z = -1;
-}
+const Tuple X0 = { 1,0,0 };
+const Tuple Y0 = { 0,1,0 };
+const Tuple Z0 = { 0,0,1 };
 
 void rectify(Tuple *v)
 {
@@ -47,11 +25,11 @@ void rectify(Tuple *v)
 	if(v->z >= SIDE)
 		v->z -= SIDE;
 	//
-	if(v->x < -SIDE)
+	if(v->x < 0)
 		v->x += SIDE;
-	if(v->y < -SIDE)
+	if(v->y < 0)
 		v->y += SIDE;
-	if(v->z < -SIDE)
+	if(v->z < 0)
 		v->z += SIDE;
 }
 
@@ -82,7 +60,14 @@ void addTuples(Tuple *a, Tuple b)
 	a->x += b.x;
 	a->y += b.y;
 	a->z += b.z;
-	//rectify(a);
+}
+
+void addRectify(Tuple *a, Tuple b)
+{
+	a->x += b.x;
+	a->y += b.y;
+	a->z += b.z;
+	rectify(a);
 }
 
 void subTuples(Tuple *a, Tuple b)
@@ -90,7 +75,14 @@ void subTuples(Tuple *a, Tuple b)
 	a->x -= b.x;
 	a->y -= b.y;
 	a->z -= b.z;
-	//rectify(a);
+}
+
+void subRectify(Tuple *a, Tuple b)
+{
+	a->x -= b.x;
+	a->y -= b.y;
+	a->z -= b.z;
+	rectify(a);
 }
 
 void subTuples3(Tuple *r, Tuple a, Tuple b)
@@ -124,16 +116,6 @@ void normalizeTuple(Tuple *t)
 	t->z = (int)(t->z * SIDE / h);
 }
 
-char *tuple2str(Tuple *t)
-{
-	static int index = 0;
-	char *ptr = tupleBuf[index];
-	sprintf(ptr, "[%d,%d,%d]", t->x, t->y, t->z);
-	index++;
-	index &= 3;
-	return ptr;
-}
-
 void tupleCross(Tuple v1, Tuple v2, Tuple *v3)
 {
 	v3->x = v1.y * v2.z - v1.z * v2.y;
@@ -162,13 +144,6 @@ void tupleAbs(Tuple *t)
 	t->z = abs(t->x);
 }
 
-void tupleCopy(Tuple *a, Tuple b)
-{
-	a->x = b.x;
-	a->y = b.y;
-	a->z = b.z;
-}
-
 void resetTuple(Tuple *t)
 {
 	t->x = 0;
@@ -181,5 +156,45 @@ void scaleTuple(Tuple *t, int s)
 	t->x *= s;
 	t->y *= s;
 	t->z *= s;
+}
+
+Tuple getDirection(Tuple a, Tuple b)
+{
+	Tuple d;
+	d.x = b.x - a.x;
+	d.y = b.y - a.y;
+	d.z = b.z - a.z;
+	d.x = b.x - signum(d.x) * SIDE;
+	d.y = b.y - signum(d.y) * SIDE;
+	d.z = b.z - signum(d.z) * SIDE;
+	return getUnit(&d);
+}
+
+Tuple getUnit(Tuple *t)
+{
+	Tuple r = X0;
+	if(abs(t->x) >= abs(t->y) && abs(t->y) >= abs(t->z))
+	{
+		r = X0;
+		r.x = signum(t->x);
+	}
+	else if(t->y >= t->x && t->y >= t->z)
+	{
+		r = Y0;
+		r.y = signum(t->y);
+	}
+	else if(t->z >= t->y && t->z >= t->x)
+	{
+		r = Z0;
+		r.z = signum(t->z);
+	}
+	return r;
+}
+
+char *tuple2str(Tuple *t)
+{
+	char *s;
+	asprintf((char **)&s, "[%d,%d,%d]", t->x, t->y, t->z);
+	return s;
 }
 
