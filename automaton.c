@@ -23,7 +23,6 @@
 #include "text.h"
 #include "main3d.h"
 #include "tree.h"
-#include "physics.h"
 
 // The lattices
 
@@ -135,9 +134,7 @@ boolean interaction(Tile *dual4d)
 
 void expandGraviton()
 {
-	if((pri->p17 & GRAV) == 0)
-		return;
-	if(dual->p1 <= dual->p23)
+	if((pri->p17 & GRAV) == 0 || dual->p1 <= dual->p23)
 		return;
 	if(isNull(pri->p2))
 		dual->p1 = dual->p1 % SYNCH + 1;
@@ -177,7 +174,7 @@ void expandGraviton()
 		copyTile(nual, dual);
 		addTuples(&nual->p2, dirs[dir]);
 		nual->p23 = SYNCH * modTuple(&nual->p2) + 0.5;
-		nual->p17 = GRAV;
+		nual->p17 |= GRAV;
 	}
 	if(dual->p17 & SEED)
 		dual->p17 = SEED;
@@ -201,7 +198,7 @@ void expandBurst()
 			addTuples(&nual->p25, dirs[dir]);	// update burst origin vector
 		}
 	}
-	if((pri->p17 & PREON) != 0 && isEqual(pri->p14, pri->p0))
+	if((pri->p17 & PREON) && isEqual(pri->p14, pri->p0))
 	{
 		printf("Reemit: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p16, timer, pri->p16, GetTickCount() - begin);
 		//
@@ -212,10 +209,6 @@ void expandBurst()
 		dual->p14.x = -1;
 		dual->p12 = UNDEF;
 		resetDFO(dual);
-	}
-	else if((pri->p17 & (SEED | GRAV)) != 0)
-	{
-		dual->p19 = false;
 	}
 	else
 	{
@@ -308,6 +301,21 @@ void pairClassification(Tile *dual, Tile *nual)
 	{
 		dual->p18 = EMP;
 		return;
+	}
+}
+
+void classify10(Tile *pri, Tile *dual)
+{
+	int np = 0, nuxu = 0;
+	Tile *dual4d = dual;
+	for(int w = 0; w < NPREONS; w++, dual4d++)
+	{
+		if(dual4d->p17 == UNDEF || dual4d->p19 || isNull(dual4d->p2))
+		{
+			dual4d->p12 = UNDEF;
+			continue;
+		}
+	//	if(isEqual(dual4d->p2, n->p2) && dual4d->p3 == -n->p3)
 	}
 }
 
@@ -418,9 +426,9 @@ char getVoxel(Tile *pri, Tile *dual)
 		//
 		if(pri4d->p19)
 			color = BB;
-		else if((pri4d->p17 & GRAV) != 0)
+		else if(pri4d->p17 & GRAV)
 			color = GG;
-		else if((pri4d->p17 & PREON) != 0)
+		else if(pri4d->p17 & PREON)
 			color = 7 + pri4d->p16;
 	}
 	return color;
@@ -430,16 +438,12 @@ void expand()
 {
 	Tile *p = pri, *d = dual;
 	for(int w = 0; w < NPREONS; w++, pri++, dual++)
-	{
-		if(interaction(dual))
-			continue;
-		else if(pri->p19 != UNDEF)
+		if(!interaction(dual))
+		{
 			expandBurst();
-		else if((pri->p17 & GRAV) != 0)
 			expandGraviton();
-		else
 			expandPreon();
-	}
+		}
 	pri = p; dual = d;
 }
 
@@ -503,3 +507,46 @@ void *AutomatonLoop()
 	}
 	return NULL;
 }
+
+//////////////////////////
+
+/*
+ * Called from patterns1.
+ *
+ * return true, if the cell has not been visited
+ * return false, if activation time (AT)
+ */
+boolean interference()
+{
+	if(pri->p1 <= pri->p23)
+	{
+		// Interference I
+		// The cell is not visited, so, at each light step
+		//
+//		dual->p15++;
+		//
+		// p14 decays absolutely and exponentially
+		// (Sciarretta)
+		//
+		if(pri->p12 > 0)
+		{
+			dual->p12 *= (SIDE - SIDE / (2 * dual->p13));
+			if(dual->p12 < 0)
+				dual->p12 = 0;
+		}
+		else if(dual->p12 < 0)
+		{
+			dual->p12 *= (SIDE + SIDE / (2 * dual->p13));
+			if(dual->p12 > 0)
+				dual->p12 = 0;
+		}
+		return true;
+	}
+	else if(pri->p19 == UNDEF)
+	{
+		dual->p13 = 0;
+		dual->p12 += pri->p21a2;
+	}
+	return false;
+}
+
