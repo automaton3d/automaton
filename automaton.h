@@ -13,7 +13,6 @@
 
 extern Tile *pri0;
 extern unsigned long timer;
-//extern char voxels[], _voxels[];
 extern pthread_mutex_t mutex;
 extern char imgbuf[3][SIDE3];
 extern char *draft, *clean;
