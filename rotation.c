@@ -6,13 +6,9 @@
  */
 
 
-#include <stdio.h>
+#include "rotation.h"
 #include <math.h>
-
 #include "params.h"
-#include "tuple.h"
-
-Tuple points;
 
 float rotationMatrix[4][4];
 float inputMatrix[4][1] = {{0.0}, {0.0}, {0.0}, {0.0}};
@@ -20,19 +16,23 @@ float outputMatrix[4][1] = {{0.0}, {0.0}, {0.0}, {0.0}};
 
 void multiplyMatrix()
 {
-    for(int i = 0; i < 4; i++ )
-        for(int j = 0; j < 1; j++)
+	int i;
+    for(i = 0; i < 4; i++ )
+    {
+    	int j;
+        for(j = 0; j < 1; j++)
         {
             outputMatrix[i][j] = 0;
-            for(int k = 0; k < 4; k++)
+            int k;
+            for(k = 0; k < 4; k++)
                 outputMatrix[i][j] += rotationMatrix[i][k] * inputMatrix[k][j];
         }
+    }
 }
 
 void setUpRotationMatrix(float angle, float u, float v, float w)
 {
     float L = (u*u + v * v + w * w);
-    angle = angle * M_PI / 180.0f; //converting to radian value
     float u2 = u * u;
     float v2 = v * v;
     float w2 = w * w;
@@ -59,28 +59,21 @@ void setUpRotationMatrix(float angle, float u, float v, float w)
 }
 
 /*
- * Function called by main program.
+ * Calculates spin rotation.
  */
-void rotateSpin(Tuple *t, int n)
+void rotateSpin(Tile *t)
 {
-    float angle = 2 * M_PI / SIDE;
-    float u = (float) t->x, v = (float) t->y, w = (float) t->z;
-    puts("Enter the initial point you want to transform:");
-    points.x = 1; points.y = 1; points.z = 1;
-    inputMatrix[0][0] = points.x;
-    inputMatrix[1][0] = points.y;
-    inputMatrix[2][0] = points.z;
+	int distance = (int) modTuple(&t->p2) % (2 * DIAMETER);
+    float angle = 2 * PI * distance / (2 * DIAMETER);
+    float u = (float) t->p2.x, v = (float) t->p2.y, w = (float) t->p2.z;
+    inputMatrix[0][0] = t->p6.x;
+    inputMatrix[1][0] = t->p6.y;
+    inputMatrix[2][0] = t->p6.z;
     inputMatrix[3][0] = 1.0;
-
-    puts("Enter axis vector: ");
-    u = 1; v = 2; w = 3;
-
-    puts("Enter the rotating angle in degree: ");
-    angle = 0.2;
-
     setUpRotationMatrix(angle, u, v, w);
     multiplyMatrix();
-    t->x = outputMatrix[0][0];
-    t->y = outputMatrix[1][0];
-    t->z = outputMatrix[2][0];
+    t->p6.x = outputMatrix[0][0];
+    t->p6.y = outputMatrix[1][0];
+    t->p6.z = outputMatrix[2][0];
 }
+
