@@ -43,25 +43,13 @@
 #define UXU			6
 #define UXP			7
 #define PXP			8
-#define UXT			9
-#define UXG			10
-#define ZXP			11
+#define UXG			9
 
 // p17 status
 
 #define	PREON		0X01
 #define SEED		0X02
 #define GRAV		0X04
-
-// p29 pair classification
-
-#define VCP			1
-#define KNP			2
-#define NTP			3
-#define GLP			4
-#define EMP			5
-#define PHP			6
-#define MSP			7
 
 /*
  * Preon structure
@@ -83,7 +71,7 @@ typedef struct
 	unsigned char	p12;	// interaction
 	int				p13;	// interference
 	Tuple			p14;	// return path
-	unsigned char	p15;	// safe-conduct
+	unsigned char	p15;	// cohesion
 	//
 	// Auxiliary
 	//
@@ -91,7 +79,6 @@ typedef struct
 	unsigned char	p17;	// status
 	unsigned char	p18;	// pair classification
 	unsigned char	p19;	// messenger
-	unsigned short	p20;	// level
 	double 			p21a1;	// a1
 	double			p21a2;	// a2
 	unsigned char	p22;	// wf direction
@@ -99,6 +86,9 @@ typedef struct
 	unsigned		p24;	// timeout of virtual pairs
 	Tuple			p25;	// burst origin vector;
 	unsigned char	p26;	// burst direction
+	unsigned		p27;	// w of peer
+	unsigned char	p28;	// is pair flag
+	Tuple			p29;	// LM direction
 
 } Tile;
 
@@ -109,3 +99,4 @@ void copyTile(Tile *dst, Tile *org);
 void cleanTile(Tile *t);
 
 #endif /* PREON_H_ */
+
