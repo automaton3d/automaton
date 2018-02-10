@@ -97,9 +97,12 @@ boolean trivial(Tile *t)
 	return true;
 }
 
+/*
+ * Executes final procedures after collision detection.
+ */
 boolean interaction(Tile *t)
 {
-	if(t->p1 < BURST || (t->p12 != UXU && t->p12 != UXP && t->p12 != PXP))
+	if(t->p1 < BURST || t->p12 == UNDEF)
 		return false;
 	//
 	// Normalize clock
@@ -129,7 +132,7 @@ boolean interaction(Tile *t)
 }
 
 /*
- * Axiom 13
+ * Axiom 13 - G expansion
  */
 void expandGraviton()
 {
@@ -182,7 +185,7 @@ void expandGraviton()
 }
 
 /*
- * Axiom 7
+ * Axiom 7 - Burst expansion
  */
 void expandBurst()
 {
@@ -198,10 +201,6 @@ void expandBurst()
 			nual->p17 &= PREON;
 			nual->p26 = dir;					// save direction
 			addTuples(&nual->p25, dirs[dir]);	// update burst origin vector
-			//
-			// Axiom 3 - Sinusoidal phase
-			//
-			incrDFO(nual);
 			//
 			// Axiom 4 - Interference
 			//
@@ -316,7 +315,7 @@ boolean isU(Tile *t1, Tile *t2)
 
 /*
  * Result: U, P, UXU, UXG
- * Axiom 6
+ * Axiom 6 - Detection by mutual comparison
  */
 void classify1(Tile *dual)
 {
@@ -331,10 +330,9 @@ void classify1(Tile *dual)
 			continue;
 		}
 		t1->p12 = U;
-
-
-
-
+		//
+		// Detect UXG
+		//
 		nuxg = 0;
 		t2 = dual;
 		for(int w2 = 0; w2 < NPREONS; w2++, t2++)
@@ -359,11 +357,15 @@ void classify1(Tile *dual)
 			}
 			dual->p12 = UXG;
 			dual->p27 = w2;
+			//
+			// U inherits G's LM direction (temporary?)
+			//
+			dual->p29 =  t2->p29;
 			continue;
 		}
-
-
-
+		//
+		// Detect P
+		//
 		npair = 0;
 		t2 = dual;
 		for(int w2 = 0; w2 < NPREONS; w2++, t2++)
@@ -384,15 +386,20 @@ void classify1(Tile *dual)
 					t2 = dual;
 				}
 				if(isP(t1, t2))
+				{
 					npair--;
+					//
+					// Axiom 3 - Sinusoidal phase
+					//
+					incrDFO(t1);
+				}
 			}
 			dual->p12 = P;
 			dual->p27 = w2;
 			continue;
 		}
-
-
-
+		//
+		// Detect UXU
 		//
 		nuxu = 0;
 		t2 = dual;
@@ -414,7 +421,13 @@ void classify1(Tile *dual)
 					t2 = dual;
 				}
 				if(isU(t1, t2))
+				{
 					nuxu--;
+					//
+					// Axiom 3 - Sinusoidal phase
+					//
+					incrDFO(t1);
+				}
 			}
 			//
 			// Axiom 8
@@ -428,7 +441,7 @@ void classify1(Tile *dual)
 
 /*
  * UxP, PXP
- * Axiom 6
+ * Axiom 6 - Interaction detection
  */
 void classify2(Tile *dual)
 {
@@ -457,11 +470,12 @@ void classify2(Tile *dual)
 						//
 						subRectify(&t1->p14, t1->p2);
 						addRectify(&t1->p14, t2->p29);
+						break;
 					}
 					//
 					// Axiom 10 - photon formation
 					//
-					if(pwm(tupleDot(&t1->p29, &t2->p29) / (3 * SIDE) - SIDE))
+					if(pwm(tupleDot(&t1->p29, &t2->p29) / SIDE - SIDE) / 2)
 					{
 						t1->p15 = false;
 					}
@@ -471,18 +485,21 @@ void classify2(Tile *dual)
 					if(trivial(t1))
 					{
 						t1->p15 = true;
+						break;
 					}
 					//
 					// Axiom 15 - gravitational acceleration
 					//
-					if(virtual(t1) && t2->p12 == UXG)
+					if(!t1->p7 && t2->p12 == UXG)
 					{
 						t1->p15 = true;
 						t2->p12 = UNDEF;	// cuidado!
 						//
 						// P is aligned with p6 of origin G
+						// (temporary solution)
 						//
-						// TODO
+						t1->p29 = t2->p29;
+						break;
 					}
 					//
 					// Axiom 16 - EM interaction
@@ -491,6 +508,7 @@ void classify2(Tile *dual)
 					{
 						t1->p3 = t2->p3;
 						t1->p6 = t2->p6;
+						break;
 					}
 					//
 					// Axiom 17 - Coulomb interaction
@@ -500,7 +518,7 @@ void classify2(Tile *dual)
 					//
 					// Axiom 5 - polarization
 					//
-					if(t1->p3 != 0 && t2->p3 != 0 && pwm(t1->p13) && (light % cycle < cycle / 8) && pwm(t1->p13))
+					if(t1->p3 != 0 && t2->p3 != 0 && pwm(t1->p13) && (light % cycle < cycle / 8))
 					{
 						t1->p29 = t1->p2;
 						subTuples(&t2->p29, t2->p2);
@@ -510,17 +528,19 @@ void classify2(Tile *dual)
 							//
 							invertTuple(&t1->p29);
 						}
+						break;
 					}
 					//
 					// Axiom 18 - Magnetic interaction
 					// Axiom 5 - polarization
 					//
-					if(!isNull(t1->p6) && !isNull(t1->p6) && pwm(t1->p13)  && (light % cycle < cycle / 4) && pwm(t1->p13))
+					if(!isNull(t1->p6) && !isNull(t2->p6) && pwm(t1->p13)  && (light % cycle < cycle / 4))
 					{
 						Tuple radial = t1->p2;
 						subTuples(&radial, t2->p2);
 						tupleCross(t1->p6, radial, &t1->p29);
 						normalizeTuple(&t1->p29);
+						break;
 					}
 					//
 					// Axiom 19 - Absorption interaction
@@ -533,19 +553,21 @@ void classify2(Tile *dual)
 							rotateSpin(t1);
 					}
 					//
-					// Axiom 20 - weak interaction
-					//
-					if((t1->p4 & t2->p4) && pwm(t1->p13) && pwm(t2->p13))
-					{
-						puts("Que fazer????");
-					}
-					//
 					// Axiom 21 - Strong interaction
 					//
 					if(t1->p5 & t2->p5)
 					{
 						t1->p29 = t1->p2;
 						subTuples(&t2->p29, t2->p2);
+						break;
+					}
+					//
+					// Axiom 20 - weak interaction
+					//
+					if((t1->p4 & t2->p4) && pwm(t1->p13) && pwm(t2->p13))
+					{
+						puts("Que fazer????");
+						break;
 					}
 					//
 					// Axiom 11 - nonlocal ops
@@ -568,7 +590,7 @@ void classify2(Tile *dual)
 					//
 					// Axiom 22
 					//
-					if(pwm(tupleDot(&t1->p29, &t2->p29) / (3 * SIDE) + SIDE))
+					if(pwm(tupleDot(&t1->p29, &t2->p29) / SIDE - SIDE) / 2)
 					{
 						// Trivial preon
 						//
@@ -578,6 +600,11 @@ void classify2(Tile *dual)
 				}
 			}
 		}
+		//
+		// Disregard intermediate values
+		//
+		if(t1->p12 != UXP && t1->p12 != PXP)
+			t1->p12 = UNDEF;
 	}
 }
 
