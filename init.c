@@ -74,25 +74,25 @@ void addPreon(int x, int y, int z, int w, char p3, char p4, unsigned char p5, Tu
 	t->p5 = p5;
 	t->p6 = p6;
 	t->p7 = p7;
-	t->p14 = t->p0;
+	t->p14.x = -1;
 	t->p17 = p17;
 	t->p19 = p19;
 	t->p23 = schedule;
-	printf("%d,%d,%d,%d\n", x, y, z, w);
+	printf("%2d,%2d,%2d,%2d\n", x, y, z, w);
 }
 
 void createVacuum()
 {
 	for(int i = 0, w = 0; i < NPREONS; i += 2, w += 2)
 	{
-		int schedule = (rand() % SIDE) * 2 * DIAMETER;
+		int schedule = rand() % SYNCH + SYNCH;
 		unsigned x = rndCoord();
 		unsigned y = rndCoord();
 		unsigned z = rndCoord();
 		Tuple p6;
 		resetTuple(&p6);
-		addPreon(x,y,z,w, 0, UNDEF, 0, p6, false, PREON, 0, schedule);
-		addPreon(x,y,z,w+1, 0, UNDEF, 0, p6, false, PREON, 0, schedule);
+		addPreon(x,y,z,w, UNDEF, UNDEF, UNDEF, p6, false, PREON, false, schedule);
+		addPreon(x,y,z,w+1, UNDEF, UNDEF, UNDEF, p6, false, PREON, false, schedule);
 	}
 }
 
@@ -119,7 +119,7 @@ void init()
 	//
 	// Initial state of the universe
 	//
-	int scenario = 4;
+	int scenario = 1;
 	switch(scenario)
 	{
 		case 0:
