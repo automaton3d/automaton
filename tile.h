@@ -33,7 +33,7 @@
 #define LEPT			0x07
 #define ANTILEPT		0xc8
 
-// p14 preon classification
+// p12 preon classification
 
 #define U			1			// unpaired
 #define P			2			// pair
@@ -99,4 +99,3 @@ void copyTile(Tile *dst, Tile *org);
 void cleanTile(Tile *t);
 
 #endif /* PREON_H_ */
-
