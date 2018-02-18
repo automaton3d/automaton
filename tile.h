@@ -14,13 +14,13 @@
 
 #define UNDEF		0
 
-// p4 chirality
+// p5 chirality
 
 #define LHM			-1
 #define RHMLHAM		0
 #define RHM			+1
 
-// p5 color
+// p6 color
 
 #define RED    			0x20
 #define GREEN  			0x10
@@ -33,23 +33,26 @@
 #define LEPT			0x07
 #define ANTILEPT		0xc8
 
-// p12 preon classification
+// p13 preon interactions
 
 #define U			1			// unpaired
 #define P			2			// pair
-
-// p14 preon interactions
 
 #define UXU			6
 #define UXP			7
 #define PXP			8
 #define UXG			9
 
-// p17 status
+// p18 status
 
 #define	PREON		0X01
 #define SEED		0X02
 #define GRAV		0X04
+
+// p22 burst type
+
+#define DESTROY		1
+#define CANCEL		2
 
 /*
  * Preon structure
@@ -59,36 +62,36 @@ typedef struct
 	Tuple			p0;		// xyz position
 	unsigned		p1;		// clock
 	Tuple			p2;		// origin vector
-	char			p3;		// electric charge
-	char			p4;		// chirality
-	unsigned char	p5;		// color and conjugation
-	Tuple			p6;		// spin direction
-	unsigned char	p7;		// gravity charge
-	unsigned		p8;		// entanglement
-	unsigned char	p9;		// sinusoid pwm
-	int 			p10;	// frequency
-	unsigned char	p11;	// helicity
-	unsigned char	p12;	// interaction
-	int				p13;	// interference
-	Tuple			p14;	// return path
-	unsigned char	p15;	// cohesion
+
+	Tuple			p3;	// LM direction
+
+	char			p4;		// electric charge
+	char			p5;		// chirality
+	unsigned char	p6;		// color and conjugation
+	Tuple			p7;		// spin direction
+	unsigned char	p8;		// gravity charge
+	unsigned		p9;		// entanglement
+	unsigned char	p10;	// sinusoid pwm
+	int 			p11;	// frequency
+	unsigned char	p12;	// helicity
+	unsigned char	p13;	// interaction
+	int				p14;	// interference
+	Tuple			p15;	// return path
+	unsigned char	p16;	// cohesion
 	//
 	// Auxiliary
 	//
-	unsigned		p16;	// w address
-	unsigned char	p17;	// status
-	unsigned char	p18;	// pair classification
-	unsigned char	p19;	// messenger
-	double 			p21a1;	// a1
-	double			p21a2;	// a2
-	unsigned char	p22;	// wf direction
-	unsigned		p23;	// wavefront synch: t1
-	unsigned		p24;	// timeout of virtual pairs
-	Tuple			p25;	// burst origin vector;
-	unsigned char	p26;	// burst direction
-	unsigned		p27;	// w of peer
-	unsigned char	p28;	// is pair flag
-	Tuple			p29;	// LM direction
+	unsigned		p17;	// w address
+	unsigned char	p18;	// status
+	unsigned char	p19;	// is pair flag
+	unsigned char	p20;	// wavefront direction
+	unsigned		p21;	// wavefront synch: t1
+	unsigned char	p22;	// messenger code
+	Tuple			p23;	// burst origin vector;
+	unsigned char	p24;	// burst direction
+	double 			p25a1;	// a1
+	double			p25a2;	// a2
+	unsigned		p26;	// w of peer
 
 } Tile;
 
