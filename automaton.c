@@ -71,6 +71,9 @@ Tile *getNual(int dir)
         return NULL;
 }
 
+/*
+ * Definition 5 - Graviton.
+ */
 int checkPath(int dir)
 {
 	double d1 = mod2Tuple(&pri->p2);
@@ -88,6 +91,9 @@ int checkPath(int dir)
 	return 2;
 }
 
+/*
+ * Tests if a pair is trivial.
+ */
 boolean trivial(Tile *t)
 {
 	char *p = (char *) t;
@@ -102,7 +108,7 @@ boolean trivial(Tile *t)
  */
 boolean interaction(Tile *t)
 {
-	if(t->p1 < BURST || t->p12 == UNDEF || t->p12 == PXP)
+	if(t->p1 < BURST || t->p13 == UNDEF || t->p13 == PXP)
 		return false;
 	//
 	// Normalize clock
@@ -111,24 +117,40 @@ boolean interaction(Tile *t)
 	//
 	// Launch burst
 	//
-	t->p19 = true;
-	resetTuple(&t->p25);
+	t->p22 = DESTROY;
+	resetTuple(&t->p23);
 	//
 	// Real preon?
 	//
-	if(t->p7)
+	if(t->p8)
 	{
-		// Axiom 13 - Launch graviton
+		// Axiom 14 - Launch graviton
 		//
-		dual->p17 |= GRAV;
-		tupleCross(t->p6, t->p2, &t->p6);
-		normalizeTuple(&t->p6);
+		dual->p18 |= GRAV;
+		tupleCross(t->p7, t->p2, &t->p7);
+		normalizeTuple(&t->p7);
 	}
 	resetTuple(&t->p2);
-	t->p23 = t->p1 + SYNCH;
-	t->p12 = UNDEF;
+	t->p21 = t->p1 + SYNCH;
+	t->p13 = UNDEF;
 	//
+
+	puts("interaction");
 	return true;
+}
+
+/*
+ * Axiom 22 - Cancellation.
+ */
+void cancellation(Tile *t)
+{
+	if(t->p1 < BURST)
+		return;
+	//
+	// Launch reconfiguration burst
+	//
+	t->p22 = CANCEL;
+	resetTuple(&t->p23);
 }
 
 /*
@@ -136,16 +158,16 @@ boolean interaction(Tile *t)
  */
 void expandGraviton()
 {
-	if(pri->p17 != GRAV || dual->p1 <= dual->p23 || pri->p1 < BURST)
+	if(pri->p18 != GRAV || dual->p1 <= dual->p21 || pri->p1 < BURST)
 		return;
 	if(isNull(pri->p2))
 		dual->p1 = dual->p1 % SYNCH + 1;
 	//
 	unsigned char dir = 6;
 	Vector3d v1, v2;
-	v1.x = pri->p6.x;
-	v1.y = pri->p6.y;
-	v1.z = pri->p6.z;
+	v1.x = pri->p7.x;
+	v1.y = pri->p7.y;
+	v1.z = pri->p7.z;
 	norm3d(&v1);
 	double best = 0;
 	for(int i = 0; i < NDIR; i++)
@@ -175,66 +197,77 @@ void expandGraviton()
 		Tile *nual = getNual(dir);
 		copyTile(nual, dual);
 		addTuples(&nual->p2, dirs[dir]);
-		nual->p23 = SYNCH * modTuple(&nual->p2) + 0.5;
-		nual->p17 |= GRAV;
+		nual->p21 = SYNCH * modTuple(&nual->p2) + 0.5;
+		nual->p18 |= GRAV;
 	}
-	if(dual->p17 & SEED)
-		dual->p17 = SEED;
+	if(dual->p18 & SEED)
+		dual->p18 = SEED;
 	else
 		cleanTile(dual);
 }
 
 /*
- * Axiom 7 - Burst expansion
+ * Axiom 8 - Burst expansion
  */
 void expandBurst()
 {
-	if(!pri->p19)
+	if(!pri->p22)
 		return;
 	//
 	for(int dir = 0; dir < NDIR; dir++)
 	{
-		if(isAllowed(dir, pri->p25, pri->p26))
+		if(isAllowed(dir, pri->p23, pri->p24))
 		{
 			Tile *nual = getNual(dir);
+			//
+			// Axiom 4 - Burst conflict
+			//
+			if(nual->p22 && tupleDot(&V0, &dual->p2) < tupleDot(&V0, &nual->p2))
+				continue;
+			//
 			copyTile(nual, dual);
-			nual->p17 &= PREON;
-			nual->p26 = dir;					// save direction
-			addTuples(&nual->p25, dirs[dir]);	// update burst origin vector
-			//
-			// Axiom 4 - Interference
-			//
-			nual->p13 += nual->p21a1;
-			//
-			// Axiom 11 - nonlocal operation
-			//
-			if(pri->p8 && pri->p8 == nual->p8)
+			nual->p18 &= PREON;					// erase SEED | GRAV
+			nual->p24 = dir;					// save direction
+			addTuples(&nual->p23, dirs[dir]);	// update burst origin vector
+			if(pri->p9 && pri->p9 == nual->p9)	// entangled?
 			{
-				nual->p6 = pri->p6;
-				invertTuple(&nual->p6);
+				// Axiom 11 - nonlocal operation
+				//
+				nual->p7 = pri->p7;
+				invertTuple(&nual->p7);
+				//
+				// Axiom 5 - Interference
+				//
+				nual->p14 += nual->p25a1;
 			}
 		}
 	}
-	if((pri->p17 & PREON) && isEqual(pri->p14, pri->p0))
+	if((pri->p18 & PREON) && isEqual(pri->p15, pri->p0))
 	{
-		printf("Reemit: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p16, timer, pri->p16, GetTickCount() - begin);
+		printf("Reemit: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p17, timer, pri->p17, GetTickCount() - begin);
 		//
-		dual->p1 %= SYNCH;
-		dual->p17 |= SEED;
-		dual->p23 = dual->p1 + SYNCH;
+		// Reissue at the specified address
+		//
+		dual->p1 %= SYNCH;						// normalize clock
+		dual->p18 |= SEED;						// turn on SEED
+		dual->p21 = dual->p1 + SYNCH;
 		resetTuple(&dual->p2);
-		dual->p14.x = -1;						// invalidate return-path
-		dual->p12 = UNDEF;
+		dual->p15.x = -1;						// invalidate return-path
+		dual->p13 = UNDEF;
 		//
 		// Axiom 3 - Sinusoidal phase
 		//
 		resetDFO(dual);
 	}
-	else
+	else if(pri->p22 == DESTROY)
 	{
 		cleanTile(dual);
 	}
-	dual->p19 = false;
+	else
+	{
+		resetTuple(&dual->p3);
+	}
+	dual->p22 = UNDEF;							// leave no track
 }
 
 /*
@@ -242,7 +275,7 @@ void expandBurst()
  */
 void expandPreon()
 {
-	if((pri->p17 & (PREON | SEED)) == 0 || pri->p1 <= pri->p23 || pri->p1 < BURST)
+	if((pri->p18 & (PREON | SEED)) == 0 || pri->p1 <= pri->p21 || pri->p1 < BURST)
 		return;
 	//
 	// Tree expansion
@@ -251,31 +284,31 @@ void expandPreon()
 	{
 		// Axiom 2 - Visit-once-tree
 		//
-		if(isAllowed(dir, pri->p2, pri->p22))
+		if(isAllowed(dir, pri->p2, pri->p20))
 		{
 			Tile *nual = getNual(dir);
 			copyTile(nual, dual);
-			nual->p23 = nual->p1 + SYNCH * modTuple(&nual->p2) + 0.5;
-			nual->p22 = dir;
-			addTuples(&nual->p2, dirs[dir]);
-			nual->p17 = PREON;
+			nual->p21 = nual->p1 + SYNCH * modTuple(&nual->p2) + 0.5;
+			nual->p20 = dir;
+			addTuples(&nual->p2, dirs[dir]);	// update origin vector
+			nual->p18 = PREON;					// turn off SEED bit
 			int distance = (int) modTuple(&nual->p2) / (2 * DIAMETER);
 			if(distance > 0)
 			{
-				// Axiom 4 - Interference
+				// Axiom 5 - Interference
 				// (exponential decay)
 				//
-				if(pri->p13 > 0)
+				if(pri->p14 > 0)
 				{
-					dual->p13 *= (SIDE - SIDE / (2 * distance));
-					if(dual->p13 < 0)
-						dual->p13 = 0;
+					dual->p14 *= (SIDE - SIDE / (2 * distance));
+					if(dual->p14 < 0)
+						dual->p14 = 0;
 				}
-				else if(dual->p13 < 0)
+				else if(dual->p14 < 0)
 				{
-					dual->p13 *= (SIDE + SIDE / (2 * distance));
-					if(dual->p13 > 0)
-						dual->p13 = 0;
+					dual->p14 *= (SIDE + SIDE / (2 * distance));
+					if(dual->p14 > 0)
+						dual->p14 = 0;
 				}
 			}
 		}
@@ -283,40 +316,45 @@ void expandPreon()
 	//
 	// Check wrapping
 	//
-	if((int)modTuple(&pri->p2) == limit && pri->p22 == 4)
+	if((int)modTuple(&pri->p2) == limit && pri->p20 == 4)
 	{
+		// Reissue
+		//
 		dual->p1 = dual->p1 % SYNCH + 1;
 		resetTuple(&dual->p2);
-		dual->p3 = 0;		// undo EMP
-		dual->p23 = SYNCH;
+		dual->p4 = 0;		// undo EMP
+		dual->p21 = SYNCH;
 	}
 	else
 	{
-		if(dual->p17 & GRAV)
-			dual->p17 = GRAV;
+		if(dual->p18 & GRAV)
+			dual->p18 = GRAV;
 		else
 			cleanTile(dual);
 	}
 }
 
+/*
+ * Tests if t1 and t2 form a P.
+ */
 boolean isP(Tile *t1, Tile *t2)
 {
 	return
 		!isNull(t2->p2)			&&
-		t1->p3 == t2->p3		&&
 		t1->p4 == t2->p4		&&
 		t1->p5 == t2->p5		&&
-		isEqual(t1->p6, t2->p6)	&&
-		t1->p7 == t2->p7		&&
+		t1->p6 == t2->p6		&&
+		isEqual(t1->p7, t2->p7)	&&
 		t1->p8 == t2->p8		&&
-		t1->p11 == t2->p11		&&
-		t1->p15 == t2->p15		&&
-		t2->p17 == PREON;
+		t1->p9 == t2->p9		&&
+		t1->p12 == t2->p12		&&
+		t1->p16 == t2->p16		&&
+		t2->p18 == PREON;
 }
 
 /*
  * Result: U, P, UXU, UXG
- * Axiom 6 - Detection by mutual comparison
+ * Axiom 7 - Detection by mutual comparison
  */
 void classify1(Tile *dual)
 {
@@ -328,25 +366,27 @@ void classify1(Tile *dual)
 	int w2;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
 	{
-		if(t1->p17 == UNDEF || isNull(t1->p2))
+		if(t1->p18 == UNDEF || isNull(t1->p2))
 		{
-			t1->p12 = UNDEF;
+			t1->p13 = UNDEF;
 			continue;
 		}
-		t1->p12 = U;
+		t1->p13 = U;
 		//
 		// Detect UXG
 		//
 		nuxg = 0;
 		t2 = dual;
 		for(w2 = 0; w2 < NPREONS; w2++, t2++)
-			if(w1 != w2 && t2->p17 == GRAV)
+			if(w1 != w2 && t2->p18 == GRAV)
 				nuxg++;
 		if(nuxg)
 		{
+			// Select unambiguous peer
+			//
 			nuxg >>= 1;
 			t2 = t1;
-			w2 = t1->p16;
+			w2 = t1->p17;
 			while(nuxg)
 			{
 				w2++;
@@ -356,15 +396,15 @@ void classify1(Tile *dual)
 					w2 = 0;
 					t2 = dual;
 				}
-				if(t2->p17 == GRAV)
+				if(t2->p18 == GRAV)
 					nuxg--;
 			}
-			t1->p12 = UXG;
-			t1->p27 = w2;
+			t1->p13 = UXG;
+			t1->p26 = w2;
 			//
 			// U inherits G's LM direction (temporary?)
 			//
-			t1->p29 =  t2->p29;
+			t1->p3 =  t2->p3;
 			continue;
 		}
 		//
@@ -377,9 +417,11 @@ void classify1(Tile *dual)
 				npair++;
 		if(npair)
 		{
+			// Select unambiguous peer
+			//
 			npair >>= 1;
 			t2 = t1;
-			w2 = t1->p16;
+			w2 = t1->p17;
 			while(npair)
 			{
 				w2++;
@@ -394,12 +436,13 @@ void classify1(Tile *dual)
 					npair--;
 					//
 					// Axiom 3 - Sinusoidal phase
+					// (bumped multiple times if superposition)
 					//
 					incrDFO(t1);
 				}
 			}
-			t1->p12 = P;
-			t1->p27 = w2;
+			t1->p13 = P;
+			t1->p26 = w2;
 			continue;
 		}
 		//
@@ -408,13 +451,15 @@ void classify1(Tile *dual)
 		nuxu = 0;
 		t2 = dual;
 		for(w2 = 0; w2 < NPREONS; w2++, t2++)
-			if(w1 != w2 && t2->p12 == U && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2))
+			if(w1 != w2 && (t2->p18 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2))
 				nuxu++;
 		if(nuxu)
 		{
+			// Select unambiguous peer
+			//
 			nuxu >>= 1;
 			t2 = t1;
-			w2 = t1->p16;
+			w2 = t1->p17;
 			while(nuxu)
 			{
 				w2++;
@@ -424,7 +469,7 @@ void classify1(Tile *dual)
 					w2 = 0;
 					t2 = dual;
 				}
-				if(t2->p12 == U && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2))
+				if(t2->p13 == U && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2))
 				{
 					nuxu--;
 					//
@@ -434,18 +479,18 @@ void classify1(Tile *dual)
 				}
 			}
 			//
-			// Axiom 8 = Both Us are reissued
+			// Both Us are reissued
 			//
-			t1->p12 = UXU;
-			t1->p27 = w2;
-			t1->p14 = t1->p0;
+			t1->p13 = UXU;
+			t1->p26 = w2;
+			t1->p15 = t1->p0;
 		}
 	}
 }
 
 /*
  * UxP, PXP
- * Axiom 6 - Interaction detection
+ * Axiom 7 - Interaction detection
  */
 void classify2(Tile *dual)
 {
@@ -455,7 +500,7 @@ void classify2(Tile *dual)
 	Tile *t1 = dual;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
 	{
-		if(t1->p12 == UNDEF || isNull(t1->p2) || t1->p12 == UXU)
+		if(t1->p13 == UNDEF || isNull(t1->p2) || t1->p13 == UXU)
 			continue;
 		//
 		Tile *t2 = dual;
@@ -465,145 +510,158 @@ void classify2(Tile *dual)
 			{
 				if(isNull(t2->p2))
 					continue;
-				if(t1->p12 == P && t2->p12 == U)
+				if(t1->p13 == P && t2->p13 == U)
 				{
-					t1->p12 = UXP;
-					t1->p27 = w2;
-					t1->p14 = t1->p0;
+					t1->p13 = UXP;
+					t1->p26 = w2;
+					t1->p15 = t1->p0;
 					//
 					// Axiom 9 - Inertia
 					//
-					if(t1->p15)
+					if(t1->p16)
 					{
 						// Parallel transport
 						//
-						subRectify(&t1->p14, t1->p2);
-						addRectify(&t1->p14, t2->p29);
+						subRectify(&t1->p15, t1->p2);
+						addRectify(&t1->p15, t2->p3);
 						break;
 					}
 					//
-					// Axiom 10 - photon formation
+					// Axiom 10 - LM alignment
 					//
-					if(pwm(tupleDot(&t1->p29, &t2->p29) / SIDE - SIDE) / 2)
+					if(pwm(tupleDot(&t1->p3, &t2->p3) / SIDE - SIDE) / 2)
 					{
-						t1->p15 = false;
+						t1->p16 = false;
 					}
 					//
 					// Axiom 14 - UXG interaction
+					// t1 -> U
+					// t2 -> G
 					//
-					if(trivial(t1))
+					if(t1->p8)
 					{
-						t1->p15 = true;
+						t1->p13 = UXG;
+						t1->p3 = t2->p3;
 						break;
 					}
 					//
-					// Axiom 15 - gravitational acceleration
+					// TODO ???
 					//
-					if(!t1->p7 && t2->p12 == UXG)
+					if(trivial(t1))
 					{
-						t1->p15 = true;
-						t2->p12 = UNDEF;	// cuidado!
+						t1->p16 = true;
+						break;
+					}
+					//
+					// Axiom 15 - Gravitational acceleration
+					// t1 -> P
+					// t2 -> U
+					//
+					if(t1->p8 && t2->p13 == UXG)
+					{
+						t1->p16 = true;
+						t2->p13 = UNDEF;
 						//
-						// P is aligned with p6 of origin G
-						// (temporary solution)
+						// P is aligned with p7 of origin G
 						//
-						t1->p29 = t2->p29;
+						t1->p3 = t2->p7;
 						break;
 					}
 					//
 					// Axiom 16 - EM interaction
 					//
-					if(pwm(t1->p13) && trivial(t1))
+					if(pwm(t1->p14) && trivial(t1))
 					{
-						t1->p3 = t2->p3;
-						t1->p6 = t2->p6;
+						t1->p4 = t2->p4;
+						t1->p7 = t2->p7;
 						break;
 					}
 					//
 					// Axiom 17 - Coulomb interaction
-					// Axiom 5 - polarization
+					// Axiom 6 - polarization
 					//
 					int light = (int) modTuple(&t1->p2);
-					int cycle = SIDE / t1->p10;
-					if(t1->p3 != 0 && t2->p3 != 0 && pwm(t1->p13) && (light % cycle < cycle / 8))
+					int cycle = SIDE / t1->p11;
+					if(t1->p4 != 0 && t2->p4 != 0 && pwm(t1->p14) && (light % cycle < cycle / 8))
 					{
-						t1->p29 = t1->p2;
-						subTuples(&t2->p29, t2->p2);
-						if(t1->p3 == t2->p3)
+						t1->p3 = t1->p2;
+						subTuples(&t2->p3, t2->p2);
+						if(t1->p4 == t2->p4)
 						{
 							// Repulsion
 							//
-							invertTuple(&t1->p29);
+							invertTuple(&t1->p3);
 						}
 						break;
 					}
 					//
 					// Axiom 18 - Magnetic interaction
-					// Axiom 5 - polarization
+					// Axiom 6 - polarization
 					//
-					if(!isNull(t1->p6) && !isNull(t2->p6) && pwm(t1->p13)  && (light % cycle < cycle / 4))
+					if(!isNull(t1->p7) && !isNull(t2->p7) && pwm(t1->p14)  && (light % cycle < cycle / 4))
 					{
 						Tuple radial = t1->p2;
 						subTuples(&radial, t2->p2);
-						tupleCross(t1->p6, radial, &t1->p29);
-						normalizeTuple(&t1->p29);
+						tupleCross(t1->p7, radial, &t1->p3);
+						normalizeTuple(&t1->p3);
 						break;
 					}
 					//
 					// Axiom 19 - Absorption interaction
 					//
-					if(t1->p3 != 0 && t2->p3 != 0 && !t1->p15 )
+					if(t1->p4 != 0 && t2->p4 != 0 && !t1->p16 )
 					{
 						// Axiom 12 - spin rotation
 						//
-						if(!t1->p15)
+						if(!t1->p16)
 							rotateSpin(t1);
 					}
 					//
-					// Axiom 21 - Strong interaction
+					// Axiom 20 - Strong interaction
 					//
-					if(t1->p5 & t2->p5)
+					if(t1->p6 & t2->p6)
 					{
-						t1->p29 = t1->p2;
-						subTuples(&t2->p29, t2->p2);
+						t1->p3 = t1->p2;
+						subTuples(&t2->p3, t2->p2);
 						break;
 					}
 					//
-					// Axiom 20 - weak interaction
+					// Axiom 21 - weak interaction
 					//
-					if((t1->p4 & t2->p4) && pwm(t1->p13) && pwm(t2->p13))
+					if((t1->p5 & t2->p5) && pwm(t1->p14) && pwm(t2->p14))
 					{
-						puts("Que fazer????");
+						// Neutral P?
+						//
+						if(isNull(t1->p7))
+						{
+							// P has LM direction redefined
+							//
+							t1->p22 = t2->p22;
+						}
 						break;
 					}
 					//
 					// Axiom 11 - nonlocal ops
 					//
-					t1->p8 = t2->p8 = t1->p16 * t2->p16;
+					t1->p9 = t2->p9 = t1->p17 * t2->p17;
 					//
 					break;
 				}
-				if(t1->p12 == U && !t1->p28 && t2->p12 == P)
+				if(t1->p13 == U && !t1->p19 && t2->p13 == P)
 				{
-					t1->p12 = UXP;
-					t1->p27 = w2;
-					t1->p14 = t1->p0;
+					t1->p13 = UXP;
+					t1->p26 = w2;
+					t1->p15 = t1->p0;
 					break;
 				}
-				if(t1->p12 == P && t2->p12 == P)
+				if(t1->p13 == P && t2->p13 == P)
 				{
-					t1->p12 = PXP;
-					t1->p27 = w2;
-					//
 					// Axiom 22 - Opposite Ps
 					//
-					if(pwm(tupleDot(&t1->p29, &t2->p29) / SIDE - SIDE) / 2)
+					if(pwm(tupleDot(&t1->p3, &t2->p3) / SIDE - SIDE) / 2)
 					{
-						// Trivial preon (TODO burst reconfigures preon)
-						//
-						int p17 = t1->p17;
-						cleanTile(t1);
-						t1->p17 = p17;
+						t1->p13 = PXP;
+						t1->p26 = w2;
 					}
 					break;
 				}
@@ -612,8 +670,8 @@ void classify2(Tile *dual)
 		//
 		// Disregard intermediate values
 		//
-		if(t1->p12 != UXP && t1->p12 != PXP)
-			t1->p12 = UNDEF;
+		if(t1->p13 != UXP && t1->p13 != PXP)
+			t1->p13 = UNDEF;
 	}
 }
 
@@ -632,12 +690,12 @@ char getVoxel(Tile *pri, Tile *dual)
 		//
 		// Calculate voxel color
 		//
-		if(pri4d->p19)
+		if(pri4d->p22)
 			color = BB;
-		else if(pri4d->p17 & GRAV)
+		else if(pri4d->p18 & GRAV)
 			color = GG;
-		else if(pri4d->p17 & PREON)
-			color = 7 + pri4d->p16;
+		else if(pri4d->p18 & PREON)
+			color = 7 + pri4d->p17;
 	}
 	return color;
 }
@@ -646,12 +704,18 @@ void expand()
 {
 	Tile *p = pri, *d = dual;
 	for(int w = 0; w < NPREONS; w++, pri++, dual++)
-		if(!interaction(dual))
+	{
+		if(dual->p13 == PXP)
+		{
+			cancellation(dual);
+		}
+		else if(!interaction(dual))
 		{
 			expandBurst();
 			expandGraviton();
 			expandPreon();
 		}
+	}
 	pri = p; dual = d;
 }
 
@@ -667,17 +731,17 @@ void cycle()
 	//
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
-		//if(draft[p3d] != gridcolor)
+		if(draft[p3d] != gridcolor)
 			classify1(dual);
 	//
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
-		//if(draft[p3d] != gridcolor)
+		if(draft[p3d] != gridcolor)
 			classify2(dual);
 	//
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
-		//if(draft[p3d] != gridcolor)
+		if(draft[p3d] != gridcolor)
 			expand();
 	//
 	// Flip lattices
@@ -695,7 +759,7 @@ void cycle()
 void *AutomatonLoop()
 {
     pthread_detach(pthread_self());
-	init();
+	initAutomaton();
 	while(true)
 	{
 		if(stop && timer % 2 == 0)
@@ -715,4 +779,5 @@ void *AutomatonLoop()
 	}
 	return NULL;
 }
+
 
