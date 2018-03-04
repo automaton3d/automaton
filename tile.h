@@ -42,6 +42,7 @@
 #define UXP			7
 #define PXP			8
 #define UXG			9
+#define REISSUE		10
 
 // p18 status
 
@@ -62,9 +63,7 @@ typedef struct
 	Tuple			p0;		// xyz position
 	unsigned		p1;		// clock
 	Tuple			p2;		// origin vector
-
-	Tuple			p3;	// LM direction
-
+	Tuple			p3;		// LM direction
 	char			p4;		// electric charge
 	char			p5;		// chirality
 	unsigned char	p6;		// color and conjugation
@@ -78,20 +77,21 @@ typedef struct
 	int				p14;	// interference
 	Tuple			p15;	// return path
 	unsigned char	p16;	// cohesion
+	unsigned		p17;	// virtual decay
 	//
 	// Auxiliary
 	//
-	unsigned		p17;	// w address
-	unsigned char	p18;	// status
-	unsigned char	p19;	// is pair flag
-	unsigned char	p20;	// wavefront direction
-	unsigned		p21;	// wavefront synch: t1
-	unsigned char	p22;	// messenger code
-	Tuple			p23;	// burst origin vector;
-	unsigned char	p24;	// burst direction
-	double 			p25a1;	// a1
-	double			p25a2;	// a2
-	unsigned		p26;	// w of peer
+	unsigned		p18;	// w address
+	unsigned		p19;	// w of peer
+	unsigned char	p20;	// status
+	unsigned char	p21;	// is pair flag
+	unsigned char	p22;	// wavefront direction
+	unsigned		p23;	// wavefront synch: t1
+	unsigned char	p24;	// messenger code
+	Tuple			p25;	// burst origin vector;
+	unsigned char	p26;	// burst direction
+	double 			p27a1;	// a1
+	double			p27a2;	// a2
 
 } Tile;
 
