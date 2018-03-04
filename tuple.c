@@ -16,6 +16,8 @@ const Tuple X0 = { 1,0,0 };
 const Tuple Y0 = { 0,1,0 };
 const Tuple Z0 = { 0,0,1 };
 
+const Tuple V0 = { 1.732*SIDE, 1.732*SIDE, 1.732*SIDE};
+
 void rectify(Tuple *v)
 {
 	if(v->x >= SIDE)
