@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <assert.h>
 #include "common.h"
 #include "params.h"
 #include "tile.h"
@@ -23,7 +24,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * Initializes sine wave parameters.
- * Axiom: sine
+ * Axiom 3 - Preon phase
  */
 void initSineWave()
 {
@@ -51,55 +52,56 @@ void buildLattice(Tile *grid)
 					t->p0.x = x;
 					t->p0.y = y;
 					t->p0.z = z;
-					t->p16 = w;
+					t->p17 = w;
 				}
 }
 
 /*
  * Inserts a preon in a specified address of the pri0 lattice.
  *
- * @p3	electric charge
- * @p4	chirality
- * @p5	color
- * @p6	spin
- * @p7  gravity
- * @p19	messenger
+ * @p4	electric charge
+ * @p5	chirality
+ * @p6	color
+ * @p7	spin
+ * @p8  gravity
+ * @p20 status
+ * @p24	messenger
  */
-void addPreon(int x, int y, int z, int w, char p3, char p4, unsigned char p5, Tuple p6, int p7, int p17, int p19, unsigned schedule)
+void addPreon(int x, int y, int z, int w, char p4, char p5, unsigned char p6, Tuple p7, int p8, int p20, int p24, unsigned schedule)
 {
 	Tile *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
 	cleanTile(t);
-	t->p3 = p3;
 	t->p4 = p4;
 	t->p5 = p5;
 	t->p6 = p6;
 	t->p7 = p7;
-	t->p14.x = -1;
-	t->p17 = p17;
-	t->p19 = p19;
+	t->p8 = p8;
+	t->p15.x = -1;
+	t->p20 = p20;
+	t->p24 = p24;
 	t->p23 = schedule;
 	printf("%2d,%2d,%2d,%2d\n", x, y, z, w);
 }
 
 void createVacuum()
 {
-	for(int i = 0, w = 0; i < NPREONS; i += 2, w += 2)
+	for(int w = 0; w < NPREONS; w += 2)
 	{
 		int schedule = rand() % SYNCH + SYNCH;
 		unsigned x = rndCoord();
 		unsigned y = rndCoord();
 		unsigned z = rndCoord();
-		Tuple p6;
-		resetTuple(&p6);
-		addPreon(x,y,z,w, UNDEF, UNDEF, UNDEF, p6, false, PREON, false, schedule);
-		addPreon(x,y,z,w+1, UNDEF, UNDEF, UNDEF, p6, false, PREON, false, schedule);
+		Tuple p7;
+		resetTuple(&p7);
+		addPreon(x,y,z,w, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, schedule);
+		addPreon(x,y,z,w+1, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, schedule);
 	}
 }
 
 /*
- * Initializes the automaton program
+ * Initializes the automaton program.
  */
-void init()
+void initAutomaton()
 {
 	printf("Running...\n");
 	//
@@ -119,7 +121,7 @@ void init()
 	//
 	// Initial state of the universe
 	//
-	int scenario = 1;
+	int scenario = 7;
 	switch(scenario)
 	{
 		case 0:
