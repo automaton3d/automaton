@@ -10,7 +10,7 @@
 
 // Automaton dimensions
 
-#define ORDER 		4
+#define ORDER 		5
 #define SIDE 		(1<<ORDER)				// size of the universal cube
 #define NPREONS		(16)
 #define DIAMETER 	((SIDE-1)*2)
@@ -18,7 +18,6 @@
 
 // Derived parameters
 
-#define MOD2		(SIDE*SIDE/4)
 #define BURST		(3*SIDE/2+1)
 #define SYNCH		(2*DIAMETER+BURST)
 
@@ -26,11 +25,6 @@
 
 #define STEP		((int)log2(SIDE))
 #define NSTEPS		(SIDE/STEP)
-
-// Arbitrary parameters
-
-#define HBAR		2
-#define RAMP		4						// universal case: 10^10
 
 // Powers
 
@@ -48,3 +42,4 @@
 #define WRAP5      	(NPREONS)
 
 #endif /* PARAMS_H_ */
+
