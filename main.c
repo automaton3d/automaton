@@ -203,3 +203,4 @@ void DeleteAutomaton()
 	free(dual0);
 }
 
+
