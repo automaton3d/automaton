@@ -59,21 +59,20 @@ void setUpRotationMatrix(float angle, float u, float v, float w)
 }
 
 /*
- * Calculates spin rotation.
+ * Axiom 9 - Calculates spin rotation.
  */
-void rotateSpin(Tile *t)
+void rotateSpin(Brick *t)
 {
 	int distance = (int) modTuple(&t->p2) % (2 * DIAMETER);
-    float angle = 2 * PI * distance / (2 * DIAMETER);
+    float angle = 2 * PI * distance * t->p12 / (2 * DIAMETER);
     float u = (float) t->p2.x, v = (float) t->p2.y, w = (float) t->p2.z;
-    inputMatrix[0][0] = t->p6.x;
-    inputMatrix[1][0] = t->p6.y;
-    inputMatrix[2][0] = t->p6.z;
+    inputMatrix[0][0] = t->p7.x;
+    inputMatrix[1][0] = t->p7.y;
+    inputMatrix[2][0] = t->p7.z;
     inputMatrix[3][0] = 1.0;
     setUpRotationMatrix(angle, u, v, w);
     multiplyMatrix();
-    t->p6.x = outputMatrix[0][0];
-    t->p6.y = outputMatrix[1][0];
-    t->p6.z = outputMatrix[2][0];
+    t->p7.x = outputMatrix[0][0];
+    t->p7.y = outputMatrix[1][0];
+    t->p7.z = outputMatrix[2][0];
 }
-
