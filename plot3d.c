@@ -15,15 +15,12 @@
 #include <unistd.h>
 #include "common.h"
 #include "params.h"
-#include "tile.h"
 #include "vector3d.h"
 #include "plot3d.h"
+
+#include "brick.h"
 #include "text.h"
 #include "main3d.h"
-
-// Math
-
-#define croot(x) (exp(log(x)/3))
 
 // Constants
 //
@@ -449,30 +446,31 @@ void initPlot()
 
 void drawVoxel(double dx, double dy, double dz, char color)
 {
-        int N = SIDE / 2 + 1;
-        double d = 2.0 / (3 * SIDE);	// ????
-        int M = SIDE *d / 4;
-        dx-=M; dy-=M; dz-=M;
-        int x, y, z;
-        for(x = 0; x < N; x++)
-                for(y = 0; y < N; y++)
-                        plot(dx + x*d, dy + y*d, dz, color);
-        for(y = 0; y < N; y++)
-                for(z = 0; z < N; z++)
-                        plot(dx, dy + y*d, dz + z*d, color);
-        for(z = 0; z < N; z++)
-                for(x = 0; x < N; x++)
-                        plot(dx + x*d, dy, dz + z*d, color);
-        //
-        for(x = 0; x < N; x++)
-                for(y = 0; y < N; y++)
-                        plot(dx + x*d, dy + y*d, dz + N*d, color);
-        for(y = 0; y < N; y++)
-                for(z = 0; z < N; z++)
-                        plot(dx+N*d, dy + y*d, dz + z*d, color);
-        for(z = 0; z < N; z++)
-                for(x = 0; x < N; x++)
-                        plot(dx + x*d, dy+N*d, dz + z*d, color);
+	//plot(dx, dy, dz, color);
+	int N = SIDE / 2 + 1;
+	double d = 2.0 / (3 * SIDE);	// ????
+	int M = SIDE *d / 4;
+	dx-=M; dy-=M; dz-=M;
+	int x, y, z;
+	for(x = 0; x < N; x++)
+		for(y = 0; y < N; y++)
+			plot(dx + x*d, dy + y*d, dz, color);
+	for(y = 0; y < N; y++)
+		for(z = 0; z < N; z++)
+			plot(dx, dy + y*d, dz + z*d, color);
+	for(z = 0; z < N; z++)
+		for(x = 0; x < N; x++)
+			plot(dx + x*d, dy, dz + z*d, color);
+	//
+	for(x = 0; x < N; x++)
+		for(y = 0; y < N; y++)
+			plot(dx + x*d, dy + y*d, dz + N*d, color);
+	for(y = 0; y < N; y++)
+		for(z = 0; z < N; z++)
+			plot(dx+N*d, dy + y*d, dz + z*d, color);
+	for(z = 0; z < N; z++)
+		for(x = 0; x < N; x++)
+			plot(dx + x*d, dy+N*d, dz + z*d, color);
 }
 
 void drawLattice()
