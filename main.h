@@ -9,10 +9,11 @@
 #define MAIN3D_H_
 
 #include <windows.h>
-#include "tile.h"
+
+#include "brick.h"
 
 extern boolean stop;
-extern Tile *pri0, *dual0;
+extern Brick *pri0, *dual0;
 extern char background;
 extern char gridcolor;
 
