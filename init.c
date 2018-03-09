@@ -15,9 +15,9 @@
 #include <assert.h>
 #include "common.h"
 #include "params.h"
-#include "tile.h"
 #include "utils.h"
 #include "automaton.h"
+#include "brick.h"
 #include "scenarios.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -37,9 +37,9 @@ void initSineWave()
  * Builds an empty lattice.
  * Called twice. One for pri and one to dual grid
  */
-void buildLattice(Tile *grid)
+void buildLattice(Brick *grid)
 {
-	Tile *t = grid;
+	Brick *t = grid;
 	for(int x = 0; x < SIDE; x++)
 		for(int y = 0; y < SIDE; y++)
 			for(int z = 0; z < SIDE; z++)
@@ -52,7 +52,7 @@ void buildLattice(Tile *grid)
 					t->p0.x = x;
 					t->p0.y = y;
 					t->p0.z = z;
-					t->p17 = w;
+					t->p18 = w;
 				}
 }
 
@@ -69,8 +69,9 @@ void buildLattice(Tile *grid)
  */
 void addPreon(int x, int y, int z, int w, char p4, char p5, unsigned char p6, Tuple p7, int p8, int p20, int p24, unsigned schedule)
 {
-	Tile *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
+	Brick *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
 	cleanTile(t);
+	assert(t->p18==w);
 	t->p4 = p4;
 	t->p5 = p5;
 	t->p6 = p6;
@@ -80,14 +81,14 @@ void addPreon(int x, int y, int z, int w, char p4, char p5, unsigned char p6, Tu
 	t->p20 = p20;
 	t->p24 = p24;
 	t->p23 = schedule;
-	printf("%2d,%2d,%2d,%2d\n", x, y, z, w);
+	printf("%2d,%2d,%2d,%2d: %+d\n", x, y, z, w, p4);
 }
 
 void createVacuum()
 {
 	for(int w = 0; w < NPREONS; w += 2)
 	{
-		int schedule = rand() % SYNCH + SYNCH;
+		int schedule = (rand() & 0x03) * SYNCH + SYNCH;
 		unsigned x = rndCoord();
 		unsigned y = rndCoord();
 		unsigned z = rndCoord();
@@ -105,8 +106,8 @@ void initAutomaton()
 {
 	printf("Running...\n");
 	//
-	pri0  = malloc(SIDE4 * sizeof(Tile));
-	dual0 = malloc(SIDE4 * sizeof(Tile));
+	pri0  = malloc(SIDE4 * sizeof(Brick));
+	dual0 = malloc(SIDE4 * sizeof(Brick));
 	srand(time(NULL));
 	initSineWave();
 	buildLattice(pri0);
@@ -154,4 +155,5 @@ void initAutomaton()
 	setvbuf(stdout, null, _IOLBF, 0);
 	sleep(4);
 }
+
 
