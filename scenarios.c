@@ -6,14 +6,26 @@
  */
 
 #include "scenarios.h"
+
+#include "brick.h"
 #include "common.h"
 #include "params.h"
 #include "tuple.h"
 #include "init.h"
-#include "tile.h"
 #include "utils.h"
 
 static Tuple p7;
+
+static void eraseLayer(int w)
+{
+	for(int x = 0; x < SIDE; x++)
+		for(int y = 0; y < SIDE; y++)
+			for(int z = 0; z < SIDE; z++)
+			{
+				Brick *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
+				cleanTile(t);
+			}
+}
 
 /*
  * A pure burst test.
@@ -81,7 +93,7 @@ void SEEDScenario()
 	p7.y = rndSignal() * rndCoord();
 	p7.z = rndSignal() * rndCoord();
 
-	Tile *t = pri0;
+	Brick *t = pri0;
 	for(int x = 0; x < SIDE; x++)
 		for(int y = 0; y < SIDE; y++)
 			for(int z = 0; z < SIDE; z++)
@@ -99,13 +111,16 @@ void ElectronScenario()
 	createVacuum();
 	for(int i = 0; i < NPREONS/2; i += 2)
 	{
+		eraseLayer(i);
 		p7.x = rndSignal() * rndCoord();
 		p7.y = rndSignal() * rndCoord();
 		p7.z = rndSignal() * rndCoord();
 		addPreon(rndCoord(),rndCoord(),rndCoord(),i, +1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH);
+		//
+		eraseLayer(i + 1);
 		p7.x = rndSignal() * rndCoord();
 		p7.y = rndSignal() * rndCoord();
 		p7.z = rndSignal() * rndCoord();
-		addPreon(rndCoord(),rndCoord(),rndCoord(),i, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH);
+		addPreon(rndCoord(),rndCoord(),rndCoord(),i+1, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH);
 	}
 }
