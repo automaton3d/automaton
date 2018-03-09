@@ -10,8 +10,8 @@
 
 #define PI 3.14159265358979323846
 
-#include "tile.h"
+#include "brick.h"
 
-void rotateSpin(Tile *t);
+void rotateSpin(Brick *t);
 
 #endif /* SRC_ROTATION_H_ */
