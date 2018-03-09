@@ -8,6 +8,10 @@
 #include "utils.h"
 #include <math.h>
 #include "plot3d.h"
+#include "rotation.h"
+
+double wT = 2 * PI / SIDE;
+double K, U1, U2;
 
 int opposite(int dir)
 {
@@ -62,5 +66,22 @@ int rndSignal()
 	return rand() < RAND_MAX / 2 ? -1 : +1;
 }
 
+boolean pwm(int n)
+{
+    return (n % STEP) < (n / NSTEPS);
+}
 
+void resetDFO(Brick *t)
+{
+	t->p11 = 0;
+	t->p27a1 = U1;
+	t->p27a2 = U2;
+}
 
+void incrDFO(Brick *t)
+{
+	t->p11++;
+	int u3 = K * t->p27a2 - t->p27a1;
+	t->p27a1 = t->p27a2;
+	t->p27a2 = u3;
+}
