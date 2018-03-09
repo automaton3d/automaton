@@ -9,8 +9,9 @@
 #define PLOT3D_H_
 
 #include <pthread.h>
+
+#include "brick.h"
 #include "common.h"
-#include "tile.h"
 #include "vector3d.h"
 
 #define GRID 20
@@ -26,7 +27,7 @@ extern boolean showAxes, showGrid;
 
 extern DWORD *pixels;
 extern unsigned long begin;
-extern Tile *pri0;
+extern Brick *pri0;
 extern pthread_mutex_t mutex;
 extern boolean input_changed;
 
