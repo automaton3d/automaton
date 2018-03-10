@@ -304,7 +304,7 @@ void expandGraviton()
 		Brick *nual = getNual(dir);
 		copyTile(nual, dual);
 		addTuples(&nual->p2, dirs[dir]);
-		nual->p23 = SYNCH * modTuple(&nual->p2) + 0.5;
+		nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);
 		nual->p20 |= GRAV;
 	}
 	if(dual->p20 & SEED)
@@ -351,7 +351,7 @@ void expandBurst()
 	}
 	if((pri->p20 & PREON) && isEqual(pri->p15, pri->p0))
 	{
-		printf("Reemit: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p18, timer, pri->p18, GetTickCount() - begin);
+		printf("Reissue: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p18, timer, pri->p18, GetTickCount() - begin);
 		//
 		// Reissue at the specified address
 		//
@@ -395,7 +395,7 @@ void expandPreon()
 		{
 			Brick *nual = getNual(dir);
 			copyTile(nual, dual);
-			nual->p23 = nual->p1 + SYNCH * modTuple(&nual->p2) + 0.5;
+			nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);
 			nual->p22 = dir;
 			addTuples(&nual->p2, dirs[dir]);	// update origin vector
 			nual->p20 = PREON;					// turn off SEED bit
@@ -419,14 +419,18 @@ void expandPreon()
 				}
 			}
 			//
-			// Axiom 5 - Virtual decay of P
+			// Axiom 6 - Virtual decay of P
 			// (it happens in each brick of the wavefront)
 			//
 			if(!nual->p16)
 				nual->p17 >>= 1;
-			if(nual->p17 == 0 && !nual->p8 && !nual->p16)
+			if(nual->p17 == 0 && !nual->p8 && !nual->p16 && (nual->p5 || nual->p6))
 			{
-				cleanTile(nual);
+				// P <- P0
+				//
+				nual->p4 = 0;
+				nual->p5 = 0;
+				nual->p6 = 0;
 				nual->p20 = PREON;
 			}
 		}
@@ -868,6 +872,7 @@ void cycle()
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
 		draft[p3d] = getVoxel(pri, dual);
 	//
+	/*
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
 		if(draft[p3d] != gridcolor)
@@ -878,6 +883,7 @@ void cycle()
 		if(draft[p3d] != gridcolor)
 			classify2(dual);
 	//
+	 */
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
 		if(draft[p3d] != gridcolor)
@@ -918,5 +924,3 @@ void *AutomatonLoop()
 	}
 	return NULL;
 }
-
-
