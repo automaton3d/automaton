@@ -202,8 +202,8 @@ boolean interaction(Brick *t)
 	if(t->p13 < UXU || t->p13 == PXP || t->p1 % SYNCH < SYNCH-1)
 		return false;
 	//
-	t->p23 = t->p1 - t->p1 % SYNCH + SYNCH;
-	addMarker(t->p0);
+	t->p23 = t->p1 - t->p1 % SYNCH + SYNCH; assert(t->p23 < 1000000);
+	//addMarker(t->p0);
 	//
 	// Calculate disambiguation value
 	//
@@ -270,7 +270,7 @@ void expandGraviton()
 	if(pri->p20 != GRAV || dual->p1 <= dual->p23)
 		return;
 	//
-	if(isNull(pri->p2))
+
 		dual->p1 %= SYNCH;
 	//
 	unsigned char dir = 6;
@@ -307,13 +307,13 @@ void expandGraviton()
 		Brick *nual = getNual(dir);
 		copyBrick(nual, dual);
 		addTuples(&nual->p2, dirs[dir]);
-		nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);
+		nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5); assert(nual->p23 < 100000);
 		nual->p20 |= GRAV;
 	}
 	if(dual->p20 & SEED)
 		dual->p20 = SEED;
 	else
-		cleanTile(dual);
+		cleanBrick(dual);
 }
 
 void expandGraviton2()
@@ -344,7 +344,7 @@ void expandGraviton2()
 				if(dual->p20 & SEED)
 					dual->p20 = SEED;
 				else
-					cleanTile(dual);
+					cleanBrick(dual);
 				return;
 			}
 		}
@@ -390,11 +390,12 @@ void expandBurst()
 	}
 	if((pri->p20 & PREON) && isEqual(pri->p15, pri->p0))
 	{
-		printf("Reissue: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p18, timer, pri->p18, GetTickCount() - begin);
+		//printf("Reissue: p0=%s w=%d timer=%lu w=%d elapsed=%lu\n", tuple2str(&pri->p0), pri->p18, timer, pri->p18, GetTickCount() - begin);
 		//
 		// Reissue at the specified address
 		//
-		dual->p23 = SYNCH + BURST - dual->p1;
+		dual->p23 = SYNCH + BURST - dual->p1 % SYNCH;
+		assert(dual->p23 < 100000);
 		dual->p20 |= SEED;						// turn on SEED
 		resetTuple(&dual->p2);
 		dual->p15.x = -1;						// invalidate return-path
@@ -406,9 +407,7 @@ void expandBurst()
 	}
 	else if(pri->p24 == DESTROY)
 	{
-		if(dual->p20 && (dual->p20 & SEED))
-			printf("  %s destroyed\n", tuple2str(&dual->p0));
-		cleanTile(dual);
+		cleanBrick(dual);
 	}
 	else
 	{
@@ -439,7 +438,7 @@ void expandPreon()
 		{
 			Brick *nual = getNual(dir);
 			copyBrick(nual, dual);
-			nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);
+			nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);assert(nual->p23 < 100000);
 			nual->p22 = dir;
 			addTuples(&nual->p2, dirs[dir]);	// update origin vector
 			nual->p20 = PREON;					// turn off SEED bit
@@ -494,7 +493,7 @@ void expandPreon()
 		if(dual->p20 & GRAV)
 			dual->p20 = GRAV;
 		else
-			cleanTile(dual);
+			cleanBrick(dual);
 	}
 }
 
@@ -840,7 +839,7 @@ void classify2(Brick *dual)
 					//
 					else if(pwm(tupleDot(&t1->p3, &t2->p3) / SIDE - SIDE) / 2)
 					{
-						cleanTile(t1);
+						cleanBrick(t1);
 					}
 					//
 					// Gluon-gluon interaction
@@ -902,7 +901,7 @@ void expand()
 		else if(!interaction(dual))
 		{
 			expandGraviton();
-			expandPreon();
+			expandPreon(); //if(pri->p20) printf("%s\n", brick2str(pri));
 		}
 	}
 	pri = p; dual = d;
