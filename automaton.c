@@ -149,7 +149,7 @@ void exchangeColors(Brick *t1, Brick *t2)
 	d[2] = rotateRight[c2 & 0x07];
 	d[3] = rotateRight[c2 >> 3];
 	//
-	int opt = rand() % 16;
+	int opt = t1->p1 & 15;
 	if(opt & 0x01)
 		d[0] = rotateRight[d[0]];
 	if(opt & 0x02)
@@ -196,12 +196,18 @@ void exchangeColors(Brick *t1, Brick *t2)
  */
 boolean interaction(Brick *t)
 {
-	if(t->p1 < BURST || t->p13 == UNDEF || t->p13 == PXP)
+	// Interaction occurs at the last tick of the time frame
+	// to avoid the burst waiting
+	//
+	if(t->p13 < UXU || t->p13 == PXP || t->p1 % SYNCH < SYNCH-1)
 		return false;
 	//
-	// Normalize clock
+	t->p23 = t->p1 - t->p1 % SYNCH + SYNCH;
+	addMarker(t->p0);
 	//
-	t->p1 %= SYNCH;
+	// Calculate disambiguation value
+	//
+	t->px = SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z;
 	//
 	// Axiom 8 - Launch burst
 	//
@@ -240,7 +246,6 @@ boolean interaction(Brick *t)
 		normalizeTuple(&t->p7);
 	}
 	resetTuple(&t->p2);
-	t->p23 = t->p1 + SYNCH;
 	t->p13 = UNDEF;
 	//
 	return true;
@@ -251,9 +256,6 @@ boolean interaction(Brick *t)
  */
 void cancellation(Brick *t)
 {
-	if(t->p1 < BURST)
-		return;
-	//
 	// Launch reconfiguration burst
 	//
 	t->p24 = CANCEL;
@@ -265,10 +267,11 @@ void cancellation(Brick *t)
  */
 void expandGraviton()
 {
-	if(pri->p20 != GRAV || dual->p1 <= dual->p23 || pri->p1 < BURST)
+	if(pri->p20 != GRAV || dual->p1 <= dual->p23)
 		return;
+	//
 	if(isNull(pri->p2))
-		dual->p1 = dual->p1 % SYNCH + 1;
+		dual->p1 %= SYNCH;
 	//
 	unsigned char dir = 6;
 	Vector3d v1, v2;
@@ -302,7 +305,7 @@ void expandGraviton()
 	if(dir < 6)
 	{
 		Brick *nual = getNual(dir);
-		copyTile(nual, dual);
+		copyBrick(nual, dual);
 		addTuples(&nual->p2, dirs[dir]);
 		nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);
 		nual->p20 |= GRAV;
@@ -312,6 +315,42 @@ void expandGraviton()
 	else
 		cleanTile(dual);
 }
+
+void expandGraviton2()
+{
+	if(pri->p20 != GRAV)
+		return;
+	//
+	for(int dir = 0; dir < NDIR; dir++)
+	{
+		if(isAllowed(dir, pri->p2, pri->p22))
+		{
+			Brick *nual = getNual(dir);
+			Vector3d probe;
+			probe.x = pri->p7.x;
+			probe.y = pri->p7.y;
+			probe.z = pri->p7.z;
+			norm3d(&probe);
+			scale3d(&probe, pri->p1-BURST+1);
+			Tuple p2 = dual->p2;
+			addTuples(&p2, dirs[dir]);
+			printf("%d: %s == %s\n", dual->p1, vector2str(&probe), tuple2str(&p2));
+			if(voronoi(probe, p2))
+			{
+				copyBrick(nual, dual);
+				nual->p22 = dir;
+				addTuples(&nual->p2, dirs[dir]);
+				//
+				if(dual->p20 & SEED)
+					dual->p20 = SEED;
+				else
+					cleanTile(dual);
+				return;
+			}
+		}
+	}
+}
+
 
 /*
  * Burst expansion
@@ -329,10 +368,10 @@ void expandBurst()
 			//
 			// Axiom 2 - Burst conflict
 			//
-			if(nual->p24 && tupleDot(&V0, &dual->p2) < tupleDot(&V0, &nual->p2))
+			if(nual->p24 && dual->px < nual->px)
 				continue;
 			//
-			copyTile(nual, dual);
+			copyBrick(nual, dual);
 			nual->p20 &= PREON;					// erase SEED | GRAV
 			nual->p26 = dir;					// save direction
 			addTuples(&nual->p25, dirs[dir]);	// update burst origin vector
@@ -355,9 +394,8 @@ void expandBurst()
 		//
 		// Reissue at the specified address
 		//
-		dual->p1 %= SYNCH;						// normalize clock
+		dual->p23 = SYNCH + BURST - dual->p1;
 		dual->p20 |= SEED;						// turn on SEED
-		dual->p23 = dual->p1 + SYNCH;
 		resetTuple(&dual->p2);
 		dual->p15.x = -1;						// invalidate return-path
 		dual->p13 = UNDEF;
@@ -368,6 +406,8 @@ void expandBurst()
 	}
 	else if(pri->p24 == DESTROY)
 	{
+		if(dual->p20 && (dual->p20 & SEED))
+			printf("  %s destroyed\n", tuple2str(&dual->p0));
 		cleanTile(dual);
 	}
 	else
@@ -382,8 +422,12 @@ void expandBurst()
  */
 void expandPreon()
 {
-	if((pri->p20 & (PREON | SEED)) == 0 || pri->p1 <= pri->p23 || pri->p1 < BURST)
+	if((pri->p20 & (PREON | SEED)) == 0 || pri->p1 <= pri->p23)
 		return;
+	//
+	assert(timer%SYNCH==pri->p1%SYNCH);
+	if(isNull(pri->p2))
+		dual->p1 %= SYNCH;
 	//
 	// Tree expansion
 	//
@@ -394,7 +438,7 @@ void expandPreon()
 		if(isAllowed(dir, pri->p2, pri->p22))
 		{
 			Brick *nual = getNual(dir);
-			copyTile(nual, dual);
+			copyBrick(nual, dual);
 			nual->p23 = SYNCH * (modTuple(&nual->p2) + 0.5);
 			nual->p22 = dir;
 			addTuples(&nual->p2, dirs[dir]);	// update origin vector
@@ -420,11 +464,10 @@ void expandPreon()
 			}
 			//
 			// Axiom 6 - Virtual decay of P
-			// (it happens in each brick of the wavefront)
 			//
 			if(!nual->p16)
 				nual->p17 >>= 1;
-			if(nual->p17 == 0 && !nual->p8 && !nual->p16 && (nual->p5 || nual->p6))
+			if(nual->p17 == 0 && !nual->p8 && !nual->p16 && (nual->p5 || nual->p6) && tupleDot(&V0, &nual->p2))
 			{
 				// P <- P0
 				//
@@ -432,6 +475,7 @@ void expandPreon()
 				nual->p5 = 0;
 				nual->p6 = 0;
 				nual->p20 = PREON;
+				nual->p13 = REISSUE;
 			}
 		}
 	}
@@ -442,10 +486,8 @@ void expandPreon()
 	{
 		// Reissue
 		//
-		dual->p1 = dual->p1 % SYNCH + 1;
 		resetTuple(&dual->p2);
 		dual->p4 = 0;		// undo EMP
-		dual->p23 = SYNCH;
 	}
 	else
 	{
@@ -480,7 +522,7 @@ boolean isP(Brick *t1, Brick *t2)
  */
 void classify1(Brick *dual)
 {
-	if(pri->p1 < BURST)
+	if(pri->p1 % SYNCH < BURST || pri->p24)
 		return;
 	//
 	Brick *t1 = dual, *t2;
@@ -494,6 +536,7 @@ void classify1(Brick *dual)
 			continue;
 		}
 		t1->p13 = U;
+		incrDFO(t1);
 		//
 		// Detect UXG
 		// t1 -> U
@@ -632,7 +675,7 @@ void classify1(Brick *dual)
  */
 void classify2(Brick *dual)
 {
-	if(pri->p1 < BURST)
+	if(pri->p1 % SYNCH < BURST || pri->p24)
 		return;
 	//
 	Brick *t1 = dual;
@@ -825,7 +868,7 @@ char getVoxel(Brick *pri, Brick *dual)
 	Brick *dual4d = dual;
 	for(int w = 0; w < NPREONS; w++, pri4d++, dual4d++)
 	{
-		copyTile(dual4d, pri4d);
+		copyBrick(dual4d, pri4d);
 		//
 		// Bump cell clock
 		//
@@ -848,13 +891,16 @@ void expand()
 	Brick *p = pri, *d = dual;
 	for(int w = 0; w < NPREONS; w++, pri++, dual++)
 	{
-		if(dual->p13 == PXP)
+		if(pri->p1 % SYNCH < BURST)
+		{
+			expandBurst();
+		}
+		else if(dual->p13 == PXP)
 		{
 			cancellation(dual);
 		}
 		else if(!interaction(dual))
 		{
-			expandBurst();
 			expandGraviton();
 			expandPreon();
 		}
@@ -872,7 +918,6 @@ void cycle()
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
 		draft[p3d] = getVoxel(pri, dual);
 	//
-	/*
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
 		if(draft[p3d] != gridcolor)
@@ -883,7 +928,6 @@ void cycle()
 		if(draft[p3d] != gridcolor)
 			classify2(dual);
 	//
-	 */
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
 		if(draft[p3d] != gridcolor)
@@ -907,8 +951,10 @@ void *AutomatonLoop()
 	initAutomaton();
 	while(true)
 	{
-		if(stop && timer % 2 == 0)
+		if(stop)
+		{
 			usleep(200000);
+		}
 		else
 		{
 			cycle();
