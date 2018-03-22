@@ -8,9 +8,9 @@
 #ifndef INIT_H_
 #define INIT_H_
 
-#include "tile.h"
+#include "brick.h"
 
-extern Tile *pri0, *dual0;
+extern Brick *pri0, *dual0;
 extern double K, U1, U2;
 extern double wT;
 extern unsigned long begin;
@@ -18,10 +18,11 @@ extern int timing;
 extern int limit;
 extern char imgbuf[3][SIDE3];
 extern char *draft, *clean, *snap;
+extern int scenario;
 
 /// Functions ///
 
-void init();
+void initAutomaton();
 void addPreon(int x, int y, int z, int w, char p3, char p4, unsigned char p5, Tuple p6, int p7, int p17, int p19, unsigned schedule);
 void createVacuum();
 
