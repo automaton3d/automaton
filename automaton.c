@@ -220,35 +220,26 @@ boolean interaction(Brick *t)
 	if(t->p13 < UXU || t->p1 % SYNCH < SYNCH-1)
 		return false;
 	//
-	// Axiom 7 - Vacuum symmetry breaking
+	// Axiom 8 - Launch burst
 	//
-	if(t->p13 == REISSUE)
-	{
-		// Emit a burst
-		//
-		t->p25 = DESTROY;
-		t->p15 = t->p0;
-		t->p13 = UNDEF;
-		//
-		// Inhibit expansion
-		//
-		return true;
-	}
+	t->p25 = DESTROY;
+	resetTuple(&t->p26);
+	t->p15 = t->p0;
+	t->p13 = UNDEF;
 	//
-	// Calculate new wake time
+	// Reissue preon
 	//
-	t->p24t = t->p1 - t->p1 % SYNCH + SYNCH;
-	//
-	//addMarker(t->p0);	// debug code
+	resetTuple(&t->p2);
+	t->p24 = t->p1 - t->p1 % SYNCH + SYNCH;	// Calculate new wake time
 	//
 	// Axiom 4 - Calculate disambiguation value
 	//
 	t->p18 = SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z;
 	//
-	// Axiom 8 - Launch burst
+	// Axiom 7 - Vacuum symmetry breaking
 	//
-	t->p25 = DESTROY;
-	resetTuple(&t->p26);
+	if(t->p13 == REISSUE)
+		return true;		// Inhibit expansion
 	//
 	// Axiom 7 - Spin rotation
 	//
@@ -281,9 +272,6 @@ boolean interaction(Brick *t)
 		t->p4 = t->p2;
 	}
 	//
-	resetTuple(&t->p2);
-	t->p13 = UNDEF;
-	//
 	return true;
 }
 
@@ -292,7 +280,7 @@ boolean interaction(Brick *t)
  */
 void expandGraviton()
 {
-	if(!(pri->p21 & GRAV) || dual->p1 <= dual->p24t)
+	if(!(pri->p21 & GRAV) || dual->p1 <= dual->p24)
 		return;
 	//
 	unsigned char dir = 6;
@@ -329,7 +317,7 @@ void expandGraviton()
 		Brick *nual = getNual(dir);
 		copyBrick(nual, dual);
 		addTuples(&nual->p2, dirs[dir]);
-		nual->p24t = SYNCH * (modTuple(&nual->p2) + 0.5);
+		nual->p24 = SYNCH * (modTuple(&nual->p2) + 0.5);
 		nual->p21 |= GRAV;
 	}
 	//
@@ -392,7 +380,7 @@ void expandBurst()
 	{
 		// Reissue at the specified address
 		//
-		dual->p24t = SYNCH + BURST - dual->p1 % SYNCH;
+		dual->p24 = SYNCH + BURST - dual->p1 % SYNCH;
 		dual->p21 |= SEED;						// turn on SEED
 		resetTuple(&dual->p2);
 		dual->p15.x = -1;						// invalidate return-path
@@ -428,7 +416,7 @@ void expandBurst()
  */
 void expandPreon()
 {
-	if((pri->p21 & (PREON | SEED)) == 0 || pri->p1 <= pri->p24t)
+	if((pri->p21 & (PREON | SEED)) == 0 || pri->p1 <= pri->p24)
 		return;
 	//
 	assert(timer%SYNCH==pri->p1%SYNCH);
@@ -445,7 +433,7 @@ void expandPreon()
 		{
 			Brick *nual = getNual(dir);
 			copyBrick(nual, dual);
-			nual->p24t = SYNCH * (modTuple(&nual->p2) + 0.5);
+			nual->p24 = SYNCH * (modTuple(&nual->p2) + 0.5);
 			nual->p23 = dir;
 			addTuples(&nual->p2, dirs[dir]);	// update origin vector
 			nual->p21 = PREON;					// turn off SEED bit
@@ -843,7 +831,7 @@ void classify2(Brick *dual)
 					//
 					if(vacuum(t1) && vacuum(t2))
 					{
-						puts("v-v");
+						// puts("v-v");
 					}
 					//
 					// Axiom 15 - Leptonic synthesis
@@ -887,25 +875,25 @@ void classify2(Brick *dual)
 	}
 }
 
-char getVoxel(Brick *pri4d, Brick *dual4d)
+char getVoxel(Brick *p, Brick *d)
 {
 	char color = gridcolor;
-	for(int w = 0; w < NPREONS; w++, pri4d++, dual4d++)
+	for(int w = 0; w < NPREONS; w++, p++, d++)
 	{
-		copyBrick(dual4d, pri4d);
+		copyBrick(d, p);
 		//
 		// Bump cell clock
 		//
-		dual4d->p1++;
+		d->p1++;
 		//
 		// Calculate voxel color
 		//
-		if(pri4d->p25)
+		if(p->p25)
 			color = BB;
-		else if(pri4d->p21 & GRAV)
+		else if(p->p21 & GRAV)
 			color = GG;
-		else if(pri4d->p21 & PREON)
-			color = 7 + pri4d->p19;
+		else if(p->p21 & PREON)
+			color = 7 + p->p19;
 	}
 	return color;
 }
