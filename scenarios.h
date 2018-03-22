@@ -18,5 +18,6 @@ void UXUScenario();
 void GRAVScenario();
 void SEEDScenario();
 void ElectronScenario();
+void LonePScenario();
 
 #endif /* SCENARIOS_H_ */
