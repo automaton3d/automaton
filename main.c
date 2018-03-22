@@ -56,9 +56,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
  	free(title);
 	//
  	pthread_create(&loop, NULL, &AutomatonLoop, NULL);
- 	sleep(2);
+ 	sleep(1);
  	pthread_create(&display, NULL, &DisplayLoop, NULL);
- 	sleep(2);
+ 	sleep(1);
  	//
 	while(GetMessage(&msg, hwnd, 0,0))
 		DispatchMessage(&msg);
