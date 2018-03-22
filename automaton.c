@@ -695,11 +695,7 @@ void classify1(Brick *dual)
 void classify2(Brick *dual)
 {
 	if(pri->p1 % SYNCH < SYNCH-1 || pri->p25 || dual->p13 == REISSUE)
-	{
-		if(dual->p13 == REISSUE)
-			puts("blz!");
 		return;
-	}
 	//
 	Brick *t1 = dual;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
