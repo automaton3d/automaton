@@ -38,11 +38,11 @@
 #define U			1			// unpaired
 #define P			2			// pair
 
+#define PXP			5
 #define UXU			6
 #define UXP			7
-#define PXP			8
-#define UXG			9
-#define REISSUE		10
+#define UXG			8
+#define REISSUE		9
 
 // p18 status
 
@@ -64,41 +64,42 @@ typedef struct
 	unsigned		p1;		// clock
 	Tuple			p2;		// origin vector
 	Tuple			p3;		// LM direction
-	char			p4;		// electric charge
-	char			p5;		// chirality
-	unsigned char	p6;		// color and conjugation
-	Tuple			p7;		// spin direction
-	unsigned char	p8;		// gravity charge
-	unsigned		p9;		// entanglement
-	unsigned char	p10;	// sinusoid pwm
-	int 			p11;	// frequency
-	unsigned char	p12;	// helicity
+	Tuple			p4;		// spin direction
+	char			p5;	// helicity
+	char			p6;		// electric charge
+	char			p7;		// chirality
+	char			p8;		// gravity charge
+	unsigned char	p9;		// color and conjugation
+	unsigned		p10;		// entanglement
+	unsigned char	p11;	// sinusoid pwm
+	int 			p12;	// frequency
 	unsigned char	p13;	// interaction
 	int				p14;	// interference
-	Tuple			p15;	// return path
+	Tuple			p15;	// return cell
 	unsigned char	p16;	// cohesion
 	unsigned		p17;	// virtual decay
+	unsigned		p18;		// disambiguation
 	//
 	// Auxiliary
 	//
-	unsigned		p18;	// w address
-	unsigned		p19;	// w of peer
-	unsigned char	p20;	// status
-	unsigned char	p21;	// is pair flag
-	unsigned char	p22;	// wavefront direction
-	unsigned		p23;	// wavefront synch: t1
-	unsigned char	p24;	// messenger code
-	Tuple			p25;	// burst origin vector;
-	unsigned char	p26;	// burst direction
-	double 			p27a1;	// a1
-	double			p27a2;	// a2
+	unsigned		p19;	// w address
+	unsigned		p20;	// w of peer
+	unsigned char	p21;	// status
+	unsigned char	p22;	// is pair flag
+	unsigned char	p23;	// wavefront direction
+	unsigned		p24t;	// wavefront synch: t1
+	unsigned char	p25;	// messenger code
+	Tuple			p26;	// burst origin vector;
+	unsigned char	p27;	// burst direction
+	double 			p28a1;	// a1
+	double			p28a2;	// a2
 
 } Brick;
 
 // Functions declarations
 
-char *tile2str(Brick *t);
-void copyTile(Brick *dst, Brick *org);
-void cleanTile(Brick *t);
+char *brick2str(Brick *t);
+void copyBrick(Brick *dst, Brick *org);
+void cleanBrick(Brick *t);
 
 #endif /* PREON_H_ */
