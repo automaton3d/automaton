@@ -21,6 +21,7 @@
 #include "scenarios.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+int prime;
 
 /*
  * Initializes sine wave parameters.
@@ -45,14 +46,14 @@ void buildLattice(Brick *grid)
 			for(int z = 0; z < SIDE; z++)
 				for(int w = 0; w < NPREONS; w++, t++)
 				{
-					cleanTile(t);
+					cleanBrick(t);
 					//
 					// Once and for all
 					//
 					t->p0.x = x;
 					t->p0.y = y;
 					t->p0.z = z;
-					t->p18 = w;
+					t->p19 = w;
 				}
 }
 
@@ -70,32 +71,29 @@ void buildLattice(Brick *grid)
 void addPreon(int x, int y, int z, int w, char p4, char p5, unsigned char p6, Tuple p7, int p8, int p20, int p24, unsigned schedule)
 {
 	Brick *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
-	cleanTile(t);
-	assert(t->p18==w);
-	t->p4 = p4;
-	t->p5 = p5;
-	t->p6 = p6;
-	t->p7 = p7;
+	cleanBrick(t);
+	t->p6 = p4;
+	t->p7 = p5;
+	t->p9 = p6;
+	t->p4 = p7;
 	t->p8 = p8;
 	t->p15.x = -1;
-	t->p20 = p20;
-	t->p24 = p24;
-	t->p23 = schedule;
-	printf("%2d,%2d,%2d,%2d: %+d\n", x, y, z, w, p4);
+	t->p21 = p20;
+	t->p25 = p24;
+	t->p24t = schedule;
+	printf("%2d,%2d,%2d,%2d: %+d, %+d\n", x, y, z, w, p4, p8);
 }
 
 void createVacuum()
 {
+	int p8 = +1;
 	for(int w = 0; w < NPREONS; w += 2)
 	{
-		int schedule = (rand() & 0x03) * SYNCH + SYNCH;
-		unsigned x = rndCoord();
-		unsigned y = rndCoord();
-		unsigned z = rndCoord();
 		Tuple p7;
 		resetTuple(&p7);
-		addPreon(x,y,z,w, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, schedule);
-		addPreon(x,y,z,w+1, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, schedule);
+		addPreon(0,0,0,w, +1, UNDEF, UNDEF, p7, p8, PREON, false, BURST);
+		addPreon(0,0,0,w+1, -1, UNDEF, UNDEF, p7, p8, PREON, false, BURST);
+		p8 *= -1;
 	}
 }
 
@@ -113,6 +111,7 @@ void initAutomaton()
 	buildLattice(pri0);
 	buildLattice(dual0);
 	limit = floor(sqrt(3) * (1 << (ORDER - 1)));
+	prime = getPrime(SIDE);
 	//
 	// Triple buffering
 	//
@@ -122,7 +121,7 @@ void initAutomaton()
 	//
 	// Initial state of the universe
 	//
-	int scenario = 7;
+	scenario = 1;
 	switch(scenario)
 	{
 		case 0:
@@ -149,11 +148,13 @@ void initAutomaton()
 		case 7:
 			ElectronScenario();
 			break;
+		case 8:
+			LonePScenario();
+			break;
 	}
 	//
 	begin = GetTickCount();				// initial milliseconds
 	setvbuf(stdout, null, _IOLBF, 0);
 	sleep(4);
 }
-
 
