@@ -16,6 +16,21 @@
 
 static Tuple p7;
 
+char *scenarios[] =
+{
+		"Burst test",
+		"Vacuum demo",
+		"Virtual preon",
+		"Real preon",
+		"UxU interaction",
+		"The graviton",
+		"Seed test",
+		"Electrons demo",
+		"Lone pair"
+};
+
+int scenario;
+
 static void eraseLayer(int w)
 {
 	for(int x = 0; x < SIDE; x++)
@@ -23,7 +38,7 @@ static void eraseLayer(int w)
 			for(int z = 0; z < SIDE; z++)
 			{
 				Brick *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
-				cleanTile(t);
+				cleanBrick(t);
 			}
 }
 
@@ -52,7 +67,7 @@ void VIRTScenario()
 	int x = rndCoord();
 	int y = rndCoord();
 	int z = rndCoord();
-	addPreon(x,y,z,0, -1, UNDEF, UNDEF, p7, false, PREON, false, SYNCH);
+	addPreon(x,y,z,0, -1, UNDEF, UNDEF, p7, false, PREON, false, SYNCH+BURST);
 }
 
 void REALScenario()
@@ -60,7 +75,7 @@ void REALScenario()
 	p7.x = rndSignal() * rndCoord();
 	p7.y = rndSignal() * rndCoord();
 	p7.z = rndSignal() * rndCoord();
-	addPreon(SIDE/3,SIDE/3,SIDE/2,0, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH);
+	addPreon(SIDE/3,SIDE/3,SIDE/2,0, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH+BURST);
 }
 
 /*
@@ -71,20 +86,21 @@ void UXUScenario()
 	p7.x = rndSignal() * rndCoord();
 	p7.y = rndSignal() * rndCoord();
 	p7.z = rndSignal() * rndCoord();
-	addPreon(SIDE/3,SIDE/3,SIDE/2,0, -1, UNDEF, UNDEF, p7, true, PREON, false, 5*SYNCH);
+	addPreon(SIDE/3,SIDE/3,SIDE/2,0, -1, UNDEF, UNDEF, p7, true, PREON, false, 5*SYNCH+BURST);
 	//
 	p7.x = rndSignal() * rndCoord();
 	p7.y = rndSignal() * rndCoord();
 	p7.z = rndSignal() * rndCoord();
-	addPreon(2*SIDE/3,2*SIDE/3,SIDE/2+2,3, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH);
+	addPreon(2*SIDE/3,2*SIDE/3,SIDE/2+2,3, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH+BURST);
 }
 
 void GRAVScenario()
 {
-	p7.x = 10;
-	p7.x = -3;
-	p7.x = 7;
-	addPreon(SIDE/2,SIDE/2,SIDE/3,0, true, UNDEF, 0, p7, false, GRAV, false, 0);
+	p7.x = 5;
+	p7.y = 5;
+	p7.z = 5;
+	addPreon(SIDE/2,SIDE/2,SIDE/3,0, false, UNDEF, 0, p7, false, GRAV, false, BURST);
+	addPreon(SIDE/2,SIDE/2,SIDE/3,1, false, UNDEF, 0, p7, false, PREON, false, BURST);
 }
 
 void SEEDScenario()
@@ -124,3 +140,27 @@ void ElectronScenario()
 		addPreon(rndCoord(),rndCoord(),rndCoord(),i+1, -1, UNDEF, UNDEF, p7, true, PREON, false, SYNCH);
 	}
 }
+
+void LonePScenario()
+{
+	p7.x = rndSignal() * rndCoord();
+	p7.y = rndSignal() * rndCoord();
+	p7.z = rndSignal() * rndCoord();
+	addPreon(SIDE/3,SIDE/3,SIDE/2,0, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, SYNCH+BURST);
+	//
+	p7.x = rndSignal() * rndCoord();
+	p7.y = rndSignal() * rndCoord();
+	p7.z = rndSignal() * rndCoord();
+	addPreon(SIDE/3,SIDE/3,SIDE/2,3, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, SYNCH+BURST);
+	//
+	p7.x = rndSignal() * rndCoord();
+	p7.y = rndSignal() * rndCoord();
+	p7.z = rndSignal() * rndCoord();
+	addPreon(SIDE/2,SIDE/3,2,0, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, SYNCH+BURST);
+	//
+	p7.x = rndSignal() * rndCoord();
+	p7.y = rndSignal() * rndCoord();
+	p7.z = rndSignal() * rndCoord();
+	addPreon(SIDE/2,SIDE/3,2,3, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, SYNCH+BURST);
+}
+
