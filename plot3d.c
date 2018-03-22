@@ -83,6 +83,31 @@ char X, Y, Z;
 char imgbuf[3][SIDE3];
 char *draft, *clean, *snap;
 
+typedef struct M
+{
+	Tuple xyz;
+	struct M *next;
+} Marker;
+
+Marker *markers;
+
+void addMarker(Tuple xyz)
+{
+	if(markers == NULL)
+	{
+		markers = malloc(sizeof(Marker));
+		markers->xyz = xyz;
+	}
+	else
+	{
+		Marker *m = markers;
+		while(m->next)
+			m = m->next;
+		m->next = malloc(sizeof(Marker));
+		m->next->xyz = xyz;
+	}
+}
+
 void initPalette()
 {
         X = RR;
@@ -361,29 +386,26 @@ void enter(int color)
 	if(clipping && (pen.z > -frontDistance || pen.z < -backDistance))
 		return;
 	//
-//	if(pen.z < scale)
-//	{
-		if(parallel)
-			parallelTransform(&pen);
-		else
-			perspectiveTransform(&pen);
+	if(parallel)
+		parallelTransform(&pen);
+	else
+		perspectiveTransform(&pen);
+	//
+	// Clipping against frustum sides
+	//
+	if(pen.x >= wxl && pen.x <= wxh && pen.y >= wyl && pen.y <= wyh)
+	{
+		// Convert to screen coordinates
 		//
-		// Clipping against frustum sides
+		int xi = (int) (((pen.x - wxl) * wsx + vxl) * WIDTH + .5);
+		int yi = (int) (((pen.y - wyl) * wsy + vyl) * HEIGHT + .5);
 		//
-		if(pen.x >= wxl && pen.x <= wxh && pen.y >= wyl && pen.y <= wyh)
-		{
-			// Convert to screen coordinates
-			//
-			int xi = (int) (((pen.x - wxl) * wsx + vxl) * WIDTH + .5);
-			int yi = (int) (((pen.y - wyl) * wsy + vyl) * HEIGHT + .5);
-			//
-			// Save point in output buffer
-			//
-			int pos = WIDTH - xi + (HEIGHT - yi - 1) * WIDTH;
-			if(pos > 0 && pos < WIDTH * HEIGHT)
-				pixels[pos] = colors[color];
-		}
-//	}
+		// Save point in output buffer
+		//
+		int pos = WIDTH - xi + (HEIGHT - yi - 1) * WIDTH;
+		if(pos > 0 && pos < WIDTH * HEIGHT)
+			pixels[pos] = colors[color];
+	}
 }
 
 void plot(double x, double y, double z, char color)
@@ -394,11 +416,11 @@ void plot(double x, double y, double z, char color)
 	enter(color);
 }
 
-void marker(int x, int y, int z)
+void marker(Tuple xyz)
 {
-	double dx = (x - SIDE/2);
-	double dy = (y - SIDE/2);
-	double dz = (z - SIDE/2);
+	double dx = (xyz.x - SIDE/2);
+	double dy = (xyz.y - SIDE/2);
+	double dz = (xyz.z - SIDE/2);
 	plot(dx, dy, dz, WHT);
 }
 
@@ -446,7 +468,6 @@ void initPlot()
 
 void drawVoxel(double dx, double dy, double dz, char color)
 {
-	//plot(dx, dy, dz, color);
 	int N = SIDE / 2 + 1;
 	double d = 2.0 / (3 * SIDE);	// ????
 	int M = SIDE *d / 4;
@@ -491,8 +512,12 @@ void drawLattice()
 				else if(showGrid)
 					plot(dx, dy, dz, gridcolor);
 			}
-	marker(SIDE/3,SIDE/3,SIDE/2);
-	marker(2*SIDE/3,2*SIDE/3,SIDE/2+2);
+	Marker *m = markers;
+	while(m)
+	{
+		marker(m->xyz);
+		m = m->next;
+	}
 }
 
 void drawBox()
@@ -528,10 +553,42 @@ void drawBox()
 	}
 }
 
+void drawChar(double x, double y, double z, char color, char ch)
+{
+	pen.x = x;
+	pen.y = y;
+	pen.z = z;
+
+	// Transform the point to camera space
+	//
+	viewPlaneTransform(&pen);
+	//
+	// Clipping against clipping planes
+	//
+	if(clipping && (pen.z > -frontDistance || pen.z < -backDistance))
+		return;
+	//
+	if(parallel)
+		parallelTransform(&pen);
+	else
+		perspectiveTransform(&pen);
+	//
+	// Clipping against frustum sides
+	//
+	if(pen.x >= wxl && pen.x <= wxh && pen.y >= wyl && pen.y <= wyh)
+	{
+		// Convert to screen coordinates
+		//
+		int xi = (int) (((pen.x - wxl) * wsx + vxl) * WIDTH + .5);
+		int yi = (int) (((pen.y - wyl) * wsy + vyl) * HEIGHT + .5);
+		vprint(WIDTH - xi, yi, ch);
+	}
+}
+
 void drawAxes()
 {
 	setViewPort(0.0, 0.2, 0.0, 0.2);
-	setWindow(-30, 30, -30, 30);
+	setWindow(-40, 40, -40, 40);
 	newView2();
 	setViewDistance(0);
 	if(!parallel)
@@ -543,24 +600,33 @@ void drawAxes()
 	}
 	newView3();
 	int i;
-	for(i = 0; i < 30; i++)
+	for(i = 0; i < 35; i++)
 	{
 		double p = i;
-		plot(p, 0, 0, X);
-		plot(p, +0.3, 0, X);
-		plot(p, -0.3, 0, X);
-		plot(p, 0, +0.3, X);
-		plot(p, 0, -0.3, X);
-		plot(0, p, 0, Y);
-		plot(.3, p, 0, Y);
-		plot(-.3, p, 0, Y);
-		plot(0, p, +0.3, Y);
-		plot(0, p, -0.3, Y);
-		plot(0, 0, p, Z);
-		plot(0, +0.3, p, Z);
-		plot(0, -0.3, p, Z);
-		plot(+0.3, 0, p, Z);
-		plot(-0.3, 0, p, Z);
+		if(i < 30)
+		{
+			plot(p, 0, 0, X);
+			plot(p, +0.3, 0, X);
+			plot(p, -0.3, 0, X);
+			plot(p, 0, +0.3, X);
+			plot(p, 0, -0.3, X);
+			plot(0, p, 0, Y);
+			plot(.3, p, 0, Y);
+			plot(-.3, p, 0, Y);
+			plot(0, p, +0.3, Y);
+			plot(0, p, -0.3, Y);
+			plot(0, 0, p, Z);
+			plot(0, +0.3, p, Z);
+			plot(0, -0.3, p, Z);
+			plot(+0.3, 0, p, Z);
+			plot(-0.3, 0, p, Z);
+		}
+		else if(i == 34)
+		{
+			drawChar(p, 0, 0, X, 'x');
+			drawChar(0, p, 0, Y, 'y');
+			drawChar(0, -0.3, p, Z, 'z');
+		}
 	}
 	setViewPort(0.0, 1.0, 0.0, 1.0);
 	setWindow(-SIDE, SIDE, -SIDE, SIDE);
@@ -650,12 +716,21 @@ void visualize()
 	    asprintf(&s, "Automaton %dx%dx%dx%d", SIDE, SIDE, SIDE, SIDE);
 	    vprints(20, 20, s);
 	    //
+	    asprintf(&s, "Scenario: %s", scenarios[scenario]);
+	    vprints(330, 20, s);
+	    //
 	    asprintf(&s, "Elapsed )ms( %lu", GetTickCount() - begin);
 	    vprints(20, 40, s);
 	    //
 	 	asprintf(&s, "ls=%lu  clk=%lu", timer / (2 * DIAMETER), timer);
 		vprints(20, 740, s);
 		//
+	    asprintf((char **)&s, "A: axes on/off");
+	    vprints(620, 680, s);
+	    //
+	    asprintf((char **)&s, "S: pause/resume");
+	    vprints(620, 700, s);
+	    //
 	    asprintf((char **)&s, "G: grid on-off");
 	    vprints(620, 720, s);
 	    //
@@ -689,7 +764,7 @@ void *DisplayLoop()
     		input_changed = false;
     	    pthread_mutex_unlock(&mutex);
     	}
-        visualize();
+   		visualize();
         //
         // Swap snap <--> clean
         //
