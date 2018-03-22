@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 
-void copyTile(Brick *dst, Brick *org)
+void copyBrick(Brick *dst, Brick *org)
 {
 	Tuple p0 = dst->p0;
 	unsigned short w = dst->p18;
@@ -18,7 +18,7 @@ void copyTile(Brick *dst, Brick *org)
 	dst->p18 = w;
 }
 
-void cleanTile(Brick *t)
+void cleanBrick(Brick *t)
 {
 	Tuple p0 = t->p0;
 	unsigned short w = t->p18;
@@ -27,9 +27,9 @@ void cleanTile(Brick *t)
 	t->p18 = w;
 }
 
-char *tile2str(Brick *t)
+char *brick2str(Brick *t)
 {
 	char *ptr;
-	asprintf(&ptr, "[p0=%s p1=%d]", tuple2str(&t->p0), t->p1);
+	asprintf(&ptr, "[p0=%s,%d p1=%d p23=%u]", tuple2str(&t->p0), t->p18, t->p1, t->p23);
 	return ptr;
 }
