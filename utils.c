@@ -73,15 +73,44 @@ boolean pwm(int n)
 
 void resetDFO(Brick *t)
 {
-	t->p11 = 0;
-	t->p27a1 = U1;
-	t->p27a2 = U2;
+	t->p12 = 0;
+	t->p28a1 = U1;
+	t->p28a2 = U2;
 }
 
 void incrDFO(Brick *t)
 {
-	t->p11++;
-	int u3 = K * t->p27a2 - t->p27a1;
-	t->p27a1 = t->p27a2;
-	t->p27a2 = u3;
+	t->p12++;
+	int u3 = K * t->p28a2 - t->p28a1;
+	t->p28a1 = t->p28a2;
+	t->p28a2 = u3;
+}
+
+/*
+ * Generates a prime number closest to n.
+ */
+int getPrime(unsigned n)
+{
+   int i = 3, count = 2, c, prime;
+
+   while(i < SIDE)
+   {
+      for(c = 2 ; c <= i - 1 ; c++)
+      {
+         if(i % c == 0)
+            break;
+      }
+      if(c == i)
+      {
+    	  prime = i;
+    	  count++;
+      }
+      i++;
+   }
+   return prime;
+}
+
+int hash(int n)
+{
+	return ((n + 1) * prime) >> (ORDER/2) & (SIDE-1);
 }
