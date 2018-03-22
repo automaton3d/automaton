@@ -12,19 +12,19 @@
 void copyBrick(Brick *dst, Brick *org)
 {
 	Tuple p0 = dst->p0;
-	unsigned short w = dst->p18;
+	unsigned short w = dst->p19;
 	*dst = *org;
 	dst->p0 = p0;
-	dst->p18 = w;
+	dst->p19 = w;
 }
 
 void cleanBrick(Brick *t)
 {
 	Tuple p0 = t->p0;
-	unsigned short w = t->p18;
+	unsigned short w = t->p19;
 	memset(t, 0, sizeof(Brick));
 	t->p0 = p0;
-	t->p18 = w;
+	t->p19 = w;
 }
 
 char *brick2str(Brick *t)
