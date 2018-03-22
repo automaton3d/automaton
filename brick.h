@@ -65,12 +65,12 @@ typedef struct
 	Tuple			p2;		// origin vector
 	Tuple			p3;		// LM direction
 	Tuple			p4;		// spin direction
-	char			p5;	// helicity
+	char			p5;		// helicity
 	char			p6;		// electric charge
 	char			p7;		// chirality
 	char			p8;		// gravity charge
 	unsigned char	p9;		// color and conjugation
-	unsigned		p10;		// entanglement
+	unsigned		p10;	// entanglement
 	unsigned char	p11;	// sinusoid pwm
 	int 			p12;	// frequency
 	unsigned char	p13;	// interaction
@@ -78,7 +78,7 @@ typedef struct
 	Tuple			p15;	// return cell
 	unsigned char	p16;	// cohesion
 	unsigned		p17;	// virtual decay
-	unsigned		p18;		// disambiguation
+	unsigned		p18;	// disambiguation
 	//
 	// Auxiliary
 	//
@@ -103,3 +103,4 @@ void copyBrick(Brick *dst, Brick *org);
 void cleanBrick(Brick *t);
 
 #endif /* PREON_H_ */
+
