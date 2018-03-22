@@ -27,5 +27,6 @@ void incrDFO(Brick *t);
 boolean pwm(int n);
 boolean voronoi(Vector3d probe, Tuple cell);
 int hash(int n);
+int getPrime(unsigned n);
 
 #endif /* UTILS_H_ */
