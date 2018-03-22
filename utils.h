@@ -14,6 +14,7 @@
 #include "vector3d.h"
 
 extern double radius;
+extern int prime;
 
 void pick(Vector3d *p, LPARAM lparam);
 double distance3d(Vector3d v, Vector3d b);
@@ -24,5 +25,7 @@ int signum(int a);
 void resetDFO(Brick *t);
 void incrDFO(Brick *t);
 boolean pwm(int n);
+boolean voronoi(Vector3d probe, Tuple cell);
+int hash(int n);
 
 #endif /* UTILS_H_ */
