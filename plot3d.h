@@ -30,6 +30,8 @@ extern unsigned long begin;
 extern Brick *pri0;
 extern pthread_mutex_t mutex;
 extern boolean input_changed;
+extern int scenario;
+extern char *scenarios[];
 
 /// Functions ///
 
@@ -38,5 +40,8 @@ void updatePlot();
 void *DisplayLoop();
 void flipMode();
 void flipBox();
+void drawChar(double x, double y, double z, char color, char ch);
+void addMarker(Tuple xyz);
 
 #endif /* PLOT3D_H_ */
+
