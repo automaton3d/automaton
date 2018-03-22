@@ -84,7 +84,7 @@ boolean broken(Brick *t1, Brick *t2)
 	index1 = SIDE2 * t1->p0.x + SIDE * t1->p0.y + t1->p0.z;
 	index2 = SIDE2 * t2->p0.x + SIDE * t2->p0.y + t2->p0.z;
 	unsigned h1 = hash(t1->p19) ^ hash(t1->p1) ^ index1;
-	unsigned h2 = hash(t2->p19) ^ hash(t2->p2) ^ index2;
+	unsigned h2 = hash(t2->p19) ^ hash(t2->p1) ^ index2;
 	return (h1 & MASK) == (h2 & MASK);
 }
 
