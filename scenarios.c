@@ -115,7 +115,7 @@ void SEEDScenario()
 			for(int z = 0; z < SIDE; z++)
 			{
 				t->p8 = false;
-				t->p23 = 10000;
+				t->p23 = 100;
 				t += NPREONS;
 			}
 	addPreon(SIDE/3,SIDE/3,SIDE/2,0, 0, UNDEF, 0, p7, true, SEED, false, SYNCH);
@@ -163,4 +163,3 @@ void LonePScenario()
 	p7.z = rndSignal() * rndCoord();
 	addPreon(SIDE/2,SIDE/3,2,3, UNDEF, UNDEF, UNDEF, p7, false, PREON, false, SYNCH+BURST);
 }
-
