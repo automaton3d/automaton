@@ -1,8 +1,5 @@
 /*
  * init.h
- *
- *  Created on: 3 de abr de 2017
- *      Author: Alexandre
  */
 
 #ifndef INIT_H_
@@ -23,7 +20,7 @@ extern int scenario;
 /// Functions ///
 
 void initAutomaton();
-void addPreon(int x, int y, int z, int w, char p3, char p4, unsigned char p5, Tuple p6, int p7, int p17, int p19, unsigned schedule);
+Brick *addPreon(int x, int y, int z, int w, char p3, char p4, unsigned char p5, Tuple p6, int p7, int p17, int p19, unsigned schedule);
 void createVacuum();
 
 #endif /* INIT_H_ */
