@@ -1,8 +1,5 @@
 /*
  * init.c
- *
- *  Created on: 3 de abr de 2017
- *      Author: Alexandre
  */
 
 #include "init.h"
@@ -60,28 +57,29 @@ void buildLattice(Brick *grid)
 /*
  * Inserts a preon in a specified address of the pri0 lattice.
  *
- * @p4	electric charge
- * @p5	chirality
- * @p6	color
- * @p7	spin
+ * @p6	electric charge
+ * @p7	chirality
+ * @p9	color
+ * @p4	spin
  * @p8  gravity
- * @p20 status
- * @p24	messenger
+ * @p21 status
+ * @p25	messenger
  */
-void addPreon(int x, int y, int z, int w, char p4, char p5, unsigned char p6, Tuple p7, int p8, int p20, int p24, unsigned schedule)
+Brick *addPreon(int x, int y, int z, int w, char p6, char p7, unsigned char p9, Tuple p4, int p8, int p21, int p25, unsigned schedule)
 {
 	Brick *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
 	cleanBrick(t);
-	t->p6 = p4;
-	t->p7 = p5;
-	t->p9 = p6;
-	t->p4 = p7;
+	t->p6 = p6;
+	t->p7 = p7;
+	t->p9 = p9;
+	t->p4 = p4;
 	t->p8 = p8;
 	t->p15.x = -1;
-	t->p21 = p20;
-	t->p25 = p24;
-	t->p24t = schedule;
-	printf("%2d,%2d,%2d,%2d: %+d, %+d\n", x, y, z, w, p4, p8);
+	t->p21 = p21;
+	t->p25 = p25;
+	t->p24 = schedule;
+	printf("%2d,%2d,%2d,%2d: %+d, %+d\n", x, y, z, w, p6, p8);
+	return t;
 }
 
 void createVacuum()
@@ -89,10 +87,10 @@ void createVacuum()
 	int p8 = +1;
 	for(int w = 0; w < NPREONS; w += 2)
 	{
-		Tuple p7;
-		resetTuple(&p7);
-		addPreon(0,0,0,w, +1, UNDEF, UNDEF, p7, p8, PREON, false, BURST);
-		addPreon(0,0,0,w+1, -1, UNDEF, UNDEF, p7, p8, PREON, false, BURST);
+		Tuple p4;
+		resetTuple(&p4);
+		addPreon(0,0,0,w, +1, UNDEF, UNDEF, p4, p8, PREON, false, BURST);
+		addPreon(0,0,0,w+1, -1, UNDEF, UNDEF, p4, p8, PREON, false, BURST);
 		p8 *= -1;
 	}
 }
@@ -121,7 +119,6 @@ void initAutomaton()
 	//
 	// Initial state of the universe
 	//
-	scenario = 1;
 	switch(scenario)
 	{
 		case 0:
@@ -143,18 +140,15 @@ void initAutomaton()
 			GRAVScenario();
 			break;
 		case 6:
-			SEEDScenario();
+			BigBangScenario();
 			break;
 		case 7:
-			ElectronScenario();
-			break;
-		case 8:
 			LonePScenario();
 			break;
 	}
 	//
 	begin = GetTickCount();				// initial milliseconds
 	setvbuf(stdout, null, _IOLBF, 0);
-	sleep(4);
+	sleep(3);
 }
 
