@@ -1,12 +1,9 @@
 /*
- * main3d.h
- *
- *  Created on: 4 de mar de 2017
- *      Author: Alexandre
+ * main.h
  */
 
-#ifndef MAIN3D_H_
-#define MAIN3D_H_
+#ifndef MAIN_H_
+#define MAIN_H_
 
 #include <windows.h>
 
@@ -18,8 +15,8 @@ extern char background;
 extern char gridcolor;
 
 BITMAPINFO bmInfo;
-HDC myCompatibleDC;
+HDC dc;
 HBITMAP myBitmap;
 HDC hdc;
 
-#endif /* MAIN3D_H_ */
+#endif /* MAIN_H_ */
