@@ -1,9 +1,5 @@
 /*
  * plot3d.c
- *
- *  Created on: 4 de mar de 2017
- *      Author: Alexandre
- *
  * Implements a 3d graphics pipeline.
  * This fast and simple engine is only capable of projecting isolated points.
  */
@@ -19,8 +15,8 @@
 #include "plot3d.h"
 
 #include "brick.h"
+#include "main.h"
 #include "text.h"
-#include "main3d.h"
 
 // Constants
 //
@@ -435,7 +431,6 @@ void setParallel(double dx, double dy, double dz)
  */
 void initPlot()
 {
-	initPalette();
 	double h = sqrt(225) / (1.5 * GRID);
 	position.x = (int)(10.0 / h);
 	position.y = (int)(5.0 / h);
@@ -719,8 +714,23 @@ void visualize()
 	    asprintf(&s, "Scenario: %s", scenarios[scenario]);
 	    vprints(330, 20, s);
 	    //
-	    asprintf(&s, "Elapsed )ms( %lu", GetTickCount() - begin);
+	    asprintf(&s, "Elapsed: %lu ms", GetTickCount() - begin);
 	    vprints(20, 40, s);
+	    //
+	    asprintf(&s, "Views:");
+	    vprints(20, 70, s);
+	    //
+	    asprintf(&s, "0: isometric");
+	    vprints(25, 90, s);
+	    //
+	    asprintf(&s, "1: xy");
+	    vprints(25, 110, s);
+	    //
+	    asprintf(&s, "2: yz");
+	    vprints(25, 130, s);
+	    //
+	    asprintf(&s, "3: zx");
+	    vprints(25, 150, s);
 	    //
 	 	asprintf(&s, "ls=%lu  clk=%lu", timer / (2 * DIAMETER), timer);
 		vprints(20, 740, s);
@@ -745,8 +755,8 @@ void visualize()
 		//
 		// Update screen
 		//
-		SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
-		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, myCompatibleDC, 0, 0, SRCCOPY);
+		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
+		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
 	}
 }
 
@@ -755,25 +765,48 @@ void *DisplayLoop()
  	begin = GetTickCount();
     pthread_detach(pthread_self());
     pthread_mutex_unlock(&mutex);
+	initPalette();
     while(true)
     {
-    	if(input_changed)
+    	if(splash)
     	{
-        	pthread_mutex_lock(&mutex);
-    		updateCamera();
-    		input_changed = false;
-    	    pthread_mutex_unlock(&mutex);
+    		clearBuffer();
+    		//
+    	 	char *s;
+    	    asprintf(&s, "Select scenario:");
+    	    vprints(20, 20, s);
+    	    for(int i = 0; i < 8; i++)
+    	    {
+    	    	asprintf(&s, "%d - %s", i+1, scenarios[i]);
+    	    	vprints(20, 40 + 15*i, s);
+    	    }
+    	    //
+    		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
+    		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
+            usleep(60000);
     	}
-   		visualize();
-        //
-        // Swap snap <--> clean
-        //
-    	pthread_mutex_lock(&mutex);
-    	char *flip = snap;
-    	snap = clean;
-    	clean = flip;
-	    pthread_mutex_unlock(&mutex);
-	    //
-        usleep(60000);
+    	else
+    	{
+        	if(input_changed)
+        	{
+            	pthread_mutex_lock(&mutex);
+        		updateCamera();
+        		input_changed = false;
+        	    pthread_mutex_unlock(&mutex);
+        	}
+       		visualize();
+            //
+            // Swap snap <--> clean
+            //
+       		if(img_changed)
+       		{
+       	    	pthread_mutex_lock(&mutex);
+       	    	char *flip = snap;
+       	    	snap = clean;
+       	    	clean = flip;
+       	    	img_changed = false;
+       		    pthread_mutex_unlock(&mutex);
+       		}
+    	}
     }
 }
