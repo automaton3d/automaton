@@ -1,8 +1,5 @@
 /*
  * brick.h
- *
- *  Created on: 23/01/2016
- *      Author: Alexandre
  */
 
 #ifndef BRICK_H_
@@ -14,24 +11,18 @@
 
 #define UNDEF		0
 
-// p5 chirality
+// p9 color
 
-#define LHM			-1
-#define RHMLHAM		0
-#define RHM			+1
-
-// p6 color
-
-#define RED    			0x20
-#define GREEN  			0x10
-#define BLUE   			0x08
-#define ANTIRED    		0x04
-#define ANTIGREEN  		0x02
-#define ANTIBLUE   		0x01
-#define WHITE			(RED | GREEN | BLUE)
-#define ANTIWHITE		(ANTIRED | ANTIGREEN | ANTIBLUE)
-#define LEPT			0x07
-#define ANTILEPT		0xc8
+#define RED    		0x20
+#define GREEN  		0x10
+#define BLUE   		0x08
+#define ANTIRED    	0x04
+#define ANTIGREEN  	0x02
+#define ANTIBLUE   	0x01
+#define WHITE		(RED | GREEN | BLUE)
+#define ANTIWHITE	(ANTIRED | ANTIGREEN | ANTIBLUE)
+#define LEPT		0x07
+#define ANTILEPT	0xc8
 
 // p13 preon interactions
 
@@ -44,13 +35,13 @@
 #define UXG			8
 #define REISSUE		9
 
-// p18 status
+// p21 status
 
 #define	PREON		0X01
-#define SEED		0X02
+//#define SEED		0X02
 #define GRAV		0X04
 
-// p22 burst type
+// p25 burst type
 
 #define DESTROY		1
 #define CANCEL		2
@@ -87,7 +78,7 @@ typedef struct
 	unsigned char	p21;	// status
 	unsigned char	p22;	// is pair flag
 	unsigned char	p23;	// wavefront direction
-	unsigned		p24t;	// wavefront synch: t1
+	unsigned		p24;	// wavefront synch: t1
 	unsigned char	p25;	// messenger code
 	Tuple			p26;	// burst origin vector;
 	unsigned char	p27;	// burst direction
@@ -101,6 +92,6 @@ typedef struct
 char *brick2str(Brick *t);
 void copyBrick(Brick *dst, Brick *org);
 void cleanBrick(Brick *t);
+unsigned signature(Brick *b);
 
 #endif /* PREON_H_ */
-
