@@ -1,8 +1,5 @@
 /*
  * tuple.c
- *
- *  Created on: 13/01/2016
- *      Author: Alexandre
  */
 
 #include "tuple.h"
@@ -17,6 +14,11 @@ const Tuple Y0 = { 0,1,0 };
 const Tuple Z0 = { 0,0,1 };
 
 const Tuple V0 = { 1.732*SIDE, 1.732*SIDE, 1.732*SIDE};
+
+int minXYZ(Tuple *v)
+{
+	return min(min(abs(v->x), abs(v->y)), abs(v->z));
+}
 
 void rectify(Tuple *v)
 {
