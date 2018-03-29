@@ -1,8 +1,5 @@
 /*
  * scenarios.h
- *
- *  Created on: 16 de out de 2017
- *      Author: Alexandre
  */
 
 #ifndef SCENARIOS_H_
@@ -17,7 +14,7 @@ void REALScenario();
 void UXUScenario();
 void GRAVScenario();
 void SEEDScenario();
-void ElectronScenario();
+void BigBangScenario();
 void LonePScenario();
 
 #endif /* SCENARIOS_H_ */
