@@ -1,8 +1,5 @@
 /*
  * utils.c
- *
- *  Created on: 10/10/2016
- *      Author: Alexandre
  */
 
 #include "utils.h"
@@ -13,6 +10,9 @@
 double wT = 2 * PI / SIDE;
 double K, U1, U2;
 
+/*
+ * Calculates the opposite direction.
+ */
 int opposite(int dir)
 {
 	if(dir % 2 == 0)
@@ -91,7 +91,7 @@ void incrDFO(Brick *t)
  */
 int getPrime(unsigned n)
 {
-   int i = 3, count = 2, c, prime;
+   int i = 3, count = 2, c, prime = 0;
 
    while(i < SIDE)
    {
@@ -114,3 +114,4 @@ int hash(int n)
 {
 	return ((n + 1) * prime) >> (ORDER/2) & (SIDE-1);
 }
+
