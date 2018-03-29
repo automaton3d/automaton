@@ -1,8 +1,5 @@
 /*
  * tuple.h
- *
- *  Created on: 13/01/2016
- *      Author: Alexandre
  */
 
 #ifndef TUPLE_H_
@@ -34,10 +31,11 @@ void tupleCross(Tuple v1, Tuple v2, Tuple *v3);
 int compareTuples(Tuple *a, Tuple *b);
 int tupleDot(Tuple *a, Tuple *b);
 void tupleAbs(Tuple *t);
-void tupleCopy(Tuple *a, Tuple b);
 void resetTuple(Tuple *t);
 void scaleTuple(Tuple *t, int s);
 Tuple getUnit(Tuple *t);
 Tuple getDirection(Tuple a, Tuple b);
+int minXYZ(Tuple *v);
 
 #endif /* TUPLE_H_ */
+
