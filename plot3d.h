@@ -1,8 +1,5 @@
 /*
  * plot3d.h
- *
- *  Created on: 4 de mar de 2017
- *      Author: Alexandre
  */
 
 #ifndef PLOT3D_H_
@@ -30,12 +27,15 @@ extern unsigned long begin;
 extern Brick *pri0;
 extern pthread_mutex_t mutex;
 extern boolean input_changed;
+extern boolean img_changed;
 extern int scenario;
 extern char *scenarios[];
+extern boolean splash;
 
 /// Functions ///
 
 void initPlot();
+void clearBuffer();
 void updatePlot();
 void *DisplayLoop();
 void flipMode();
@@ -44,4 +44,3 @@ void drawChar(double x, double y, double z, char color, char ch);
 void addMarker(Tuple xyz);
 
 #endif /* PLOT3D_H_ */
-
