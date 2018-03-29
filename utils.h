@@ -1,8 +1,5 @@
 /*
  * utils.h
- *
- *  Created on: 11/10/2016
- *      Author: Alexandre
  */
 
 #ifndef UTILS_H_
