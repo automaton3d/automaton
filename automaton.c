@@ -3,25 +3,20 @@
  */
 
 #include "automaton.h"
-#include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
-#include <math.h>
 #include <assert.h>
-
 #include "brick.h"
 #include "common.h"
 #include "params.h"
 #include "init.h"
+#include "main.h"
 #include "tuple.h"
 #include "vector3d.h"
 #include "utils.h"
 #include "plot3d.h"
 #include "rotation.h"
 #include "text.h"
-#include "main3d.h"
 #include "tree.h"
 
 // The lattices
@@ -218,15 +213,7 @@ boolean interaction(Brick *t)
 	// to avoid the burst waiting
 	//
 	if(t->p13 < UXU || t->p1 % SYNCH > 0)
-	{
-		if(t->p13 >= UXU)
-		{
-			printf("%d < %d df=%d p24=%d\n", t->p1%SYNCH, SYNCH-1, SYNCH-1-t->p1%SYNCH, t->p24);
-			assert("rejeitou");
-		}
 		return false;
-	}
-//	printf("Int: %d %d %ld %s,%d\n", t->p1, t->p1 % SYNCH, timer, tuple2str(&t->p0), t->p19);
 	//
 	// Axiom 8 - Launch burst
 	//
@@ -678,7 +665,7 @@ void classify1(Brick *dual)
 		nuxu = 0;
 		t2 = dual;
 		for(w2 = 0; w2 < NPREONS; w2++, t2++)
-			if(w1 != w2 && (t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) && t1->p13 != REISSUE && t2->p13 != REISSUE)
+			if(w1 != w2 && t1->p8 == t2->p8 && (t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) && t1->p13 != REISSUE && t2->p13 != REISSUE)
 				nuxu++;
 		Brick *winner;
 		if(nuxu)
@@ -702,7 +689,7 @@ void classify1(Brick *dual)
 					t2 = dual;
 				}
 				//
-				if((t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) && t1->p13 != REISSUE && t2->p13 != REISSUE)
+				if(t1->p8 == t2->p8 && (t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) && t1->p13 != REISSUE && t2->p13 != REISSUE)
 				{
 					nuxu--;
 					//
@@ -896,7 +883,7 @@ void classify2(Brick *dual)
 				{
 					t1->p13 = PXP;
 					t1->p20 = w2;
-					assert(t1->p20!=w2);
+					assert(t1->p20!=w2);puts("PxP");
 					//
 					// Vacuum-vacuum interaction
 					//
@@ -1058,4 +1045,3 @@ void *AutomatonLoop()
 	}
 	return NULL;
 }
-
