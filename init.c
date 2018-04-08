@@ -57,42 +57,32 @@ void buildLattice(Brick *grid)
 /*
  * Inserts a preon in a specified address of the pri0 lattice.
  *
+ * @p4	spin
+ * @p5	helicity
  * @p6	electric charge
  * @p7	chirality
- * @p9	color
- * @p4	spin
  * @p8  gravity
+ * @p9	color
  * @p21 status
+ * @p24 schedule
  * @p25	messenger
  */
-Brick *addPreon(int x, int y, int z, int w, char p6, char p7, unsigned char p9, Tuple p4, int p8, int p21, int p25, unsigned schedule)
+Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25)
 {
-	Brick *t = pri0 + (SIDE2 * x + SIDE * y + z) * NPREONS + w;
+	Brick *t = pri0 + (SIDE2 * p0.x + SIDE * p0.y + p0.z) * NPREONS + w;
 	cleanBrick(t);
+	t->p4 = p4;
+	t->p5 = p5;
 	t->p6 = p6;
 	t->p7 = p7;
-	t->p9 = p9;
-	t->p4 = p4;
 	t->p8 = p8;
+	t->p9 = p9;
 	t->p15.x = -1;
 	t->p21 = p21;
+	t->p24 = p24;
 	t->p25 = p25;
-	t->p24 = schedule;
-	printf("%2d,%2d,%2d,%2d: %+d, %+d\n", x, y, z, w, p6, p8);
+	printf("%2d %2d %2d %2d: %+d %+d %+d %+d %02xH\n", p0.x, p0.y, p0.z, w, p5, p6, p7, p8, p9);
 	return t;
-}
-
-void createVacuum()
-{
-	int p8 = +1;
-	for(int w = 0; w < NPREONS; w += 2)
-	{
-		Tuple p4;
-		resetTuple(&p4);
-		addPreon(0,0,0,w, +1, UNDEF, UNDEF, p4, p8, PREON, false, BURST);
-		addPreon(0,0,0,w+1, -1, UNDEF, UNDEF, p4, p8, PREON, false, BURST);
-		p8 *= -1;
-	}
 }
 
 /*
@@ -101,6 +91,8 @@ void createVacuum()
 void initAutomaton()
 {
 	printf("Running...\n");
+	printf("Scenario: %s\n", scenarios[scenario]);
+	printf("x  y   z  w  p5 p6 p7 p8 p9\n");
 	//
 	pri0  = malloc(SIDE4 * sizeof(Brick));
 	dual0 = malloc(SIDE4 * sizeof(Brick));
@@ -125,13 +117,13 @@ void initAutomaton()
 			BurstScenario();
 			break;
 		case 1:
-			VacuumScenario();
+			UScenario();
 			break;
 		case 2:
-			VIRTScenario();
+			VacuumScenario();
 			break;
 		case 3:
-			REALScenario();
+			NoUXUScenario();
 			break;
 		case 4:
 			UXUScenario();
@@ -140,10 +132,10 @@ void initAutomaton()
 			GRAVScenario();
 			break;
 		case 6:
-			BigBangScenario();
+			LonePScenario();
 			break;
 		case 7:
-			LonePScenario();
+			BigBangScenario();
 			break;
 	}
 	//
@@ -151,4 +143,5 @@ void initAutomaton()
 	setvbuf(stdout, null, _IOLBF, 0);
 	sleep(3);
 }
+
 
