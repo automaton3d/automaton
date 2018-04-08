@@ -1,8 +1,5 @@
 /*
  * automaton.h
- *
- *  Created on: 01/09/2016
- *      Author: Alexandre
  */
 
 #ifndef AUTOMATON_H_
@@ -23,6 +20,5 @@ extern Tuple V0;
 
 void *AutomatonLoop();
 void DeleteAutomaton();
-Brick *getNual(int dir);
 
 #endif /* AUTOMATON_H_ */
