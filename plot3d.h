@@ -29,7 +29,7 @@ extern pthread_mutex_t mutex;
 extern boolean input_changed;
 extern boolean img_changed;
 extern int scenario;
-extern char *scenarios[];
+extern const char *scenarios[];
 extern boolean splash;
 
 /// Functions ///
