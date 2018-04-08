@@ -326,38 +326,6 @@ void expandGraviton()
 }
 
 /*
- * Look-ahead mechanism for burst conflict resolution.
- */
-boolean conflict(int dir, unsigned p18)
-{
-	// Disambiguate p18
-	//
-	Brick *nb = getNeighbor(dir, pri);
-	int best = nb->p18;
-	for(int i = 0; i < NDIR; i++)
-	{
-		Brick *nnb = getNeighbor(i, nb);
-		if(nnb->p25 && nnb->p27 == opposite(i) && nnb->p18 > best)
-			best = nnb->p18;
-	}
-	if(p18 > best)
-		return false;
-	if(p18 < best)
-		return true;
-	//
-	// Disambiguate signature
-	//
-	best = 0;
-	for(int i = 0; i < NDIR; i++)
-	{
-		Brick *nnb = getNeighbor(i, nb);
-		if(nnb->p25 && nnb->p27 == opposite(i) && signature(nnb) > best)
-			best = signature(nnb);
-	}
-	return signature(pri) < best;
-}
-
-/*
  * Axiom 7 - Burst expansion
  */
 void expandBurst()
@@ -377,7 +345,7 @@ void expandBurst()
 			//
 			// Axiom 2 - Burst conflict resolution
 			//
-			if(conflict(dir, pri->p18))
+			if(nual->p18 > pri->p18)
 				continue;
 			//
 			// Axiom 13 - Cancellation
@@ -434,7 +402,7 @@ void expandBurst()
 		resetTuple(&dual->p4);
 		dual->p8 = -1;
 		dual->p10 = 0;
-		dual->p16 = 0;
+		dual->p16 = false;
 		dual->p18 = 0;
 	}
 	dual->p25 = UNDEF;							// leave no burst track
@@ -500,7 +468,7 @@ void expandPreon()
 					resetTuple(&nual->p4);
 					nual->p8 = -1;
 					nual->p10 = 0;
-					nual->p16 = 0;
+					nual->p16 = false;
 					nual->p21 = PREON;
 					nual->p13 = REISSUE;
 					puts("virtual decay");
@@ -536,19 +504,25 @@ void expandPreon()
 }
 
 /*
- * Tests if t1 and t2 form a P.
+ * Tests if t1 and t2 form a new P.
  */
 boolean isP(Brick *t1, Brick *t2)
 {
 	return
+		(t2->p21 & PREON)			&&
 		!isNull(t2->p2)				&&
 		isEqual(t1->p2, t2->p2) 	&&
+//		t1->p5 == t2->p5			&&
 		t1->p6 == -t2->p6			&&
 		t1->p7 == -t2->p7			&&
+		t1->p8 == t2->p8			&&
 		t1->p9 == (~t2->p9 & 0x3f)	&&
-		t1->p5 == t2->p5			&&
-		t1->p16 == t2->p16			&&
-		(t2->p21 & PREON);
+		t1->p16 == t2->p16;
+}
+
+Brick *complement(Brick *b)
+{
+	return dual0 + (SIDE2*b->p0.x + SIDE*b->p0.y + b->p0.z)*NPREONS + b->p20;
 }
 
 /*
@@ -623,6 +597,7 @@ void classify1(Brick *dual)
 			npair >>= 1;
 			t2 = t1;
 			w2 = t1->p19;
+			Brick *peer = NULL;
 			while(npair)
 			{
 				w2++; t2++;
@@ -631,9 +606,14 @@ void classify1(Brick *dual)
 					w2 = 0;
 					t2 = dual;
 				}
-				if(isP(t1, t2))
+				if(w1 != w2 && isP(t1, t2))
 				{
 					npair--;
+					if(!t1->p22 && !t2->p22)
+					{
+						t1->p20 = w2;
+						peer = t2;
+					}
 					//
 					//  Axiom 3 - Sinusoidal phase
 					// (bumped multiple times if superposition)
@@ -641,22 +621,11 @@ void classify1(Brick *dual)
 					incrDFO(t1);
 				}
 			}
-			//
-			// Vacuum-vacuum interaction
-			//
-			if(vacuum(t1) && vacuum(t2) && isEqual(t1->p2, t2->p2) && broken(t1, t2))
+			if(peer != NULL)
 			{
-				t1->p13 = REISSUE;
-				puts("vac-vac");
+				t1->p13 = peer->p13 = P;
+				t1->p22 = peer->p22 = true;
 			}
-			else
-			{
-				puts("formou um P");
-				t1->p13 = P;
-			}
-			assert(t1->p20!=w2);
-			t1->p20 = w2;
-			t1->p22 = true;
 			continue;
 		}
 		//
@@ -711,11 +680,10 @@ void classify1(Brick *dual)
 				resetTuple(&t1->p3);
 				resetTuple(&t1->p4);
 				t1->p10 = 0;
-				t1->p16 = 0;
+				t1->p16 = false;
 			}
 			else if(t1->p9 == t2->p9)
 			{
-				//printf("%d: p0=%s,%d\n", t1->p1, tuple2str(&t1->p0), t1->p19);
 				// Both Us are reissued
 				//
 				t1->p13 = UXU;
@@ -724,6 +692,108 @@ void classify1(Brick *dual)
 				t1->p20 = w;
 			}
 		}
+	}
+	//
+	// Detect PXP
+	//
+	t1 = dual;
+	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
+	{
+		if(t1->p22)
+		{
+			t2 = dual;
+			for(w2 = 0; w2 < NPREONS; w2++, t2++)
+			{
+				if(w1 != w2 && t1->p20 != t2->p20 && t1->p13 != PXP && t2->p13 != PXP)
+				{
+					t1->p13 = t2->p13 = PXP;
+					if(isEqual(t1->p2, t2->p2))
+					{
+						// Synthesis
+						//
+						puts("Synthesis");
+					}
+					else if(vacuum(t1) && vacuum(t2))
+					{
+
+					}
+					else
+					{
+						// PxP interaction
+						//
+						Brick *t1c = complement(t1);
+						Brick *t2c = complement(t2);
+						if(t1->p9 == LEPT && t1c->p9 == ANTILEPT && vacuum(t2))
+						{
+							// Leptonic synthesis
+							//
+							t2->p9 = 0x38;
+							t2c->p9 = 0x07;
+							puts("leptonic synthesis");
+						}
+						else if(pwm(tupleDot(&t1->p3, &t2->p3) / SIDE - SIDE) / 2)
+						{
+							// Cancellation
+							//
+							// P1 <- P0
+							// P2 <- P0
+							//
+							resetTuple(&t1->p3);
+							resetTuple(&t2->p3);
+							resetTuple(&t1->p4);
+							resetTuple(&t2->p4);
+							t1->p8 = -1;
+							t2->p8 = -1;
+							t1->p10 = 0;
+							t2->p10 = 0;
+							t1->p16 = false;
+							t2->p16 = false;
+							//
+							resetTuple(&t1c->p3);
+							resetTuple(&t2c->p3);
+							resetTuple(&t1c->p4);
+							resetTuple(&t2c->p4);
+							t1c->p8 = -1;
+							t2c->p8 = -1;
+							t1c->p10 = 0;
+							t2c->p10 = 0;
+							t1c->p16 = false;
+							t2c->p16 = false;
+							puts("Px <- P0");
+						}
+						else if(t1->p9 != LEPT && t1c->p9 != ANTILEPT && t2->p9 != LEPT && t2c->p9 != ANTILEPT)
+						{
+							// Gluon-gluon interaction
+							//
+							exchangeColors(t1, t2);
+							puts("gluon-gluon");
+						}
+					}
+				}
+			}
+		}
+		//
+		// Vacuum-vacuum interaction
+		//
+		/*
+		if(vacuum(t1) && vacuum(t2))
+		{
+			if(isEqual(t1->p2, t2->p2) && broken(t1, t2))
+			{
+				// Vacuum symmetry breaking
+				//
+				t1->p13 = REISSUE;
+				puts("vacuum symmetry breaking");
+			}
+			else
+			{
+				// Vacuum-vacuum interaction
+				//
+				t1->p13 = REISSUE;
+				puts("vac-vac");
+			}
+		}
+		*/
 	}
 }
 
@@ -943,8 +1013,32 @@ char getVoxel(Brick *p, Brick *d)
 		// Bump cell clock
 		//
 		d->p1++;
-		if(d->p1 == BURST)
+		if(p->p25)
+		{
+			// p18 look-ahead
+			//
+			int best_p18 = p->p18;
+			int best_signature = signature(p);
+			for(int i = 0; i < NDIR; i++)
+			{
+				Brick *nnb = getNeighbor(i, p);
+				if(nnb->p25 && nnb->p27 == opposite(i))
+				{
+					if(nnb->p18 > best_p18)
+						best_p18 = nnb->p18;
+					if(signature(nnb) > best_signature)
+						best_signature = signature(nnb);
+				}
+			}
+			if(best_p18 > p->p18)
+				d->p18 = best_p18;
+			else if(best_p18 == p->p18 && signature(p) > best_signature)
+				d->p18 = 10000000;
+		}
+		else
+		{
 			d->p18 = 0;
+		}
 		//
 		// Calculate voxel color
 		//
@@ -1045,3 +1139,11 @@ void *AutomatonLoop()
 	}
 	return NULL;
 }
+
+
+/*
+		printf("------------------------------------ %d\n", w1);
+ 			printf("%d: w1=%d npair=%d\n", t1->p1, t1->p19, npair);
+			//
+
+ */
