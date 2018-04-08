@@ -1139,11 +1139,3 @@ void *AutomatonLoop()
 	}
 	return NULL;
 }
-
-
-/*
-		printf("------------------------------------ %d\n", w1);
- 			printf("%d: w1=%d npair=%d\n", t1->p1, t1->p19, npair);
-			//
-
- */
