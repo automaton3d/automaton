@@ -11,21 +11,22 @@
 #include "init.h"
 #include "utils.h"
 
+static Tuple p0;
 static Tuple p4;
 
 const char *scenarios[] =
 {
-		"Burst test",
-		"Single unpaired preon",
-		"Vacuum demo",
-		"No UxU interaction",
-		"UxU interaction",
-		"Gravitons",
-		"Lone pairs",
-		"Big bang",
+	"Burst test",
+	"Single unpaired preon",
+	"Vacuum demo",
+	"No UxU interaction",
+	"UxU interaction",
+	"Gravitons",
+	"Lone pairs",
+	"Big bang",
 };
 
-int scenario;
+int scenario = -1;
 
 /*
  * Erases all bricks in a w address.
@@ -47,43 +48,41 @@ static void eraseLayer(int w)
 void BurstScenario()
 {
 	showAxes = false;
-	showGrid = true;
-	showBox = false;
-	int x = rndCoord();
-	int y = rndCoord();
-	int z = rndCoord();
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
 	Brick *b;
-	b = addPreon(x,y,z,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
+	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
-	x = rndCoord();
-	y = rndCoord();
-	z = rndCoord();
-	b = addPreon(x,y,z,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
-	x = rndCoord();
-	y = rndCoord();
-	z = rndCoord();
-	b = addPreon(x,y,z,0, p4, +1, +1, +1, +1, +1, LEPT, BURST, DESTROY);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
-	x = rndCoord();
-	y = rndCoord();
-	z = rndCoord();
-	b = addPreon(x,y,z,0, p4, +1, +1, +1, +1, +1, LEPT, BURST, DESTROY);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
-	x = rndCoord();
-	y = rndCoord();
-	z = rndCoord();
-	b = addPreon(x,y,z,0, p4, +1, +1, +1, +1, +1, LEPT, BURST, DESTROY);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
-	x = rndCoord();
-	y = rndCoord();
-	z = rndCoord();
-	b = addPreon(x,y,z,0, p4, +1, +1, +1, +1, +1, LEPT, BURST, DESTROY);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
 }
@@ -97,11 +96,11 @@ void VacuumScenario()
 	resetTuple(&p4);
 	for(int w = 0; w < NPREONS; w += 2)
 	{
-		int x = rndCoord();
-		int y = rndCoord();
-		int z = rndCoord();
-		addPreon(x,y,z,w, p4, -1, +1, -1, p8, LEPT, PREON, BURST, UNDEF);
-		addPreon(x,y,z,w+1, p4, +1, -1, -1, p8, ANTILEPT, PREON, BURST, UNDEF);
+		p0.x = rndCoord();
+		p0.y = rndCoord();
+		p0.z = rndCoord();
+		addPreon(p0,w, p4, -1, +1, -1, p8, LEPT, PREON, BURST, UNDEF);
+		addPreon(p0,w+1, p4, +1, -1, -1, p8, ANTILEPT, PREON, BURST, UNDEF);
 		p8 *= -1;
 	}
 }
@@ -113,10 +112,14 @@ void UScenario()
 {
 	showGrid = true;
 	showBox = false;
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = SIDE/2;
+	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(SIDE/3,SIDE/3,SIDE/2,0, p4, -1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,0, p4, -1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
 }
 
 /*
@@ -131,14 +134,14 @@ void NoUXUScenario()
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
 	//
-	int x = rndCoord();
-	int y = rndCoord();
-	int z = rndCoord();
-	addPreon(x,y,z,0, p4, -1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
-	x = rndCoord();
-	y = rndCoord();
-	z = rndCoord();
-	addPreon(x,y,z,3, p4, -1, -1, -1, -1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	addPreon(p0,0, p4, -1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	addPreon(p0,3, p4, -1, -1, -1, -1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
 }
 
 /*
@@ -149,15 +152,23 @@ void UXUScenario()
 {
 	showGrid = true;
 	showBox = false;
-	p4.x = rndSignal() * rndCoord();
-	p4.y = rndSignal() * rndCoord();
-	p4.z = rndSignal() * rndCoord();
-	addPreon(rndCoord(),rndCoord(),rndCoord(),0, p4, -1, -1, -1, -1, LEPT, PREON, 5*SYNCH+BURST, UNDEF);
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(rndCoord(),rndCoord(),rndCoord(),5, p4, -1, -1, -1, -1, LEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,0, p4, -1, -1, -1, -1, LEPT, PREON, 5*SYNCH+BURST, UNDEF);
+	//
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,5, p4, -1, -1, -1, -1, LEPT, PREON, SYNCH+BURST, UNDEF);
 }
 
 /*
@@ -166,14 +177,18 @@ void UXUScenario()
 void GRAVScenario()
 {
 	showGrid = true;
+	p0.x = SIDE/2;
+	p0.y = SIDE/2;
+	p0.z = SIDE/3;
+	//
 	p4.x = 5;
 	p4.y = 5;
 	p4.z = 5;
-	addPreon(SIDE/2,SIDE/2,SIDE/3,0, p4, UNDEF, UNDEF, UNDEF, UNDEF, UNDEF, GRAV, BURST, UNDEF);
+	addPreon(p0,0, p4, UNDEF, UNDEF, UNDEF, UNDEF, UNDEF, GRAV, BURST, UNDEF);
 	p4.x = -5;
 	p4.y = -5;
 	p4.z = -5;
-	addPreon(SIDE/2,SIDE/2,SIDE/3,1, p4, UNDEF, UNDEF, UNDEF, UNDEF, UNDEF, GRAV, BURST, UNDEF);
+	addPreon(p0,1, p4, UNDEF, UNDEF, UNDEF, UNDEF, UNDEF, GRAV, BURST, UNDEF);
 }
 
 /*
@@ -185,16 +200,23 @@ void ElectronsScenario()
 	for(int i = 0; i < NPREONS/2; i += 2)
 	{
 		eraseLayer(i);
+		p0.x = rndCoord();
+		p0.y = rndCoord();
+		p0.z = rndCoord();
 		p4.x = rndSignal() * rndCoord();
 		p4.y = rndSignal() * rndCoord();
 		p4.z = rndSignal() * rndCoord();
-		addPreon(rndCoord(),rndCoord(),rndCoord(),i, p4, +1, -1, -1, +1, LEPT, PREON, SYNCH, UNDEF);
+		addPreon(p0,i, p4, +1, -1, -1, +1, LEPT, PREON, SYNCH, UNDEF);
 		//
 		eraseLayer(i + 1);
+		p0.x = rndCoord();
+		p0.y = rndCoord();
+		p0.z = rndCoord();
+		//
 		p4.x = rndSignal() * rndCoord();
 		p4.y = rndSignal() * rndCoord();
 		p4.z = rndSignal() * rndCoord();
-		addPreon(rndCoord(),rndCoord(),rndCoord(),i+1, p4, -1, +1, +1, +1, ANTILEPT, PREON, SYNCH, UNDEF);
+		addPreon(p0,i+1, p4, -1, +1, +1, +1, ANTILEPT, PREON, SYNCH, UNDEF);
 	}
 }
 
@@ -203,25 +225,32 @@ void ElectronsScenario()
  */
 void LonePScenario()
 {
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = SIDE/2;
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(SIDE/3,SIDE/3,SIDE/2,0, p4, -1, +1, -1, +1, LEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,0, p4, -1, +1, -1, +1, LEPT, PREON, SYNCH+BURST, UNDEF);
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(SIDE/3,SIDE/3,SIDE/2,2, p4, +1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,2, p4, +1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	//
+	p0.x = SIDE/2;
+	p0.y = SIDE/3;
+	p0.z = 2;
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(SIDE/2,SIDE/3,2,4, p4, -1, +1, -1, +1, LEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,4, p4, -1, +1, -1, +1, LEPT, PREON, SYNCH+BURST, UNDEF);
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(SIDE/2,SIDE/3,2,6, p4, +1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,6, p4, +1, -1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
 }
 
 /*
@@ -229,7 +258,11 @@ void LonePScenario()
  */
 void BigBangScenario()
 {
+	p0.x = SIDE/2;
+	p0.y = SIDE/2;
+	p0.z = SIDE/2;
+	//
 	resetTuple(&p4);
 	for(int i = 0; i < NPREONS; i ++)
-		addPreon(SIDE/2,SIDE/2,SIDE/2,i, p4, (i & HEL)?+1:-1, (i & ELT)?+1:-1, (i & CHI)?+1:-1, (i & GRV)?+1:-1, (i & CLR)?LEPT:ANTILEPT, PREON, SYNCH, UNDEF);
+		addPreon(p0,i, p4, (i & HEL)?+1:-1, (i & ELT)?+1:-1, (i & CHI)?+1:-1, (i & GRV)?+1:-1, (i & CLR)?LEPT:ANTILEPT, PREON, SYNCH, UNDEF);
 }
