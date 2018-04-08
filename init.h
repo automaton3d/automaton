@@ -16,11 +16,11 @@ extern int limit;
 extern char imgbuf[3][SIDE3];
 extern char *draft, *clean, *snap;
 extern int scenario;
+extern const char *scenarios[];
 
 /// Functions ///
 
 void initAutomaton();
-Brick *addPreon(int x, int y, int z, int w, char p3, char p4, unsigned char p5, Tuple p6, int p7, int p17, int p19, unsigned schedule);
-void createVacuum();
+Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25);
 
 #endif /* INIT_H_ */
