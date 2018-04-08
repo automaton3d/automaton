@@ -1,8 +1,5 @@
 /*
  * text.c
- *
- *  Created on: 4 de mar de 2017
- *      Author: Alexandre
  */
 
 #include "text.h"
