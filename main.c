@@ -20,7 +20,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 pthread_t loop, display;
 
 boolean stop = FALSE;
-Vector3d p0, p1;
+//Vector3d p0, p1;
 
 Quaternion q, qstart;
 DWORD* pixels;
@@ -132,6 +132,9 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 						sleep(1);
 						splash = false;
 						break;
+					case ESC:
+						SendMessage(hwnd, WM_DESTROY, wparam, lparam);
+						break;
 				}
 				break;
 			}
@@ -205,6 +208,9 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 					position.x = 0;
 					position.y = 1.5 * GRID;
 					position.z = 0;
+					break;
+				case ESC:
+					SendMessage(hwnd, WM_DESTROY, wparam, lparam);
 					break;
 			}
 			break;
