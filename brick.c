@@ -1,8 +1,5 @@
 /*
  * brick.c
- *
- *  Created on: 23/01/2016
- *      Author: Alexandre
  */
 
 #include "brick.h"
