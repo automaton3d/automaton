@@ -21,8 +21,8 @@
 #define ANTIBLUE   	0x01
 #define WHITE		(RED | GREEN | BLUE)
 #define ANTIWHITE	(ANTIRED | ANTIGREEN | ANTIBLUE)
-#define LEPT		0x07
-#define ANTILEPT	0xc8
+#define LEPT		0x38
+#define ANTILEPT	0x07
 
 // p13 preon interactions
 
