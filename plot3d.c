@@ -1,5 +1,6 @@
 /*
  * plot3d.c
+ *
  * Implements a 3d graphics pipeline.
  * This fast and simple engine is only capable of projecting isolated points.
  */
@@ -54,10 +55,9 @@ double wsx, wsy;
 //
 boolean parallel = true;
 int clipping;
-double scale = 1100;//0.8;
+double scale = 1100;
 
-boolean showAxes = true, showGrid;
-boolean box = true;
+boolean showAxes = true, showGrid = false, showBox = true;
 
 Vector3d position, _position;      	// view reference point
 Vector3d direction, _direction;		// camera axis
@@ -119,7 +119,7 @@ void initPalette()
         colors[3] = 0x0000ff00;		// GG
         colors[4] = 0x000000ff;		// BB
         colors[5] = 0x00444444;		// GRAY
-        colors[6] = 0x00999999;		// BOX
+        colors[6] = 0x00555555;		// BOX
         //
         // Preon colors
         //
@@ -312,7 +312,7 @@ void flipMode()
 
 void flipBox()
 {
-	box = !box;
+	showBox = !showBox;
 }
 
 void newView2()
@@ -594,8 +594,7 @@ void drawAxes()
 		setPerspective(xc, yc, zc);
 	}
 	newView3();
-	int i;
-	for(i = 0; i < 35; i++)
+	for(int i = 0; i < 35; i++)
 	{
 		double p = i;
 		if(i < 30)
@@ -682,7 +681,7 @@ void updatePlot()
 	//
 	clearBuffer();
 	drawLattice();
-	if(box)
+	if(showBox)
 		drawBox();
 	if(showAxes)
 		drawAxes();
@@ -741,10 +740,10 @@ void visualize()
 	    asprintf((char **)&s, "S: pause/resume");
 	    vprints(620, 700, s);
 	    //
-	    asprintf((char **)&s, "G: grid on-off");
+	    asprintf((char **)&s, "G: grid on/off");
 	    vprints(620, 720, s);
 	    //
-	    asprintf((char **)&s, "X: box on-off");
+	    asprintf((char **)&s, "X: box on/off");
 	    vprints(620, 740, s);
 		//
 	    if(stop)
@@ -773,17 +772,24 @@ void *DisplayLoop()
     		clearBuffer();
     		//
     	 	char *s;
-    	    asprintf(&s, "Select scenario:");
-    	    vprints(20, 20, s);
-    	    for(int i = 0; i < 8; i++)
-    	    {
-    	    	asprintf(&s, "%d - %s", i+1, scenarios[i]);
-    	    	vprints(20, 40 + 15*i, s);
-    	    }
-    	    //
+    	 	if(scenario == -1)
+    	 	{
+        	    asprintf(&s, "Select scenario:");
+        	    vprints(310, 310, s);
+        	    for(int i = 0; i < 8; i++)
+        	    {
+        	    	asprintf(&s, "%d - %s", i+1, scenarios[i]);
+        	    	vprints(330, 330 + 15*i, s);
+        	    }
+    	 	}
+    	 	else
+    	 	{
+    	    	asprintf((char **)&s, "[WAIT...]");
+    	    	vprints(370, 395, s);
+    	 	}
     		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
     		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
-            usleep(60000);
+            usleep(200000);
     	}
     	else
     	{
