@@ -693,108 +693,6 @@ void classify1(Brick *dual)
 			}
 		}
 	}
-	//
-	// Detect PXP
-	//
-	t1 = dual;
-	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
-	{
-		if(t1->p22)
-		{
-			t2 = dual;
-			for(w2 = 0; w2 < NPREONS; w2++, t2++)
-			{
-				if(w1 != w2 && t1->p20 != t2->p20 && t1->p13 != PXP && t2->p13 != PXP)
-				{
-					t1->p13 = t2->p13 = PXP;
-					if(isEqual(t1->p2, t2->p2))
-					{
-						// Synthesis
-						//
-						puts("Synthesis");
-					}
-					else if(vacuum(t1) && vacuum(t2))
-					{
-
-					}
-					else
-					{
-						// PxP interaction
-						//
-						Brick *t1c = complement(t1);
-						Brick *t2c = complement(t2);
-						if(t1->p9 == LEPT && t1c->p9 == ANTILEPT && vacuum(t2))
-						{
-							// Leptonic synthesis
-							//
-							t2->p9 = 0x38;
-							t2c->p9 = 0x07;
-							puts("leptonic synthesis");
-						}
-						else if(pwm(tupleDot(&t1->p3, &t2->p3) / SIDE - SIDE) / 2)
-						{
-							// Cancellation
-							//
-							// P1 <- P0
-							// P2 <- P0
-							//
-							resetTuple(&t1->p3);
-							resetTuple(&t2->p3);
-							resetTuple(&t1->p4);
-							resetTuple(&t2->p4);
-							t1->p8 = -1;
-							t2->p8 = -1;
-							t1->p10 = 0;
-							t2->p10 = 0;
-							t1->p16 = false;
-							t2->p16 = false;
-							//
-							resetTuple(&t1c->p3);
-							resetTuple(&t2c->p3);
-							resetTuple(&t1c->p4);
-							resetTuple(&t2c->p4);
-							t1c->p8 = -1;
-							t2c->p8 = -1;
-							t1c->p10 = 0;
-							t2c->p10 = 0;
-							t1c->p16 = false;
-							t2c->p16 = false;
-							puts("Px <- P0");
-						}
-						else if(t1->p9 != LEPT && t1c->p9 != ANTILEPT && t2->p9 != LEPT && t2c->p9 != ANTILEPT)
-						{
-							// Gluon-gluon interaction
-							//
-							exchangeColors(t1, t2);
-							puts("gluon-gluon");
-						}
-					}
-				}
-			}
-		}
-		//
-		// Vacuum-vacuum interaction
-		//
-		/*
-		if(vacuum(t1) && vacuum(t2))
-		{
-			if(isEqual(t1->p2, t2->p2) && broken(t1, t2))
-			{
-				// Vacuum symmetry breaking
-				//
-				t1->p13 = REISSUE;
-				puts("vacuum symmetry breaking");
-			}
-			else
-			{
-				// Vacuum-vacuum interaction
-				//
-				t1->p13 = REISSUE;
-				puts("vac-vac");
-			}
-		}
-		*/
-	}
 }
 
 /*
@@ -821,6 +719,8 @@ void classify2(Brick *dual)
 					continue;
 				if(t1->p13 == P && t2->p13 == U)
 				{
+					// UXP interactions
+					//
 					t1->p13 = UXP;
 					t1->p15 = t1->p0;
 					//
@@ -873,7 +773,7 @@ void classify2(Brick *dual)
 					// Axiom 14 - Magnetic interaction
 					// Axiom 6 - Polarization
 					//
-					else if(!isNull(t1->p4) && !isNull(t2->p4) && pwm(t1->p14)  && (light % cycle) < cycle / 4 && pwm(tupleDot(&t1->p4, &t2->p4) / SIDE - SIDE) / 2)
+					else if(!isNull(t1->p4) && !isNull(t2->p4) && pwm(t1->p14) && (light % cycle) < cycle / 4 && pwm(tupleDot(&t1->p4, &t2->p4) / SIDE - SIDE) / 2)
 					{
 						Tuple radial = t1->p2;
 						subTuples(&radial, t2->p2);
@@ -949,23 +849,28 @@ void classify2(Brick *dual)
 					t1->p15 = t1->p0;
 					break;
 				}
-				if(t1->p13 == P && t2->p13 == P && !isEqual(t1->p2, t2->p2))
+				//
+				// PxP interactions
+				//
+				if(t1->p22 && t2->p22 && t1->p20 != t2->p20 && t1->p13 != PXP && t2->p13 != PXP && t1->p13 != REISSUE && t2->p13 != REISSUE)
 				{
-					t1->p13 = PXP;
-					t1->p20 = w2;
-					assert(t1->p20!=w2);puts("PxP");
-					//
-					// Vacuum-vacuum interaction
-					//
-					if(vacuum(t1) && vacuum(t2))
+					t1->p13 = t2->p13 = REISSUE;
+					Brick *t1c = complement(t1);
+					Brick *t2c = complement(t2);
+					if(isEqual(t1->p2, t2->p2) && vacuum(t1) && vacuum(t2) && broken(t1, t2))
 					{
-						// puts("v-v");
+						// Synthesis
+						//
+						puts("Synthesis");
 					}
-					//
-					// Axiom 15 - Leptonic synthesis
-					//
-					else if(t1->p9 == 0x37 && vacuum(t2))
+					else if(vacuum(t1) && vacuum(t2))
 					{
+						puts("vac-vac");
+					}
+					else if(t1->p9 == LEPT && t1c->p9 == ANTILEPT && vacuum(t2))
+					{
+						// Axiom 15 - Leptonic synthesis
+						//
 						if(t1->p1 % 2)
 						{
 							t1->p9 = 0x38;
@@ -976,29 +881,56 @@ void classify2(Brick *dual)
 							t1->p9 = 0x07;
 							t2->p9 = 0x38;
 						}
+						puts("leptonic synthesis");
 					}
-					//
-					// Axiom 13 - Cancellation
-					//
 					else if(pwm(tupleDot(&t1->p3, &t2->p3) / SIDE - SIDE) / 2)
 					{
-						cleanBrick(t1);
+						// Axiom 13 - Cancellation
+						//
+						// P1 <- P0
+						// P2 <- P0
+						//
+						resetTuple(&t1->p3);
+						resetTuple(&t2->p3);
+						resetTuple(&t1->p4);
+						resetTuple(&t2->p4);
+						t1->p8 = -1;
+						t2->p8 = -1;
+						t1->p10 = 0;
+						t2->p10 = 0;
+						t1->p16 = false;
+						t2->p16 = false;
+						//
+						resetTuple(&t1c->p3);
+						resetTuple(&t2c->p3);
+						resetTuple(&t1c->p4);
+						resetTuple(&t2c->p4);
+						t1c->p8 = -1;
+						t2c->p8 = -1;
+						t1c->p10 = 0;
+						t2c->p10 = 0;
+						t1c->p16 = false;
+						t2c->p16 = false;
+						puts("Px <- P0");
 					}
-					//
-					// Axiom 13 - Gluon-gluon interaction
-					//
-					else if(t1->p9 && t2->p9)
+					else if(t1->p9 != LEPT && t1c->p9 != ANTILEPT && t2->p9 != LEPT && t2c->p9 != ANTILEPT)
 					{
+						// Gluon-gluon interaction
+						//
 						exchangeColors(t1, t2);
+						puts("gluon-gluon");
 					}
-					break;
+					else
+					{
+						t1->p13 = t2->p13 = PXP;
+					}
 				}
 			}
 		}
 		//
 		// Disregard intermediate values
 		//
-		if(t1->p13 != UXP && t1->p13 != PXP)
+		if(t1->p13 != UXP && t1->p13 != PXP && t1->p13 != REISSUE)
 			t1->p13 = UNDEF;
 	}
 }
