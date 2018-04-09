@@ -8,4 +8,4 @@ This program is being developed under the Eclipse CDT platform and still contain
 Last update: 04/09/2018
 
 
-[a link](https://github.com/automaton3d/automaton/blob/master/other_file.html)
+
