@@ -8,4 +8,4 @@ This program is being developed under the Eclipse CDT platform and still contain
 Last update: 04/09/2018
 
 
-[paypal](https://rawgit.com/automaton3d/automaton/master/donate.html)
+[Why donate?](https://rawgit.com/automaton3d/automaton/master/donate.html)
