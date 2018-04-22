@@ -96,11 +96,18 @@ void addMarker(Tuple xyz)
 	}
 	else
 	{
+		int n = 0;
 		Marker *m = markers;
 		while(m->next)
+		{
 			m = m->next;
-		m->next = malloc(sizeof(Marker));
-		m->next->xyz = xyz;
+			n++;
+		}
+		if(n < 50)
+		{
+			m->next = malloc(sizeof(Marker));
+			m->next->xyz = xyz;
+		}
 	}
 }
 
@@ -776,7 +783,7 @@ void *DisplayLoop()
     	 	{
         	    asprintf(&s, "Select scenario:");
         	    vprints(310, 310, s);
-        	    for(int i = 0; i < 8; i++)
+        	    for(int i = 0; i < 9; i++)
         	    {
         	    	asprintf(&s, "%d - %s", i+1, scenarios[i]);
         	    	vprints(330, 330 + 15*i, s);
