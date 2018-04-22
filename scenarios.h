@@ -24,7 +24,9 @@ void UScenario();
 void UXUScenario();
 void GRAVScenario();
 void SEEDScenario();
-void BigBangScenario();
 void LonePScenario();
+void BigBangScenario();
+void VirtualDecayScenario();
+void AnnihilScenario();
 
 #endif /* SCENARIOS_H_ */
