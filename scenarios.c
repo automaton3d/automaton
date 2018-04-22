@@ -22,8 +22,10 @@ const char *scenarios[] =
 	"No UxU interaction",
 	"UxU interaction",
 	"Gravitons",
-	"Lone pairs",
+	"Annihilation",
 	"Big bang",
+	"Virtual decay of P",
+	"Lone pairs",
 };
 
 int scenario = -1;
@@ -265,4 +267,53 @@ void BigBangScenario()
 	resetTuple(&p4);
 	for(int i = 0; i < NPREONS; i ++)
 		addPreon(p0,i, p4, (i & HEL)?+1:-1, (i & ELT)?+1:-1, (i & CHI)?+1:-1, (i & GRV)?+1:-1, (i & CLR)?LEPT:ANTILEPT, PREON, SYNCH, UNDEF);
+}
+
+/*
+ * Test of axiom 5.
+ */
+void VirtualDecayScenario()
+{
+	p0.x = SIDE/2;
+	p0.y = SIDE/2;
+	p0.z = SIDE/2;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	//
+	Brick *b;
+	b = addPreon(p0,0, p4, +1, -1, -1, NOGRAV, LEPT, PREON, SYNCH+BURST, UNDEF);
+	b->p17 = SIDE;
+	//
+	p4.x -= 1;
+	p4.y -= 1;
+	p4.z -= 1;
+	//
+//	b = addPreon(p0,4, p4, -1, -1, +1, NOGRAV, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
+	b = addPreon(p0,4, p4, +1, -1, -1, NOGRAV, LEPT, PREON, SYNCH+BURST, UNDEF);
+	b->p17 = SIDE;
+}
+
+void AnnihilScenario()
+{
+	showGrid = true;
+	showBox = false;
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,0, p4, +1, -1, +1, +1, LEPT, PREON, 5*SYNCH+BURST, UNDEF);
+	//
+	p0.x = rndCoord();
+	p0.y = rndCoord();
+	p0.z = rndCoord();
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,5, p4, +1, +1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
 }
