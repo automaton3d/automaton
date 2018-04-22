@@ -78,7 +78,7 @@ Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, un
 	t->p8 = p8;
 	t->p9 = p9;
 	t->p15.x = -1;
-	t->p21 = p21;
+	t->p21 = p21 | GRAV;
 	t->p24 = p24;
 	t->p25 = p25;
 	printf("%2d %2d %2d %2d: %+d %+d %+d %+d %02xH\n", p0.x, p0.y, p0.z, w, p5, p6, p7, p8, p9);
@@ -96,7 +96,14 @@ void initAutomaton()
 	//
 	pri0  = malloc(SIDE4 * sizeof(Brick));
 	dual0 = malloc(SIDE4 * sizeof(Brick));
-	srand(time(NULL));
+	//
+	// 0: 934
+	// 3: anomaly 934, 1359
+	// 5: 849
+	// 15: anomaly 849,934
+	// 16: anomaly 849,934
+	//
+	srand(3);//time(NULL));
 	initSineWave();
 	buildLattice(pri0);
 	buildLattice(dual0);
@@ -132,10 +139,13 @@ void initAutomaton()
 			GRAVScenario();
 			break;
 		case 6:
-			LonePScenario();
+			AnnihilScenario();
 			break;
 		case 7:
 			BigBangScenario();
+			break;
+		case 8:
+			VirtualDecayScenario();
 			break;
 	}
 	//
@@ -143,5 +153,3 @@ void initAutomaton()
 	setvbuf(stdout, null, _IOLBF, 0);
 	sleep(3);
 }
-
-
