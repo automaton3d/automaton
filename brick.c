@@ -35,6 +35,6 @@ void cleanBrick(Brick *t)
 char *brick2str(Brick *t)
 {
 	char *ptr;
-	asprintf(&ptr, "[p0=%s,%d p1=%d p23=%u]", tuple2str(&t->p0), t->p18, t->p1, t->p23);
+	asprintf(&ptr, "[p0=%s,%d p3=%s p4=%s p5=%+d p6=%+d p7=%+d p8=%+d p9=%2xH]", tuple2str(&t->p0), t->p19, tuple2str(&t->p3), tuple2str(&t->p4), t->p5, t->p6, t->p7, t->p8, t->p9);
 	return ptr;
 }
