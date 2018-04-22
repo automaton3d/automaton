@@ -13,8 +13,6 @@ const Tuple X0 = { 1,0,0 };
 const Tuple Y0 = { 0,1,0 };
 const Tuple Z0 = { 0,0,1 };
 
-const Tuple V0 = { 1.732*SIDE, 1.732*SIDE, 1.732*SIDE};
-
 int minXYZ(Tuple *v)
 {
 	return min(min(abs(v->x), abs(v->y)), abs(v->z));
@@ -112,12 +110,19 @@ double mod2Tuple(Tuple *v)
 	return v->x * v->x + v->y * v->y + v->z * v->z;
 }
 
+/*
+ * Modulo SIDE/2.
+ */
 void normalizeTuple(Tuple *t)
 {
-	double h = sqrt(t->x * t->x + t->y * t->y + t->z * t->z);
-	t->x = (int)(t->x * SIDE / h);
-	t->y = (int)(t->y * SIDE / h);
-	t->z = (int)(t->z * SIDE / h);
+	double m = 2*modTuple(t);
+	if(m > 0)
+	{
+		double h = SIDE/(2*modTuple(t));
+		t->x = (int)(t->x*h);
+		t->y = (int)(t->y*h);
+		t->z = (int)(t->z*h);
+	}
 }
 
 void tupleCross(Tuple v1, Tuple v2, Tuple *v3)
@@ -201,4 +206,5 @@ char *tuple2str(Tuple *t)
 	asprintf((char **)&s, "[%d,%d,%d]", t->x, t->y, t->z);
 	return s;
 }
+
 
