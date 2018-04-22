@@ -126,6 +126,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 					case '6':
 					case '7':
 					case '8':
+					case '9':
 						scenario = (wparam & 0x0f) - 1;
 						initPlot(pixels);
 						pthread_create(&loop, NULL, &AutomatonLoop, NULL);
@@ -230,4 +231,3 @@ void DeleteAutomaton()
 	free(pri0);
 	free(dual0);
 }
-
