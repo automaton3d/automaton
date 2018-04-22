@@ -11,6 +11,11 @@
 
 #define UNDEF		0
 
+// p8 gravity
+
+#define GENGRAV		+1
+#define NOGRAV		-1
+
 // p9 color
 
 #define RED    		0x20
@@ -34,11 +39,17 @@
 #define UXP			7
 #define UXG			8
 #define REISSUE		9
+#define ANNIHIL		10
+#define VACUUM		11
+
+// p16
+
+#define FREE		0
+#define BOUND		1
 
 // p21 status
 
 #define	PREON		0X01
-//#define SEED		0X02
 #define GRAV		0X04
 
 // p25 burst type
@@ -58,6 +69,7 @@ typedef struct
 	Tuple			p4;		// spin direction
 	char			p5;		// helicity
 	char			p6;		// electric charge
+	char			p6s;	// static force
 	char			p7;		// chirality
 	char			p8;		// gravity charge
 	unsigned char	p9;		// color and conjugation
