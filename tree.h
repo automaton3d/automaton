@@ -1,9 +1,6 @@
 /*
  * tree.h
- *
- *  Created on: 9 de abr de 2017
- *      Author: Alexandre
- */
+  */
 
 #ifndef TREE_H_
 #define TREE_H_
