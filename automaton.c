@@ -17,12 +17,12 @@
 #include "plot3d.h"
 #include "rotation.h"
 #include "text.h"
+#include "tree.h"
 
 // The lattices
 
 Brick *pri0, *dual0;
 Brick *pri, *dual;
-int limit;
 char rotateRight[] = { 0, 4, 1, 0, 2, 0, 0, 0 };
 char qcd[] = { 0x3f, 0x01, 0x02, 0x04, 0x20, 0x10, 0x08, 0x3f };
 boolean img_changed;
@@ -30,7 +30,7 @@ boolean img_changed;
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
  */
-boolean isAllowed(int dir, Tuple p, unsigned char d0)
+boolean isAllowed___(int dir, Tuple p, unsigned char d0)
 {
 	double d1 = mod2Tuple(&p);
 	int x = p.x + dirs[dir].x;
@@ -121,7 +121,7 @@ int conjug(Brick *t)
  */
 boolean vacuum(Brick *t)
 {
-	return t->p22 && isNull(t->p3) && isNull(t->p4) && t->p8==NOGRAV && !t->p10 && t->p16==FREE && (t->p21 & PREON);
+	return t->p22 && isNull(t->p3) && isNull(t->p4) && t->p8==VIRTUAL && !t->p10 && t->p16==FREE && (t->p21 & PREON);
 }
 
 /*
@@ -217,7 +217,10 @@ boolean interaction(Brick *t)
 	// Reissue preon
 	//
 	t->p24 = t->p1 - t->p1 % SYNCH + SYNCH;	// Calculate new wake time
-	t->p21 |= GRAV;
+	if(!isNull(t->p4))
+		t->p21 |= GRAV;
+	t->p17 = SIDE;
+	dual->p6s = 0;
 	//
 	// Axiom 7 - Vacuum symmetry breaking
 	//
@@ -226,7 +229,6 @@ boolean interaction(Brick *t)
 		printf("%ld: REISSUE %s\n", timer, tuple2str(&t->p0));
 		resetTuple(&t->p2);
 		t->p13 = UNDEF;
-		t->p17 = SIDE;
 		return true;		// Inhibit expansion
 	}
 	if(t->p13 == VACUUM)
@@ -234,22 +236,24 @@ boolean interaction(Brick *t)
 		// P <- P0
 		// (P returns to vacuum)
 		//
+		resetTuple(&t->p2);
 		resetTuple(&t->p3);
 		resetTuple(&t->p4);
 		t->p10 = 0;
-		t->p16 = FREE;
-		resetTuple(&t->p2);
 		t->p13 = UNDEF;
+		t->p16 = FREE;
 		t->p17 = SIDE;
 		return true;		// Inhibit expansion
 	}
+	Brick *peer = dual0 + (SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z) * NPREONS + t->p20;
 	if(t->p13 == ANNIHIL)
 	{
+		printf("%ld: ANNIHIL %s\n", timer, tuple2str(&t->p0));
 		resetTuple(&t->p2);
 		t->p13 = UNDEF;
-		t->p17 = SIDE;
-
-		Brick *peer = dual0 + (SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z) * NPREONS + t->p20;
+		//
+		// Set spins of P in opposite directions
+		//
 		if(t->p19 > peer->p19)
 		{
 			t->p3 = peer->p3;
@@ -262,11 +266,6 @@ boolean interaction(Brick *t)
 		}
 		t->p10 = 0;
 		t->p16 = FREE;
-
-
-
-
-
 		return true;		// Inhibit expansion
 	}
 	//
@@ -276,10 +275,8 @@ boolean interaction(Brick *t)
 	//
 	// Axiom 7 - Entanglement
 	//
-	Brick *t2 = dual0 + (SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z) * NPREONS + t->p20;
-
-	t->p10 = t->p19 * t2->p19;
-	tupleCross(t->p4, t2->p4, &t->p4);
+	t->p10 = t->p19 * peer->p19;
+	tupleCross(t->p4, peer->p4, &t->p4);
 	if(t->p19 > t->p20)
 		invertTuple(&t->p4);
 	//
@@ -295,7 +292,7 @@ boolean interaction(Brick *t)
 	//
 	// Real preon?
 	//
-	if(t->p8 == GENGRAV)
+	if(t->p8 == REAL)
 	{
 		t->p21 |= GRAV;		// Axiom 10 - Launch graviton
 		t->p4 = t->p2;
@@ -381,7 +378,7 @@ void expandBurst()
 		//
 		resetTuple(&dual->p3);
 		resetTuple(&dual->p4);
-		dual->p8 = NOGRAV;
+		dual->p8 = VIRTUAL;
 		dual->p10 = 0;
 		dual->p16 = FREE;
 		//
@@ -395,40 +392,59 @@ void expandBurst()
  */
 void expandPreon()
 {
-	if((pri->p21 & (PREON | GRAV)) == 0 || pri->p1 <= pri->p24)
+	if((pri->p21 & (PREON | GRAV)) == 0 || pri->p1 <= pri->p24 || pri->p13 == REISSUE || pri->p13 == VACUUM)
 		return;
 	//
 	assert(timer%SYNCH==pri->p1%SYNCH);
 	if(isNull(pri->p2))
 		dual->p1 %= SYNCH;
+	if(timer == 723 && pri->p0.x == 5 && pri->p0.y ==12 && pri->p0.z == 9)
+		puts("puts");
 	//
 	// Tree expansion
 	//
 	int bestDot = -3*SIDE2/4;
 	Brick *bestNual = NULL;
 	boolean isGrav = pri->p21 & GRAV;
+	int n = 0;
 	for(int dir = 0; dir < NDIR; dir++)
 	{
 		if(isAllowed(dir, pri->p2, pri->p23))
 		{
 			Brick *nual = getNeighbor(dir, dual);
-			if(nual->p21 & GRAV)
+			if((nual->p21 & PREON)  == 0)
 			{
-				nual->p21 &= ~GRAV;
-				Tuple p2 = nual->p2;
-				normalizeTuple(&p2);
-				int dot = tupleDot(&pri->p4, &p2);
-				if(dot > bestDot)
+				copyBrick(nual, dual);
+				//
+				// Axiom 5 - Virtual decay of P
+				//
+				nual->p17 >>= 1;
+				//
+				nual->p23 = dir;
+				nual->p24 = SYNCH * (modTuple(&nual->p2) + 0.5);
+				int distance = (int) modTuple(&nual->p2) / (2 * DIAMETER);
+				if(distance > 0)
 				{
-					bestDot = dot;
-					bestNual = nual;
+					// Axiom 4 - Interference
+					// (exponential decay)
+					//
+					if(pri->p14 > 0)
+					{
+						dual->p14 *= (SIDE - SIDE / (2*distance));
+						if(dual->p14 < 0)
+							dual->p14 = 0;
+					}
+					else if(dual->p14 < 0)
+					{
+						dual->p14 *= (SIDE + SIDE / (2*distance));
+						if(dual->p14 > 0)
+							dual->p14 = 0;
+					}
 				}
-				continue;
+				addTuples(&nual->p2, dirs[dir]);	// update origin vector
 			}
-			if(nual->p21 & PREON)
-				continue;
-			copyBrick(nual, dual);
-			addTuples(&nual->p2, dirs[dir]);	// update origin vector
+			//
+			nual->p21 &= ~GRAV;					// erase GRAV bit
 			if(isGrav)
 			{
 				Tuple p2 = nual->p2;
@@ -440,60 +456,31 @@ void expandPreon()
 					bestNual = nual;
 				}
 			}
-			nual->p23 = dir;
-			nual->p24 = SYNCH * (modTuple(&nual->p2) + 0.5);
-			int distance = (int) modTuple(&nual->p2) / (2 * DIAMETER);
-			if(distance > 0)
-			{
-				// Axiom 4 - Interference
-				// (exponential decay)
-				//
-				if(pri->p14 > 0)
-				{
-					dual->p14 *= (SIDE - SIDE / (2*distance));
-					if(dual->p14 < 0)
-						dual->p14 = 0;
-				}
-				else if(dual->p14 < 0)
-				{
-					dual->p14 *= (SIDE + SIDE / (2*distance));
-					if(dual->p14 > 0)
-						dual->p14 = 0;
-				}
-			}
-			//
-			// Axiom 5 - Virtual decay of P
-			//
-			nual->p17 >>= 1;
-			nual->p21 &= ~GRAV;					// erase GRAV bit
+			n++;
 		}
 	}
-	if(isGrav && bestNual)
+	if(bestNual != NULL)
 	{
 		bestNual->p21 |= GRAV;
-		addMarker(pri->p0);
-		if(bestNual->p16 == FREE &&
-		   bestNual->p8 == NOGRAV &&
-		   bestNual->p17 == 0 &&
-		   (bestNual->p7 == -1 || bestNual->p9 != LEPT || bestNual->p9 != ANTILEPT) &&
-		   !isNull(bestNual->p4))
+		addMarker(bestNual->p0);
+		//
+		// Axiom 4 - Interference
+		// (exponential decay)
+		//
+		if(bestNual->p16 == FREE && bestNual->p8 == VIRTUAL && bestNual->p17 == 0 &&
+		   (bestNual->p7 == -1 || bestNual->p9 != LEPT || bestNual->p9 != ANTILEPT) && !isNull(bestNual->p4))
 		{
 			bestNual->p13 = VACUUM;
+			bestNual->p17 = SIDE;
+			printf("===================VAC==================== %ld: %s->%s\n", timer, tuple2str(&pri->p0), tuple2str(&bestNual->p0));
 		}
 	}
 	//
 	// Check wrapping
 	//
-	if((int)modTuple(&pri->p2) == limit && pri->p23 == 3)
+	if(pri->p2.x == -SIDE/2 && pri->p2.y == -SIDE/2 && pri->p2.z == -SIDE/2)
 	{
-		// Reissue
-		//
-		dual->p13 = UNDEF;
 		resetTuple(&dual->p2);
-		//
-		// Undo EMP
-		//
-		dual->p6s = 0;
 		dual->p21 |= GRAV;
 	}
 	else
@@ -553,7 +540,7 @@ void classify1()
 		nuxg = 0;
 		t2 = dual;
 		for(w2 = 0; w2 < NPREONS; w2++, t2++)
-			if(w1 != w2 && t2->p21 == GRAV && t1->p8 == GENGRAV && !isEqual(t1->p2, t2->p2))
+			if(w1 != w2 && t2->p21 == GRAV && t1->p8 == REAL && !isEqual(t1->p2, t2->p2))
 				nuxg++;
 		if(nuxg)
 		{
@@ -571,7 +558,7 @@ void classify1()
 					w2 = 0;
 					t2 = dual;
 				}
-				if(t2->p21 == GRAV && t1->p8 == GENGRAV && !isEqual(t1->p2, t2->p2))
+				if(t2->p21 == GRAV && t1->p8 == REAL && !isEqual(t1->p2, t2->p2))
 				{
 					nuxg--;
 					peer = t2;
@@ -903,8 +890,8 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		resetTuple(&p2->p3);
 		resetTuple(&p1->p4);
 		resetTuple(&p2->p4);
-		p1->p8 = NOGRAV;
-		p2->p8 = NOGRAV;
+		p1->p8 = VIRTUAL;
+		p2->p8 = VIRTUAL;
 		p1->p10 = 0;
 		p2->p10 = 0;
 		p1->p16 = p2->p16 = FREE;
@@ -913,8 +900,8 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		resetTuple(&p2c->p3);
 		resetTuple(&p1c->p4);
 		resetTuple(&p2c->p4);
-		p1c->p8 = NOGRAV;
-		p2c->p8 = NOGRAV;
+		p1c->p8 = VIRTUAL;
+		p2c->p8 = VIRTUAL;
 		p1c->p10 = 0;
 		p2c->p10 = 0;
 		p1c->p16 = p2c->p16 = FREE;
