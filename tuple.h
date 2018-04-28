@@ -38,4 +38,3 @@ Tuple getDirection(Tuple a, Tuple b);
 int minXYZ(Tuple *v);
 
 #endif /* TUPLE_H_ */
-
