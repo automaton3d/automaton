@@ -25,4 +25,12 @@
 #define GRAY    5
 #define BOX		6
 
+// Special keys
+
+#define ESC		27
+
+// Other symbols
+
+#define NSCENES	14
+
 #endif /* COMMON_H_ */
