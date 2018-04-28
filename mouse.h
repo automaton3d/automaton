@@ -1,8 +1,5 @@
 /*
  * mouse.h
- *
- *  Created on: 24 de jul de 2017
- *      Author: Alexandre
  */
 
 #ifndef MOUSE_H_
@@ -16,7 +13,6 @@ extern double radius;
 
 /// Functions ///
 
-void mouse(char op, int x, int y);
+int mouse(char op, int x, int y);
 
 #endif /* MOUSE_H_ */
-
