@@ -13,8 +13,8 @@
 
 // p8 gravity
 
-#define GENGRAV		+1
-#define NOGRAV		-1
+#define REAL		+1
+#define VIRTUAL		-1
 
 // p9 color
 
@@ -31,16 +31,18 @@
 
 // p13 preon interactions
 
-#define U			1			// unpaired
-#define P			2			// pair
+#define U			1		// unpaired
+#define P			2		// pair
 
-#define PXP			5
-#define UXU			6
-#define UXP			7
-#define UXG			8
-#define REISSUE		9
-#define ANNIHIL		10
-#define VACUUM		11
+#define PXP			3
+#define UXU			4
+#define UXP			5
+#define UXG			6
+#define REISSUE		7
+#define ANNIHIL		8
+#define VACUUM		9
+#define INERTIA		10
+#define EM_BOSON	11
 
 // p16
 
@@ -105,5 +107,6 @@ char *brick2str(Brick *t);
 void copyBrick(Brick *dst, Brick *org);
 void cleanBrick(Brick *t);
 unsigned signature(Brick *b);
+boolean isColored(Brick *b);
 
 #endif /* PREON_H_ */
