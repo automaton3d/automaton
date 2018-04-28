@@ -705,6 +705,14 @@ void updateCamera()
         direction.z = _direction.z;
 }
 
+void enhance(int x, int y, int h, int v)
+{
+	int idx = (HEIGHT-y) * WIDTH + x;
+	for(int i = 0; i < v; i++, idx -= WIDTH+h)
+		for(int j = 0; j < h; j++, idx++)
+			pixels[idx] ^= 0x00ffffffff;
+}
+
 void visualize()
 {
 	if(pri0->p1 % 2 == 0)
@@ -716,47 +724,61 @@ void visualize()
 	 	char *s;
 	    asprintf(&s, "Automaton %dx%dx%dx%d", SIDE, SIDE, SIDE, SIDE);
 	    vprints(20, 20, s);
+	    free(s);
 	    //
-	    asprintf(&s, "Scenario: %s", scenarios[scenario]);
+	    asprintf(&s, "Scenario: %s", sceneNames[scene]);
 	    vprints(330, 20, s);
+	    free(s);
 	    //
 	    asprintf(&s, "Elapsed: %lu ms", GetTickCount() - begin);
 	    vprints(20, 40, s);
+	    free(s);
 	    //
 	    asprintf(&s, "Views:");
 	    vprints(20, 70, s);
+	    free(s);
 	    //
 	    asprintf(&s, "0: isometric");
 	    vprints(25, 90, s);
+	    free(s);
 	    //
 	    asprintf(&s, "1: xy");
 	    vprints(25, 110, s);
+	    free(s);
 	    //
 	    asprintf(&s, "2: yz");
 	    vprints(25, 130, s);
+	    free(s);
 	    //
 	    asprintf(&s, "3: zx");
 	    vprints(25, 150, s);
+	    free(s);
 	    //
 	 	asprintf(&s, "ls=%lu  clk=%lu", timer / (2 * DIAMETER), timer);
 		vprints(20, 740, s);
+	    free(s);
 		//
 	    asprintf((char **)&s, "A: axes on/off");
 	    vprints(620, 680, s);
+	    free(s);
 	    //
 	    asprintf((char **)&s, "S: pause/resume");
 	    vprints(620, 700, s);
+	    free(s);
 	    //
 	    asprintf((char **)&s, "G: grid on/off");
 	    vprints(620, 720, s);
+	    free(s);
 	    //
 	    asprintf((char **)&s, "X: box on/off");
 	    vprints(620, 740, s);
+	    free(s);
 		//
 	    if(stop)
 	    {
 	    	asprintf((char **)&s, "[PAUSED]");
 	    	vprints(370, 395, s);
+		    free(s);
 	    }
 		//
 		// Update screen
@@ -779,14 +801,14 @@ void *DisplayLoop()
     		clearBuffer();
     		//
     	 	char *s;
-    	 	if(scenario == -1)
+    	 	if(scene == -1)
     	 	{
         	    asprintf(&s, "Select scenario:");
-        	    vprints(310, 310, s);
-        	    for(int i = 0; i < 9; i++)
+        	    vprints(300, 290, s);
+        	    for(int i = 0; i < NSCENES; i++)
         	    {
-        	    	asprintf(&s, "%d - %s", i+1, scenarios[i]);
-        	    	vprints(330, 330 + 15*i, s);
+        	    	asprintf(&s, "%s", sceneNames[i]);
+        	    	vprints(320, 310 + 15*i, s);
         	    }
     	 	}
     	 	else
@@ -794,6 +816,8 @@ void *DisplayLoop()
     	    	asprintf((char **)&s, "[WAIT...]");
     	    	vprints(370, 395, s);
     	 	}
+			if(item >= 0)
+				enhance(320, 310 + item*15, 200, 10);
     		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
     		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
             usleep(200000);
