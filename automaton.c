@@ -196,111 +196,14 @@ void exchangeColors(Brick *t1, Brick *t2)
 	t2->p9 = c2;
 }
 
-/*
- * Executes final procedures after collision detection.
- */
-boolean interaction(Brick *t)
+Brick *complement(Brick *b)
 {
-	// Interaction occurs at the last tick of the time frame
-	// to avoid the burst waiting
-	//
-	if(t->p13 < UXU || t->p1 % SYNCH > 0)
-		return false;
-	//
-	// Axiom 8 - Launch burst
-	//
-	t->p15 = t->p0;
-	t->p18 = signature(t);
-	t->p25 = DESTROY;
-	resetTuple(&t->p26);
-	//
-	// Reissue preon
-	//
-	t->p24 = t->p1 - t->p1 % SYNCH + SYNCH;	// Calculate new wake time
-	if(!isNull(t->p4))
-		t->p21 |= GRAV;
-	t->p17 = SIDE;
-	dual->p6s = 0;
-	//
-	// Axiom 7 - Vacuum symmetry breaking
-	//
-	if(t->p13 == REISSUE)
-	{
-		printf("%ld: REISSUE %s\n", timer, tuple2str(&t->p0));
-		resetTuple(&t->p2);
-		t->p13 = UNDEF;
-		return true;		// Inhibit expansion
-	}
-	if(t->p13 == VACUUM)
-	{
-		// P <- P0
-		// (P returns to vacuum)
-		//
-		resetTuple(&t->p2);
-		resetTuple(&t->p3);
-		resetTuple(&t->p4);
-		t->p10 = 0;
-		t->p13 = UNDEF;
-		t->p16 = FREE;
-		t->p17 = SIDE;
-		return true;		// Inhibit expansion
-	}
-	Brick *peer = dual0 + (SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z) * NPREONS + t->p20;
-	if(t->p13 == ANNIHIL)
-	{
-		printf("%ld: ANNIHIL %s\n", timer, tuple2str(&t->p0));
-		resetTuple(&t->p2);
-		t->p13 = UNDEF;
-		//
-		// Set spins of P in opposite directions
-		//
-		if(t->p19 > peer->p19)
-		{
-			t->p3 = peer->p3;
-			t->p4 = peer->p4;
-		}
-		else
-		{
-			peer->p3 = t->p3;
-			peer->p4 = t->p4;
-		}
-		t->p10 = 0;
-		t->p16 = FREE;
-		return true;		// Inhibit expansion
-	}
-	//
-	// Axiom 7 - Spin rotation
-	//
-	rotateSpin(t);
-	//
-	// Axiom 7 - Entanglement
-	//
-	t->p10 = t->p19 * peer->p19;
-	tupleCross(t->p4, peer->p4, &t->p4);
-	if(t->p19 > t->p20)
-		invertTuple(&t->p4);
-	//
-	// Axiom 10 - Vacuum expansion
-	//
-	if(t->p22 && vacuum(t))
-	{
-		if(t->p19 > t->p20)
-			t->p9 = qcd[t->p1 & 0x03];
-		else
-			t->p9 = qcd[8 - (t->p1 & 0x03)];
-	}
-	//
-	// Real preon?
-	//
-	if(t->p8 == REAL)
-	{
-		t->p21 |= GRAV;		// Axiom 10 - Launch graviton
-		t->p4 = t->p2;
-	}
-	t->p13 = UNDEF;
-	resetTuple(&t->p2);
-	//
-	return true;
+	return dual0 + (SIDE2*b->p0.x + SIDE*b->p0.y + b->p0.z)*NPREONS + b->p20;
+}
+
+boolean ready(Brick *b)
+{
+	return b->p13 == REISSUE || b->p13 == ANNIHIL || b->p13 == VACUUM || b->p13 == INERTIA || b->p13 == EM_BOSON;
 }
 
 /*
@@ -310,6 +213,7 @@ void expandBurst()
 {
 	if(!pri->p25)
 		return;
+	assert(timer%SYNCH==pri->p1%SYNCH);
 	double d = modTuple(&pri->p26);
 	for(int dir = 0; dir < NDIR; dir++)
 	{
@@ -323,14 +227,14 @@ void expandBurst()
 			//
 			// Axiom 2 - Burst conflict resolution
 			//
-			if(nual->p18 > pri->p18)
+			if(nual->p25 && nual->p18 > pri->p18)
 				continue;
 			//
 			// Axiom 13 - Cancellation
 			//
 			if(dual->p25 == CANCEL)
 			{
-				nual->p1 = dual->p1;
+				nual->p1 = dual->p1;	// ?????
 				nual->p18 = dual->p18;
 				nual->p25 = CANCEL;
 			}
@@ -392,21 +296,22 @@ void expandBurst()
  */
 void expandPreon()
 {
-	if((pri->p21 & (PREON | GRAV)) == 0 || pri->p1 <= pri->p24 || pri->p13 == REISSUE || pri->p13 == VACUUM)
+	if((pri->p21 & (PREON | GRAV)) == 0 || pri->p1 <= pri->p24 || ready(pri))
 		return;
 	//
 	assert(timer%SYNCH==pri->p1%SYNCH);
 	if(isNull(pri->p2))
 		dual->p1 %= SYNCH;
-	if(timer == 723 && pri->p0.x == 5 && pri->p0.y ==12 && pri->p0.z == 9)
-		puts("puts");
 	//
 	// Tree expansion
 	//
-	int bestDot = -3*SIDE2/4;
+	double bestDot = -1;
+	Vector3d p4;
+	p4.x = pri->p4.x;
+	p4.y = pri->p4.y;
+	p4.z = pri->p4.z;
 	Brick *bestNual = NULL;
 	boolean isGrav = pri->p21 & GRAV;
-	int n = 0;
 	for(int dir = 0; dir < NDIR; dir++)
 	{
 		if(isAllowed(dir, pri->p2, pri->p23))
@@ -447,32 +352,33 @@ void expandPreon()
 			nual->p21 &= ~GRAV;					// erase GRAV bit
 			if(isGrav)
 			{
-				Tuple p2 = nual->p2;
-				normalizeTuple(&p2);
-				int dot = tupleDot(&pri->p4, &p2);
+				Vector3d p2;
+				p2.x = nual->p2.x;
+				p2.y = nual->p2.y;
+				p2.z = nual->p2.z;
+				norm3d(&p2);
+				double dot = dot3d(p4, p2);
 				if(dot > bestDot)
 				{
 					bestDot = dot;
 					bestNual = nual;
 				}
 			}
-			n++;
 		}
 	}
 	if(bestNual != NULL)
-	{
 		bestNual->p21 |= GRAV;
-		addMarker(bestNual->p0);
-		//
-		// Axiom 4 - Interference
-		// (exponential decay)
-		//
-		if(bestNual->p16 == FREE && bestNual->p8 == VIRTUAL && bestNual->p17 == 0 &&
-		   (bestNual->p7 == -1 || bestNual->p9 != LEPT || bestNual->p9 != ANTILEPT) && !isNull(bestNual->p4))
+	//
+	// Axiom 4 - Interference
+	// (exponential decay)
+	//
+	if(pri->p16 == FREE && pri->p8 == VIRTUAL && pri->p17 == 0 &&
+	   (pri->p7 == -1 || pri->p9 != LEPT || pri->p9 != ANTILEPT) && !isNull(pri->p4) && pri->p22)
+	{
+		if(pri->p2.x == pri->p2.y && pri->p2.y == pri->p2.z && pri->p2.x > 0)
 		{
-			bestNual->p13 = VACUUM;
-			bestNual->p17 = SIDE;
-			printf("===================VAC==================== %ld: %s->%s\n", timer, tuple2str(&pri->p0), tuple2str(&bestNual->p0));
+			dual->p13 = VACUUM;
+			return;
 		}
 	}
 	//
@@ -498,17 +404,11 @@ boolean isP(Brick *t1, Brick *t2)
 		(t2->p21 & PREON)			&&
 		!isNull(t2->p2)				&&
 		isEqual(t1->p2, t2->p2) 	&&
-//		t1->p5 == t2->p5			&&
 		t1->p6 == -t2->p6			&&
 		t1->p7 == -t2->p7			&&
 		t1->p8 == t2->p8			&&
 		t1->p9 == (~t2->p9 & 0x3f)	&&
 		t1->p16 == t2->p16;
-}
-
-Brick *complement(Brick *b)
-{
-	return dual0 + (SIDE2*b->p0.x + SIDE*b->p0.y + b->p0.z)*NPREONS + b->p20;
 }
 
 /*
@@ -517,10 +417,9 @@ Brick *complement(Brick *b)
  */
 void classify1()
 {
-	if(pri->p1 % SYNCH < SYNCH-1 || pri->p13 == VACUUM)
-		return;
-	//
+	unsigned char p13[NPREONS] = { UNDEF };
 	Brick *t1 = dual, *t2;
+	Brick *peer = NULL;
 	int nuxg, npair, nuxu;
 	int w2;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
@@ -531,6 +430,7 @@ void classify1()
 			continue;
 		}
 		t1->p13 = U;
+		p13[t1->p19] = U;
 		incrDFO(t1);
 		//
 		// Detect UXG
@@ -549,7 +449,7 @@ void classify1()
 			nuxg >>= 1;
 			t2 = t1;
 			w2 = t1->p19;
-			Brick *peer = NULL;
+			peer = NULL;
 			while(nuxg)
 			{
 				w2++; t2++;
@@ -558,6 +458,7 @@ void classify1()
 					w2 = 0;
 					t2 = dual;
 				}
+				assert(w1 != w2);
 				if(t2->p21 == GRAV && t1->p8 == REAL && !isEqual(t1->p2, t2->p2))
 				{
 					nuxg--;
@@ -569,7 +470,8 @@ void classify1()
 			//
 			// Axiom 12 - Graviton detection
 			//
-			t1->p13 = peer->p13 = UXG;
+			t1->p13 = UXG;
+			peer->p13 = UXG;
 			t1->p3  = t2->p3;	// U inherits G's LM direction
 			continue;
 		}
@@ -579,8 +481,11 @@ void classify1()
 		npair = 0;
 		t2 = dual;
 		for(w2 = 0; w2 < NPREONS; w2++, t2++)
-			if(w1 != w2 && isP(t1, t2))
+			if(w1 != w2 && isP(t1, t2) && !ready(t1) && !ready(t2))
+			{
 				npair++;
+				peer = t2;
+			}
 		if(npair)
 		{
 			// Select unambiguous peer
@@ -588,7 +493,6 @@ void classify1()
 			npair >>= 1;
 			t2 = t1;
 			w2 = t1->p19;
-			Brick *peer = NULL;
 			while(npair)
 			{
 				w2++; t2++;
@@ -597,7 +501,8 @@ void classify1()
 					w2 = 0;
 					t2 = dual;
 				}
-				if(w1 != w2 && isP(t1, t2))
+				assert(w1 != w2);
+				if(isP(t1, t2) && !ready(t1) && !ready(t2))
 				{
 					npair--;
 					if(!t1->p22 && !t2->p22)
@@ -612,11 +517,14 @@ void classify1()
 					incrDFO(t1);
 				}
 			}
-			if(peer != NULL)
-			{
-				t1->p13 = peer->p13 = P;
-				t1->p22 = peer->p22 = true;
-			}
+			t1->p13 = P;
+			peer->p13 = P;
+			p13[t1->p19] = P;
+			p13[peer->p19] = P;
+			t1->p22 = true;
+			peer->p22 = true;
+			t1->p20 = peer->p19;	// patch
+			peer->p20 = t1->p19;	// patch
 			continue;
 		}
 		//
@@ -626,9 +534,8 @@ void classify1()
 		t2 = dual;
 		for(w2 = 0; w2 < NPREONS; w2++, t2++)
 			if(w1 != w2 && t1->p8 == t2->p8 && (t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) &&
-			   t1->p13 != REISSUE && t2->p13 != REISSUE && t1->p13 != PXP && t2->p13 != PXP)
+			   !ready(t1) && !ready(t2) && !t2->p22)
 				nuxu++;
-		Brick *peer;
 		if(nuxu)
 		{
 			// Select unambiguous peer
@@ -649,7 +556,7 @@ void classify1()
 					t2 = dual;
 				}
 				//
-				if(t1->p8 == t2->p8 && (t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) && t1->p13 != REISSUE && t2->p13 != REISSUE)
+				if(t1->p8 == t2->p8 && (t2->p21 & PREON) && !isNull(t1->p2) && !isEqual(t1->p2, t2->p2) && !ready(t1) && !ready(t2) && !t2->p22)
 				{
 					nuxu--;
 					//
@@ -667,31 +574,38 @@ void classify1()
 			{
 				// Annihilation
 				//
-				t1->p13 = t2->p13 = ANNIHIL;
+				p13[t1->p19] = ANNIHIL;
+				p13[t2->p19] = ANNIHIL;
 			}
 			else if(t1->p9 == t2->p9)
 			{
 				// Both Us are reissued
 				//
-				t1->p13 = t2->p13 = UXU;
+				p13[t1->p19] = UXU;
+				p13[t2->p19] = UXU;
 				t1->p15 = t1->p0;
 				t2->p15 = t1->p0;
 				t1->p20 = t1->p19;
 			}
 		}
 	}
+	t1 = dual;
+	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
+		t1->p13 = p13[w1];
 }
 
 /*
  * UXP interactions.
  */
-boolean UXPaction(Brick *u, Brick *p)
+boolean UXPaction(Brick *u, Brick *p, unsigned char *p13)
 {
 	boolean grav = (u->p13 == UXG);
 	//
 	// Default interaction type
 	//
-	u->p13 = p->p13 = complement(p)->p13 = UXP;
+	u->p13 = UXP;
+	p->p13 = UXP;
+	complement(p)->p13 = UXP;
 	//
 	// Reissue occurs at the contact point
 	//
@@ -711,7 +625,8 @@ boolean UXPaction(Brick *u, Brick *p)
 	{
 		// P0 is on-shell
 		//
-		p->p16 = complement(p)->p16 = BOUND;
+		p->p16 = BOUND;
+		complement(p)->p16 = BOUND;
 		//
 		// Mark U as consumed
 		//
@@ -719,7 +634,8 @@ boolean UXPaction(Brick *u, Brick *p)
 		//
 		// P is aligned with spin of origin G
 		//
-		p->p3 = complement(p)->p3 = u->p4;
+		p->p3 = u->p4;
+		complement(p)->p3 = u->p4;
 		return true;
 	}
 	//
@@ -729,8 +645,13 @@ boolean UXPaction(Brick *u, Brick *p)
 	{
 		// The P acquires static boson properties
 		//
-		p->p6s = complement(p)->p6s = u->p6;
-		p->p4 = complement(p)->p4 = u->p4;
+		p->p6s = u->p6;
+		complement(p)->p6s = u->p6;
+		p->p4 = u->p4;
+		complement(p)->p4 = u->p4;
+		p13[u->p19] = EM_BOSON;
+		p13[p->p19] = EM_BOSON;
+		p13[complement(p)->p19] = EM_BOSON;
 		return true;
 	}
 	//
@@ -739,7 +660,9 @@ boolean UXPaction(Brick *u, Brick *p)
 	//
 	else if(pwm(p->p14) && (light % cycle) < cycle / 8)
 	{
-		p->p3 = complement(p)->p3 = p->p2;
+		puts("Coulomb");
+		p->p3 = p->p2;
+		complement(p)->p3 = p->p2;
 		subTuples(&u->p3, u->p2);
 		if(p->p6 == u->p6)
 		{
@@ -760,6 +683,7 @@ boolean UXPaction(Brick *u, Brick *p)
 	//
 	else if(!isNull(p->p4) && !isNull(u->p4) && pwm(p->p14) && (light % cycle) < cycle / 4 && pwm(tupleDot(&p->p4, &u->p4) / SIDE - SIDE) / 2)
 	{
+		puts("Magn.");
 		Tuple radial = p->p2;
 		subTuples(&radial, u->p2);
 		tupleCross(p->p4, radial, &p->p3);
@@ -769,8 +693,7 @@ boolean UXPaction(Brick *u, Brick *p)
 		//
 		// turn off EM P
 		//
-		if(p->p19 < p->p20)
-			p->p6 = -p->p6;
+		p->p6s = 0;
 		return true;
 	}
 	//
@@ -778,6 +701,7 @@ boolean UXPaction(Brick *u, Brick *p)
 	//
 	else if(p->p6 == -u->p6 && p->p16 == FREE)
 	{
+		puts("Absorp.");
 		// Reissue all superposed preons
 		//
 		Brick *t2_ = dual;
@@ -793,9 +717,11 @@ boolean UXPaction(Brick *u, Brick *p)
 	//
 	// Axiom 12 - Strong interaction
 	//
-	else if(p->p9 & u->p9)
+	else if(isColored(u) && (p->p9 & u->p9))
 	{
-		p->p3 = complement(p)->p3 = p->p2;
+		puts("Strong");
+		p->p3 = p->p2;
+		complement(p)->p3 = p->p2;
 		subTuples(&u->p3, u->p2);
 		//
 		// Axiom 11 - Color exchange
@@ -810,7 +736,9 @@ boolean UXPaction(Brick *u, Brick *p)
 			p->p7 == -conjug(p) && u->p7 == -conjug(u) &&
 			pwm(p->p14) && pwm(u->p14))
 	{
-		p->p3 = complement(p)->p3 = p->p2;
+		puts("Weak");
+		p->p3 = p->p2;
+		complement(p)->p3 = p->p2;
 		subTuples(&u->p3, u->p2);
 		//
 		// Axiom 14 - Weak harvesting
@@ -818,7 +746,8 @@ boolean UXPaction(Brick *u, Brick *p)
 		if(vacuum(p))
 		{
 			u->p17 = SIDE;
-			p->p16 = complement(p)->p16 = BOUND;
+			p->p16 = BOUND;
+			complement(p)->p16 = BOUND;
 		}
 		return true;
 	}
@@ -829,21 +758,37 @@ boolean UXPaction(Brick *u, Brick *p)
 	{
 		// Parallel transport
 		//
+		Tuple p3 = p->p3;
+		scaleTuple(&p3, modTuple(&p->p2));
+		//
 		subRectify(&p->p15, p->p2);
-		addRectify(&p->p15, u->p3);
+		addRectify(&p->p15, p3);
 		complement(p)->p15 = p->p15;
+		//
+		subRectify(&u->p15, u->p2);
+		addRectify(&u->p15, p3);
+		//
+		p13[u->p19] = INERTIA;
+		p13[p->p19] = INERTIA;
+		p13[complement(p)->p19] = INERTIA;
 		return true;
 	}
 	//
 	// Consume unused preons
 	//
-	u->p13 = p->p13 = complement(p)->p13 = UNDEF;
+	u->p13 = UNDEF;
+	p->p13 = UNDEF;
+	complement(p)->p13 = UNDEF;
 	return false;
 }
 
-boolean PXPaction(Brick *p1, Brick *p2)
+boolean PXPaction(Brick *p1, Brick *p2, unsigned char *p13)
 {
-	p1->p13 = p2->p13 = REISSUE;
+	if(p1->p20 == p2->p19 || p2->p20 == p1->p19)
+		return false;
+	//
+	p1->p13 = REISSUE;
+	p2->p13 = REISSUE;
 	Brick *p1c = complement(p1);
 	Brick *p2c = complement(p2);
 	//
@@ -894,7 +839,8 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		p2->p8 = VIRTUAL;
 		p1->p10 = 0;
 		p2->p10 = 0;
-		p1->p16 = p2->p16 = FREE;
+		p1->p16 = FREE;
+		p2->p16 = FREE;
 		//
 		resetTuple(&p1c->p3);
 		resetTuple(&p2c->p3);
@@ -904,7 +850,8 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		p2c->p8 = VIRTUAL;
 		p1c->p10 = 0;
 		p2c->p10 = 0;
-		p1c->p16 = p2c->p16 = FREE;
+		p1c->p16 = FREE;
+		p2c->p16 = FREE;
 		puts("Px <- P0");
 	}
 	else if(p1->p9 != LEPT && p1c->p9 != ANTILEPT && p2->p9 != LEPT && p2c->p9 != ANTILEPT)
@@ -916,7 +863,8 @@ boolean PXPaction(Brick *p1, Brick *p2)
 	}
 	else
 	{
-		p1->p13 = p2->p13 = PXP;
+		p1->p13 = PXP;
+		p2->p13 = PXP;
 		return false;
 	}
 	return true;
@@ -928,13 +876,11 @@ boolean PXPaction(Brick *p1, Brick *p2)
  */
 void classify2()
 {
-	if(pri->p1 % SYNCH < SYNCH-1 || pri->p13 == VACUUM)
-		return;
-	//
+	unsigned char p13[NPREONS] = { UNDEF };
 	Brick *t1 = dual;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
 	{
-		if(t1->p13 != U || t1->p13 != P || isNull(t1->p2) || pri->p25)
+		if((t1->p13 != U && t1->p13 != P) || isNull(t1->p2) || pri->p25)
 			continue;
 		//
 		Brick *t2 = dual;
@@ -947,22 +893,20 @@ void classify2()
 				//
 				// UXP interaction
 				//
-				else if(t1->p13 == P && t2->p13 == U && UXPaction(t2, t1))
+				else if(t1->p13 == U && t2->p13 == P && UXPaction(t1, t2, p13))
 					break;
-				else if(t1->p13 == U && t2->p13 == P && UXPaction(t1, t2))
+				else if(t1->p13 == P && t2->p13 == U && UXPaction(t2, t1, p13))
 					break;
 				//
 				// PxP interaction
 				//
-				else if(t1->p22 && t2->p22 && t1->p20 != t2->p20 && t1->p13 != PXP && t2->p13 != PXP && t1->p13 != REISSUE && t2->p13 != REISSUE && PXPaction(t1, t2))
+				else if(t1->p22 && t2->p22 && t1->p20 != t2->p20 && t1->p13 != PXP && t2->p13 != PXP && t1->p13 != REISSUE && t2->p13 != REISSUE && PXPaction(t1, t2, p13))
 					break;
 			}
 		}
-		//
-		// Disregard intermediate values
-		//
-		if(t1->p13 != UXP && t1->p13 != PXP && t1->p13 != REISSUE)
-			t1->p13 = UNDEF;
+		t1 = dual;
+		for(int w1 = 0; w1 < NPREONS; w1++, t1++)
+			t1->p13 = p13[w1];
 	}
 }
 
@@ -978,6 +922,9 @@ char getVoxel()
 		// Bump cell clock
 		//
 		d->p1++;
+		//
+		// Burst?
+		//
 		if(p->p25)
 		{
 			// p18 look-ahead
@@ -1017,27 +964,109 @@ char getVoxel()
 	return color;
 }
 
+void reissue(Brick *t)
+{
+	// Axiom 8 - Launch burst
+	//
+	t->p18 = signature(t);
+	t->p25 = DESTROY;
+	resetTuple(&t->p26);
+	//
+	// Calculate new wake time
+	//
+	t->p24 = t->p1 - t->p1 % SYNCH + SYNCH;
+	//
+	// Activate graviton if not vacuum
+	//
+	if(!isNull(t->p4))
+		t->p21 |= GRAV;
+	//
+	// Reset timeout of virtual particle
+	//
+	t->p17 = SIDE;
+	//
+	// Deactivate EM boson
+	//
+	t->p6s = 0;
+	//
+	///////
+	//
+	//
+	// Axiom 7 - Spin rotation
+	//
+	rotateSpin(t);
+	//
+	// Axiom 7 - Entanglement
+	//
+	Brick *peer = dual0 + (SIDE2 * t->p0.x + SIDE * t->p0.y + t->p0.z) * NPREONS + t->p20;
+	t->p10 = t->p19 * peer->p19;
+	tupleCross(t->p4, peer->p4, &t->p4);
+	if(t->p19 > t->p20)
+		invertTuple(&t->p4);
+	//
+	// Axiom 10 - Vacuum expansion
+	//
+	if(t->p22 && vacuum(t))
+	{
+		if(t->p19 > t->p20)
+			t->p9 = qcd[t->p1 & 0x03];
+		else
+			t->p9 = qcd[8 - (t->p1 & 0x03)];
+	}
+	//
+	// Real preon?
+	//
+	if(t->p8 == REAL)
+	{
+		t->p21 |= GRAV;		// Axiom 10 - Launch graviton
+		t->p4 = t->p2;
+	}
+	if(t->p13 == ANNIHIL)
+	{
+		if(pri->p19 > peer->p19)
+		{
+			dual->p3 = peer->p3;
+			dual->p4 = peer->p4;
+		}
+		else
+		{
+			peer->p3 = dual->p3;
+			peer->p4 = dual->p4;
+		}
+		dual->p10 = 0;
+		dual->p16 = FREE;
+		dual->p15 = dual->p0;
+	}
+	if(t->p13 == VACUUM)
+	{
+		dual->p15 = dual->p0;
+		//
+		// P <- P0
+		// (P returns to vacuum)
+		//
+		resetTuple(&dual->p2);
+		resetTuple(&dual->p3);
+		resetTuple(&dual->p4);
+		dual->p10 = 0;
+		dual->p16 = FREE;
+		dual->p17 = SIDE;
+	}
+	t->p13 = UNDEF;
+	resetTuple(&t->p2);
+}
+
 void expand()
 {
 	Brick *p = pri, *d = dual;
-	for(int w = 0; w < NPREONS; w++, pri++, dual++)
-	{
-		if(pri->p1 % SYNCH < BURST)
-		{
+	if(pri->p1 % SYNCH < BURST)
+		for(int w = 0; w < NPREONS; w++, pri++, dual++)
 			expandBurst();
-		}
-		else if(dual->p13 == PXP)
-		{
-			// Axiom 13 - Launch reconfiguration burst
-			//
-			dual->p25 = CANCEL;
-			resetTuple(&dual->p26);
-		}
-		else if(!interaction(dual))
-		{
-			expandPreon();
-		}
-	}
+	else
+		for(int w = 0; w < NPREONS; w++, pri++, dual++)
+			if(dual->p13 == UNDEF)
+				expandPreon();
+			else
+				reissue(dual);
 	pri = p; dual = d;
 }
 
@@ -1051,14 +1080,17 @@ void cycle()
 		draft[p3d] = getVoxel();
 	//
 	pri = pri0;	dual = dual0;
-	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
-		if(draft[p3d] != gridcolor)
-			classify1();
-	//
-	pri = pri0;	dual = dual0;
-	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
-		if(draft[p3d] != gridcolor)
-			classify2();
+	if(pri->p1 % SYNCH == SYNCH-1)
+	{
+		for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
+			if(draft[p3d] != gridcolor)
+				classify1();
+		//
+		pri = pri0;	dual = dual0;
+		for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
+			if(draft[p3d] != gridcolor)
+				classify2();
+	}
 	//
 	pri = pri0;	dual = dual0;
 	for(int p3d = 0; p3d < SIDE3; p3d++, pri+=NPREONS, dual+=NPREONS)
