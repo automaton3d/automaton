@@ -162,9 +162,15 @@ void resetTuple(Tuple *t)
 
 void scaleTuple(Tuple *t, int s)
 {
-	t->x *= s;
-	t->y *= s;
-	t->z *= s;
+	Vector3d v;
+	v.x = t->x;
+	v.y = t->y;
+	v.z = t->z;
+	norm3d(&v);
+	scale3d(&v, s);
+	t->x = v.x;
+	t->y = v.y;
+	t->z = v.z;
 }
 
 Tuple getDirection(Tuple a, Tuple b)
@@ -206,5 +212,3 @@ char *tuple2str(Tuple *t)
 	asprintf((char **)&s, "[%d,%d,%d]", t->x, t->y, t->z);
 	return s;
 }
-
-
