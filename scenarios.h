@@ -28,5 +28,8 @@ void LonePScenario();
 void BigBangScenario();
 void VirtualDecayScenario();
 void AnnihilScenario();
+void InertiaScenario();
+void EMScenario();
+void CoulombScenario();
 
 #endif /* SCENARIOS_H_ */
