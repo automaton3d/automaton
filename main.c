@@ -26,6 +26,7 @@ Quaternion q, qstart;
 DWORD* pixels;
 
 boolean splash = true;
+int item = -1;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -47,6 +48,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wc.hbrBackground = NULL;
 	wc.hCursor       = LoadCursor(0, IDC_ARROW);
 	//
+	printf("Running...\n"); fflush(stdout);
  	char *title;
  	asprintf(&title, "Automaton %dx%dx%dx%d", SIDE, SIDE, SIDE, NPREONS);
  	//
@@ -101,42 +103,51 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case WM_LBUTTONDOWN:
 		{
-			mouse('d', HIWORD(lparam), LOWORD(lparam));
+			if(splash)
+			{
+				scene = mouse('p', HIWORD(lparam), LOWORD(lparam));
+				if(scene >= 0)
+				{
+					item = -1;
+					initPlot(pixels);
+					pthread_create(&loop, NULL, &AutomatonLoop, NULL);
+					sleep(1);
+					splash = false;
+				}
+			}
+			else
+				mouse('d', HIWORD(lparam), LOWORD(lparam));
 			break;
 		}
 
 		case WM_LBUTTONUP:
-			mouse('u', HIWORD(lparam), LOWORD(lparam));
+			if(!splash)
+				mouse('u', HIWORD(lparam), LOWORD(lparam));
 			break;
 
 		case  WM_MOUSEMOVE:
-			mouse('m', HIWORD(lparam), LOWORD(lparam));
+			if(!splash)
+				mouse('m', HIWORD(lparam), LOWORD(lparam));
+			else
+			{
+				TRACKMOUSEEVENT tme;
+				tme.cbSize = sizeof(tme);
+				tme.dwFlags = TME_HOVER;
+				tme.dwHoverTime = 5;
+				tme.hwndTrack = hwnd;
+				TrackMouseEvent(&tme);
+			}
 			break;
 
+		case WM_MOUSEHOVER:
+			if(splash)
+				item = mouse('h', HIWORD(lparam), LOWORD(lparam));
+			break;
 		case WM_KEYDOWN:
 			if(splash)
 			{
-				switch(wparam)
-				{
-					case '1':
-					case '2':
-					case '3':
-					case '4':
-					case '5':
-					case '6':
-					case '7':
-					case '8':
-					case '9':
-						scenario = (wparam & 0x0f) - 1;
-						initPlot(pixels);
-						pthread_create(&loop, NULL, &AutomatonLoop, NULL);
-						sleep(1);
-						splash = false;
-						break;
-					case ESC:
-						SendMessage(hwnd, WM_DESTROY, wparam, lparam);
-						break;
-				}
+				if(wparam == ESC)
+					SendMessage(hwnd, WM_DESTROY, wparam, lparam);
 				break;
 			}
 			switch(wparam)
@@ -223,11 +234,13 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 /*
- *
+ * Release memory.
  */
 void DeleteAutomaton()
 {
-	puts("done.");
 	free(pri0);
 	free(dual0);
+	free(pixels);
+	puts("...done.");
 }
+
