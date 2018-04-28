@@ -5,7 +5,7 @@ Runs on Windows only.
 
 This program is being developed under the Eclipse CDT platform and still contains many bugs and inconsistencies.
 
-Last update: 04/23/2018
+Last update: 04/28/2018
 
 
 [Why donate?](https://rawgit.com/automaton3d/automaton/master/donate.html)
