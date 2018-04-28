@@ -14,21 +14,26 @@
 static Tuple p0;
 static Tuple p4;
 
-const char *scenarios[] =
+const char *sceneNames[] =
 {
-	"Burst test",
-	"Single unpaired preon",
-	"Vacuum demo",
-	"No UxU interaction",
-	"UxU interaction",
-	"Gravitons",
-	"Annihilation",
-	"Big bang",
-	"Virtual decay of P",
-	"Lone pairs",
+		"Burst test",
+		"Single unpaired preon",
+		"Gravitons",
+		"Lone pairs",
+		"Vacuum demo",
+		"No UxU interaction",
+		"UxU interaction",
+		"EM boson",
+		"Virtual decay of P",
+		"Annihilation",
+		"Inertia demo",
+		"Coulomb force",
+		"Electrons",
+		"Big bang",
 };
 
-int scenario = -1;
+int scene = -1;
+Brick *b;
 
 /*
  * Erases all bricks in a w address.
@@ -53,7 +58,6 @@ void BurstScenario()
 	p0.x = rndCoord();
 	p0.y = rndCoord();
 	p0.z = rndCoord();
-	Brick *b;
 	b = addPreon(p0,0, p4, +1, +1, +1, +1, LEPT, PREON, BURST, DESTROY);
 	b->p15 = b->p0;
 	b->p18 = signature(b);
@@ -283,15 +287,12 @@ void VirtualDecayScenario()
 	p4.z = rndSignal() * rndCoord();
 	//
 	Brick *b;
-	b = addPreon(p0,0, p4, +1, -1, -1, NOGRAV, LEPT, PREON, SYNCH+BURST, UNDEF);
+	b = addPreon(p0,0, p4, +1, +1, -1, VIRTUAL, LEPT, PREON, SYNCH+BURST, UNDEF);
 	b->p17 = SIDE;
 	//
-	p4.x -= 1;
-	p4.y -= 1;
-	p4.z -= 1;
+	invertTuple(&p4);
 	//
-//	b = addPreon(p0,4, p4, -1, -1, +1, NOGRAV, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
-	b = addPreon(p0,4, p4, +1, -1, -1, NOGRAV, LEPT, PREON, SYNCH+BURST, UNDEF);
+	b = addPreon(p0,4, p4, +1, -1, +1, VIRTUAL, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
 	b->p17 = SIDE;
 }
 
@@ -317,3 +318,116 @@ void AnnihilScenario()
 	p4.z = rndSignal() * rndCoord();
 	addPreon(p0,5, p4, +1, +1, -1, +1, ANTILEPT, PREON, SYNCH+BURST, UNDEF);
 }
+
+void InertiaScenario()
+{
+	// Create a U
+	//
+	p0.x = 4;
+	p0.y = 5;
+	p0.z = 6;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,0, p4, -1, -1, -1, -1, LEPT, PREON, 3*SYNCH+BURST, UNDEF);
+	//
+	// Create a P
+	//
+	p0.x = SIDE/2;
+	p0.y = SIDE/2;
+	p0.z = SIDE/3;
+	//
+	Tuple p3;
+	p3.x = 1;
+	p3.y = 1;
+	p3.z = 1;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	b = addPreon(p0,5, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	b->p3 = p3;
+	invertTuple(&p4);
+	b = addPreon(p0,6, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	b->p3 = p3;
+}
+
+void EMScenario()
+{
+	// Create a U
+	//
+	p0.x = 4;
+	p0.y = 5;
+	p0.z = 6;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,0, p4, -1, -1, -1, -1, LEPT, PREON, 3*SYNCH+BURST, UNDEF);
+	//
+	// Create a P
+	//
+	p0.x = SIDE/2;
+	p0.y = SIDE/2;
+	p0.z = SIDE/3;
+	//
+	resetTuple(&p4);
+	b = addPreon(p0,5, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
+	b = addPreon(p0,6, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+}
+
+void CoulombScenario()
+{
+	// Create one U
+	//
+	p0.x = SIDE/3;
+	p0.y = 2*SIDE/3;
+	p0.z = 2;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,0, p4, -1, -1, -1, -1, LEPT, PREON, 3*SYNCH+BURST, UNDEF);
+	//
+	// Create another U
+	//
+	p0.x = 2*SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = SIDE-2;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,0, p4, -1, -1, -1, -1, LEPT, PREON, 3*SYNCH+BURST, UNDEF);
+	//
+	// Create a vacuum P
+	//
+	p0.x = 1;
+	p0.y = SIDE/2;
+	p0.z = SIDE/3;
+	//
+	resetTuple(&p4);
+	b = addPreon(p0,5, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
+	b = addPreon(p0,6, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+}
+
+void (*scenarios[])() =
+{
+	BurstScenario,
+	UScenario,
+	GRAVScenario,
+	LonePScenario,
+	VacuumScenario,
+	NoUXUScenario,
+	UXUScenario,
+	EMScenario,
+	VirtualDecayScenario,
+	AnnihilScenario,
+	InertiaScenario,
+	CoulombScenario,
+	ElectronsScenario,
+	BigBangScenario,
+};
