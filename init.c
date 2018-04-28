@@ -43,7 +43,7 @@ void buildLattice(Brick *grid)
 			for(int z = 0; z < SIDE; z++)
 				for(int w = 0; w < NPREONS; w++, t++)
 				{
-					cleanBrick(t);
+					memset(t, 0, sizeof(Brick));
 					//
 					// Once and for all
 					//
@@ -70,7 +70,6 @@ void buildLattice(Brick *grid)
 Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25)
 {
 	Brick *t = pri0 + (SIDE2 * p0.x + SIDE * p0.y + p0.z) * NPREONS + w;
-	cleanBrick(t);
 	t->p4 = p4;
 	t->p5 = p5;
 	t->p6 = p6;
@@ -90,24 +89,16 @@ Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, un
  */
 void initAutomaton()
 {
-	printf("Running...\n");
-	printf("Scenario: %s\n", scenarios[scenario]);
+	printf("Scenario: %s\n", sceneNames[scene]);
 	printf("x  y   z  w  p5 p6 p7 p8 p9\n");
 	//
 	pri0  = malloc(SIDE4 * sizeof(Brick));
 	dual0 = malloc(SIDE4 * sizeof(Brick));
 	//
-	// 0: 934
-	// 3: anomaly 934, 1359
-	// 5: 849
-	// 15: anomaly 849,934
-	// 16: anomaly 849,934
-	//
-	srand(3);//time(NULL));
+	srand(time(NULL));
 	initSineWave();
 	buildLattice(pri0);
 	buildLattice(dual0);
-	limit = floor(sqrt(3) * (1 << (ORDER - 1)));
 	prime = getPrime(SIDE);
 	//
 	// Triple buffering
@@ -118,38 +109,10 @@ void initAutomaton()
 	//
 	// Initial state of the universe
 	//
-	switch(scenario)
-	{
-		case 0:
-			BurstScenario();
-			break;
-		case 1:
-			UScenario();
-			break;
-		case 2:
-			VacuumScenario();
-			break;
-		case 3:
-			NoUXUScenario();
-			break;
-		case 4:
-			UXUScenario();
-			break;
-		case 5:
-			GRAVScenario();
-			break;
-		case 6:
-			AnnihilScenario();
-			break;
-		case 7:
-			BigBangScenario();
-			break;
-		case 8:
-			VirtualDecayScenario();
-			break;
-	}
+	(*scenarios[scene])();
 	//
 	begin = GetTickCount();				// initial milliseconds
 	setvbuf(stdout, null, _IOLBF, 0);
 	sleep(3);
 }
+
