@@ -12,11 +12,12 @@ extern double K, U1, U2;
 extern double wT;
 extern unsigned long begin;
 extern int timing;
-extern int limit;
 extern char imgbuf[3][SIDE3];
 extern char *draft, *clean, *snap;
-extern int scenario;
-extern const char *scenarios[];
+extern int scene;
+extern const char *sceneNames[];
+extern void (*scenarios[])();
+
 
 /// Functions ///
 
