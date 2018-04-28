@@ -28,9 +28,10 @@ extern Brick *pri0;
 extern pthread_mutex_t mutex;
 extern boolean input_changed;
 extern boolean img_changed;
-extern int scenario;
-extern const char *scenarios[];
+extern int scene;
+extern const char *sceneNames[];
 extern boolean splash;
+extern int item;
 
 /// Functions ///
 
@@ -42,5 +43,6 @@ void flipMode();
 void flipBox();
 void drawChar(double x, double y, double z, char color, char ch);
 void addMarker(Tuple xyz);
+void enhance(int x, int y, int h, int v);
 
 #endif /* PLOT3D_H_ */
