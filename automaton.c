@@ -26,6 +26,7 @@ Brick *pri, *dual;
 char rotateRight[] = { 0, 4, 1, 0, 2, 0, 0, 0 };
 char qcd[] = { 0x3f, 0x01, 0x02, 0x04, 0x20, 0x10, 0x08, 0x3f };
 boolean img_changed;
+int limit;
 
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
@@ -213,7 +214,6 @@ void expandBurst()
 {
 	if(!pri->p25)
 		return;
-	assert(timer%SYNCH==pri->p1%SYNCH);
 	double d = modTuple(&pri->p26);
 	for(int dir = 0; dir < NDIR; dir++)
 	{
@@ -234,6 +234,7 @@ void expandBurst()
 			//
 			if(dual->p25 == CANCEL)
 			{
+				assert(nual->p1 == dual->p1);
 				nual->p1 = dual->p1;	// ?????
 				nual->p18 = dual->p18;
 				nual->p25 = CANCEL;
@@ -277,6 +278,7 @@ void expandBurst()
 	}
 	else
 	{
+		puts("cancellation");
 		// Axiom 13 - Cancellation
 		// P <- P0
 		//
@@ -299,7 +301,6 @@ void expandPreon()
 	if((pri->p21 & (PREON | GRAV)) == 0 || pri->p1 <= pri->p24 || ready(pri))
 		return;
 	//
-	assert(timer%SYNCH==pri->p1%SYNCH);
 	if(isNull(pri->p2))
 		dual->p1 %= SYNCH;
 	//
@@ -366,7 +367,10 @@ void expandPreon()
 			}
 		}
 	}
-	if(bestNual != NULL)
+	//
+	// Propagate the graviton up to the wrapping limit
+	//
+	if(bestNual != NULL && (int)modTuple(&pri->p2) < limit)
 		bestNual->p21 |= GRAV;
 	//
 	// Axiom 4 - Interference
@@ -377,6 +381,7 @@ void expandPreon()
 	{
 		if(pri->p2.x == pri->p2.y && pri->p2.y == pri->p2.z && pri->p2.x > 0)
 		{
+			puts("decay");
 			dual->p13 = VACUUM;
 			return;
 		}
@@ -641,23 +646,30 @@ boolean UXPaction(Brick *u, Brick *p, unsigned char *p13)
 	//
 	// Axiom 12 - EM interaction
 	//
-	else if(pwm(p->p14) && vacuum(p))
+	else if(/*pwm(p->p14) && */ vacuum(p))
 	{
-		// The P acquires static boson properties
+		// The vacuum P acquires static boson properties
 		//
 		p->p6s = u->p6;
 		complement(p)->p6s = u->p6;
 		p->p4 = u->p4;
 		complement(p)->p4 = u->p4;
+		invertTuple(&complement(p)->p4);
 		p13[u->p19] = EM_BOSON;
 		p13[p->p19] = EM_BOSON;
 		p13[complement(p)->p19] = EM_BOSON;
+		//
+		// The P is turned on-shell
+		//
+		p->p8 = +1;
+		complement(p)->p8 = +1;
 		return true;
 	}
 	//
 	// Axiom 12 - Coulomb interaction
 	// Axiom 6 - Polarization
 	//
+	/*
 	else if(pwm(p->p14) && (light % cycle) < cycle / 8)
 	{
 		puts("Coulomb");
@@ -751,10 +763,11 @@ boolean UXPaction(Brick *u, Brick *p, unsigned char *p13)
 		}
 		return true;
 	}
+	*/
 	//
 	// Axiom 12 - Inertia
 	//
-	else if(p->p16 == BOUND)
+	else if(p->p16 == BOUND && p->p8 == u->p8)
 	{
 		// Parallel transport
 		//
@@ -826,6 +839,7 @@ boolean PXPaction(Brick *p1, Brick *p2, unsigned char *p13)
 	}
 	else if(pwm(tupleDot(&p1->p3, &p2->p3) / SIDE - SIDE) / 2)
 	{
+		puts("cancellation 2");
 		// Axiom 13 - Cancellation
 		//
 		// P1 <- P0
@@ -854,6 +868,7 @@ boolean PXPaction(Brick *p1, Brick *p2, unsigned char *p13)
 		p2c->p16 = FREE;
 		puts("Px <- P0");
 	}
+	/*
 	else if(p1->p9 != LEPT && p1c->p9 != ANTILEPT && p2->p9 != LEPT && p2c->p9 != ANTILEPT)
 	{
 		// Gluon-gluon interaction
@@ -861,6 +876,7 @@ boolean PXPaction(Brick *p1, Brick *p2, unsigned char *p13)
 		exchangeColors(p1, p2);
 		puts("gluon-gluon");
 	}
+	*/
 	else
 	{
 		p1->p13 = PXP;
@@ -989,9 +1005,6 @@ void reissue(Brick *t)
 	//
 	t->p6s = 0;
 	//
-	///////
-	//
-	//
 	// Axiom 7 - Spin rotation
 	//
 	rotateSpin(t);
@@ -1037,8 +1050,12 @@ void reissue(Brick *t)
 		dual->p16 = FREE;
 		dual->p15 = dual->p0;
 	}
-	if(t->p13 == VACUUM)
+	//
+	// Test specific cases
+	//
+	else if(t->p13 == VACUUM)
 	{
+		puts("vacuum");
 		dual->p15 = dual->p0;
 		//
 		// P <- P0
@@ -1050,6 +1067,14 @@ void reissue(Brick *t)
 		dual->p10 = 0;
 		dual->p16 = FREE;
 		dual->p17 = SIDE;
+	}
+	else if(t->p13 == EM_BOSON && t->p22)
+	{
+		dual->p6s = false;
+		if(dual->p22)
+		{
+			printf("%ld: dual->p4=%s\n", timer, tuple2str(&dual->p4));
+		}
 	}
 	t->p13 = UNDEF;
 	resetTuple(&t->p2);
