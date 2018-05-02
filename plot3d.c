@@ -57,7 +57,7 @@ boolean parallel = true;
 int clipping;
 double scale = 1100;
 
-boolean showAxes = true, showGrid = false, showBox = true;
+boolean showAxes=true, showGrid=false, showBox=true, showOrgs=false;
 
 Vector3d position, _position;      	// view reference point
 Vector3d direction, _direction;		// camera axis
@@ -78,6 +78,7 @@ char X, Y, Z;
 
 char imgbuf[3][SIDE3];
 char *draft, *clean, *snap;
+double M, d;
 
 typedef struct M
 {
@@ -131,7 +132,7 @@ void initPalette()
         // Preon colors
         //
         int i;
-        for(i = 0; i < NPREONS; i++)
+        for(i = 0; i < NPREONS + 1; i++)
         {
         	int r = 127 + (127 * (long) rand()) / RAND_MAX;
         	int g = 127 + (127 * (long) rand()) / RAND_MAX;
@@ -297,7 +298,7 @@ void setViewDepth(double _frontDistance, double _backDistance)
 {
 	if(frontDistance > backDistance)
 		perror("Frontal Plane behind Back Plane");
-		//
+	//
 	frontDistance = _frontDistance;
 	backDistance = _backDistance;
 }
@@ -411,11 +412,25 @@ void enter(int color)
 	}
 }
 
+/*
+ * Plots a voxel.
+ */
 void plot(double x, double y, double z, char color)
 {
 	pen.x = x;
 	pen.y = y;
 	pen.z = z;
+	enter(color);
+}
+
+/*
+ * Plots a voxel.
+ */
+void plotV(Vector3d v, char color)
+{
+	pen.x = v.x;
+	pen.y = v.y;
+	pen.z = v.z;
 	enter(color);
 }
 
@@ -427,6 +442,9 @@ void marker(Tuple xyz)
 	plot(dx, dy, dz, WHT);
 }
 
+/*
+ * Sets parallel projection.
+ */
 void setParallel(double dx, double dy, double dz)
 {
 	if((fabs(dx) + fabs(dy) + fabs(dz)) < ROUNDOFF)
@@ -438,6 +456,9 @@ void setParallel(double dx, double dy, double dz)
  */
 void initPlot()
 {
+	d = 2.0 / (3*SIDE);
+	M = SIDE *d / 4;
+	//
 	double h = sqrt(225) / (1.5 * GRID);
 	position.x = (int)(10.0 / h);
 	position.y = (int)(5.0 / h);
@@ -468,12 +489,12 @@ void initPlot()
 	clearBuffer();
 }
 
+/*
+ * Draws a cube to mark the presence of a preon.
+ */
 void drawVoxel(double dx, double dy, double dz, char color)
 {
 	int N = SIDE / 2 + 1;
-	double d = 2.0 / (3 * SIDE);	// ????
-	int M = SIDE *d / 4;
-	dx-=M; dy-=M; dz-=M;
 	int x, y, z;
 	for(x = 0; x < N; x++)
 		for(y = 0; y < N; y++)
@@ -494,6 +515,67 @@ void drawVoxel(double dx, double dy, double dz, char color)
 	for(z = 0; z < N; z++)
 		for(x = 0; x < N; x++)
 			plot(dx + x*d, dy+N*d, dz + z*d, color);
+}
+
+void drawLine(Vector3d point0, Vector3d point1, char color)
+{
+	Vector3d p = point1;
+	sub3d(&p, point0);
+    double dist = module3d(&p);
+    scale3d(&p, 0.5);
+    if(dist < .1)
+        return;
+    Vector3d middlePoint = point0;
+    add3d(&middlePoint, p);
+    plotV(middlePoint, color);
+    drawLine(point0, middlePoint, color);
+    drawLine(middlePoint, point1, color);
+}
+
+void drawOrgs()
+{
+	int x, y, z;
+	if(showGrid)
+	{
+		for(x = 0; x < SIDE; x++)
+			for(y = 0; y < SIDE; y++)
+				for(z = 0; z < SIDE; z++)
+				{
+					double dx = (x - SIDE/2);
+					double dy = (y - SIDE/2);
+					double dz = (z - SIDE/2);
+					plot(dx, dy, dz, gridcolor);
+				}
+	}
+	for(int w = 0; w < NPREONS; w++)
+	{
+		for(x = 0; x < SIDE; x++)
+			for(y = 0; y < SIDE; y++)
+				for(z = 0; z < SIDE; z++)
+				{
+					Brick *b = dual0 + (SIDE2*x +SIDE*y + z) * NPREONS + w;
+					if((b->p21 & PREON) && b->p25==UNDEF)
+					{
+						Tuple p0 = b->p0;
+						subRectify(&p0, b->p2);
+						Vector3d v;
+						v.x = (p0.x - SIDE/2);
+						v.y = (p0.y - SIDE/2);
+						v.z = (p0.z - SIDE/2);
+						//
+						Vector3d q;
+						q.x = b->p4.x;
+						q.y = b->p4.y;
+						q.z = b->p4.z;
+						norm3d(&q);
+						add3d(&q, v);
+						drawLine(v, q, GG);
+						drawVoxel(v.x-M, v.y-M, v.z-M, RR);
+						goto LOOP;
+					}
+				}
+		LOOP: ;
+	}
 }
 
 void drawLattice()
@@ -587,6 +669,9 @@ void drawChar(double x, double y, double z, char color, char ch)
 	}
 }
 
+/*
+ * Draws the xyz icon.
+ */
 void drawAxes()
 {
 	setViewPort(0.0, 0.2, 0.0, 0.2);
@@ -687,7 +772,10 @@ void updatePlot()
 	// Recreate pixels
 	//
 	clearBuffer();
-	drawLattice();
+	if(showOrgs)
+		drawOrgs();
+	else
+		drawLattice();
 	if(showBox)
 		drawBox();
 	if(showAxes)
@@ -705,6 +793,9 @@ void updateCamera()
         direction.z = _direction.z;
 }
 
+/*
+ * Inverts the colors of the specified rectangle.
+ */
 void enhance(int x, int y, int h, int v)
 {
 	int idx = (HEIGHT-y) * WIDTH + x;
@@ -713,9 +804,12 @@ void enhance(int x, int y, int h, int v)
 			pixels[idx] ^= 0x00ffffffff;
 }
 
+/*
+ * Main routine for graphics dynamics.
+ */
 void visualize()
 {
-	if(pri0->p1 % 2 == 0)
+	if(timer % 2 == 0)
 	{
 		updatePlot();
 		//
@@ -759,14 +853,18 @@ void visualize()
 	    free(s);
 		//
 	    asprintf((char **)&s, "A: axes on/off");
-	    vprints(620, 680, s);
-	    free(s);
-	    //
-	    asprintf((char **)&s, "S: pause/resume");
-	    vprints(620, 700, s);
+	    vprints(620, 660, s);
 	    free(s);
 	    //
 	    asprintf((char **)&s, "G: grid on/off");
+	    vprints(620, 680, s);
+	    free(s);
+	    //
+	    asprintf((char **)&s, "O: centers on/off");
+	    vprints(620, 700, s);
+	    free(s);
+	    //
+	    asprintf((char **)&s, "S: pause/resume");
 	    vprints(620, 720, s);
 	    free(s);
 	    //
@@ -788,6 +886,9 @@ void visualize()
 	}
 }
 
+/*
+ * Screen update loop.
+ */
 void *DisplayLoop()
 {
  	begin = GetTickCount();
@@ -804,11 +905,11 @@ void *DisplayLoop()
     	 	if(scene == -1)
     	 	{
         	    asprintf(&s, "Select scenario:");
-        	    vprints(300, 290, s);
+        	    vprints(300, 245, s);
         	    for(int i = 0; i < NSCENES; i++)
         	    {
         	    	asprintf(&s, "%s", sceneNames[i]);
-        	    	vprints(320, 310 + 15*i, s);
+        	    	vprints(320, 265 + 15*i, s);
         	    }
     	 	}
     	 	else
@@ -817,7 +918,7 @@ void *DisplayLoop()
     	    	vprints(370, 395, s);
     	 	}
 			if(item >= 0)
-				enhance(320, 310 + item*15, 200, 10);
+				enhance(319, 264 + item*15, 200, 12);
     		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
     		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
             usleep(200000);
