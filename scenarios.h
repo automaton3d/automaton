@@ -15,21 +15,4 @@
 
 extern boolean showGrid, showBox, showAxes;
 
-/// Functions ///
-
-void BurstScenario();
-void VacuumScenario();
-void NoUXUScenario();
-void UScenario();
-void UXUScenario();
-void GRAVScenario();
-void SEEDScenario();
-void LonePScenario();
-void BigBangScenario();
-void VirtualDecayScenario();
-void AnnihilScenario();
-void InertiaScenario();
-void EMScenario();
-void CoulombScenario();
-
 #endif /* SCENARIOS_H_ */
