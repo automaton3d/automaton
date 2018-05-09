@@ -31,6 +31,6 @@
 
 // Other symbols
 
-#define NSCENES	14
+#define NSCENES	16
 
 #endif /* COMMON_H_ */
