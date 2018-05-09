@@ -4,6 +4,7 @@
 
 #include "scenarios.h"
 
+#include <limits.h>
 #include "brick.h"
 #include "common.h"
 #include "params.h"
@@ -11,9 +12,7 @@
 #include "init.h"
 #include "utils.h"
 
-static Tuple p0;
-static Tuple p3;
-static Tuple p4;
+static Tuple p0, p3, p4;
 
 const char *sceneNames[] =
 {
@@ -31,11 +30,16 @@ const char *sceneNames[] =
 		"Electrons",
 		"Annihilation",
 		"Virtual decay of P",
+		"Gravity acceleration",
 		"Big bang",
 };
 
 int scene = -1;
-Brick *b;
+static Brick *b;
+
+unsigned long elt_case = ULONG_MAX;
+unsigned long magn_case = ULONG_MAX;
+unsigned long em_case = ULONG_MAX;
 
 /*
  * Erases all bricks in a w address.
@@ -315,11 +319,12 @@ void EMScenario()
 	resetTuple(&p4);
 	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
 	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+	em_case = 509;
 }
 
 void CoulombScenario()
 {
-	// Create local U
+	// Create harvesting U
 	//
 	p0.x = SIDE/2;
 	p0.y = SIDE/2;
@@ -332,7 +337,7 @@ void CoulombScenario()
 	p4.z = rndSignal() * rndCoord();
 	addPreon(p0,0, p3, p4, -1, -1, -1, +1, LEPT, PREON, 4*SYNCH+BURST, UNDEF);
 	//
-	// Create another local U
+	// Create gluing U
 	//
 	p0.x = 2*SIDE/3;
 	p0.y = SIDE/3;
@@ -341,76 +346,86 @@ void CoulombScenario()
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(p0,0, p3, p4, -1, -1, -1, +1, LEPT, PREON, 8*SYNCH+BURST, UNDEF);
+	addPreon(p0,1, p3, p4, -1, -1, -1, +1, LEPT, PREON, 8*SYNCH+BURST, UNDEF);
 	//
-	// Create remote local U
+	// Create remote U
 	//
-	p0.x = 2;
-	p0.y = 3;
-	p0.z = SIDE-5;
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = 7*SIDE/8;
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(p0,0, p3, p4, -1, -1, -1, +1, LEPT, PREON, 10*SYNCH+BURST, UNDEF);
+	addPreon(p0,2, p3, p4, -1, -1, -1, +1, LEPT, PREON, 10*SYNCH+BURST, UNDEF);
 	//
-	// Create a vacuum P
+	// Create vacuum P
 	//
-	p0.x = SIDE/8;
+	p0.x = SIDE/4;
 	p0.y = SIDE/2;
 	p0.z = 2*SIDE/3;
 	//
 	resetTuple(&p4);
 	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
 	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+	//
+	// Set variables for testing purpose
+	//
+	em_case = 509;
+	elt_case = 1019;
 }
 
 void MagneticScenario()
 {
-	// Create local U
+	// Create harvesting U
 	//
-	p0.x = SIDE/6;
-	p0.y = 2*SIDE/6;
-	p0.z = 2;
+	p0.x = SIDE/2;
+	p0.y = SIDE/2;
+	p0.z = SIDE/3;
 	//
 	resetTuple(&p3);
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(p0,0, p3, p4, -1, -1, -1, -1, LEPT, PREON, SYNCH+BURST, UNDEF);
+	addPreon(p0,0, p3, p4, -1, -1, -1, +1, LEPT, PREON, 4*SYNCH+BURST, UNDEF);
 	//
-	// Create another local U
-	//
-	p0.x = SIDE/3;
-	p0.y = SIDE/3;
-	p0.z = SIDE/4;
-	//
-	p4.x = rndSignal() * rndCoord();
-	p4.y = rndSignal() * rndCoord();
-	p4.z = rndSignal() * rndCoord();
-	addPreon(p0,0, p3, p4, -1, -1, -1, -1, LEPT, PREON, 2*SYNCH+BURST, UNDEF);
-	//
-	// Create remote local U
+	// Create gluing U
 	//
 	p0.x = 2*SIDE/3;
 	p0.y = SIDE/3;
-	p0.z = SIDE-2;
+	p0.z = 3;
 	//
 	p4.x = rndSignal() * rndCoord();
 	p4.y = rndSignal() * rndCoord();
 	p4.z = rndSignal() * rndCoord();
-	addPreon(p0,0, p3, p4, -1, -1, -1, -1, LEPT, PREON, 2*SYNCH+BURST, UNDEF);
+	addPreon(p0,1, p3, p4, -1, -1, -1, +1, LEPT, PREON, 8*SYNCH+BURST, UNDEF);
 	//
-	// Create a vacuum P
+	// Create remote U
 	//
-	p0.x = 1;
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = 7*SIDE/8;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,2, p3, p4, -1, -1, -1, +1, LEPT, PREON, 10*SYNCH+BURST, UNDEF);
+	//
+	// Create vacuum P
+	//
+	p0.x = SIDE/4;
 	p0.y = SIDE/2;
-	p0.z = SIDE/3;
+	p0.z = 2*SIDE/3;
 	//
 	resetTuple(&p4);
 	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
 	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+	//
+	// Set variables for testing purpose
+	//
+	em_case = 509;
+	magn_case = 1019;
 }
 
 /*
@@ -494,6 +509,46 @@ void VirtualDecayScenario()
 }
 
 /*
+ * Gravity acceleration test.
+ */
+void GravityScenario()
+{
+	showGrid = true;
+	//
+	// Create a graviton
+	//
+	p0.x = 2;
+	p0.y = 2;
+	p0.z = 3;
+	//
+	p4.x = 5;
+	p4.y = 5;
+	p4.z = 5;
+	addPreon(p0,0, p3, p4, UNDEF, UNDEF, UNDEF, UNDEF, UNDEF, GRAV, BURST, UNDEF);
+	//
+	// Create an interacting U
+	//
+	p0.x = 2*SIDE/3;
+	p0.y = 2*SIDE/3;
+	p0.z = SIDE/2+1;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,2, p3, p4, -1, -1, -1, REAL, ANTILEPT, PREON, BURST, UNDEF);
+	//
+	// Create a vacuum P
+	//
+	p0.x = SIDE/6;
+	p0.y = SIDE/3;
+	p0.z = SIDE/3;
+	//
+	resetTuple(&p4);
+	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST+4*SYNCH, UNDEF);
+	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST+4*SYNCH, UNDEF);
+}
+
+/*
  * The universe.
  */
 void BigBangScenario()
@@ -527,6 +582,7 @@ void (*scenarios[])() =
 	ElectronsScenario,
 	AnnihilScenario,
 	VirtualDecayScenario,
+	GravityScenario,
 	BigBangScenario,
 };
 
