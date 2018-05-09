@@ -17,11 +17,12 @@ extern char *draft, *clean, *snap;
 extern int scene;
 extern const char *sceneNames[];
 extern void (*scenarios[])();
+extern int limit;
 
 
 /// Functions ///
 
 void initAutomaton();
-Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25);
+Brick *addPreon(Tuple p0, int w, Tuple p3, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25);
 
 #endif /* INIT_H_ */
