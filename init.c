@@ -57,6 +57,7 @@ void buildLattice(Brick *grid)
 /*
  * Inserts a preon in a specified address of the pri0 lattice.
  *
+ * @p3  momentum
  * @p4	spin
  * @p5	helicity
  * @p6	electric charge
@@ -67,9 +68,10 @@ void buildLattice(Brick *grid)
  * @p24 schedule
  * @p25	messenger
  */
-Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25)
+Brick *addPreon(Tuple p0, int w, Tuple p3, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25)
 {
 	Brick *t = pri0 + (SIDE2 * p0.x + SIDE * p0.y + p0.z) * NPREONS + w;
+	t->p3 = p3;
 	t->p4 = p4;
 	t->p5 = p5;
 	t->p6 = p6;
@@ -80,7 +82,7 @@ Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, un
 	t->p21 = p21 | GRAV;
 	t->p24 = p24;
 	t->p25 = p25;
-	printf("%2d %2d %2d %2d: %+d %+d %+d %+d %02xH\n", p0.x, p0.y, p0.z, w, p5, p6, p7, p8, p9);
+	printf("%2d %2d %2d %2d: %+d %+d %+d %+d %02xH\t%s\t%s\n", p0.x, p0.y, p0.z, w, p5, p6, p7, p8, p9, tuple2str(&p3), tuple2str(&p4));
 	return t;
 }
 
@@ -90,7 +92,7 @@ Brick *addPreon(Tuple p0, int w, Tuple p4, char p5, char p6, char p7, int p8, un
 void initAutomaton()
 {
 	printf("Scenario: %s\n", sceneNames[scene]);
-	printf("x  y   z  w  p5 p6 p7 p8 p9\n");
+	printf("x  y   z  w  p5 p6 p7 p8 p9\tp3\tp4\n");
 	//
 	pri0  = malloc(SIDE4 * sizeof(Brick));
 	dual0 = malloc(SIDE4 * sizeof(Brick));
@@ -99,6 +101,10 @@ void initAutomaton()
 	initSineWave();
 	buildLattice(pri0);
 	buildLattice(dual0);
+	//
+	// Initialize constants
+	//
+	limit = floor(sqrt(3) * (1 << (ORDER - 1)));
 	prime = getPrime(SIDE);
 	//
 	// Triple buffering
