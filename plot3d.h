@@ -20,8 +20,6 @@ extern Vector3d position;      	// view reference point
 extern Vector3d direction; 		// camera axis
 extern Vector3d attitude;  		// view-up direction
 
-extern boolean showAxes, showGrid;
-
 extern DWORD *pixels;
 extern unsigned long begin;
 extern Brick *pri0;
@@ -44,5 +42,6 @@ void flipBox();
 void drawChar(double x, double y, double z, char color, char ch);
 void addMarker(Tuple xyz);
 void enhance(int x, int y, int h, int v);
+void plotV(Vector3d v, char color);
 
 #endif /* PLOT3D_H_ */
