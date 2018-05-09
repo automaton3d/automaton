@@ -554,14 +554,13 @@ void drawOrgs()
 				for(z = 0; z < SIDE; z++)
 				{
 					Brick *b = dual0 + (SIDE2*x +SIDE*y + z) * NPREONS + w;
-					if((b->p21 & PREON) && b->p25==UNDEF)
+					if((b->p21 & PREON) && b->p25 == UNDEF)
 					{
-						Tuple p0 = b->p0;
-						subRectify(&p0, b->p2);
+						Tuple org = getOrg(b);
 						Vector3d v;
-						v.x = (p0.x - SIDE/2);
-						v.y = (p0.y - SIDE/2);
-						v.z = (p0.z - SIDE/2);
+						v.x = (org.x - SIDE/2);
+						v.y = (org.y - SIDE/2);
+						v.z = (org.z - SIDE/2);
 						//
 						Vector3d q;
 						q.x = b->p4.x;
@@ -571,10 +570,8 @@ void drawOrgs()
 						add3d(&q, v);
 						drawLine(v, q, GG);
 						drawVoxel(v.x-M, v.y-M, v.z-M, RR);
-						goto LOOP;
 					}
 				}
-		LOOP: ;
 	}
 }
 
@@ -784,13 +781,13 @@ void updatePlot()
 
 void updateCamera()
 {
-        position.x = _position.x;
-        position.y = _position.y;
-        position.z = _position.z;
-        //
-        direction.x = _direction.x;
-        direction.y = _direction.y;
-        direction.z = _direction.z;
+     position.x = _position.x;
+     position.y = _position.y;
+     position.z = _position.z;
+     //
+     direction.x = _direction.x;
+     direction.y = _direction.y;
+     direction.z = _direction.z;
 }
 
 /*
