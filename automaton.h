@@ -14,11 +14,17 @@ extern unsigned long timer;
 extern pthread_mutex_t mutex;
 extern char imgbuf[3][SIDE3];
 extern char *draft, *clean;
-extern Tuple V0;
+extern const Tuple dirs[];
+extern char orgcolor;
+extern boolean showAxes, showGrid, showOrgs;
+extern unsigned long em_case;
+extern unsigned long elt_case;
+extern unsigned long magn_case;
 
 /// Functions ///
 
 void *AutomatonLoop();
 void DeleteAutomaton();
+boolean isP(Brick *t1, Brick *t2);
 
 #endif /* AUTOMATON_H_ */
