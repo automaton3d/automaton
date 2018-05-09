@@ -20,7 +20,6 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 pthread_t loop, display;
 
 boolean stop = FALSE;
-//Vector3d p0, p1;
 
 Quaternion q, qstart;
 DWORD* pixels;
@@ -105,7 +104,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		{
 			if(splash)
 			{
-				scene = mouse('p', HIWORD(lparam), LOWORD(lparam));
+				scene = mouse('p', LOWORD(lparam), HIWORD(lparam));
 				if(scene >= 0)
 				{
 					item = -1;
@@ -116,18 +115,18 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 				}
 			}
 			else
-				mouse('d', HIWORD(lparam), LOWORD(lparam));
+				mouse('d', LOWORD(lparam), HIWORD(lparam));
 			break;
 		}
 
 		case WM_LBUTTONUP:
 			if(!splash)
-				mouse('u', HIWORD(lparam), LOWORD(lparam));
+				mouse('u', LOWORD(lparam), HIWORD(lparam));
 			break;
 
 		case  WM_MOUSEMOVE:
 			if(!splash)
-				mouse('m', HIWORD(lparam), LOWORD(lparam));
+				mouse('m', LOWORD(lparam), HIWORD(lparam));
 			else
 			{
 				TRACKMOUSEEVENT tme;
@@ -141,7 +140,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case WM_MOUSEHOVER:
 			if(splash)
-				item = mouse('h', HIWORD(lparam), LOWORD(lparam));
+				item = mouse('h', LOWORD(lparam), HIWORD(lparam));
 			break;
 		case WM_KEYDOWN:
 			if(splash)
@@ -170,6 +169,9 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 				case 'G':
 					showGrid = !showGrid;
 					break;
+				case 'O':
+					showOrgs = !showOrgs;
+					break;
 				case 'P':
 					flipMode();
 					break;
@@ -180,6 +182,9 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 					flipBox();
 					break;
 				case '0':
+					attitude.x = 0;
+					attitude.y = 0;
+					attitude.z = -1;
 					position.x = sqrt(3) *1.5 * GRID;
 					position.y = sqrt(3) *1.5 * GRID;
 					position.z = sqrt(3) *1.5 * GRID;
@@ -189,37 +194,37 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 					norm3d(&direction);
 					break;
 				case '1':
-					direction.x = 0;
-					direction.y = 0;
-					direction.z = -1;
 					attitude.x = 1;
 					attitude.y = 0;
 					attitude.z = 0;
 					position.x = 0;
 					position.y = 0;
 					position.z = 1.5 * GRID;
+					direction.x = 0;
+					direction.y = 0;
+					direction.z = -1;
 					break;
 				case '2':
-					direction.x = -1;
-					direction.y = 0;
-					direction.z = 0;
 					attitude.x = 0;
 					attitude.y = 0;
 					attitude.z = 1;
 					position.x = 1.5 * GRID;
 					position.y = 0;
 					position.z = 0;
+					direction.x = -1;
+					direction.y = 0;
+					direction.z = 0;
 					break;
 				case '3':
-					direction.x = 0;
-					direction.y = -1;
-					direction.z = 0;
 					attitude.x = 0;
 					attitude.y = 0;
 					attitude.z = 1;
 					position.x = 0;
 					position.y = 1.5 * GRID;
 					position.z = 0;
+					direction.x = 0;
+					direction.y = -1;
+					direction.z = 0;
 					break;
 				case ESC:
 					SendMessage(hwnd, WM_DESTROY, wparam, lparam);
