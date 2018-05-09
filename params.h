@@ -7,9 +7,9 @@
 
 // Automaton dimensions
 
-#define ORDER 		5						// 208 for the universe, a multiple of 4
+#define ORDER 		4						// 208 for the universe, a multiple of 4
 #define SIDE 		(1<<ORDER)				// size of the universal cube
-#define NPREONS		(SIDE)						// ORDER for the universe
+#define NPREONS		(SIDE)					// ORDER for the universe
 #define DIAMETER 	((SIDE-1)*2)
 #define NDIR 		6						// spatial directions (von Neumann convention)
 
