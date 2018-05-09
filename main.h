@@ -13,6 +13,7 @@ extern boolean stop;
 extern Brick *pri0, *dual0;
 extern char background;
 extern char gridcolor;
+extern boolean showOrgs;
 
 BITMAPINFO bmInfo;
 HDC dc;
