@@ -53,6 +53,7 @@
 
 #define	PREON		0X01
 #define GRAV		0X04
+#define ORG			0x08
 
 // p25 burst type
 
@@ -108,5 +109,6 @@ void copyBrick(Brick *dst, Brick *org);
 void cleanBrick(Brick *t);
 unsigned signature(Brick *b);
 boolean isColored(Brick *b);
+Tuple getOrg(Brick *b);
 
 #endif /* PREON_H_ */
