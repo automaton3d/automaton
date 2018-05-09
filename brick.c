@@ -42,6 +42,16 @@ boolean isColored(Brick *b)
 	return b->p9 != LEPT && b->p9 != ANTILEPT;
 }
 
+/*
+ * Gets the origin address of the brick.
+ */
+Tuple getOrg(Brick *b)
+{
+	Tuple org = b->p0;
+	subRectify(&org, b->p2);
+	return org;
+}
+
 char *brick2str(Brick *t)
 {
 	char *ptr;
