@@ -29,23 +29,6 @@ boolean img_changed;
 int limit;
 
 /*
- * Tests whether the direction dir is a valid path in the visit-once-tree.
- */
-boolean isAllowed___(int dir, Tuple p, unsigned char d0)
-{
-	double d1 = mod2Tuple(&p);
-	int x = p.x + dirs[dir].x;
-	int y = p.y + dirs[dir].y;
-	int z = p.z + dirs[dir].z;
-	double d2 = x*x + y*y + z*z;
-	if(d2 <= d1)
-		return false;
-	if(x == SIDE/2 || x == -SIDE/2-1 || y == SIDE/2 || y == -SIDE/2-1 || z == SIDE/2 || z == -SIDE/2-1)
-		return false;
-	return true;
-}
-
-/*
  * Gets the neighbor to the cell.
  */
 Brick *getNeighbor(int dir, Brick *b)
@@ -204,7 +187,7 @@ Brick *complement(Brick *b)
 
 boolean ready(Brick *b)
 {
-	return b->p13 == UXG || b->p13 == UXU || b->p13 == REISSUE || b->p13 == ANNIHIL || b->p13 == VACUUM || b->p13 == INERTIA || b->p13 == EM_BOSON;
+	return b->p13 & (PXP | UXU | UXP | UXG | REISSUE | VACUUM);
 }
 
 /*
@@ -264,7 +247,7 @@ void expandBurst()
 		// Reissue at the specified address
 		//
 		dual->p24 = SYNCH + BURST - dual->p1 % SYNCH;
-		dual->p21 |= PREON;						// turn on SEED bit
+		dual->p21 |= PREON;
 		resetTuple(&dual->p2);
 		dual->p13 = UNDEF;
 		//
@@ -320,7 +303,7 @@ void expandPreon()
 			Brick *nual = getNeighbor(dir, dual);
 			if((nual->p21 & PREON)  == 0)
 			{
-				copyBrick(nual, dual);	
+				copyBrick(nual, dual);
 				//
 				// Axiom 5 - Virtual decay of P
 				//
@@ -428,8 +411,9 @@ void classify1()
 	int w2;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
 	{
-		if(t1->p21 == UNDEF || t1->p21 == GRAV || isNull(t1->p2) || t1->p25)
+		if(t1->p21 == UNDEF || t1->p21 == GRAV || isNull(t1->p2) || t1->p25 || t1->p13 == UXG)
 		{
+			assert(t1->p13 != UXG);
 			t1->p13 = UNDEF;
 			continue;
 		}
@@ -471,6 +455,7 @@ void classify1()
 			// Axiom 12 - Graviton detection
 			//
 			t1->p13 = UXG;
+			t1->p29 = true;
 			t1->p3  = t2->p3;	// U inherits G's LM direction
 			t1->p25 = DESTROY;
 			//
@@ -579,14 +564,11 @@ void classify1()
 			//
 			// Axiom 13 - UxU interaction
 			//
+			t1->p13 = UXU;
+			t2->p13 = UXU;
 			if(t1->p6 == -t2->p6 && t1->p7 == -t2->p7 && t1->p9 == (~t2->p9 & 0x3f))
 			{
-				// Annihilation
-				//
-				t1->p13 = ANNIHIL;
-				t2->p13 = ANNIHIL;
-				//
-				// Reissue at contact point
+				// Annihilation: Reissue at contact point
 				//
 				t1->p15 = t1->p0;
 				t2->p15 = t2->p0;
@@ -615,12 +597,7 @@ void classify1()
 			}
 			else if(t1->p9 == t2->p9)
 			{
-				// Both Us are reissued
-				//
-				t1->p13 = UXU;
-				t2->p13 = UXU;
-				//
-				// Reissue at contact point
+				// Reissue both at contact point
 				//
 				t1->p15 = t1->p0;
 				t2->p15 = t1->p0;
@@ -630,7 +607,7 @@ void classify1()
 				t1->p20 = t2->p19;
 				t2->p20 = t1->p19;
 				//
-				t1->p25 = DESTROY;	// patch 5/5/18
+				t1->p25 = DESTROY;
 				t2->p25 = DESTROY;
 				assert(!isEqual(t1->p2, t2->p2));
 			}
@@ -646,34 +623,40 @@ boolean UXPaction(Brick *u, Brick *p)
 	if(isEqual(u->p2, p->p2))
 		return false;
 	//
-	boolean grav = (u->p13 == UXG);
-	//
 	// Used to calculate polarization
 	//
 	int light = (int) modTuple(&p->p2);
 	int cycle = SIDE / p->p12;
-	unsigned char interaction = UXP;
+	boolean capture = false;
 	//
 	// Axiom 12 - Gravitational acceleration
 	// (mandatory operation)
 	//
-	if(grav && vacuum(p))
+	if(u->p29 && vacuum(p))
 	{
-		puts("Capturou");
+		capture = true;
+		//
 		// P0 is on-shell now
 		//
 		p->p16 = BOUND;
 		complement(p)->p16 = BOUND;
+		p->p8 = REAL;
+		complement(p)->p8 = REAL;
 		//
 		// P is aligned with spin of origin G
 		//
+		assert(!isNull(u->p4));
 		p->p3 = u->p4;
 		complement(p)->p3 = u->p4;
+		//
+		// The U cannot capture vacuum anymore
+		//
+		u->p29 = false;
 	}
 	//
 	// Axiom 12 - EM interaction
 	//
-	else if((timer == em_case && vacuum(p)) || (pwm(p->p14) && vacuum(p)))
+	else if(vacuum(p) || (pwm(p->p14) && vacuum(p)))
 	{
 		// The vacuum P acquires static boson properties
 		//
@@ -682,7 +665,6 @@ boolean UXPaction(Brick *u, Brick *p)
 		p->p4 = u->p4;
 		complement(p)->p4 = u->p4;
 		invertTuple(&complement(p)->p4);
-		interaction = EM_BOSON;
 		//
 		// The P is turned on-shell
 		//
@@ -693,7 +675,7 @@ boolean UXPaction(Brick *u, Brick *p)
 	// Axiom 12 - Coulomb interaction
 	// Axiom 6 - Polarization
 	//
-	else if(timer == elt_case || (pwm(p->p14) && (light % cycle) < cycle / 8))
+	else if(pwm(p->p14) && (light % cycle) < cycle / 8)
 	{
 		printf("Coulomb %ld\n", timer);
 		p->p3 = p->p2;
@@ -720,7 +702,7 @@ boolean UXPaction(Brick *u, Brick *p)
 	// Axiom 12 - Magnetic interaction
 	// Axiom 6 - Polarization
 	//
-	else if(timer == magn_case || (!isNull(p->p4) && !isNull(u->p4) && pwm(p->p14) && (light % cycle) < cycle / 4 && pwm(tupleDot(&p->p4, &u->p4) / SIDE - SIDE) / 2))
+	else if(!isNull(p->p4) && !isNull(u->p4) && pwm(p->p14) && (light % cycle) < cycle / 4 && pwm(tupleDot(&p->p4, &u->p4) / SIDE - SIDE) / 2)
 	{
 		printf("Magn. %ld\n", timer);
 		//
@@ -739,10 +721,9 @@ boolean UXPaction(Brick *u, Brick *p)
 	//
 	// Axiom 12 - Absorption interaction
 	//
-	else if(p->p6 == -u->p6 && p->p16 == FREE)
+	else if(p->p6 == -u->p6 && p->p16 == FREE && pwm(p->p14) && (light % cycle) < cycle / 8)
 	{
 		puts("Absorp.");
-		interaction = REISSUE;
 		//
 		// Reissue all superposed preons
 		//
@@ -752,7 +733,7 @@ boolean UXPaction(Brick *u, Brick *p)
 		{
 			if(w1 != w2 && isEqual(p->p2, t2_->p2))
 			{
-				t2_->p13 = interaction;
+				t2_->p13 = REISSUE;
 				t2_->p25 = DESTROY;
 				t2_->p15 = u->p0;
 				puts("superposed");
@@ -812,14 +793,12 @@ boolean UXPaction(Brick *u, Brick *p)
 		//
 		subRectify(&u->p15, u->p2);
 		addRectify(&u->p15, p3);
-		//
-		interaction = INERTIA;
 	}
 	else
 	{
 		// Consume unused preons
 		//
-		puts("\tNOT USED");
+		//puts("\tNOT USED");
 		u->p13 = UNDEF;
 		p->p13 = UNDEF;
 		complement(p)->p13 = UNDEF;
@@ -828,21 +807,24 @@ boolean UXPaction(Brick *u, Brick *p)
 	//
 	// Interaction type
 	//
-	u->p13 = interaction;
-	p->p13 = interaction;
-	complement(p)->p13 = interaction;
-	//
-	// Reissue at the contact point
-	//
-	u->p15 = u->p0;
-	p->p15 = p->p0;
-	complement(p)->p15 = p->p0;
+	u->p13 = UXP;
+	p->p13 = UXP;
+	complement(p)->p13 = UXP;
 	//
 	// Burst type
 	//
 	u->p25 = DESTROY;
 	p->p25 = DESTROY;
 	complement(p)->p25 = DESTROY;
+	//
+	// Define reissue address
+	//
+	if(capture)
+		u->p15 = getOrg(u);
+	else
+		u->p15 = u->p0;
+	p->p15 = p->p0;
+	complement(p)->p15 = p->p0;
 	//
 	return true;
 }
@@ -859,19 +841,25 @@ boolean PXPaction(Brick *p1, Brick *p2)
 	//
 	// Axiom 13 - LM alignment
 	//
-	if(pwm(tupleDot(&p1->p3, &p2->p3) / SIDE - SIDE) / 2)	// p3.p3 ~ +1
+	Tuple m1 = p1->p3;
+	Tuple m2 = p2->p3;
+	normalizeTuple(&m1);
+	normalizeTuple(&m2);
+	int dot = tupleDot(&m1, &m2);
+	if(dot > 0 && pwm(dot) && !isEqual(p1->p2, p2->p2))								// p3.p3 ~ +1
 	{
+		puts("alignment");
 		p1->p16 = p2->p16 = FREE;
 	}
 	else if(isEqual(p1->p2, p2->p2) && vacuum(p1) && vacuum(p2) && broken(p1, p2))
 	{
-		// Synthesis
+		// Vacuum symmetry broken: synthesis
 		//
 		puts("Synthesis");
 	}
 	else if(vacuum(p1) && vacuum(p2))
 	{
-		puts("vac-vac");
+		puts("quantum fluctuation");
 	}
 	else if(p1->p9 == LEPT && p1c->p9 == ANTILEPT && vacuum(p2))
 	{
@@ -889,9 +877,8 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		}
 		puts("leptonic synthesis");
 	}
-	else if(pwm(tupleDot(&p1->p3, &p2->p3) / SIDE - SIDE) / 2)
+	else if(dot < 0 && pwm(-dot))						// p3.p3 ~ -1
 	{
-		puts("cancellation 2");
 		// Axiom 13 - Cancellation
 		//
 		// P1 <- P0
@@ -908,6 +895,9 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		p1->p16 = FREE;
 		p2->p16 = FREE;
 		//
+		// P1' <- P0
+		// P2' <- P0
+		//
 		resetTuple(&p1c->p3);
 		resetTuple(&p2c->p3);
 		resetTuple(&p1c->p4);
@@ -920,19 +910,33 @@ boolean PXPaction(Brick *p1, Brick *p2)
 		p2c->p16 = FREE;
 		puts("Px <- P0");
 	}
-	else if(p1->p9 != LEPT && p1c->p9 != ANTILEPT && p2->p9 != LEPT && p2c->p9 != ANTILEPT)
+	else if(p1->p9 != LEPT && p1->p9 != ANTILEPT && p2->p9 != LEPT && p2->p9 != ANTILEPT)
 	{
 		// Gluon-gluon interaction
 		//
 		exchangeColors(p1, p2);
-		puts("gluon-gluon");
+		printf("gluon-gluon %d %d %d %d\n", p1->p9, p1c->p9, p2->p9, p2c->p9);
 	}
 	else
 	{
-		p1->p13 = PXP;
-		p2->p13 = PXP;
+		p1->p13 = UNDEF;
+		p2->p13 = UNDEF;
 		return false;
 	}
+	//
+	// Reissue at the contact point
+	//
+	p1->p15 = p1->p0;
+	p1c->p15 = p1->p0;
+	p2->p15 = p1->p0;
+	p2c->p15 = p1->p0;
+	//
+	// Launch bursts
+	//
+	p1->p25 = DESTROY;
+	p1c->p25 = DESTROY;
+	p2->p25 = DESTROY;
+	p2c->p25 = DESTROY;
 	return true;
 }
 
@@ -945,7 +949,7 @@ void classify2()
 	Brick *t1 = dual;
 	for(int w1 = 0; w1 < NPREONS; w1++, t1++)
 	{
-		if((t1->p13 != U && t1->p13 != P) || isNull(t1->p2) || pri->p25)
+		if((t1->p13 != U && t1->p13 != P) || isNull(t1->p2) || t1->p25)
 			continue;
 		//
 		Brick *t2 = dual;
@@ -1079,6 +1083,7 @@ void reissue()
 	//
 	if(dual->p13 == VACUUM)
 	{
+		puts("vacuum");
 		dual->p15 = dual->p0;
 		//
 		// P <- P0
@@ -1171,12 +1176,12 @@ void *AutomatonLoop()
 			//
 			// Swap image buffer
 			//
-	        	pthread_mutex_lock(&mutex);
+        	pthread_mutex_lock(&mutex);
 			char *flip = draft;
 			draft = clean;
 			clean = flip;
 			img_changed = true;
-    			pthread_mutex_unlock(&mutex);
+    	    pthread_mutex_unlock(&mutex);
 		}
 	}
 	return NULL;
