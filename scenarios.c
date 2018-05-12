@@ -31,15 +31,17 @@ const char *sceneNames[] =
 		"Annihilation",
 		"Virtual decay of P",
 		"Gravity acceleration",
+		"KNP cancellation",
+		"Alignment",
 		"Big bang",
 };
 
 int scene = -1;
 static Brick *b;
 
-unsigned long elt_case = ULONG_MAX;
-unsigned long magn_case = ULONG_MAX;
-unsigned long em_case = ULONG_MAX;
+//unsigned long elt_case = ULONG_MAX;
+//unsigned long magn_case = ULONG_MAX;
+//unsigned long em_case = ULONG_MAX;
 
 /*
  * Erases all bricks in a w address.
@@ -319,7 +321,7 @@ void EMScenario()
 	resetTuple(&p4);
 	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
 	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
-	em_case = 509;
+//	em_case = 509;
 }
 
 void CoulombScenario()
@@ -371,8 +373,8 @@ void CoulombScenario()
 	//
 	// Set variables for testing purpose
 	//
-	em_case = 509;
-	elt_case = 1019;
+//	em_case = 509;
+//	elt_case = 1019;
 }
 
 void MagneticScenario()
@@ -424,8 +426,8 @@ void MagneticScenario()
 	//
 	// Set variables for testing purpose
 	//
-	em_case = 509;
-	magn_case = 1019;
+//	em_case = 509;
+//	magn_case = 1019;
 }
 
 /*
@@ -540,12 +542,116 @@ void GravityScenario()
 	// Create a vacuum P
 	//
 	p0.x = SIDE/6;
-	p0.y = SIDE/3;
+	p0.y = SIDE/6;
 	p0.z = SIDE/3;
 	//
 	resetTuple(&p4);
-	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST+4*SYNCH, UNDEF);
-	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST+4*SYNCH, UNDEF);
+	b = addPreon(p0,5, p3, p4, -1, +1, -1, VIRTUAL, LEPT, PREON, BURST+5*SYNCH, UNDEF);
+	b = addPreon(p0,6, p3, p4, -1, -1, +1, VIRTUAL, ANTILEPT, PREON, BURST+5*SYNCH, UNDEF);
+}
+
+/*
+ * KNP cancellation.
+ */
+void CancelScenario()
+{
+	// Create 1rst KNP
+	//
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = SIDE/2;
+	//
+	p3.x = 1;
+	p3.y = 0;
+	p3.z = 0;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	b = addPreon(p0,0, p3, p4, -1, +1, -1, REAL, LEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	//
+	p4.x *= -1;
+	p4.y *= -1;
+	p4.z *= -1;
+	b = addPreon(p0,2, p3, p4, +1, -1, +1, REAL, ANTILEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	//
+	// Create 2nd KNP
+	//
+	p0.x = SIDE/2;
+	p0.y = SIDE/3;
+	p0.z = 2;
+	//
+	p3.x = -1;
+	p3.y = 0;
+	p3.z = 0;
+	//
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	//
+	b = addPreon(p0,4, p3, p4, -1, +1, -1, REAL, LEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	//
+	p4.x *= -1;
+	p4.y *= -1;
+	p4.z *= -1;
+	b = addPreon(p0,6, p3, p4, +1, -1, +1, REAL, ANTILEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+}
+
+/*
+ * Alignment.
+ */
+void AlignmentlScenario()
+{
+	// Create 1rst KNP
+	//
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = SIDE/2;
+	//
+	p3.x = 1;
+	p3.y = 1;
+	p3.z = 1;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	b = addPreon(p0,0, p3, p4, -1, +1, -1, REAL, LEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	//
+	p4.x *= -1;
+	p4.y *= -1;
+	p4.z *= -1;
+	b = addPreon(p0,2, p3, p4, +1, -1, +1, REAL, ANTILEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	//
+	// Create 2nd KNP
+	//
+	p0.x = SIDE/2;
+	p0.y = SIDE/3;
+	p0.z = 2;
+	//
+	p3.x = 1;
+	p3.y = 1;
+	p3.z = 1;
+	//
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	//
+	b = addPreon(p0,4, p3, p4, -1, +1, -1, REAL, LEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
+	//
+	p4.x *= -1;
+	p4.y *= -1;
+	p4.z *= -1;
+	b = addPreon(p0,6, p3, p4, +1, -1, +1, REAL, ANTILEPT, PREON, BURST, UNDEF);
+	b->p16 = BOUND;
 }
 
 /*
@@ -583,6 +689,8 @@ void (*scenarios[])() =
 	AnnihilScenario,
 	VirtualDecayScenario,
 	GravityScenario,
+	CancelScenario,
+	AlignmentlScenario,
 	BigBangScenario,
 };
 
