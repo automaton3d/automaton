@@ -35,7 +35,7 @@ void pick(Vector3d *p, int x, int y)
 	}
 }
 
-int mouse(char op, int y, int x)
+int mouse(char op, int x, int y)
 {
 	switch(op)
 	{
@@ -77,15 +77,12 @@ int mouse(char op, int y, int x)
 			}
 			break;
 		case 'p':
-			for(int i = 0; i < NSCENES; i++)
-    	    	if(x > 320 && y > 303 + 15*i && y < 317 + 15*i)
-    	    		return i;
-			break;
 		case 'h':
 			for(int i = 0; i < NSCENES; i++)
-    	    	if(x > 320 && y > 303 + 15*i && y < 317 + 15*i)
+    	    	if(x > 320 && y > 258 + 15*i && y < 272 + 15*i)
     	    		return i;
 			break;
 	}
 	return -1;
 }
+
