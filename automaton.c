@@ -23,9 +23,11 @@
 
 Brick *pri0, *dual0;
 Brick *pri, *dual;
+
+// Other stuff
+
 char rotateRight[] = { 0, 4, 1, 0, 2, 0, 0, 0 };
 char qcd[] = { 0x3f, 0x01, 0x02, 0x04, 0x20, 0x10, 0x08, 0x3f };
-boolean img_changed;
 int limit;
 
 /*
@@ -675,7 +677,7 @@ boolean UXPaction(Brick *u, Brick *p)
 	// Axiom 12 - Coulomb interaction
 	// Axiom 6 - Polarization
 	//
-	else if(pwm(p->p14) && (light % cycle) < cycle / 8)
+	else if(p->p6s && pwm(p->p14) && (light % cycle) < cycle / 8)
 	{
 		printf("Coulomb %ld\n", timer);
 		p->p3 = p->p2;
@@ -702,7 +704,7 @@ boolean UXPaction(Brick *u, Brick *p)
 	// Axiom 12 - Magnetic interaction
 	// Axiom 6 - Polarization
 	//
-	else if(!isNull(p->p4) && !isNull(u->p4) && pwm(p->p14) && (light % cycle) < cycle / 4 && pwm(tupleDot(&p->p4, &u->p4) / SIDE - SIDE) / 2)
+	else if(p->p6s && !isNull(p->p4) && !isNull(u->p4) && pwm(p->p14) && (light % cycle) < cycle / 4 && pwm(tupleDot(&p->p4, &u->p4) / SIDE - SIDE) / 2)
 	{
 		printf("Magn. %ld\n", timer);
 		//
@@ -829,6 +831,9 @@ boolean UXPaction(Brick *u, Brick *p)
 	return true;
 }
 
+/*
+ * https://arxiv.org/pdf/1111.6126.pdf
+ */
 boolean PXPaction(Brick *p1, Brick *p2)
 {
 	if(p1->p20 == p2->p19 || p2->p20 == p1->p19)
