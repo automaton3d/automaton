@@ -18,7 +18,7 @@ extern int scene;
 extern const char *sceneNames[];
 extern void (*scenarios[])();
 extern int limit;
-
+extern boolean occupied[];
 
 /// Functions ///
 
