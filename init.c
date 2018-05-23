@@ -82,6 +82,8 @@ Brick *addPreon(Tuple p0, int w, Tuple p3, Tuple p4, char p5, char p6, char p7, 
 	t->p21 = p21 | GRAV;
 	t->p24 = p24;
 	t->p25 = p25;
+	if(p21 & PREON)
+		occupied[w] = true;
 	printf("%2d %2d %2d %2d: %+d %+d %+d %+d %02xH\t%s\t%s\n", p0.x, p0.y, p0.z, w, p5, p6, p7, p8, p9, tuple2str(&p3), tuple2str(&p4));
 	return t;
 }
