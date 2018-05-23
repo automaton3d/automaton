@@ -17,9 +17,7 @@ extern char *draft, *clean;
 extern const Tuple dirs[];
 extern char orgcolor;
 extern boolean showAxes, showGrid, showOrgs;
-extern unsigned long em_case;
-extern unsigned long elt_case;
-extern unsigned long magn_case;
+extern boolean img_changed;
 
 /// Functions ///
 
