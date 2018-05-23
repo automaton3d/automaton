@@ -10,10 +10,10 @@
 extern Brick *pri0;
 extern unsigned long timer;
 extern DWORD colors[];
-extern void vprints(int x, int y, char *str);
 
 /// Functions ///
 
+void vprints(int x, int y, char *str);
 void vprint(int x, int y, char ascii);
 void printLattice();
 
