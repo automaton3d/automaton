@@ -76,6 +76,8 @@ DWORD colors[7 + NPREONS];
 char background, gridcolor;
 char X, Y, Z;
 
+boolean img_changed;
+
 char imgbuf[3][SIDE3];
 char *draft, *clean, *snap;
 double M, d;
@@ -87,6 +89,7 @@ typedef struct M
 } Marker;
 
 Marker *markers;
+boolean occupied[NPREONS];
 
 void addMarker(Tuple xyz)
 {
@@ -114,31 +117,31 @@ void addMarker(Tuple xyz)
 
 void initPalette()
 {
-        X = RR;
-        Y = GG;
-        Z = BB;
-        //
-        background = BLK;
-        gridcolor = GRAY;
-        //
-        colors[0] = 0x00000000;		// BLK
-        colors[1] = 0x00ffffff;		// WHT
-        colors[2] = 0x00ff0000;		// RR
-        colors[3] = 0x0000ff00;		// GG
-        colors[4] = 0x000000ff;		// BB
-        colors[5] = 0x00444444;		// GRAY
-        colors[6] = 0x00555555;		// BOX
-        //
-        // Preon colors
-        //
-        int i;
-        for(i = 0; i < NPREONS + 1; i++)
-        {
-        	int r = 127 + (127 * (long) rand()) / RAND_MAX;
-        	int g = 127 + (127 * (long) rand()) / RAND_MAX;
-        	int b = 127 + (127 * (long) rand()) / RAND_MAX;
-            colors[7 + i] = r<<16 | g<<8 | b;
-        }
+    X = RR;
+    Y = GG;
+    Z = BB;
+    //
+    background = BLK;
+    gridcolor = GRAY;
+    //
+    colors[0] = 0x00000000;		// BLK
+    colors[1] = 0x00ffffff;		// WHT
+    colors[2] = 0x00ff0000;		// RR
+    colors[3] = 0x0000ff00;		// GG
+    colors[4] = 0x000000ff;		// BB
+    colors[5] = 0x00444444;		// GRAY
+    colors[6] = 0x00555555;		// BOX
+    //
+    // Preon colors
+    //
+    int i;
+    for(i = 0; i < NPREONS + 1; i++)
+    {
+    	int r = 127 + (127 * (long) rand()) / RAND_MAX;
+    	int g = 127 + (127 * (long) rand()) / RAND_MAX;
+    	int b = 127 + (127 * (long) rand()) / RAND_MAX;
+        colors[7 + i] = r<<16 | g<<8 | b;
+    }
 }
 
 void newTransform3()
@@ -547,6 +550,7 @@ void drawOrgs()
 					plot(dx, dy, dz, gridcolor);
 				}
 	}
+	memset(occupied, 0, NPREONS*sizeof(boolean));
 	for(int w = 0; w < NPREONS; w++)
 	{
 		for(x = 0; x < SIDE; x++)
@@ -570,6 +574,7 @@ void drawOrgs()
 						add3d(&q, v);
 						drawLine(v, q, GG);
 						drawVoxel(v.x-M, v.y-M, v.z-M, RR);
+						occupied[w] = true;
 					}
 				}
 	}
@@ -868,6 +873,21 @@ void visualize()
 	    asprintf((char **)&s, "X: box on/off");
 	    vprints(620, 740, s);
 	    free(s);
+	    //
+	    asprintf((char **)&s, "Preons");
+	    vprints(730, 220, s);
+	    free(s);
+	    //
+	    // Draw the preon list
+	    //
+	    for(int i = 0; i < NPREONS; i++)
+	    {
+		    asprintf((char **)&s, "%d", i+1);
+		    vprints(748, 240 + 15*i, s);
+		    free(s);
+		    if(occupied[i])
+		    	enhance(746, 239+15*i, 22, 13);
+	    }
 		//
 	    if(stop)
 	    {
@@ -915,7 +935,7 @@ void *DisplayLoop()
     	    	vprints(370, 395, s);
     	 	}
 			if(item >= 0)
-				enhance(319, 264 + item*15, 200, 12);
+				enhance(317, 264 + item*15, 200, 14);
     		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
     		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
             usleep(200000);
