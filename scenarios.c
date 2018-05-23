@@ -27,6 +27,8 @@ const char *sceneNames[] =
 		"EM boson",
 		"Coulomb force",
 		"Magnetic force",
+		"Weak force",
+		"Strong force",
 		"Electrons",
 		"Annihilation",
 		"Virtual decay of P",
@@ -370,11 +372,6 @@ void CoulombScenario()
 	resetTuple(&p4);
 	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
 	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
-	//
-	// Set variables for testing purpose
-	//
-//	em_case = 509;
-//	elt_case = 1019;
 }
 
 void MagneticScenario()
@@ -423,11 +420,68 @@ void MagneticScenario()
 	resetTuple(&p4);
 	b = addPreon(p0,5, p3, p4, -1, +1, -1, -1, LEPT, PREON, BURST, UNDEF);
 	b = addPreon(p0,6, p3, p4, -1, -1, +1, -1, ANTILEPT, PREON, BURST, UNDEF);
+}
+
+void WeakScenario()
+{
+	// Create U
 	//
-	// Set variables for testing purpose
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = 7*SIDE/8;
 	//
-//	em_case = 509;
-//	magn_case = 1019;
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,2, p3, p4, -1, -1, -1, REAL, LEPT, PREON, SYNCH+BURST, UNDEF);
+	//
+	// Create P
+	//
+	p0.x = SIDE/4;
+	p0.y = SIDE/2;
+	p0.z = 2*SIDE/3;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	//
+	b = addPreon(p0,5, p3, p4, -1, +1, -1, REAL, LEPT, PREON, BURST, UNDEF);
+	//
+	p4.x *= -1;
+	p4.y *= -1;
+	p4.z *= -1;
+	b = addPreon(p0,6, p3, p4, -1, -1, +1, REAL, ANTILEPT, PREON, BURST, UNDEF);
+}
+
+void StrongScenario()
+{
+	// Create U
+	//
+	p0.x = SIDE/3;
+	p0.y = SIDE/3;
+	p0.z = 7*SIDE/8;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	addPreon(p0,2, p3, p4, -1, -1, -1, REAL, 0x20, PREON, SYNCH+BURST, UNDEF);
+	//
+	// Create P
+	//
+	p0.x = SIDE/4;
+	p0.y = SIDE/2;
+	p0.z = 2*SIDE/3;
+	//
+	p4.x = rndSignal() * rndCoord();
+	p4.y = rndSignal() * rndCoord();
+	p4.z = rndSignal() * rndCoord();
+	//
+	b = addPreon(p0,5, p3, p4, -1, +1, -1, REAL, 0x20, PREON, BURST, UNDEF);
+	//
+	p4.x *= -1;
+	p4.y *= -1;
+	p4.z *= -1;
+	b = addPreon(p0,6, p3, p4, -1, -1, +1, REAL, 0x1f, PREON, BURST, UNDEF);
 }
 
 /*
@@ -685,6 +739,8 @@ void (*scenarios[])() =
 	EMScenario,
 	CoulombScenario,
 	MagneticScenario,
+	WeakScenario,
+	StrongScenario,
 	ElectronsScenario,
 	AnnihilScenario,
 	VirtualDecayScenario,
