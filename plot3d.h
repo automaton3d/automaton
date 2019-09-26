@@ -1,5 +1,8 @@
 /*
  * plot3d.h
+ *
+ *  Created on: 4 de mar de 2017
+ *      Author: Alexandre
  */
 
 #ifndef PLOT3D_H_
@@ -16,32 +19,28 @@
 #define WHITEBG  0x00ffffff
 #define BLACKBG  0x00000000
 
-extern Vector3d position;      	// view reference point
-extern Vector3d direction; 		// camera axis
-extern Vector3d attitude;  		// view-up direction
+// Exported variables
 
-extern DWORD *pixels;
-extern unsigned long begin;
-extern Brick *pri0;
+extern char *draft, *clean, *snap;
+extern Vector3d position, _position;      	// view reference point
+extern Vector3d direction, _direction; 		// camera axis
+extern Vector3d attitude;  					// view-up direction
+extern boolean showAxes, showGrid;
 extern pthread_mutex_t mutex;
-extern boolean input_changed;
-extern boolean img_changed;
-extern int scene;
-extern const char *sceneNames[];
-extern boolean splash;
-extern int item;
+extern char background, gridcolor;
+extern unsigned long timer;
+extern unsigned long begin;
+extern char imgbuf[3][SIDE3];
+extern DWORD colors[];
 
 /// Functions ///
 
 void initPlot();
-void clearBuffer();
 void updatePlot();
 void *DisplayLoop();
 void flipMode();
 void flipBox();
 void drawChar(double x, double y, double z, char color, char ch);
-void addMarker(Tuple xyz);
-void enhance(int x, int y, int h, int v);
-void plotV(Vector3d v, char color);
+void line(int x0, int y0, int x1, int y1, int color);
 
 #endif /* PLOT3D_H_ */

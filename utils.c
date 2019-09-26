@@ -1,18 +1,20 @@
 /*
  * utils.c
+ *
+ *  Created on: 10/10/2016
+ *      Author: Alexandre
  */
 
 #include "utils.h"
 #include <math.h>
 #include "plot3d.h"
-#include "rotation.h"
 
-double wT = 2 * PI / SIDE;
-double K, U1, U2;
+void delay(unsigned int mseconds)
+{
+    clock_t goal = mseconds + clock();
+    while (goal > clock());
+}
 
-/*
- * Calculates the opposite direction.
- */
 int opposite(int dir)
 {
 	if(dir % 2 == 0)
@@ -68,50 +70,24 @@ int rndSignal()
 
 boolean pwm(int n)
 {
-    return (n % STEP) < (n / NSTEPS);
-}
-
-void resetDFO(Brick *t)
-{
-	t->p12 = 0;
-	t->p28a1 = U1;
-	t->p28a2 = U2;
-}
-
-void incrDFO(Brick *t)
-{
-	t->p12++;
-	int u3 = K * t->p28a2 - t->p28a1;
-	t->p28a1 = t->p28a2;
-	t->p28a2 = u3;
+    return (n % ROOT) < (n / ROOT);
 }
 
 /*
- * Generates a prime number closest to n.
+ * Integer square root.
  */
-int getPrime(unsigned n)
+unsigned sqr(unsigned long n)
 {
-   int i = 3, count = 2, c, prime = 0;
-
-   while(i < SIDE)
-   {
-      for(c = 2 ; c <= i - 1 ; c++)
-      {
-         if(i % c == 0)
-            break;
-      }
-      if(c == i)
-      {
-    	  prime = i;
-    	  count++;
-      }
-      i++;
-   }
-   return prime;
+    unsigned int c = SIDE/2;
+    unsigned int g = SIDE/2;
+    for(;;)
+    {
+        if(g*g > n)
+            g ^= c;
+        c >>= 1;
+        if(c == 0)
+            return g;
+        g |= c;
+    }
+    return 0;
 }
-
-int hash(int n)
-{
-	return ((n + 1) * prime) >> (ORDER/2) & (SIDE-1);
-}
-

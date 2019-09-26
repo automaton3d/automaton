@@ -11,18 +11,20 @@
 #ifndef VECTOR3D_H_
 #define VECTOR3D_H_
 
-#define PI 3.14159265358979323846
-
 typedef struct { double x, y, z; } Vector3d;
 
-void normalize(Vector3d *v);
-void subVectors(Vector3d *a, Vector3d b);
-double dotproduct(Vector3d v1, Vector3d v2);
-void crossproduct(Vector3d v1, Vector3d v2, Vector3d *v3);
-void rotate(Vector3d *p, Vector3d axis, double angle);
+/// Functions ///
+
+void norm3d(Vector3d *v);
+void add3d(Vector3d *a, Vector3d b);
+void sub3d(Vector3d *a, Vector3d b);
+double dot3d(Vector3d v1, Vector3d v2);
+void cross3d(Vector3d v1, Vector3d v2, Vector3d *v3);
+void rot3d(Vector3d *p, Vector3d axis, double angle);
 void scale3d(Vector3d *v, double s);
 double module3d(Vector3d *v);
 void absV3d(Vector3d *v);
 char *vector2str(Vector3d *v);
+void invert3d(Vector3d *v);
 
 #endif /* VECTOR3D_H_ */

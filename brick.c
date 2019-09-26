@@ -1,63 +1,62 @@
 /*
  * brick.c
+ *
+ * Bricks are used to build preon wavefronts.
+ *
+ *  Created on: 23/01/2016
+ *      Author: Alexandre
  */
-
-#include "brick.h"
 
 #include <stdio.h>
+#include <assert.h>
+#include "automaton.h"
+#include "brick.h"
 
-unsigned signature(Brick *b)
-{
-	return (SIDE+1)*(SIDE+1) * b->p0.x + (SIDE+1)*b->p0.y + b->p0.z + 1;
-}
-
+/*
+ * Copies a brick.
+ * Preserves registers a, dirs
+ */
 void copyBrick(Brick *dst, Brick *org)
 {
-	Tuple p0 = dst->p0;
-	unsigned short w = dst->p19;
+	assert(dst->w==org->w);
+	Tuple a = dst->a;
+	unsigned char tmp[6];
+	memcpy(tmp, dst->dirs, 6);
 	*dst = *org;
-	dst->p0 = p0;
-	dst->p19 = w;
+	dst->a = a;
+	memcpy(dst->dirs, tmp, 6);
 }
 
 /*
- * Preserves p0, p1, p18, p19.
+ * Cleans the brick's registers,
+ * except a, dirs and w.
  */
-void cleanBrick(Brick *t)
+void cleanBrick(Brick *b)
 {
-	Tuple p0 = t->p0;
-	unsigned p1 = t->p1 % SYNCH;
-	unsigned char p13 = t->p13;
-	unsigned p18 = t->p18;
-	unsigned short w = t->p19;
-	memset(t, 0, sizeof(Brick));
-	t->p0 = p0;
-	t->p1 = p1;
-	if(p13 == UXG)
-		t->p13 = UXG;
-	t->p15.x = -1;
-	t->p18 = p18;
-	t->p19 = w;
-}
-
-boolean isColored(Brick *b)
-{
-	return b->p9 != LEPT && b->p9 != ANTILEPT;
+	Tuple a = b->a;
+	unsigned char tmp[6];
+	memcpy(tmp, b->dirs, 6);
+	unsigned short w = b->w;
+	memset(b, 0, sizeof(Brick));
+	b->a = a;
+	b->w = w;
+	memcpy(b->dirs, tmp, 6);
 }
 
 /*
- * Gets the origin address of the brick.
+ * String representing the brick (for debug purposes).
  */
-Tuple getOrg(Brick *b)
-{
-	Tuple org = b->p0;
-	subRectify(&org, b->p2);
-	return org;
-}
-
-char *brick2str(Brick *t)
+char *brick2str(Brick *b)
 {
 	char *ptr;
-	asprintf(&ptr, "[p0=%s,%d p3=%s p4=%s p5=%+d p6=%+d p7=%+d p8=%+d p9=%2xH]", tuple2str(&t->p0), t->p19, tuple2str(&t->p3), tuple2str(&t->p4), t->p5, t->p6, t->p7, t->p8, t->p9);
+	asprintf(&ptr, "[p0=%s p1=%d]", tuple2str(&b->a), b->t);
 	return ptr;
+}
+
+/*
+ * Tests if the colors of the pairs neutralize each other.
+ */
+boolean neutralized(Brick *b1, Brick *b2)
+{
+	return (b1->R^b2->R) && (b1->G^b2->G) && (b1->B^b2->B);
 }

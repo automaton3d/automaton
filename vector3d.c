@@ -5,13 +5,13 @@
  *      Author: Alexandre
  */
 
+#include "vector3d.h"
 #include <math.h>
 #include <stdio.h>
-#include "vector3d.h"
 
 char vectorBuf[4][30];
 
-void normalize(Vector3d *v)
+void norm3d(Vector3d *v)
 {
 	double h = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 	if(h == 0.0)
@@ -28,26 +28,33 @@ void normalize(Vector3d *v)
 	}
 }
 
-void subVectors(Vector3d *a, Vector3d b)
+void add3d(Vector3d *a, Vector3d b)
+{
+	a->x += b.x;
+	a->y += b.y;
+	a->z += b.z;
+}
+
+void sub3d(Vector3d *a, Vector3d b)
 {
 	a->x -= b.x;
 	a->y -= b.y;
 	a->z -= b.z;
 }
 
-double dotproduct(Vector3d v1, Vector3d v2)
+double dot3d(Vector3d v1, Vector3d v2)
 {
 	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 
-void crossproduct(Vector3d v1, Vector3d v2, Vector3d *v3)
+void cross3d(Vector3d v1, Vector3d v2, Vector3d *v3)
 {
 	v3->x = v1.y * v2.z - v1.z * v2.y;
 	v3->y = v1.z * v2.x - v1.x * v2.z;
 	v3->z = v1.x * v2.y - v1.y * v2.x;
 }
 
-void rotate(Vector3d *p, Vector3d axis, double angle)
+void rot3d(Vector3d *p, Vector3d axis, double angle)
 {
 	double x = p->x;
 	double y = p->y;
@@ -87,3 +94,11 @@ char *vector2str(Vector3d *v)
 	index &= 3;
 	return ptr;
 }
+
+void invert3d(Vector3d *v)
+{
+	v->x = -v->x;
+	v->y = -v->y;
+	v->z = -v->z;
+}
+

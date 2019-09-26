@@ -1,15 +1,12 @@
 /*
  * text.h
+ *
+ *  Created on: 4 de mar de 2017
+ *      Author: Alexandre
  */
 
 #ifndef TEXT_H_
 #define TEXT_H_
-
-#include "brick.h"
-
-extern Brick *pri0;
-extern unsigned long timer;
-extern DWORD colors[];
 
 /// Functions ///
 

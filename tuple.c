@@ -1,5 +1,10 @@
 /*
  * tuple.c
+ *
+ * Discrete vectors management.
+ *
+ *  Created on: 13/01/2016
+ *      Author: Alexandre
  */
 
 #include "tuple.h"
@@ -12,6 +17,8 @@ const Tuple dirs[] = {{+1,0,0}, {-1,0,0}, {0,+1,0}, {0,-1,0}, {0,0,+1}, {0,0,-1}
 const Tuple X0 = { 1,0,0 };
 const Tuple Y0 = { 0,1,0 };
 const Tuple Z0 = { 0,0,1 };
+
+Tuple V0 = { 1.732*SIDE, 1.732*SIDE, 1.732*SIDE};
 
 int minXYZ(Tuple *v)
 {
@@ -99,7 +106,7 @@ void subTuples3(Tuple *r, Tuple a, Tuple b)
  */
 double modTuple(Tuple *v)
 {
-	return sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+	return sqrt(v->x*v->x + v->y*v->y + v->z*v->z);
 }
 
 /*
@@ -110,19 +117,12 @@ double mod2Tuple(Tuple *v)
 	return v->x * v->x + v->y * v->y + v->z * v->z;
 }
 
-/*
- * Modulo SIDE/2.
- */
 void normalizeTuple(Tuple *t)
 {
-	double m = 2*modTuple(t);
-	if(m > 0)
-	{
-		double h = SIDE/(2*modTuple(t));
-		t->x = (int)(t->x*h);
-		t->y = (int)(t->y*h);
-		t->z = (int)(t->z*h);
-	}
+	double h = sqrt(t->x * t->x + t->y * t->y + t->z * t->z);
+	t->x = (int)(t->x * SIDE / h);
+	t->y = (int)(t->y * SIDE / h);
+	t->z = (int)(t->z * SIDE / h);
 }
 
 void tupleCross(Tuple v1, Tuple v2, Tuple *v3)
@@ -162,27 +162,9 @@ void resetTuple(Tuple *t)
 
 void scaleTuple(Tuple *t, int s)
 {
-	Vector3d v;
-	v.x = t->x;
-	v.y = t->y;
-	v.z = t->z;
-	norm3d(&v);
-	scale3d(&v, s);
-	t->x = v.x;
-	t->y = v.y;
-	t->z = v.z;
-}
-
-Tuple getDirection(Tuple a, Tuple b)
-{
-	Tuple d;
-	d.x = b.x - a.x;
-	d.y = b.y - a.y;
-	d.z = b.z - a.z;
-	d.x = b.x - signum(d.x) * SIDE;
-	d.y = b.y - signum(d.y) * SIDE;
-	d.z = b.z - signum(d.z) * SIDE;
-	return getUnit(&d);
+	t->x *= s;
+	t->y *= s;
+	t->z *= s;
 }
 
 Tuple getUnit(Tuple *t)
@@ -206,9 +188,44 @@ Tuple getUnit(Tuple *t)
 	return r;
 }
 
+Tuple getDirection(Tuple a, Tuple b)
+{
+	Tuple d;
+	d.x = b.x - a.x;
+	d.y = b.y - a.y;
+	d.z = b.z - a.z;
+	d.x = b.x - signum(d.x) * SIDE;
+	d.y = b.y - signum(d.y) * SIDE;
+	d.z = b.z - signum(d.z) * SIDE;
+	return getUnit(&d);
+}
+
+/*
+ * Normalized, discrete dot product.
+ */
+int dot(Tuple t1, Tuple t2)
+{
+	long id = t1.x*t2.x + t1.y*t2.y + t1.z*t2.z;
+	return signum(id)*(abs(id) >> (ORDER-1));
+}
+
+/*
+ * Integer module of a Tuple;
+ */
+unsigned imod(Tuple v)
+{
+	return sqr(v.x*v.x + v.y*v.y + v.z*v.z);
+}
+
+unsigned imod2(Tuple v)
+{
+	return v.x*v.x + v.y*v.y + v.z*v.z;
+}
+
 char *tuple2str(Tuple *t)
 {
 	char *s;
 	asprintf((char **)&s, "[%d,%d,%d]", t->x, t->y, t->z);
 	return s;
 }
+

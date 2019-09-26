@@ -1,5 +1,5 @@
 /*
- * mouse.c
+ * mouse.cu
  */
 
 #include "mouse.h"
@@ -9,6 +9,7 @@
 #include "plot3d.h"
 #include "vector3d.h"
 #include "quaternion.h"
+#include "gadget.h"
 
 Quaternion q, qstart;
 double radius = 0.4 * HEIGHT;
@@ -35,12 +36,14 @@ void pick(Vector3d *p, int x, int y)
 	}
 }
 
-int mouse(char op, int x, int y)
+void mouse(char op, int x, int y)
 {
 	switch(op)
 	{
 		case 'd':
         {
+        	checkTick(y, x);
+        	//
         	fDraw = true;
         	pick(&p0, x, y);
         	qstart.x = direction.x;
@@ -76,13 +79,5 @@ int mouse(char op, int x, int y)
 				input_changed = true;
 			}
 			break;
-		case 'p':
-		case 'h':
-			for(int i = 0; i < NSCENES; i++)
-    	    	if(x > 320 && y > 258 + 15*i && y < 272 + 15*i)
-    	    		return i;
-			break;
 	}
-	return -1;
 }
-

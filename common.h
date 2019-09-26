@@ -8,9 +8,11 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#define true 1
-#define false 0
-#define null 0
+#define true 	1
+#define false 	0
+#define null 	0
+
+#define PI		3.14159265358979323846
 
 #define WIDTH   800
 #define HEIGHT  800
@@ -24,13 +26,5 @@
 #define BB		4
 #define GRAY    5
 #define BOX		6
-
-// Special keys
-
-#define ESC		27
-
-// Other symbols
-
-#define NSCENES	18
 
 #endif /* COMMON_H_ */

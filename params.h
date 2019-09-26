@@ -1,5 +1,8 @@
 /*
  * params.h
+ *
+ *  Created on: 26/04/2016
+ *      Author: Alexandre
  */
 
 #ifndef PARAMS_H_
@@ -7,21 +10,18 @@
 
 // Automaton dimensions
 
-#define ORDER 		4						// 208 for the universe, a multiple of 4
+#define ORDER 		5
 #define SIDE 		(1<<ORDER)				// size of the universal cube
-#define NPREONS		(SIDE)					// ORDER for the universe
-#define DIAMETER 	((SIDE-1)*2)
+#define NPREONS		5//(SIDE*SIDE)
+#define DIAMETER 	((unsigned)floor((SIDE-1)*1.732))
 #define NDIR 		6						// spatial directions (von Neumann convention)
 
 // Derived parameters
 
+#define SHIFT		(ORDER-3)
+#define ROOT		(1<<(ORDER/2))
 #define BURST		(3*SIDE/2+1)
-#define SYNCH		(2*DIAMETER+BURST)
-
-// PWM parameters
-
-#define STEP		((int)log2(SIDE))
-#define NSTEPS		(SIDE/STEP)
+#define SYNCH		(BURST+2*DIAMETER)
 
 // Powers
 
@@ -38,4 +38,9 @@
 #define WRAP4      	((SIDE-1)*NPREONS)
 #define WRAP5      	(NPREONS)
 
+// debug
+
+#define LIMIT2		(3*SIDE2/4)
+
 #endif /* PARAMS_H_ */
+

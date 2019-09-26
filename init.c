@@ -1,5 +1,8 @@
 /*
  * init.c
+ *
+ *  Created on: 3 de abr de 2017
+ *      Author: Alexandre
  */
 
 #include "init.h"
@@ -15,20 +18,54 @@
 #include "utils.h"
 #include "automaton.h"
 #include "brick.h"
-#include "scenarios.h"
+#include "plot3d.h"
+#include "gadget.h"
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-int prime;
+
+void swap(unsigned char *a, unsigned char *b)
+{
+	unsigned char t = *a;
+	*a = *b;
+	*b = t;
+}
 
 /*
- * Initializes sine wave parameters.
- * Axiom 3 - Preon phase
+ * Calculates the next permutation of the von Neumann directions out of the 720 possible.
  */
-void initSineWave()
+void next(unsigned char dirs[])
 {
-	K = 2 * cos(wT);
-	U1 = SIDE * sin(-2 * wT);
-	U2 = SIDE * sin(-wT);
+	static unsigned char idx = 6;
+	static unsigned char permutation[] = { 0, 1, 2, 3, 4, 5 };
+	static unsigned char temp[6];
+	//
+	while(true)
+	{
+		if(idx == 6)
+		{
+			int i;
+		    for(i = 0; i < 6; i++)
+		        temp[i] = 0;
+			idx = 0;
+		}
+		if(temp[idx] < idx)
+		{
+			if(idx % 2 == 0)
+				swap(&permutation[0], &permutation[idx]);
+			else
+				swap(&permutation[temp[idx]], &permutation[idx]);
+			temp[idx]++;
+			idx = 0;
+			//
+			for(int j = 0; j < 6; j++)
+				dirs[j] = permutation[j];
+			return;
+		}
+		else
+		{
+			temp[idx] = 0;
+			idx++;
+		}
+	}
 }
 
 /*
@@ -38,54 +75,146 @@ void initSineWave()
 void buildLattice(Brick *grid)
 {
 	Brick *t = grid;
-	for(int x = 0; x < SIDE; x++)
-		for(int y = 0; y < SIDE; y++)
-			for(int z = 0; z < SIDE; z++)
-				for(int w = 0; w < NPREONS; w++, t++)
+	int x, y, z, w;
+	for(x = 0; x < SIDE; x++)
+		for(y = 0; y < SIDE; y++)
+			for(z = 0; z < SIDE; z++)
+				for(w = 0; w < NPREONS; w++, t++)
 				{
-					memset(t, 0, sizeof(Brick));
+					cleanBrick(t);
 					//
 					// Once and for all
 					//
-					t->p0.x = x;
-					t->p0.y = y;
-					t->p0.z = z;
-					t->p19 = w;
+					t->a.x = x;
+					t->a.y = y;
+					t->a.z = z;
+					t->w = w;
+					//
+					// Pick a randomized directions array
+					//
+					next(t->dirs);
 				}
-}
+	//
+	// Build the hologram
+	//
+	x = SIDE/4; y = 10; z = 0; w = 0;
+	t = pri0 + (SIDE2*x + SIDE*y + z)*NPREONS + w;
+	t->p.x = 1;
+	//
+	t->seed = t->a;
+	/*
 
-/*
- * Inserts a preon in a specified address of the pri0 lattice.
- *
- * @p3  momentum
- * @p4	spin
- * @p5	helicity
- * @p6	electric charge
- * @p7	chirality
- * @p8  gravity
- * @p9	color
- * @p21 status
- * @p24 schedule
- * @p25	messenger
- */
-Brick *addPreon(Tuple p0, int w, Tuple p3, Tuple p4, char p5, char p6, char p7, int p8, unsigned char p9, int p21, unsigned p24, int p25)
-{
-	Brick *t = pri0 + (SIDE2 * p0.x + SIDE * p0.y + p0.z) * NPREONS + w;
-	t->p3 = p3;
-	t->p4 = p4;
-	t->p5 = p5;
-	t->p6 = p6;
-	t->p7 = p7;
-	t->p8 = p8;
-	t->p9 = p9;
-	t->p15.x = -1;
-	t->p21 = p21 | GRAV;
-	t->p24 = p24;
-	t->p25 = p25;
-	if(p21 & PREON)
-		occupied[w] = true;
-	printf("%2d %2d %2d %2d: %+d %+d %+d %+d %02xH\t%s\t%s\n", p0.x, p0.y, p0.z, w, p5, p6, p7, p8, p9, tuple2str(&p3), tuple2str(&p4));
-	return t;
+	x = 3*SIDE/4; y = 8; z = 3; w = 1;
+	t = pri0 + (SIDE2*x + SIDE*y + z)*NPREONS + w;
+	t->p.x = 2;
+	//
+	t->seed = t->a;
+
+	x = SIDE/2; y = 2; z = 6; w = 2;
+	t = pri0 + (SIDE2*x + SIDE*y + z)*NPREONS + w;
+	t->p.x = 3;
+	//
+	t->seed = t->a;
+
+	x = SIDE/4; y = 1; z = SIDE-1; w = 3;
+	t = pri0 + (SIDE2*x + SIDE*y + z)*NPREONS + w;
+	t->p.x = -1;
+	//
+	t->seed = t->a;
+
+	x = SIDE/4; y = 4; z = SIDE-2; w = 4;
+	t = pri0 + (SIDE2*x + SIDE*y + z)*NPREONS + w;
+	t->p.x = 4;
+	//
+	t->seed = t->a;
+	 */
+
+	/*
+	z = 0;
+	for(x = 0; x < SIDE; x++)
+		for(y = 0; y < SIDE; y++)
+		{
+			w = SIDE * x + y;
+			t = pri0 + (SIDE2*x + SIDE*y + z)*NPREONS + w;
+			int a = 2 * (x%2) - 1;
+			int b = ((SIDE*y + x) / 2) % 3;
+			resetTuple(&t->s);
+			resetTuple(&t->o);
+			t->e = 0;
+			t->m = 0;
+			//
+			t->seed = t->a;		// NEW!
+			//
+			if(y == SIDE-1)
+			{
+				t->p.x = 0;
+				t->p.y = 0;
+				t->p.z = a;
+				if(x < SIDE/2)
+				{
+					t->q = 0;
+					t->w = 0;
+					t->R = 0;
+					t->G = 0;
+					t->B = 0;
+					t->g = 0;
+					t->d = 0;
+				}
+				else
+				{
+					t->q = 1;
+					t->w = 1;
+					t->R = 1;
+					t->G = 1;
+					t->B = 1;
+					t->g = 1;
+					t->d = 1;
+				}
+			}
+			else
+			{
+				switch(b)
+				{
+					case 0:
+						t->p.x = a;
+						t->p.y = 0;
+						t->p.z = 0;
+						break;
+					case 1:
+						t->p.x = 0;
+						t->p.y = a;
+						t->p.z = 0;
+						break;
+					case 2:
+						t->p.x = 0;
+						t->p.y = 0;
+						t->p.z = a;
+						break;
+				}
+				if(x % 2)
+				{
+					t->q = 0;
+					t->w = 0;
+					t->R = 0;
+					t->G = 0;
+					t->B = 0;
+					t->g = 0;
+					t->d = 0;
+				}
+				else
+				{
+					t->q = 1;
+					t->w = 1;
+					t->R = 1;
+					t->G = 1;
+					t->B = 1;
+					t->g = 1;
+					t->d = 1;
+				}
+			}
+
+		}
+		*/
 }
 
 /*
@@ -93,21 +222,20 @@ Brick *addPreon(Tuple p0, int w, Tuple p3, Tuple p4, char p5, char p6, char p7, 
  */
 void initAutomaton()
 {
-	printf("Scenario: %s\n", sceneNames[scene]);
-	printf("x  y   z  w  p5 p6 p7 p8 p9\tp3\tp4\n");
+	printf("Running...\n");
 	//
 	pri0  = malloc(SIDE4 * sizeof(Brick));
 	dual0 = malloc(SIDE4 * sizeof(Brick));
-	//
 	srand(time(NULL));
-	initSineWave();
 	buildLattice(pri0);
 	buildLattice(dual0);
-	//
-	// Initialize constants
-	//
 	limit = floor(sqrt(3) * (1 << (ORDER - 1)));
-	prime = getPrime(SIDE);
+	period = floor(PI*SIDE/4);
+	//
+	// Initialize gadgets
+	//
+	ticks[0] = true;
+	ticks[1] = true;
 	//
 	// Triple buffering
 	//
@@ -115,12 +243,8 @@ void initAutomaton()
 	clean = imgbuf[1];
 	snap  = imgbuf[2];
 	//
-	// Initial state of the universe
-	//
-	(*scenarios[scene])();
-	//
 	begin = GetTickCount();				// initial milliseconds
 	setvbuf(stdout, null, _IOLBF, 0);
-	sleep(3);
+	sleep(4);
 }
 

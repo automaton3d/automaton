@@ -1,5 +1,8 @@
 /*
- * tree.c
+ * tree2.c
+ *
+ *  Created on: 13 de abr de 2017
+ *      Author: Alexandre
  */
 
 #include "tree.h"
@@ -20,7 +23,7 @@ boolean isAllowed(int dir, Tuple p, unsigned char d0)
 	//
 	// Wrapping test
 	//
-	if(x == SIDE/2 || x == -SIDE/2-1 || y == SIDE/2 || y == -SIDE/2-1 || z == SIDE/2 || z == -SIDE/2-1)
+	if(x == SIDE/2+1 || x == -SIDE/2 || y == SIDE/2+1 || y == -SIDE/2 || z == SIDE/2+1 || z == -SIDE/2)
 		return false;
 	//
 	// Root

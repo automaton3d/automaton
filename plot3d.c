@@ -1,6 +1,9 @@
 /*
  * plot3d.c
  *
+ *  Created on: 4 de mar de 2017
+ *      Author: Alexandre
+ *
  * Implements a 3d graphics pipeline.
  * This fast and simple engine is only capable of projecting isolated points.
  */
@@ -14,10 +17,11 @@
 #include "params.h"
 #include "vector3d.h"
 #include "plot3d.h"
-
+#include "mouse.h"
 #include "brick.h"
-#include "main.h"
 #include "text.h"
+#include "main3d.h"
+#include "gadget.h"
 
 // Constants
 //
@@ -55,9 +59,10 @@ double wsx, wsy;
 //
 boolean parallel = true;
 int clipping;
-double scale = 1100;
+double scale = 1100;//0.8;
 
-boolean showAxes=true, showGrid=false, showBox=true, showOrgs=false;
+boolean showAxes = true, showGrid;
+boolean box = true;
 
 Vector3d position, _position;      	// view reference point
 Vector3d direction, _direction;		// camera axis
@@ -76,72 +81,41 @@ DWORD colors[7 + NPREONS];
 char background, gridcolor;
 char X, Y, Z;
 
-boolean img_changed;
-
 char imgbuf[3][SIDE3];
 char *draft, *clean, *snap;
-double M, d;
 
-typedef struct M
-{
-	Tuple xyz;
-	struct M *next;
-} Marker;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-Marker *markers;
-boolean occupied[NPREONS];
-
-void addMarker(Tuple xyz)
-{
-	if(markers == NULL)
-	{
-		markers = malloc(sizeof(Marker));
-		markers->xyz = xyz;
-	}
-	else
-	{
-		int n = 0;
-		Marker *m = markers;
-		while(m->next)
-		{
-			m = m->next;
-			n++;
-		}
-		if(n < 50)
-		{
-			m->next = malloc(sizeof(Marker));
-			m->next->xyz = xyz;
-		}
-	}
-}
-
+/*
+ * Define colors.
+ */
 void initPalette()
 {
-    X = RR;
-    Y = GG;
-    Z = BB;
-    //
-    background = BLK;
-    gridcolor = GRAY;
-    //
-    colors[0] = 0x00000000;		// BLK
-    colors[1] = 0x00ffffff;		// WHT
-    colors[2] = 0x00ff0000;		// RR
-    colors[3] = 0x0000ff00;		// GG
-    colors[4] = 0x000000ff;		// BB
-    colors[5] = 0x00444444;		// GRAY
-    colors[6] = 0x00555555;		// BOX
-    //
-    // Preon colors
-    //
-    int i;
-    for(i = 0; i < NPREONS + 1; i++)
-    {
-    	int r = 127 + (127 * (long) rand()) / RAND_MAX;
-    	int g = 127 + (127 * (long) rand()) / RAND_MAX;
-    	int b = 127 + (127 * (long) rand()) / RAND_MAX;
-        colors[7 + i] = r<<16 | g<<8 | b;
-    }
+        X = RR;
+        Y = GG;
+        Z = BB;
+        //
+        background = BLK;
+        gridcolor = GRAY;
+        //
+        colors[0] = 0x00000000;		// BLK
+        colors[1] = 0x00ffffff;		// WHT
+        colors[2] = 0x00ff0000;		// RR
+        colors[3] = 0x0000ff00;		// GG
+        colors[4] = 0x000000ff;		// BB
+        colors[5] = 0x00444444;		// GRAY
+        colors[6] = 0x00999999;		// BOX
+        //
+        // Preon colors
+        //
+        int i;
+        for(i = 0; i < NPREONS; i++)
+        {
+        	int r = 127 + (127 * (long) rand()) / RAND_MAX;
+        	int g = 127 + (127 * (long) rand()) / RAND_MAX;
+        	int b = 127 + (127 * (long) rand()) / RAND_MAX;
+            colors[7 + i] = r<<16 | g<<8 | b;
+        }
 }
 
 void newTransform3()
@@ -301,7 +275,7 @@ void setViewDepth(double _frontDistance, double _backDistance)
 {
 	if(frontDistance > backDistance)
 		perror("Frontal Plane behind Back Plane");
-	//
+		//
 	frontDistance = _frontDistance;
 	backDistance = _backDistance;
 }
@@ -323,7 +297,7 @@ void flipMode()
 
 void flipBox()
 {
-	showBox = !showBox;
+	box = !box;
 }
 
 void newView2()
@@ -415,9 +389,6 @@ void enter(int color)
 	}
 }
 
-/*
- * Plots a voxel.
- */
 void plot(double x, double y, double z, char color)
 {
 	pen.x = x;
@@ -426,28 +397,14 @@ void plot(double x, double y, double z, char color)
 	enter(color);
 }
 
-/*
- * Plots a voxel.
- */
-void plotV(Vector3d v, char color)
+void marker(int x, int y, int z)
 {
-	pen.x = v.x;
-	pen.y = v.y;
-	pen.z = v.z;
-	enter(color);
-}
-
-void marker(Tuple xyz)
-{
-	double dx = (xyz.x - SIDE/2);
-	double dy = (xyz.y - SIDE/2);
-	double dz = (xyz.z - SIDE/2);
+	double dx = (x - SIDE/2);
+	double dy = (y - SIDE/2);
+	double dz = (z - SIDE/2);
 	plot(dx, dy, dz, WHT);
 }
 
-/*
- * Sets parallel projection.
- */
 void setParallel(double dx, double dy, double dz)
 {
 	if((fabs(dx) + fabs(dy) + fabs(dz)) < ROUNDOFF)
@@ -459,9 +416,7 @@ void setParallel(double dx, double dy, double dz)
  */
 void initPlot()
 {
-	d = 2.0 / (3*SIDE);
-	M = SIDE *d / 4;
-	//
+	initPalette();
 	double h = sqrt(225) / (1.5 * GRID);
 	position.x = (int)(10.0 / h);
 	position.y = (int)(5.0 / h);
@@ -492,12 +447,12 @@ void initPlot()
 	clearBuffer();
 }
 
-/*
- * Draws a cube to mark the presence of a preon.
- */
 void drawVoxel(double dx, double dy, double dz, char color)
 {
 	int N = SIDE / 2 + 1;
+	double d = 2.0 / (3 * SIDE);	// ????
+	int M = SIDE *d / 4;
+	dx-=M; dy-=M; dz-=M;
 	int x, y, z;
 	for(x = 0; x < N; x++)
 		for(y = 0; y < N; y++)
@@ -520,66 +475,6 @@ void drawVoxel(double dx, double dy, double dz, char color)
 			plot(dx + x*d, dy+N*d, dz + z*d, color);
 }
 
-void drawLine(Vector3d point0, Vector3d point1, char color)
-{
-	Vector3d p = point1;
-	sub3d(&p, point0);
-    double dist = module3d(&p);
-    scale3d(&p, 0.5);
-    if(dist < .1)
-        return;
-    Vector3d middlePoint = point0;
-    add3d(&middlePoint, p);
-    plotV(middlePoint, color);
-    drawLine(point0, middlePoint, color);
-    drawLine(middlePoint, point1, color);
-}
-
-void drawOrgs()
-{
-	int x, y, z;
-	if(showGrid)
-	{
-		for(x = 0; x < SIDE; x++)
-			for(y = 0; y < SIDE; y++)
-				for(z = 0; z < SIDE; z++)
-				{
-					double dx = (x - SIDE/2);
-					double dy = (y - SIDE/2);
-					double dz = (z - SIDE/2);
-					plot(dx, dy, dz, gridcolor);
-				}
-	}
-	memset(occupied, 0, NPREONS*sizeof(boolean));
-	for(int w = 0; w < NPREONS; w++)
-	{
-		for(x = 0; x < SIDE; x++)
-			for(y = 0; y < SIDE; y++)
-				for(z = 0; z < SIDE; z++)
-				{
-					Brick *b = dual0 + (SIDE2*x +SIDE*y + z) * NPREONS + w;
-					if((b->p21 & PREON) && b->p25 == UNDEF)
-					{
-						Tuple org = getOrg(b);
-						Vector3d v;
-						v.x = (org.x - SIDE/2);
-						v.y = (org.y - SIDE/2);
-						v.z = (org.z - SIDE/2);
-						//
-						Vector3d q;
-						q.x = b->p4.x;
-						q.y = b->p4.y;
-						q.z = b->p4.z;
-						norm3d(&q);
-						add3d(&q, v);
-						drawLine(v, q, GG);
-						drawVoxel(v.x-M, v.y-M, v.z-M, RR);
-						occupied[w] = true;
-					}
-				}
-	}
-}
-
 void drawLattice()
 {
 	char *voxels = snap;
@@ -594,16 +489,17 @@ void drawLattice()
 				double dz = (z - SIDE/2);
 				//
 				if(color != gridcolor && color != background)
-					drawVoxel(dx, dy, dz, color);
+				{
+					if(color == RR || color == BB || color == GG || ticks[1])
+						drawVoxel(dx, dy, dz, color);
+				}
 				else if(showGrid)
+				{
 					plot(dx, dy, dz, gridcolor);
+				}
 			}
-	Marker *m = markers;
-	while(m)
-	{
-		marker(m->xyz);
-		m = m->next;
-	}
+	marker(SIDE/3,SIDE/3,SIDE/2);
+	marker(2*SIDE/3,2*SIDE/3,SIDE/2+2);
 }
 
 void drawBox()
@@ -671,9 +567,62 @@ void drawChar(double x, double y, double z, char color, char ch)
 	}
 }
 
-/*
- * Draws the xyz icon.
- */
+void line(int x0, int y0, int x1, int y1, int color)
+{
+	int dy = y1 - y0;
+    int dx = x1 - x0;
+    int stepx, stepy;
+    if(dy < 0)
+    {
+    	dy = -dy;  stepy = -1;
+    }
+    else
+    {
+    	stepy = 1;
+    }
+    if(dx < 0)
+    {
+    	dx = -dx;  stepx = -1;
+    }
+    else
+    {
+    	stepx = 1;
+    }
+    dy <<= 1;                                         // dy is now 2*dy
+    dx <<= 1;                                         // dx is now 2*dx
+    pixels[x0 + y0*WIDTH] = colors[color];
+    if(dx > dy)
+    {
+    	int fraction = dy - (dx >> 1);                  // same as 2*dy - dx
+    	while (x0 != x1)
+    	{
+    		if(fraction >= 0)
+    		{
+    			y0 += stepy;
+    			fraction -= dx;                             // same as fraction -= 2*dx
+    		}
+    		x0 += stepx;
+    		fraction += dy;                               // same as fraction -= 2*dy
+    		pixels[x0 + y0*WIDTH] = colors[color];
+    	}
+    }
+    else
+    {
+    	int fraction = dx - (dy >> 1);
+    	while(y0 != y1)
+    	{
+    		if(fraction >= 0)
+    		{
+    			x0 += stepx;
+    			fraction -= dy;
+    		}
+    		y0 += stepy;
+    		fraction += dx;
+    		pixels[x0 + y0*WIDTH] = colors[color];
+    	}
+    }
+}
+
 void drawAxes()
 {
 	setViewPort(0.0, 0.2, 0.0, 0.2);
@@ -688,7 +637,8 @@ void drawAxes()
 		setPerspective(xc, yc, zc);
 	}
 	newView3();
-	for(int i = 0; i < 35; i++)
+	int i;
+	for(i = 0; i < 35; i++)
 	{
 		double p = i;
 		if(i < 30)
@@ -774,11 +724,8 @@ void updatePlot()
 	// Recreate pixels
 	//
 	clearBuffer();
-	if(showOrgs)
-		drawOrgs();
-	else
-		drawLattice();
-	if(showBox)
+	drawLattice();
+	if(box)
 		drawBox();
 	if(showAxes)
 		drawAxes();
@@ -786,182 +733,105 @@ void updatePlot()
 
 void updateCamera()
 {
-     position.x = _position.x;
-     position.y = _position.y;
-     position.z = _position.z;
-     //
-     direction.x = _direction.x;
-     direction.y = _direction.y;
-     direction.z = _direction.z;
+        position.x = _position.x;
+        position.y = _position.y;
+        position.z = _position.z;
+        //
+        direction.x = _direction.x;
+        direction.y = _direction.y;
+        direction.z = _direction.z;
 }
 
-/*
- * Inverts the colors of the specified rectangle.
- */
-void enhance(int x, int y, int h, int v)
-{
-	int idx = (HEIGHT-y) * WIDTH + x;
-	for(int i = 0; i < v; i++, idx -= WIDTH+h)
-		for(int j = 0; j < h; j++, idx++)
-			pixels[idx] ^= 0x00ffffffff;
-}
-
-/*
- * Main routine for graphics dynamics.
- */
 void visualize()
 {
 	if(timer % 2 == 0)
 	{
 		updatePlot();
 		//
+		// Gadgets
+		//
+		line(250, HEIGHT-40, WIDTH-250, HEIGHT-40, WHT);
+		line(250, HEIGHT-50, WIDTH-250, HEIGHT-50, WHT);
+		line(250, HEIGHT-40, 250, HEIGHT-50, WHT);
+		line(WIDTH-250, HEIGHT-40, WIDTH-250, HEIGHT-50, WHT);
+		int pointer = (BURST % SYNCH)*(WIDTH-500) / SYNCH;
+		line(250+pointer, HEIGHT-41, 250+pointer, HEIGHT-49, WHT);
+		//
+		pointer = (timer % SYNCH)*(WIDTH-500) / SYNCH;
+		line(250+pointer, HEIGHT-41, 250+pointer, HEIGHT-49, GG);
+		line(250, HEIGHT-45, 250+pointer, HEIGHT-45, GG);
+		//
+		// Ticks
+		//
+		showCheckbox(20, 100, "burst");
+		showCheckbox(20, 120, "wavefront");
+		//
 		// Graphic text
 		//
 	 	char *s;
-	    asprintf(&s, "Automaton %dx%dx%dx%d", SIDE, SIDE, SIDE, SIDE);
+	    asprintf((char **)&s, "BURST");
+	    vprints(280, 25, s);
+	    asprintf((char **)&s, "LIGHT");
+	    vprints(420, 25, s);
+	    //
+	    asprintf(&s, "Automaton %dx%dx%dx%d", SIDE, SIDE, SIDE, NPREONS);
 	    vprints(20, 20, s);
-	    free(s);
 	    //
-	    asprintf(&s, "Scenario: %s", sceneNames[scene]);
-	    vprints(330, 20, s);
-	    free(s);
-	    //
-	    asprintf(&s, "Elapsed: %lu ms", GetTickCount() - begin);
+	    asprintf(&s, "Elapsed )ms( %lu", GetTickCount() - begin);
 	    vprints(20, 40, s);
-	    free(s);
-	    //
-	    asprintf(&s, "Views:");
-	    vprints(20, 70, s);
-	    free(s);
-	    //
-	    asprintf(&s, "0: isometric");
-	    vprints(25, 90, s);
-	    free(s);
-	    //
-	    asprintf(&s, "1: xy");
-	    vprints(25, 110, s);
-	    free(s);
-	    //
-	    asprintf(&s, "2: yz");
-	    vprints(25, 130, s);
-	    free(s);
-	    //
-	    asprintf(&s, "3: zx");
-	    vprints(25, 150, s);
-	    free(s);
 	    //
 	 	asprintf(&s, "ls=%lu  clk=%lu", timer / (2 * DIAMETER), timer);
 		vprints(20, 740, s);
-	    free(s);
 		//
-	    asprintf((char **)&s, "A: axes on/off");
-	    vprints(620, 660, s);
-	    free(s);
-	    //
-	    asprintf((char **)&s, "G: grid on/off");
-	    vprints(620, 680, s);
-	    free(s);
-	    //
-	    asprintf((char **)&s, "O: centers on/off");
-	    vprints(620, 700, s);
-	    free(s);
-	    //
 	    asprintf((char **)&s, "S: pause/resume");
+	    vprints(620, 700, s);
+	    //
+	    asprintf((char **)&s, "G: grid on-off");
 	    vprints(620, 720, s);
-	    free(s);
 	    //
-	    asprintf((char **)&s, "X: box on/off");
+	    asprintf((char **)&s, "X: box on-off");
 	    vprints(620, 740, s);
-	    free(s);
-	    //
-	    asprintf((char **)&s, "Preons");
-	    vprints(730, 220, s);
-	    free(s);
-	    //
-	    // Draw the preon list
-	    //
-	    for(int i = 0; i < NPREONS; i++)
-	    {
-		    asprintf((char **)&s, "%d", i+1);
-		    vprints(748, 240 + 15*i, s);
-		    free(s);
-		    if(occupied[i])
-		    	enhance(746, 239+15*i, 22, 13);
-	    }
 		//
 	    if(stop)
 	    {
 	    	asprintf((char **)&s, "[PAUSED]");
 	    	vprints(370, 395, s);
-		    free(s);
 	    }
 		//
 		// Update screen
 		//
-		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
-		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
+		SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
+		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, myCompatibleDC, 0, 0, SRCCOPY);
 	}
 }
 
-/*
- * Screen update loop.
- */
 void *DisplayLoop()
 {
  	begin = GetTickCount();
     pthread_detach(pthread_self());
     pthread_mutex_unlock(&mutex);
-	initPalette();
     while(true)
     {
-    	if(splash)
+    	if(input_changed)
     	{
-    		clearBuffer();
-    		//
-    	 	char *s;
-    	 	if(scene == -1)
-    	 	{
-        	    asprintf(&s, "Select scenario:");
-        	    vprints(300, 245, s);
-        	    for(int i = 0; i < NSCENES; i++)
-        	    {
-        	    	asprintf(&s, "%s", sceneNames[i]);
-        	    	vprints(320, 265 + 15*i, s);
-        	    }
-    	 	}
-    	 	else
-    	 	{
-    	    	asprintf((char **)&s, "[WAIT...]");
-    	    	vprints(370, 395, s);
-    	 	}
-			if(item >= 0)
-				enhance(317, 264 + item*15, 200, 14);
-    		SetDIBits(dc, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
-    		BitBlt(hdc, 0, 0, WIDTH, HEIGHT, dc, 0, 0, SRCCOPY);
-            usleep(200000);
+        	pthread_mutex_lock(&mutex);
+    		updateCamera();
+    		input_changed = false;
+    	    pthread_mutex_unlock(&mutex);
     	}
-    	else
+        visualize();
+        //
+        // Swap snap <--> clean
+        //
+    	pthread_mutex_lock(&mutex);
+    	if(!stop)
     	{
-        	if(input_changed)
-        	{
-            	pthread_mutex_lock(&mutex);
-        		updateCamera();
-        		input_changed = false;
-        	    pthread_mutex_unlock(&mutex);
-        	}
-       		visualize();
-            //
-            // Swap snap <--> clean
-            //
-       		if(img_changed)
-       		{
-       	    	pthread_mutex_lock(&mutex);
-       	    	char *flip = snap;
-       	    	snap = clean;
-       	    	clean = flip;
-       	    	img_changed = false;
-       		    pthread_mutex_unlock(&mutex);
-       		}
+    		char *flip = snap;
+    		snap = clean;
+    		clean = flip;
     	}
+	    pthread_mutex_unlock(&mutex);
+	    //
+        usleep(60000);
     }
 }

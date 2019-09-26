@@ -14,6 +14,7 @@ typedef struct
 
 } Quaternion;
 
+/// Functions ///
 
 void conjugate(Quaternion q0, Quaternion q1);
 void normalise(Quaternion q0);
