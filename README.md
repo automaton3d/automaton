@@ -1,4 +1,4 @@
-# automaton
+# It from bit - a concrete attempt
 I'm developing toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://zenodo.org/record/5070295#.YPGLDD2SmM8">pdf</A> file.
 
 Here I present my efforts to implement a tiny version of the universal automaton using Cuda.
