@@ -1,7 +1,7 @@
 # automaton
-A toy model of the universe in a cellular automaton.
+I'm developing toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained <A HREF="https://zenodo.org/record/5070295#.YPGLDD2SmM8">here</A>.
 
-The detailed research ideas are contained <A HREF="https://zenodo.org/record/5070295#.YPGLDD2SmM8">here</A>.
+Here I present my efforts to implement a tiny version of the universal automaton using Cuda.
 
 Runs on Windows only.
 
