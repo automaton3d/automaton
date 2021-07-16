@@ -5,7 +5,7 @@ Runs on Windows only.
 
 This program is being developed under Visual Studio with Cuda Toolkit 7.5.
 
-The GPU used is a GTX 1050 super.
+The GPU used is an NVIDIA GTX 1050 super.
 
 Last update: 16/07/2021
 
