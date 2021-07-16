@@ -1,6 +1,8 @@
 # automaton
 A toy model of the universe in a cellular automaton.
 
+The detailed research ideas are contained <A HREF="https://zenodo.org/record/5070295#.YPGLDD2SmM8">here</A>.
+
 Runs on Windows only.
 
 This program is being developed under Visual Studio with Cuda Toolkit 7.5.
