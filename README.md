@@ -11,4 +11,6 @@ Last update: 16/07/2021
 
 I'm an independent researcher, your help will be very valuable :)
 
+**Donation**
+
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate?business=CHS2QRBFLQEFU&no_recurring=1&item_name=Independent+research.&currency_code=USD)
