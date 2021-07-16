@@ -9,8 +9,4 @@ The GPU is a GTX 1050 super.
 
 Last update: 16/07/2021
 
-
-[Why donate?](https://rawgit.com/automaton3d/automaton/master/donate.html)
-
-xxxx
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](YOUR_EMAIL_CODE)
+[Why donate?](https://img.shields.io/badge/Donate-PayPal-green.svg)](javaresende@gmail.com)
