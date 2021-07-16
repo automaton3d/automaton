@@ -10,3 +10,5 @@ The GPU is a GTX 1050 super.
 Last update: 16/07/2021
 
 [![Why donate?](https://img.shields.io/badge/Donate-PayPal-green.svg)](javaresende@gmail.com)
+
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](javaresende@gmail.com)
