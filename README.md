@@ -3,9 +3,7 @@ I'm developing toy model of the universe using the cellular automaton paradigm. 
 
 Here I present my efforts to implement a tiny version of the universal automaton using Cuda.
 
-Runs on Windows only.
-
-This program is being developed under Visual Studio with Cuda Toolkit 7.5.
+This program is being developed under Visual Studio with Cuda Toolkit 7.5 under Windows 10.
 
 The GPU used is an NVIDIA GTX 1050 super.
 
