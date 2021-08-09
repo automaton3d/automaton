@@ -1,7 +1,7 @@
 # It from bit - a concrete attempt
 I'm developing toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://www.preprints.org/manuscript/202107.0513/v1">pdf</A> file.
 
-Here I present my efforts to implement a tiny version of the universal automaton using Cuda.
+Here I present my efforts to implement a tiny version of the universal automaton mixing of Cuda and OpenGL.
 
 This program is being developed under Visual Studio with Cuda Toolkit 7.5 under Windows 10.
 
