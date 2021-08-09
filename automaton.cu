@@ -1,233 +1,328 @@
-﻿#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+#pragma comment(lib, "C:\\GL\\GLUT\\lib\\x64\\freeglut.lib")
+
+#define GLEW_STATIC
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <GL/glew.h>
+#include <GL/glut.h>
+#include <cuda_gl_interop.h>
+
+#include "callbacks.h"
+#include "automaton.h"
+#include "cglm/mat4.h"
+#include "cglm/affine.h"
+#include "cglm/cglm.h"
+#include "cglm/call.h"
+#include "cglm/cam.h"
+#include "cglm/vec3.h"
 
 #include "automaton.h"
 
+const char* vertexShaderSource = "#version 460 core\n"
+"layout(location = 0) in vec3 aPos;\n"
+"layout(location = 1) in vec3 aOffset;\n"
+"layout(location = 2) in vec3 aColor;\n"
+"out vec3 fColor;\n"
+"uniform mat4 projection;\n"
+"uniform mat4 view;\n"
+"uniform mat4 model;\n"
+"void main()\n"
+"{\n"
+"	gl_Position = projection * view * model * vec4(aPos + aOffset, 1.0);\n"
+"	fColor = aColor;\n"
+"}\0";
+
+unsigned int vertexShader;
+
+const char* fragmentShaderSource = "#version 460 core\n"
+"in vec3 fColor;\n"
+"out vec4 FragColor;\n"
+"void main()\n"
+"{\n"
+"	if(fColor==vec3(0,0,0))"
+"		FragColor = vec4(fColor, 0);\n"
+"	else\n"
+"		FragColor = vec4(fColor, 1);\n"
+"}\0";
+
+unsigned int shaderProgram;
+unsigned int vao;
+
+mat4 model = GLM_MAT4_IDENTITY_INIT;
+mat4 view = GLM_MAT4_IDENTITY_INIT;
+mat4 projection;
+
+// Camera
+
+float yaw = -90;
+float pitch = 0;
+
+vec3 cameraPos;
+vec3 cameraFront;
+vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
+
 struct Cell* lattice;
-
-__global__ void initCA(struct Cell* lattice)
-{
-    // Create lattice
-    //
-    size_t idx = blockIdx.x* blockDim.x + threadIdx.x;
-    int h = idx % 2;
-    int v = idx >> 1;
-    size_t offset = SIDE3*v + SIDE2*SIDE3*h;
-    struct Cell* cell = lattice + offset;
-    int floor = idx >> 1;
-    int i = 0;
-    bool active = h == 0;
-    for (int z = 0; z < SIDE; z++)
-        for (int y = 0; y < SIDE; y++)
-            for (int x = 0; x < SIDE; x++)
-            {
-                cell->active = active;
-                cell->t = 0;
-                cell->noise = i;
-                cell->f = 0;
-                RESET(cell->p);
-                RESET(cell->s);
-                if (z == 0 && (x + SIDE*y) == floor)
-                {
-                    cell->f = 1;
-                    if (x < SIDE / 2)
-                    {
-                        cell->d = true;
-                    }
-                    else
-                    {
-                        cell->d = false;
-                    }
-                    //
-                    unsigned char tiling = (x % 2) ^ (y % 2);
-                    if (tiling)
-                    {
-                        cell->c = 0;
-                        cell->w = false;
-                        cell->q = true;
-                    }
-                    else
-                    {
-                        cell->c = 7;
-                        cell->w = true;
-                        cell->q = false;
-                    }
-                    //
-                    // Initialize spin
-                    //
-                    if (x == SIDE - 1)
-                    {
-                        cell->s[2] = (cell->d) ? -SIDE / 2 : +SIDE / 2;
-                        cell->p[2] = (i % 2) ? +SIDE/2 : -SIDE/2;
-                    }
-                    else
-                    {
-                        switch (i % 6)
-                        {
-                            case 0:
-                                cell->s[0] = +SIDE / 2;
-                                cell->p[1] = +SIDE / 2;
-                                break;
-                            case 1:
-                                cell->s[0] = -SIDE / 2;
-                                cell->p[1] = -SIDE / 2;
-                                break;
-                            case 2:
-                                cell->s[1] = +SIDE / 2;
-                                cell->p[2] = +SIDE / 2;
-                                break;
-                            case 3:
-                                cell->s[1] = -SIDE / 2;
-                                cell->p[2] = -SIDE / 2;
-                                break;
-                            case 4:
-                                cell->s[2] = +SIDE / 2;
-                                cell->p[0] = +SIDE / 2;
-                                break;
-                            case 5:
-                                cell->s[2] = -SIDE / 2;
-                                cell->p[0] = -SIDE / 2;
-                                break;
-                        }
-                    }
-                }
-                //
-                cell->sine = 0;
-                cell->cosine = SIDE / 2;
-                //
-                if(x == SIDE-1)
-                    cell->px = cell - (SIDE - 1) * CELL;
-                else
-                    cell->px = cell + CELL;
-                //
-                if(x == 0)
-                    cell->nx = cell + (SIDE - 1) * CELL;
-                else
-                    cell->nx = cell - CELL;
-                if(y == SIDE-1)
-                    cell->py = cell - (SIDE - 1) * SIDE * CELL;
-                else
-                    cell->py = cell + SIDE * CELL;
-                if(y == 0)
-                    cell->ny = cell + (SIDE - 1) * CELL;
-                else
-                    cell->ny = cell - SIDE * CELL;
-                if(z == SIDE-1)
-                    cell->pz = cell -(SIDE - 1) * SIDE2 * CELL;
-                else
-                    cell->pz = cell + SIDE2 * CELL;
-                if(z == 0)
-                    cell->nz = cell + (SIDE - 1) * SIDE2 * CELL;
-                else
-                    cell->nz = cell - SIDE2 * CELL;
-                if(floor == SIDE2-1)
-                    cell->v = cell - (SIDE2 - 1) * SIDE3 * CELL;
-                else
-                    cell->v = cell + SIDE3 * CELL;
-                //
-                // Neighbor
-                //
-                if(cell->active)
-                    cell->h = cell + SIDE3 * SIDE2 * CELL;
-                else
-                    cell->h = cell - SIDE3 * SIDE2 * CELL;
-                //
-                // Elevator
-                //
-                if(floor == SIDE2-1)
-                    cell->v = cell - (SIDE2 - 1) * SIDE3 * CELL;
-                else
-                    cell->v = cell + SIDE3 * CELL;
-                //
-                i++;
-                cell++;
-            }
-}
-
 struct Cell* dev_lattice;
 
-void initApp()
+struct cudaGraphicsResource* cuda_resource;
+unsigned int colorVBO;
+vec3 colors[SIDE3];
+size_t num_bytes;
+vec3* dev_color;
+
+cudaError_t cudaStatus;
+
+void initCuda()
 {
-    size_t free, total;
-    cudaMemGetInfo(&free, &total);
-    printf("free=%lld, total=%lld\n", free, total);
-    //
-    size_t heapsize = 2 * SIDE2 * SIDE3 * sizeof(struct Cell);
-    printf("Program launched: %d, %d, %zd, %zd\n", SIDE2, SIDE3, sizeof(struct Cell), heapsize); fflush(stdout);
-    cudaError_t cudaStatus;
-    cudaStatus = cudaMalloc((void**)&dev_lattice, heapsize);
-    if (cudaStatus != cudaSuccess)
-    {
-        perror("cudaMalloc failed");
-        exit(1);
-    }
-
-    cudaMemGetInfo(&free, &total);
-    printf("free=%lld, total=%lld\n", free, total);
-
-
-
-    printf("device lattice allocated\n"); fflush(stdout);
-    initCA << <GRIDDIM, BLOCKDIM >> > (dev_lattice);
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess)
-    {
-        puts("KERNEL error");
-        perror(cudaGetErrorString(cudaStatus));
-        exit(1);
-    }
-    //
-    lattice = (struct Cell*)malloc(heapsize);
-    if (lattice == NULL)
-    {
-        perror("host ram unavailable");
-        exit(1);
-    }
-    printf("host lattice allocated\n"); fflush(stdout);
-    cudaMemcpy(lattice, dev_lattice, 2 * SIDE2 * SIDE3 * sizeof(struct Cell), cudaMemcpyDeviceToHost);
- }
+	size_t heapsize = 2 * SIDE2 * SIDE3 * sizeof(struct Cell);
+	printf("Program launched: %d, %d, %zd, %zd\n", SIDE2, SIDE3, sizeof(struct Cell), heapsize); fflush(stdout);
+	size_t free, total;
+	cudaMemGetInfo(&free, &total);
+	printf("global memory: \n\ttotal=%zd\n\tfree=%zd", total, free);
+	//
+	cudaStatus = cudaMalloc((void**)&dev_lattice, heapsize);
+	if (cudaStatus != cudaSuccess)
+	{
+		perror("cudaMalloc failed");
+		exit(1);
+	}
+	cudaMemGetInfo(&free, &total);
+	printf("\n\tused=%zd\n", total - free);
+	fflush(stdout);
+	//
+	// Host memory allocation
+	//
+	lattice = (struct Cell*)malloc(heapsize);
+	if (lattice == NULL)
+	{
+		perror("host ram unavailable");
+		exit(1);
+	}
+	hologram << <GRID1, BLOCK1 >> > (dev_lattice);
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess)
+	{
+		puts("KERNEL error");
+		perror(cudaGetErrorString(cudaStatus));
+		exit(1);
+	}
+}
 
 void closeApp()
 {
-    cudaFree(dev_lattice);
-    cudaDeviceReset();
-    free(lattice);
-    printf("finished.\n");
+	cudaStatus = cudaGraphicsUnregisterResource(cuda_resource); // unregister the resource   
+	if (cudaStatus != cudaSuccess)
+	{
+		puts("unregister error");
+		perror(cudaGetErrorString(cudaStatus));
+		exit(1);
+	}
+
+	cudaFree(dev_lattice);
+	cudaDeviceReset();
+	free(lattice);
+	printf("finished.\n");
 }
 
-
-__global__ void interact()
+void updateCamera()
 {
-    if (threadIdx.x < SIDE && threadIdx.y < SIDE && blockIdx.x < SIDE)
-    {
-        // Execute
-    }
+	cameraFront[0] = cos(glm_rad(yaw)) * cos(glm_rad(pitch));
+	cameraFront[1] = sin(glm_rad(pitch));
+	cameraFront[2] = sin(glm_rad(yaw)) * cos(glm_rad(pitch));
+	glm_normalize(cameraFront);
+	cameraPos[0] = -SIDE * cameraFront[0];
+	cameraPos[1] = -SIDE * cameraFront[1];
+	cameraPos[2] = -SIDE * cameraFront[2];
+	//
+	// Assemble the view matrix
+	//
+	vec3 sum;
+	glm_vec3_add(cameraPos, cameraFront, sum);
+	glm_lookat(cameraPos, sum, cameraUp, view);
+
+	int loc = glGetUniformLocation(shaderProgram, "view");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, view[0]);
+	
+	fflush(stdout);
 }
 
-int main()
+int initOpenGL(int argc, char** argv)
 {
-    initApp();
-    for (int i = 0; i < 100; i++)
-    {
-        expand<<<GRIDDIM, BLOCKDIM >>>(lattice);
-    }
-    struct Cell* cell = lattice;
-    for (int h = 0; h < 2; h++)
-        for (int v = 0; v < SIDE2; v++)
-            for (int z = 0; z < SIDE; z++)
-                for (int y = 0; y < SIDE; y++)
-                    for (int x = 0; x < SIDE; x++)
-                    {
-                        if (cell->active && !ISNULL(cell->p))
-                        {
-                            printf("%d, %d, %d, v=%d, h=%d noise=%d p=(%d,%d,%d)\n", x, y, z, v, h, cell->noise, cell->p[0], cell->p[1], cell->p[2]);
-                            fflush(stdout);
-                        }
-                        cell++;
-                    }
-    closeApp();
-    return 0;
+	glutInit(&argc, argv);
+	glutInitWindowSize(800, 600);
+	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+	glutCreateWindow("Automaton");
+	printf("\tGPU: %s\n", glGetString(GL_VERSION));
+	GLenum err = glewInit();
+	if (GLEW_OK != err)
+	{
+		printf("glew init %s\n", glewGetErrorString(err)); fflush(stdout);
+		return -1;
+	}
+	//
+	// Create shaders
+	//
+	int success;
+	char infoLog[512];
+	vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+	glCompileShader(vertexShader);
+	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+		perror("Vertex shader failed.\n");
+		return -1;
+	}
+	unsigned int fragmentShader;
+	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+	glCompileShader(fragmentShader);
+	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+		perror("Vertex shader failed.\n");
+		return -1;
+	}
+	//
+	// Link shaders
+	//
+	shaderProgram = glCreateProgram();
+	glAttachShader(shaderProgram, vertexShader);
+	glAttachShader(shaderProgram, fragmentShader);
+	glLinkProgram(shaderProgram);
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+	if (!success)
+	{
+		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+		perror("Linking error.\n");
+		return -1;
+	}
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragmentShader);
+	//
+	// Initialize common point
+	//
+	vec3 pointVertices = { 0, 0, 0 };
+	//
+	// Initialize instance translations
+	//
+	vec3 translations[SIDE3];
+	int index = 0;
+	for (int z = 0; z < SIDE; z++)
+	{
+		for (int y = 0; y < SIDE; y++)
+		{
+			for (int x = 0; x < SIDE; x++)
+			{
+				translations[index][0] = x / (float)SIDE - 0.5;
+				translations[index][1] = y / (float)SIDE - 0.5;
+				translations[index][2] = z / (float)SIDE - 0.5;
+				index++;
+			}
+		}
+	}
+	//
+	// Initialize instance colors
+	//
+	index = 0;
+	for (int z = 0; z < SIDE; z++)
+	{
+		for (int y = 0; y < SIDE; y++)
+		{
+			for (int x = 0; x < SIDE; x++)
+			{
+				colors[index][0] = 0.2;
+				colors[index][1] = 0.2;
+				colors[index][2] = 0,6;
+				index++;
+			}
+		}
+	}
+	glUseProgram(shaderProgram);
+	//
+	// Create vbos
+	//
+	unsigned int pointVBO, positionVBO, colorVBO;
+	glGenBuffers(1, &pointVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3), pointVertices, GL_STATIC_DRAW);
+	glGenBuffers(1, &positionVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * SIDE3, &translations[0], GL_STATIC_DRAW);
+	glGenBuffers(1, &colorVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * SIDE3, &colors[0], GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//
+	// Create vao
+	//
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	//
+	// Add vbos
+	//
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+	//
+	glEnableVertexAttribArray(1);
+	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glVertexAttribDivisor(1, 1); // tell OpenGL this is an instanced vertex attribute
+	//
+	glEnableVertexAttribArray(2);
+	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glVertexAttribDivisor(2, 1); // tell OpenGL this is an instanced vertex attribute
+	//
+	glPointSize(4);	// Voxel size
+	//
+	// Connect color vbo to cuda
+	//
+	cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_resource, colorVBO, cudaGraphicsMapFlagsNone);
+	if (cudaStatus != cudaSuccess)
+	{
+		puts("connect error");
+		perror(cudaGetErrorString(cudaStatus));
+		exit(1);
+	}
+	//
+	// Create the projection matrix
+	//
+	glUseProgram(shaderProgram);
+	glm_ortho(-1, 1, -1, 1, -1.0f, 200, projection);
+	glEnable(GL_DEPTH_TEST);
+	int loc = glGetUniformLocation(shaderProgram, "projection");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, projection[0]);
+	vec3 v = { 0, 0, 0 };
+	glm_translate(model, v);
+	loc = glGetUniformLocation(shaderProgram, "model");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, model[0]);
+	updateCamera();
+	//
+	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+	glutKeyboardFunc(&keyboard);
+	glutIdleFunc(&animation);
+	//
+	// Draw first frame 
+	//
+	glUseProgram(shaderProgram);
+
+	glutDisplayFunc(&display);
+	//
+	return 0;
+}
+
+/* Main method */
+int main(int argc, char** argv)
+{
+	initCuda();
+	initOpenGL(argc, argv);
+	glutMainLoop();
+	return EXIT_SUCCESS;
 }
