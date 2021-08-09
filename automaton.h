@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cglm/vec3.h"
+
 // CA symbols
 
 #define ORDER		4           // 212 for the true universe
@@ -21,8 +23,10 @@
 
 // GPU symbols
 
-#define GRIDDIM     4
-#define BLOCKDIM    128
+#define GRID1       4
+#define BLOCK1      64
+#define GRID2       16
+#define BLOCK2      (32*8)
 
 // Charge masks
 
@@ -47,8 +51,8 @@ struct Cell
     unsigned char synch;
     char sine, cosine;
     unsigned char ctrl;
-    struct Cell *px, *py, *pz, *nx, *ny, *nz;
-    struct Cell *h, *v;
+    struct Cell* px, * py, * pz, * nx, * ny, * nz;
+    struct Cell* h, * v;
 };
 
 // Macros
@@ -59,5 +63,19 @@ struct Cell
 #define COPY(u,v)		u[0]=v[0];u[1]=v[1];u[2]=v[2];
 
 #define CELL            sizeof(struct Cell)
+
+__global__ void commute(struct Cell* lattice);
+__global__ void expand(struct Cell* lattice);
+__global__ void interact(struct Cell* lattice);
+__global__ void compare(struct Cell* lattice);
+__global__ void replicate(struct Cell* lattice);
+__global__ void hologram(struct Cell* lattice);
+__global__ void interop(struct Cell* lattice, vec3* dev_color);
+
+//__global__ void interop(struct Cell* lattice, void* colors);
+
+void animation();
+void closeApp();
+void updateCamera();
 
 __global__ void expand(struct Cell* lattice);
