@@ -11,142 +11,350 @@ __device__ int signum(int x)
     return 0;
 }
 
-__device__ void calculate(struct Cell* cell)
-{
-    if (cell->f > 0 || !ISNULL(cell->p))
-    {
-        if (cell->ctrl > 0)
-        {
-            // Track decay
-            //
-            cell->phi *= (1 - 1 / (2 * cell->t));
-            //
-            // Minsky circle algorithm
-            //
-            int xNew = cell->cosine - (cell->sine >> SHIFT);
-            int yNew = cell->sine + (cell->cosine >> SHIFT);
-            cell->cosine = xNew;
-            cell->sine = yNew;
-            //
-            cell->ctrl--;
-        }
-//        if ((cell->t*cell->t > cell->synch || ISNULL(cell->o)) && !ISNULL(cell->pole))
-//        {
-            int o2 = cell->o[0] * cell->o[0] + cell->o[1] * cell->o[1] + cell->o[2] * cell->o[2];
-            for (int dir = 0; dir < 6; dir++)
-            {
-                // von Neumann
-                //
-                int a = 0, b = 0, c = 0;
-                struct Cell* neighbor;
-                switch (dir)
-                {
-                case 0: a = +1; neighbor = cell->px; break;
-                case 1: a = -1; neighbor = cell->nx; break;
-                case 2:	b = +1; neighbor = cell->py; break;
-                case 3: b = -1; neighbor = cell->nx; break;
-                case 4: c = +1; neighbor = cell->pz; break;
-                case 5: c = -1; neighbor = cell->nz; break;
-                }
-                int mod2 = 
-                    (cell->o[0] + a) * (cell->o[0] + a) + 
-                    (cell->o[1] + b) * (cell->o[1] + b) + 
-                    (cell->o[2] + c) * (cell->o[2] + c);
-                if (mod2 >= o2)
-                {
-                    neighbor->active = false;
-                    neighbor->f = cell->f;
-                    neighbor->b = cell->b;
-                    neighbor->q = cell->q;
-                    neighbor->w = cell->w;
-                    neighbor->c = cell->c;
-                    neighbor->d = cell->d;
-                    //
-                    neighbor->o[0] = cell->o[0] + a;
-                    neighbor->o[1] = cell->o[1] + b;
-                    neighbor->o[2] = cell->o[2] + c;
-                    //
-//                    RESET(neighbor->p);
-                    COPY(neighbor->p, cell->p);
-                    COPY(neighbor->s, cell->s);
-                    //
-                    neighbor->synch = LIGHT2 * mod2;
-                    //
+__device__ char dirs[6][3] = { { +1, 0, 0 }, { -1, 0, 0 }, { 0, +1, 0 }, { 0, -1, 0}, { 0, 0, +1 }, { 0, 0, -1 } };
 
-                    /*
-                    if (!ISNULL(cell->p))
-                    {
-                        bool found = 0;
-                        if (abs(cell->p[0]) > abs(cell->p[1]))
-                        {
-                            if (abs(cell->p[0]) > abs(cell->p[2]))
-                            {
-                                if (a == signum(cell->p[0])) found = true;
-                            }
-                            else
-                            {
-                                if (c == signum(cell->p[2])) found = true;
-                            }
-                        }
-                        else if (abs(cell->p[0]) < abs(cell->p[1]))
-                        {
-                            if (abs(cell->p[0]) > abs(cell->p[2]))
-                            {
-                                if (b == signum(cell->p[1])) found = true;
-                            }
-                            else
-                            {
-                                if (c == signum(cell->p[2])) found = true;
-                            }
-                        }
-                        else
-                        {
-                            if (abs(cell->p[0]) > abs(cell->p[2]))
-                            {
-                                if (a == signum(cell->p[0])) found = true;
-                            }
-                            else
-                            {
-                                if (c == signum(cell->p[2])) found = true;
-                            }
-                        }
-                        if (found)
-                        {
-                            neighbor->pole[0] = cell->pole[0] - a;
-                            neighbor->pole[1] = cell->pole[1] - b;
-                            neighbor->pole[2] = cell->pole[2] - c;
-                            COPY(neighbor->p, cell->p);
-                        }
-                    }
-                    */
-                }
-  //          }
-            //
-            // Erase origin cell
-            //
-            cell->f = 0;
-            RESET(cell->p);
+/*
+ * Tests whether the direction dir is a valid path in the visit-once-tree.
+ */
+__device__ bool isAllowed(int dir, char p[3], unsigned char d0)
+{
+    int d1 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
+    int x = p[0] + dirs[dir][0];
+    int y = p[1] + dirs[dir][1];
+    int z = p[2] + dirs[dir][2];
+    int d2 = x * x + y * y + z * z;
+    if (d2 <= d1)
+        return false;
+    //
+    // Wrapping test
+    //
+    if (x == SIDE / 2 + 1 || x == -SIDE / 2 || y == SIDE / 2 + 1 || y == -SIDE / 2 || z == SIDE / 2 + 1 || z == -SIDE / 2)
+        return false;
+    //
+    // Root
+    //
+    int level = abs(x) + abs(y) + abs(z);
+    if (level == 1)
+        return true;
+    //
+    // x axis
+    //
+    if (x > 0 && y == 0 && z == 0 && dir == 0)
+        return true;
+    else if (x < 0 && y == 0 && z == 0 && dir == 1)
+        return true;
+    //
+    // y axis
+    //
+    else if (x == 0 && y > 0 && z == 0 && dir == 2)
+        return true;
+    else if (x == 0 && y < 0 && z == 0 && dir == 3)
+        return true;
+    //
+    // z axis
+    //
+    else if (x == 0 && y == 0 && z > 0 && dir == 4)
+        return true;
+    else if (x == 0 && y == 0 && z < 0 && dir == 5)
+        return true;
+    //
+    // xy plane
+    //
+    else if (x > 0 && y > 0 && z == 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 0 && d0 == 2);
+        else
+            return (dir == 2 && d0 == 0);
+    }
+    else if (x < 0 && y > 0 && z == 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 1 && d0 == 2);
+        else
+            return (dir == 2 && d0 == 1);
+    }
+    else if (x > 0 && y < 0 && z == 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 0 && d0 == 3);
+        else
+            return (dir == 3 && d0 == 0);
+    }
+    else if (x < 0 && y < 0 && z == 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 1 && d0 == 3);
+        else
+            return (dir == 3 && d0 == 1);
+    }
+    //
+    // yz plane
+    //
+    else if (x == 0 && y > 0 && z > 0)
+    {
+        if (level % 2 == 0)
+            return (dir == 4 && d0 == 2);
+        else
+            return (dir == 2 && d0 == 4);
+    }
+    else if (x == 0 && y < 0 && z > 0)
+    {
+        if (level % 2 == 0)
+            return (dir == 4 && d0 == 3);
+        else
+            return (dir == 3 && d0 == 4);
+    }
+    else if (x == 0 && y > 0 && z < 0)
+    {
+        if (level % 2 == 0)
+            return (dir == 5 && d0 == 2);
+        else
+            return (dir == 2 && d0 == 5);
+    }
+    else if (x == 0 && y < 0 && z < 0)
+    {
+        if (level % 2 == 0)
+            return (dir == 5 && d0 == 3);
+        else
+            return (dir == 3 && d0 == 5);
+    }
+    //
+    // zx plane
+    //
+    else if (x > 0 && y == 0 && z > 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 4 && d0 == 0);
+        else
+            return (dir == 0 && d0 == 4);
+    }
+    else if (x < 0 && y == 0 && z > 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 4 && d0 == 1);
+        else
+            return (dir == 1 && d0 == 4);
+    }
+    else if (x > 0 && y == 0 && z < 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 5 && d0 == 0);
+        else
+            return (dir == 0 && d0 == 5);
+    }
+    else if (x < 0 && y == 0 && z < 0)
+    {
+        if (level % 2 == 1)
+            return (dir == 5 && d0 == 1);
+        else
+            return (dir == 1 && d0 == 5);
+    }
+    else
+    {
+        // Spirals
+        //
+        int x0 = x + SIDE / 2;
+        int y0 = y + SIDE / 2;
+        int z0 = z + SIDE / 2;
+        //
+        switch (level % 3)
+        {
+        case 0:
+            if (x0 != SIDE / 2 && y0 != SIDE / 2)
+                return (z0 > SIDE / 2 && dir == 4) || (z0 < SIDE / 2 && dir == 5);
+            break;
+        case 1:
+            if (y0 != SIDE / 2 && z0 != SIDE / 2)
+                return (x0 > SIDE / 2 && dir == 0) || (x0 < SIDE / 2 && dir == 1);
+            break;
+        case 2:
+            if (x0 != SIDE / 2 && z0 != SIDE / 2)
+                return (y0 > SIDE / 2 && dir == 2) || (y0 < SIDE / 2 && dir == 3);
+            break;
         }
     }
-    cell->t++;
+    return false;
 }
 
-__global__ void expand(struct Cell* lattice)
+#define S   (SIDE/2)
+
+__device__ void branch(Cell* active_cell, Cell* passive_cell)
+{
+    if (passive_cell->ctrl > 0)
+    {
+        // Track decay
+        //
+        passive_cell->phi *= (1 - 1 / (2 * passive_cell->t));
+        //
+        // Minsky circle algorithm
+        //
+        int xNew = passive_cell->cosine - (passive_cell->sine >> SHIFT);
+        int yNew = passive_cell->sine + (passive_cell->cosine >> SHIFT);
+        passive_cell->cosine = xNew;
+        passive_cell->sine = yNew;
+        //
+        passive_cell->ctrl--;
+    }
+    if (active_cell->f > 0 || !ISNULL(active_cell->p))
+    {
+        if (active_cell->t * active_cell->t > active_cell->synch)
+        {
+            if (ISNULL(active_cell->pole) && !ISNULL(active_cell->p))
+                return;
+            int dx = 0, dy = 0, dz = 0;
+            Cell* neighbor;
+            int difs[6] = { -S, -S, -S, -S, -S, -S, };
+            Cell* neighbors[6];
+            for (int dir = 0; dir < 6; dir++)
+            {
+                switch (dir)
+                {
+                    case 0:
+                        if (active_cell->o[0] == S)
+                            continue;
+                        dx = +1;
+                        if (passive_cell->type & 0x40)
+                            neighbor = passive_cell - (SIDE - 1);
+                        else
+                            neighbor = passive_cell + 1;
+                        break;
+                    case 1:
+                        if (active_cell->o[0] == -S)
+                            continue;
+                        dx = -1;
+                        if (passive_cell->type & 0x80)
+                            neighbor = passive_cell + (SIDE - 1);
+                        else
+                            neighbor = passive_cell - 1;
+                        break;
+                    case 2:
+                        if (active_cell->o[1] == S)
+                            continue;
+                        continue;
+                        dy = +1;
+                        if (passive_cell->type & 0x10)
+                            neighbor = passive_cell - (SIDE2 - SIDE);
+                        else
+                            neighbor = passive_cell + SIDE;
+                        break;
+                    case 3:
+                        if (active_cell->o[1] == -S)
+                            continue;
+                        dy = -1;
+                        if (passive_cell->type & 0x20)
+                            neighbor = passive_cell + (SIDE2 - SIDE);
+                        else
+                            neighbor = passive_cell - SIDE;
+                        break;
+                    case 4:
+                        if (active_cell->o[2] == S)
+                            continue;
+                        dz = +1;
+                        if (passive_cell->type & 0x04)
+                            neighbor = passive_cell - (SIDE3 - SIDE2);
+                        else
+                            neighbor = passive_cell + SIDE2;
+                        break;
+                    case 5:
+                        if (active_cell->o[2] == -S)
+                            continue;
+                        dz = -1;
+                        if (passive_cell->type & 0x08)
+                            neighbor = passive_cell + (SIDE3 - SIDE2);
+                        else
+                            neighbor = passive_cell - SIDE2;
+                        break;
+                }
+                neighbors[dir] = neighbor;
+                //
+                // Test if neighbor is virgin
+                //
+//                unsigned char d0
+                if(isAllowed(dir, active_cell->o, 0))
+//                if (ISNULL(neighbor->p) && neighbor->f == 0)
+                {
+                    neighbor->d0 = dir;
+                    neighbor->f = active_cell->f;
+                    neighbor->b = active_cell->b;
+                    neighbor->charge = active_cell->charge;
+                    //
+                    neighbor->o[0] = active_cell->o[0] + dx;
+                    neighbor->o[1] = active_cell->o[1] + dy;
+                    neighbor->o[2] = active_cell->o[2] + dz;
+                    //
+                    int mod2 = neighbor->o[0] * neighbor->o[0] + neighbor->o[1] * neighbor->o[1] + neighbor->o[2] * neighbor->o[2];
+                    RESET(neighbor->p);
+                    COPY(neighbor->s, active_cell->s);
+                    neighbor->synch = LIGHT2 * mod2;
+                    //
+                    if (!ISNULL(active_cell->p))
+                    {
+                        int d1 = active_cell->pole[0] * active_cell->pole[0] + active_cell->pole[1] * active_cell->pole[1] + active_cell->pole[2] * active_cell->pole[2];
+                        neighbor->pole[0] = active_cell->pole[0] - dx;
+                        neighbor->pole[1] = active_cell->pole[1] - dy;
+                        neighbor->pole[2] = active_cell->pole[2] - dz;
+                        int d2 = neighbor->pole[0] * neighbor->pole[0] + neighbor->pole[1] * neighbor->pole[1] + neighbor->pole[2] * neighbor->pole[2];
+                        difs[dir] = d1 - d2;
+                    }
+                }
+            }
+            //
+            // Transfer momentum
+            //
+            if (!ISNULL(active_cell->p))
+            {
+                int max = -S;
+                Cell* choice;
+                for (int dir = 0; dir < 6; dir++)
+                {
+                    if (difs[dir] > max)
+                    {
+                        max = difs[dir];
+                        choice = neighbors[dir];
+                    }
+                }
+                COPY(choice->p, active_cell->p);
+            }
+            //
+            passive_cell->f = 0;
+            RESET(passive_cell->p);
+        }
+        active_cell->t++;
+        passive_cell->t++;
+    }
+}
+
+__global__ void expand(Cell* lattice)
 {
     long idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < SIDE2)
     {
-        for (int step = 0; step < LIGHT; step++)
+        for (int step = 0; step < 1; step++)
         {
-            struct Cell* cell = lattice + idx * (long long)SIDE3;
+            Cell* cell = lattice + idx * (long long)SIDE3;
+            Cell* active_cube, * passive_cube;
             if (cell->active)
-                cell = cell->h;
+            {
+                active_cube = cell;
+                passive_cube = cell + SIDE3 * SIDE2;
+            }
+            else
+            {
+                passive_cube = cell;
+                active_cube = cell + SIDE3 * SIDE2;
+            }
+            //
             for (int z = 0; z < SIDE; z++)
             {
                 for (int y = 0; y < SIDE; y++)
                 {
                     for (int x = 0; x < SIDE; x++)
-                        calculate(cell++);
+                    {
+                        branch(active_cube, passive_cube);
+                        active_cube++;
+                        passive_cube++;
+                    }
                 }
             }
         }
