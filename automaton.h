@@ -1,4 +1,6 @@
 #pragma once
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
 #include "cglm/vec3.h"
 
@@ -37,23 +39,24 @@
 
 // Automaton cell structure
 
-struct Cell
+typedef struct
 {
+    unsigned char d0;
+    char z;  // debug
+    unsigned char type;
     bool active;
     unsigned char f;
     int t, b;
-    unsigned char q, w, c, d;
+    unsigned char charge;
     char o[3], p[3], s[3];
     char phi;
     short noise;
     unsigned char code;
     char pole[3];
-    unsigned char synch;
+    short synch;
     char sine, cosine;
     unsigned char ctrl;
-    struct Cell* px, * py, * pz, * nx, * ny, * nz;
-    struct Cell* h, * v;
-};
+} Cell;
 
 // Macros
 
@@ -61,21 +64,23 @@ struct Cell
 #define ISEQUAL(v,u)	(v[0]==u[0] && v[1]==u[1] && v[2]==u[2])
 #define RESET(v)		v[0]=0;v[1]=0;v[2]=0;
 #define COPY(u,v)		u[0]=v[0];u[1]=v[1];u[2]=v[2];
+#define nextV(c)        c->type&0x02?c-(SIDE3*(SIDE2-1)):c+SIDE3
+#define CELL            sizeof(Cell)
 
-#define CELL            sizeof(struct Cell)
+// Kernels
 
-__global__ void commute(struct Cell* lattice);
-__global__ void expand(struct Cell* lattice);
-__global__ void interact(struct Cell* lattice);
-__global__ void compare(struct Cell* lattice);
-__global__ void replicate(struct Cell* lattice);
-__global__ void hologram(struct Cell* lattice);
-__global__ void interop(struct Cell* lattice, vec3* dev_color);
+__global__ void commute(Cell* lattice);
+__global__ void expand(Cell* lattice);
+__global__ void interact(Cell* lattice);
+__global__ void compare(Cell* lattice);
+__global__ void replicate(Cell* lattice);
+__global__ void hologram(Cell* lattice);
+__global__ void interop(Cell* lattice, vec3* dev_color, int all);
+__device__ bool isAllowed(int dir, char p[3], unsigned char d0);
 
-//__global__ void interop(struct Cell* lattice, void* colors);
+// Functions
 
 void animation();
 void closeApp();
 void updateCamera();
-
-__global__ void expand(struct Cell* lattice);
+void printResults();
