@@ -62,8 +62,8 @@ vec3 cameraPos;
 vec3 cameraFront;
 vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
 
-struct Cell* lattice;
-struct Cell* dev_lattice;
+Cell* host_lattice;
+Cell* dev_lattice;
 
 struct cudaGraphicsResource* cuda_resource;
 unsigned int colorVBO;
@@ -72,11 +72,12 @@ size_t num_bytes;
 vec3* dev_color;
 
 cudaError_t cudaStatus;
+DWORD start;
 
 void initCuda()
 {
-	size_t heapsize = 2 * SIDE2 * SIDE3 * sizeof(struct Cell);
-	printf("Program launched: %d, %d, %zd, %zd\n", SIDE2, SIDE3, sizeof(struct Cell), heapsize); fflush(stdout);
+	size_t heapsize = 2 * SIDE2 * SIDE3 * sizeof(Cell);
+	printf("Program launched: SIDE=%d, sizeof=%zd, heap=%zd\n", SIDE, sizeof(Cell), heapsize); fflush(stdout);
 	size_t free, total;
 	cudaMemGetInfo(&free, &total);
 	printf("global memory: \n\ttotal=%zd\n\tfree=%zd", total, free);
@@ -89,12 +90,16 @@ void initCuda()
 	}
 	cudaMemGetInfo(&free, &total);
 	printf("\n\tused=%zd\n", total - free);
+
+	cudaDeviceProp prop;
+	cudaGetDeviceProperties(&prop, 0);
+	printf("ck=%d\n", prop.concurrentKernels);
 	fflush(stdout);
 	//
 	// Host memory allocation
 	//
-	lattice = (struct Cell*)malloc(heapsize);
-	if (lattice == NULL)
+	host_lattice = (Cell*)malloc(heapsize);
+	if (host_lattice == NULL)
 	{
 		perror("host ram unavailable");
 		exit(1);
@@ -111,17 +116,16 @@ void initCuda()
 
 void closeApp()
 {
-	cudaStatus = cudaGraphicsUnregisterResource(cuda_resource); // unregister the resource   
+	cudaStatus = cudaGraphicsUnregisterResource(cuda_resource);
 	if (cudaStatus != cudaSuccess)
 	{
 		puts("unregister error");
 		perror(cudaGetErrorString(cudaStatus));
 		exit(1);
 	}
-
 	cudaFree(dev_lattice);
 	cudaDeviceReset();
-	free(lattice);
+	free(host_lattice);
 	printf("finished.\n");
 }
 
@@ -217,9 +221,9 @@ int initOpenGL(int argc, char** argv)
 		{
 			for (int x = 0; x < SIDE; x++)
 			{
-				translations[index][0] = x / (float)SIDE - 0.5;
-				translations[index][1] = y / (float)SIDE - 0.5;
-				translations[index][2] = z / (float)SIDE - 0.5;
+				translations[index][0] = x / (float)SIDE - 0.5f;
+				translations[index][1] = y / (float)SIDE - 0.5f;
+				translations[index][2] = z / (float)SIDE - 0.5f;
 				index++;
 			}
 		}
@@ -234,9 +238,9 @@ int initOpenGL(int argc, char** argv)
 		{
 			for (int x = 0; x < SIDE; x++)
 			{
-				colors[index][0] = 0.2;
-				colors[index][1] = 0.2;
-				colors[index][2] = 0,6;
+				colors[index][0] = 0.2f;
+				colors[index][1] = 0.2f;
+				colors[index][2] = 0.6f;
 				index++;
 			}
 		}
@@ -272,7 +276,7 @@ int initOpenGL(int argc, char** argv)
 	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glVertexAttribDivisor(1, 1); // tell OpenGL this is an instanced vertex attribute
+	glVertexAttribDivisor(1, 1);
 	//
 	glEnableVertexAttribArray(2);
 	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
@@ -322,7 +326,9 @@ int initOpenGL(int argc, char** argv)
 int main(int argc, char** argv)
 {
 	initCuda();
+	printResults();
 	initOpenGL(argc, argv);
+	start = GetTickCount();
 	glutMainLoop();
 	return EXIT_SUCCESS;
 }
