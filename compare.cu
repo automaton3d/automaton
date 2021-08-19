@@ -4,59 +4,58 @@
 #include <stdlib.h>
 #include "automaton.h"
 
-__global__ void compare(struct Cell* lattice)
+__global__ void compare(Cell* lattice)
 {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	if (id < SIDE3)
 	{
-		struct Cell* root = lattice + id;
-		struct Cell *active_stack, *passive_stack;
-		if (root->active)
+		Cell* cell = lattice + id;
+		Cell* active_stack, * passive_stack;
+		if (cell->active)
 		{
-			active_stack = root;
-			passive_stack = root->h;
+			active_stack = cell;
+			passive_stack = cell + SIDE3 * SIDE2;
 		}
 		else
 		{
-			active_stack = root->h;
-			passive_stack = root;
+			passive_stack = cell;
+			active_stack = cell + SIDE3 * SIDE2;
 		}
-		struct Cell* active_cell = active_stack;
-		struct Cell* passive_cell = passive_stack;;
 		for (int i = 0; i < SIDE2; i++)
 		{
 			// Shift 'vertically'
 			//
-			passive_cell = passive_stack;
-			Cell t1;
-			Cell t2 = *passive_cell;
+			cell = passive_stack + (SIDE2-2)*SIDE3;
+			Cell* nextv = cell + SIDE3;
+			Cell temp = *nextv;
 			for (int j = 0; j < SIDE2; j++)
 			{
-				t1 = *passive_cell->v;
-				passive_cell->f = t2.f;
-				passive_cell->b = t2.b;
-				passive_cell->q = t2.q;
-				passive_cell->w = t2.w;
-				passive_cell->c = t2.c;
-				passive_cell->d = t2.d;
-				COPY(passive_cell->o, t2.o);
-				COPY(passive_cell->p, t2.p);
-				COPY(passive_cell->s, t2.s);
-				passive_cell->phi = t2.phi;
-				passive_cell->code = t2.code;
-				t2 = t1;
-				passive_cell = passive_cell->v;
+				if (j == SIDE2 - 1)
+					cell = &temp;
+				nextv->f = cell->f;
+				nextv->b = cell->b;
+				nextv->charge = cell->charge;
+				COPY(nextv->o, cell->o);
+				COPY(nextv->p, cell->p);
+				COPY(nextv->s, cell->s);
+				nextv->phi = cell->phi;
+				nextv->code = cell->code;
+				//
+				cell -= SIDE3;
+				nextv -= SIDE3;
 			}
 			//
 			// Compare 'columns'
 			//
-			passive_cell = passive_stack;
+			Cell* active_cell = active_stack;
+			Cell *passive_cell = passive_stack;
 			for (int j = 0; j < SIDE2; j++)
 			{
 				if (active_cell->b == passive_cell->b && ISEQUAL(active_cell->o, passive_cell->o))
 				{
 					if (passive_cell->code == 0)
 					{
+						/*
 						if (passive_cell->c == ~active_cell->c && passive_cell->w == ~active_cell->w &&
 							passive_cell->q == ~active_cell->q)
 							passive_cell->code = PHOTON;
@@ -72,6 +71,7 @@ __global__ void compare(struct Cell* lattice)
 						else if (passive_cell->c == ~active_cell->c && passive_cell->w == active_cell->w &&
 							passive_cell->q == active_cell->q)
 							passive_cell->code = W;
+						*/
 						//
 						if (passive_cell->code != 0)
 							passive_cell->f++;
@@ -81,8 +81,8 @@ __global__ void compare(struct Cell* lattice)
 						passive_cell->f++;
 					}
 				}
-				active_cell = active_cell->v;
-				passive_cell = passive_cell->v;
+				active_cell = nextV(active_cell);
+				passive_cell = nextV(passive_cell);
 			}
 		}
 	}
