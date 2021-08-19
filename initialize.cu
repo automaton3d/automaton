@@ -6,18 +6,35 @@
 
 #include "automaton.h"
 
-__device__ void initLattice(int idx, struct Cell* cell, bool active)
+__device__ void initLattice(int idx, Cell* cell, bool active)
 {
-    int noise = 0;
     for (int z = 0; z < SIDE; z++)
     {
         for (int y = 0; y < SIDE; y++)
         {
             for (int x = 0; x < SIDE; x++)
             {
+                cell->type = 0;
+                if (z == 0)
+                    cell->type |= 0x08;
+                else if (z == SIDE - 1)
+                    cell->type |= 0x04;
+                if (y == 0)
+                    cell->type |= 0x20;
+                else if (y == SIDE - 1)
+                    cell->type |= 0x10;
+                if (x == 0)
+                    cell->type |= 0x80;
+                else if (x == SIDE - 1)
+                    cell->type |= 0x40;
+                if (idx == SIDE2 - 1)
+                    cell->type |= 0x02;
+                if (!active)
+                    cell->type |= 0x01;
+                //
                 cell->active = active;
                 cell->t = 0;
-                cell->noise = noise;
+                cell->noise = idx;
                 cell->f = 0;
                 cell->synch = 0;
                 RESET(cell->p);
@@ -27,37 +44,33 @@ __device__ void initLattice(int idx, struct Cell* cell, bool active)
                     cell->f = 1;
                     if (x < SIDE / 2)
                     {
-                        cell->d = true;
+                        cell->charge |= D_MASK;
                     }
                     else
                     {
-                        cell->d = false;
+                        cell->charge &= ~D_MASK;
                     }
                     //
                     unsigned char tiling = (x % 2) ^ (y % 2);
                     if (tiling)
                     {
-                        cell->c = 0;
-                        cell->w = false;
-                        cell->q = true;
+                        cell->charge |= Q_MASK;
                     }
                     else
                     {
-                        cell->c = 7;
-                        cell->w = true;
-                        cell->q = false;
+                        cell->charge |= C_MASK | W_MASK;
                     }
                     //
                     // Initialize spin and momentum
                     //
                     if (x == SIDE - 1)
                     {
-                        cell->s[2] = (cell->d) ? -SIDE / 2 : +SIDE / 2;
-                        cell->p[2] = (noise % 2) ? +SIDE / 2 : -SIDE / 2;
+                        cell->s[2] = (cell->charge & D_MASK) ? -SIDE / 2 : +SIDE / 2;
+                        cell->p[2] = (idx % 2) ? +SIDE / 2 : -SIDE / 2;
                     }
                     else
                     {
-                        switch (noise % 6)
+                        switch (idx % 6)
                         {
                         case 0:
                             cell->s[0] = +SIDE / 2;
@@ -87,66 +100,21 @@ __device__ void initLattice(int idx, struct Cell* cell, bool active)
                     }
                 }
                 //
+                cell->z = z;
                 cell->sine = 0;
                 cell->cosine = SIDE / 2;
-                //
-                if (x == SIDE - 1)
-                    cell->px = cell - (SIDE - 1);
-                else
-                    cell->px = cell + 1;
-                //
-                if (x == 0)
-                    cell->nx = cell + (SIDE - 1);
-                else
-                    cell->nx = cell - 1;
-                if (y == SIDE - 1)
-                    cell->py = cell - (SIDE - 1) * SIDE;
-                else
-                    cell->py = cell + SIDE;
-                if (y == 0)
-                    cell->ny = cell + (SIDE - 1);
-                else
-                    cell->ny = cell - SIDE;
-                if (z == SIDE - 1)
-                    cell->pz = cell - (SIDE - 1) * SIDE2;
-                else
-                    cell->pz = cell + SIDE2;
-                if (z == 0)
-                    cell->nz = cell + (SIDE - 1) * SIDE2;
-                else
-                    cell->nz = cell - SIDE2;
-                if (noise == SIDE2 - 1)
-                    cell->v = cell - (SIDE2 - 1) * SIDE3;
-                else
-                    cell->v = cell + SIDE3;
-                //
-                // Neighbor
-                //
-                if(active)
-                    cell->h = cell + SIDE3 * SIDE2;
-                else
-                    cell->h = cell - SIDE3 * SIDE2;
-                //
-                // Elevator
-                //
-                if (idx == SIDE2 - 1)
-                    cell->v = cell - (SIDE2 - 1) * SIDE3;
-                else
-                    cell->v = cell + SIDE3;
-                //
-                noise++;
                 cell++;
             }
         }
     }
 }
 
-__global__ void hologram(struct Cell* lattice)
+__global__ void hologram(Cell* lattice)
 {
     long idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < SIDE2)
     {
-        struct Cell* cell = lattice + idx * (long long) SIDE3;
+        Cell* cell = lattice + idx * (long long) SIDE3;
         initLattice(idx, cell, true);
         cell += SIDE2 * SIDE3;
         initLattice(idx, cell, false);
