@@ -13,34 +13,6 @@ __device__ int signum(int x)
     return 0;
 }
 
-__device__ short *getUnit(short t[3])
-{
-    if (abs(t[0]) > abs(t[1]))
-    {
-        if (abs(t[0]) > abs(t[2]))
-            t[0] = 
-            signum(t[0]);
-        else
-            t[2] = signum(t[2]);
-    }
-    else if (abs(t[0]) < abs(t[1]))
-    {
-        if (abs(t[1]) > abs(t[2]))
-            t[1] = signum(t[1]);
-        else
-            t[2] = signum(t[2]);
-    }
-    else
-    {
-        if (abs(t[0]) > abs(t[2]))
-            t[0] = signum(t[0]);
-        else
-            t[2] = signum(t[2]);
-    }
-    return t;
-}
-
-
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
  */
