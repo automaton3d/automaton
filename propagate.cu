@@ -6,13 +6,6 @@
 
 #define S   (SIDE/2)
 
-__device__ int signum(int x)
-{
-    if (x > 0) return 1;
-    if (x < 0) return -1;
-    return 0;
-}
-
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
  */
@@ -204,10 +197,6 @@ __device__ void branch(Cell* active_cell, Cell* passive_cell)
         Cell* neighbor;
         if (active_cell->t * active_cell->t > active_cell->synch)
         {
-            // Last branch
-            //
-            unsigned char d0 = active_cell->d0;
-            //
             // Explore von Neumann directions
             //
             Cell* neighbor;
@@ -262,9 +251,9 @@ __device__ void branch(Cell* active_cell, Cell* passive_cell)
                 //
                 // Test if branch is legal
                 //
-                if(isAllowed(dir, vdir, active_cell->o, d0))
+                if(isAllowed(dir, vdir, active_cell->o, active_cell->dir))
                 {
-                    neighbor->d0 = dir;
+                    neighbor->dir = dir;
                     neighbor->f = active_cell->f;
                     neighbor->b = active_cell->b;
                     neighbor->charge = active_cell->charge;
@@ -285,8 +274,10 @@ __device__ void branch(Cell* active_cell, Cell* passive_cell)
                         neighbor->pole[1] = active_cell->pole[1] - vdir[1];
                         neighbor->pole[2] = active_cell->pole[2] - vdir[2];
                         int d2 = neighbor->pole[0] * neighbor->pole[0] + neighbor->pole[1] * neighbor->pole[1] + neighbor->pole[2] * neighbor->pole[2];
-                        if(d2 < d1)
+                        if (d2 < d1)
+                        {
                             COPY(neighbor->p, active_cell->p);
+                        }
                     }
                 }
             }
