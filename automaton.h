@@ -25,10 +25,22 @@
 
 // GPU symbols
 
-#define GRID1       4
-#define BLOCK1      64
-#define GRID2       16
-#define BLOCK2      (32*8)
+#if ORDER==5
+  #define GRID1       16
+  #define BLOCK1      64
+  #define GRID2       256
+  #define BLOCK2      128
+#elif ORDER==4
+  #define GRID1       16
+  #define BLOCK1      16
+  #define GRID2       32
+  #define BLOCK2      128
+#else
+  #define GRID1       16
+  #define BLOCK1      16
+  #define GRID2       16
+  #define BLOCK2      32
+#endif
 
 // Charge masks
 
@@ -46,11 +58,11 @@ typedef struct
     unsigned char type;
     bool active;
     unsigned char f;
-    int t, b;
+    short t, b;
     unsigned char charge;
-    short o[3], p[3], s[3], pole[3];
+    char o[3], p[3], s[3], pole[3];
     char phi;
-    short noise;
+    unsigned char noise;
     unsigned char code;
     int synch;
     char sine, cosine;
