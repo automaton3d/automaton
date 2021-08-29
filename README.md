@@ -16,4 +16,4 @@ https://www.researchgate.net/project/Recovery-of-global-symmetries-in-a-t-Hoofti
 
 Your help will be very valuable :)
 
-[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate?business=CHS2QRBFLQEFU&no_recurring=1&item_name=Independent+research.&currency_code=USD)
+<a href="https://www.patreon.com/bePatron?u=60332830" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
