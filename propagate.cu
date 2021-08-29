@@ -9,7 +9,7 @@
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
  */
-__device__ bool isAllowed(int dir, char vdir[3], short o[3], unsigned char d0)
+__device__ bool isAllowed(int dir, char vdir[3], char o[3], unsigned char d0)
 {
     // Calculate new origin vector
     //
@@ -295,6 +295,9 @@ __global__ void expand(Cell* lattice)
     long idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < SIDE2)
     {
+        lattice->b = 0;
+
+
         for (int step = 0; step < LIGHT; step++)
         {
             Cell* cell = lattice + idx * (long long)SIDE3;
