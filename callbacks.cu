@@ -67,37 +67,6 @@ void keyboard(unsigned char key, int x, int y)
 
 void display()
 {
-    cudaStatus = cudaGraphicsMapResources(1, &cuda_resource, 0);
-    if (cudaStatus != cudaSuccess)
-    {
-        puts("map resources error");
-        perror(cudaGetErrorString(cudaStatus));
-        exit(1);
-    }
-    size_t num_bytes;
-    void* dev_color;
-    cudaStatus = cudaGraphicsResourceGetMappedPointer(&dev_color, &num_bytes, cuda_resource);
-    if (cudaStatus != cudaSuccess)
-    {
-        puts("get pointer error");
-        perror(cudaGetErrorString(cudaStatus));
-        exit(1);
-    }
-    printf("numbytes=%d\n", num_bytes); fflush(stdout);
-    //
-    if(flag)
-        interop << <GRID2, BLOCK2 >> > (dev_lattice, (vec3*)dev_color, true);
-    else
-        interop << <GRID2, BLOCK2 >> > (dev_lattice, (vec3*)dev_color, false);
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess)
-    {
-        puts("interop error");
-        perror(cudaGetErrorString(cudaStatus));
-        exit(1);
-    }
-    //
-    cudaGraphicsUnmapResources(1, &cuda_resource, 0);
     glClearColor(0.5, 0.5, 0.5, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgram);
@@ -148,6 +117,40 @@ void printResults(bool full)
     fflush(stdout);
 }
 
+void updateVoxels()
+{
+    cudaStatus = cudaGraphicsMapResources(1, &cuda_resource, 0);
+    if (cudaStatus != cudaSuccess)
+    {
+        puts("map resources error");
+        perror(cudaGetErrorString(cudaStatus));
+        exit(1);
+    }
+    size_t num_bytes;
+    void* dev_color;
+    cudaStatus = cudaGraphicsResourceGetMappedPointer(&dev_color, &num_bytes, cuda_resource);
+    if (cudaStatus != cudaSuccess)
+    {
+        puts("get pointer error");
+        perror(cudaGetErrorString(cudaStatus));
+        exit(1);
+    }
+    //
+    if (flag)
+        interop << <GRID2, BLOCK2 >> > (dev_lattice, (vec3*)dev_color, true);
+    else
+        interop << <GRID2, BLOCK2 >> > (dev_lattice, (vec3*)dev_color, false);
+    cudaStatus = cudaDeviceSynchronize();
+    if (cudaStatus != cudaSuccess)
+    {
+        puts("interop error");
+        perror(cudaGetErrorString(cudaStatus));
+        exit(1);
+    }
+    //
+    cudaGraphicsUnmapResources(1, &cuda_resource, 0);
+}
+
 void animation()
 {
     commute << <GRID2, BLOCK2 >> > (dev_lattice);
@@ -190,14 +193,14 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    printResults(false);
+    // printResults(false);
     //
     // Generate graphics
     //
+    updateVoxels();
     display();
     //
     //Sleep(1000);
     step++;
 }
-
 

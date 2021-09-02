@@ -6,7 +6,7 @@
 
 __global__ void compare(Cell* lattice)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	long id = blockDim.x * blockIdx.x + threadIdx.x;
 	if (id < SIDE3)
 	{
 		Cell* cell = lattice + id;
@@ -21,6 +21,7 @@ __global__ void compare(Cell* lattice)
 			passive_stack = cell;
 			active_stack = cell + SIDE3 * SIDE2;
 		}
+#ifdef XX
 		for (int i = 0; i < SIDE2; i++)
 		{
 			// Shift 'vertically'
@@ -78,11 +79,12 @@ __global__ void compare(Cell* lattice)
 					}
 				}
 				*/
-		//		active_cell = nextV(active_cell);
-			//	passive_cell = nextV(passive_cell);
+				active_cell = nextV(active_cell);
+				passive_cell = nextV(passive_cell);
 			}
 			active_stack = nextV(active_stack);
 			passive_stack = nextV(passive_stack);
 		}
+#endif
 	}
 }

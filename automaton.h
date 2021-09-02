@@ -76,6 +76,7 @@ typedef struct
 #define ISEQUAL(v,u)	(v[0]==u[0] && v[1]==u[1] && v[2]==u[2])
 #define RESET(v)		{v[0]=0;v[1]=0;v[2]=0;}
 #define COPY(u,v)		{u[0]=v[0];u[1]=v[1];u[2]=v[2];}
+#define MOD2(v)         (v[0]*v[0]+v[1]*v[1]+v[2]*v[2])
 #define nextV(c)        {c->type&0x02?c-(SIDE3*(SIDE2-1)):c+SIDE3}
 #define CELL            sizeof(Cell)
 
@@ -95,3 +96,4 @@ void animation();
 void closeApp();
 void updateCamera();
 void printResults(bool full);
+void display();

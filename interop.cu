@@ -61,7 +61,7 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int all)
 		{
 			*ptr++ = 0.6;
 			*ptr++ = 0.6;
-			*ptr++ = 0.6;
+			*ptr++ = 0.7;
 		}
 	}
 }

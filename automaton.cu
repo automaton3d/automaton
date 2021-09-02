@@ -40,8 +40,8 @@ const char* fragmentShaderSource = "#version 460 core\n"
 "out vec4 FragColor;\n"
 "void main()\n"
 "{\n"
-"	if(fColor==vec3(0.6,0.6,0.6))"
-"		FragColor = vec4(0.6,0.6,0.6,0.5);\n"
+"	if(fColor==vec3(0.6,0.6,0.7))"
+"		FragColor = vec4(0.6,0.6,0.7,0.05);\n"
 "	else\n"
 "		FragColor = vec4(fColor, 1);\n"
 "}\0";
@@ -153,7 +153,9 @@ int initOpenGL(int argc, char** argv)
 	glutInit(&argc, argv);
 	glutInitWindowSize(800, 600);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-	glutCreateWindow("Automaton");
+	char s[] = "                              ";
+	sprintf(s, "Automaton %dx%dx%dx%dx%d", SIDE, SIDE, SIDE, SIDE2, 2);
+	glutCreateWindow(s);
 	printf("\tGPU: %s\n", glGetString(GL_VERSION));
 	GLenum err = glewInit();
 	if (GLEW_OK != err)
@@ -235,9 +237,9 @@ int initOpenGL(int argc, char** argv)
 		{
 			for (int x = 0; x < SIDE; x++)
 			{
-				colors[index][0] = 0.2f;
-				colors[index][1] = 0.2f;
-				colors[index][2] = 0.6f;
+				colors[index][0] = 0.5f;
+				colors[index][1] = 0.5f;
+				colors[index][2] = 0.8f;
 				index++;
 			}
 		}
@@ -316,7 +318,7 @@ int initOpenGL(int argc, char** argv)
 	glUniformMatrix4fv(loc, 1, GL_FALSE, model[0]);
 	updateCamera();
 	//
-	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+	glClearColor(0.1f, 0.2f, 0.2f, 1.0f);
 	glutKeyboardFunc(&keyboard);
 	glutIdleFunc(&animation);
 	//
@@ -331,80 +333,13 @@ int initOpenGL(int argc, char** argv)
 	return 0;
 }
 
-/**
- * @brief This function can be executed on the host or on a device, setting the
- * argument value accordingly.
- **/
-__host__ __device__ void versatile_function(int* a)
-{
-#ifdef __CUDA_ARCH__
-	// The function is executed on a device
-#if __CUDA_ARCH__ >= 700
-	// The device has a compute capability of 7.x
-#elif __CUDA_ARCH__ >= 600
-	// The device has a compute capability of 6.x
-#elif __CUDA_ARCH__ >= 500
-	// The device has a compute capability of 5.x
-#elif __CUDA_ARCH__ >= 300
-	// The device has a compute capability of 3.x
-#endif
-	* a = __CUDA_ARCH__;
-#else
-	// The function is executed on the host
-	* a = -1;
-#endif
-}
-
-/**
- * @brief This function does the interface between the host and the __device__
- * function because its __global__ function specifier means it will be called
- * from the host, and since this function is on the device, it can call
- * __device__ functions such as versatile_function.
- **/
-__global__ void launcher(int* a)
-{
-	versatile_function(a);
-}
-
-/* Main method */
+/* 
+ * Program entry point.
+ */
 int main(int argc, char** argv)
 {
-	//
 	initCuda();
-
-
-	// Declare variable on host.
-	int a_host = 0;
-	printf("Before passing to host version of versatile_function: a = %d.\n", a_host);
-	versatile_function(&a_host);
-	printf("After passing to host version of versatile_function: a = %d.\n", a_host);
-
-	// Reset the variable
-	a_host = 0;
-
-	// Declare pointer that will point to the memory allocated on the device.
-	int* a_device;
-
-	// Allocate memory on the device
-	cudaMalloc(&a_device, sizeof(int));
-
-	// Launch the kernel on the device
-	printf("Before passing to host version of versatile_function: a = %d.\n", a_host);
-	launcher << <1, 1 >> > (a_device);
-
-	// Copy the variable initialised back from the device to the host and print its value
-	cudaMemcpy(&a_host, a_device, sizeof(int), cudaMemcpyDeviceToHost);
-	printf("After passing to host version of versatile_function: a = %d.\n", a_host);
-
-	// Free resources
-	cudaFree(a_device);
-
-
-#ifndef CUDA_NO_SM_11_ATOMIC_INTRINSICS
-	printf("WARNING! Not using atomics!\n");
-#endif
-
-	printResults(true);
+	//printResults(true);
 	initOpenGL(argc, argv);
 	start = GetTickCount();
 	glutMainLoop();

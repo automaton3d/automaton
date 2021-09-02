@@ -36,7 +36,10 @@ __device__ void initLattice(int idx, Cell* cell, bool active)
                 cell->t = 0;
                 cell->noise = idx;
                 cell->f = 0;
-                cell->synch = 0;
+                cell->b = 0;
+                cell->synch = -1;
+                cell->charge = 0;
+                cell->ctrl = 0;
                 RESET(cell->p);
                 RESET(cell->s);
                 if (z == 0 && (x + SIDE * y) == idx)
@@ -100,9 +103,12 @@ __device__ void initLattice(int idx, Cell* cell, bool active)
                     }
                 }
                 //
+                COPY(cell->pole, cell->p);
+                RESET(cell->o);
                 cell->z = z;
                 cell->sine = 0;
                 cell->cosine = SIDE / 2;
+                //
                 cell++;
             }
         }
