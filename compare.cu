@@ -21,7 +21,11 @@ __global__ void compare(Cell* lattice)
 			passive_stack = cell;
 			active_stack = cell + SIDE3 * SIDE2;
 		}
-#ifdef XX
+		if (passive_stack->t % LIGHT != 0)
+		{
+			return;
+		}
+		#ifdef COMPARE
 		for (int i = 0; i < SIDE2; i++)
 		{
 			// Shift 'vertically'
@@ -49,26 +53,34 @@ __global__ void compare(Cell* lattice)
 			Cell *passive_cell = passive_stack;
 			for (int j = 0; j < SIDE2; j++)
 			{
-				/*
 				if (active_cell->b == passive_cell->b && ISEQUAL(active_cell->o, passive_cell->o))
 				{
 					if (passive_cell->code == 0)
 					{
-						if (passive_cell->c == ~active_cell->c && passive_cell->w == ~active_cell->w &&
-							passive_cell->q == ~active_cell->q)
+						if (((passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK)) == C_MASK && 
+							  ((passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK)) == W_MASK &&
+							  ((passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK)) == Q_MASK)
 							passive_cell->code = PHOTON;
-						else if (passive_cell->c == active_cell->c && passive_cell->w == ~active_cell->w &&
-							passive_cell->q == ~active_cell->q)
-							passive_cell->code = GLUON;
-						else if (passive_cell->c == active_cell->c && passive_cell->w == active_cell->w &&
-							passive_cell->q == ~active_cell->q)
-							passive_cell->code = NEUTRINO;
-						else if (passive_cell->c == ~active_cell->c && passive_cell->w == active_cell->w &&
-							passive_cell->q == ~active_cell->q)
-							passive_cell->code = Z;
-						else if (passive_cell->c == ~active_cell->c && passive_cell->w == active_cell->w &&
-							passive_cell->q == active_cell->q)
-							passive_cell->code = W;
+						else if (((passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK)) == 0 &&
+							    ((passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK)) == W_MASK &&
+							    ((passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK)) == Q_MASK)
+							passive_cell->code = PHOTON;
+						else if (((passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK)) == 0 &&
+							     ((passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK)) == 0 &&
+							     ((passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK)) == Q_MASK)
+							passive_cell->code = PHOTON;
+						else if (((passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK)) == 0 &&
+							     ((passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK)) == 0 &&
+							     ((passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK)) == Q_MASK)
+							passive_cell->code = PHOTON;
+						else if (((passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK)) == C_MASK &&
+							     ((passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK)) == 0 &&
+							     ((passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK)) == Q_MASK)
+							passive_cell->code = PHOTON;
+						else if (((passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK)) == C_MASK &&
+							     ((passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK)) == 0 &&
+							     ((passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK)) == 0)
+							passive_cell->code = PHOTON;
 						//
 						if (passive_cell->code != 0)
 							passive_cell->f++;
@@ -78,13 +90,12 @@ __global__ void compare(Cell* lattice)
 						passive_cell->f++;
 					}
 				}
-				*/
 				active_cell = nextV(active_cell);
 				passive_cell = nextV(passive_cell);
 			}
 			active_stack = nextV(active_stack);
 			passive_stack = nextV(passive_stack);
 		}
-#endif
+	#endif
 	}
 }

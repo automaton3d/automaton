@@ -22,48 +22,10 @@ extern unsigned int vao;
 extern struct cudaGraphicsResource* cuda_resource;
 extern cudaError_t cudaStatus;
 extern Cell *host_lattice, *dev_lattice;
-extern float yaw, pitch;
 extern DWORD start;
 int step = 0;
 
 boolean flag;
-
-void keyboard(unsigned char key, int x, int y)
-{
-    switch (key)
-    {
-        /* Exit on escape key press */
-        case '\x1B':
-        {
-            closeApp();
-            exit(EXIT_SUCCESS);
-            break;
-        }
-        case 'A':
-        case 'a':
-            yaw += 5.0;
-            updateCamera();
-            break;
-        case 'S':
-        case 's':
-            yaw -= 5.0;
-            updateCamera();
-            break;
-        case 'W':
-        case 'w':
-            pitch += 3.0;
-            updateCamera();
-            break;
-        case 'D':
-        case 'd':
-            pitch -= 3.0;
-            updateCamera();
-            break;
-        case '1':
-            flag = !flag;
-            break;
-    }
-}
 
 void display()
 {
@@ -71,7 +33,9 @@ void display()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgram);
     glBindVertexArray(vao);
-    glDrawArraysInstanced(GL_POINTS, 0, 6, SIDE3);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, SIDE3);
     glBindVertexArray(0);
     //
     // Draw text
@@ -89,9 +53,9 @@ void printResults(bool full)
 {
     cudaMemcpy(host_lattice, dev_lattice, 2 * SIDE2 * SIDE3 * sizeof(Cell), cudaMemcpyDeviceToHost);
     Cell* cell = host_lattice;
-    printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", cell->t, '?', 0, 0, 0, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, "??");
+    //printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", cell->t, '?', 0, 0, 0, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, "??");
     cell += SIDE2 * SIDE3;
-    printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", cell->t, '?', 0, 0, 0, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, "??");
+    //printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", cell->t, '?', 0, 0, 0, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, "??");
     cell = host_lattice;
     for (int v = 0; v < SIDE2; v++)
     {
@@ -101,6 +65,10 @@ void printResults(bool full)
                 {
                     char act = cell->active ? 'A' : ' ';
                     char* arrow = ISNULL(cell->p) ? "" : "<---";
+                    if(!ISNULL(cell->p))
+                        printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", 
+                            cell->t, act, x, y, z, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, arrow);
+                    /*
                     if (full)
                     {
                         if (cell->f > 0)
@@ -110,12 +78,15 @@ void printResults(bool full)
                     {
                         printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", cell->t, act, x, y, z, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, arrow);
                     }
+                    */
                     cell++;
                 }
     }
     printf("step %d\n", step);
     fflush(stdout);
 }
+
+int sublattice = 130;
 
 void updateVoxels()
 {
@@ -137,9 +108,9 @@ void updateVoxels()
     }
     //
     if (flag)
-        interop << <GRID2, BLOCK2 >> > (dev_lattice, (vec3*)dev_color, true);
+        interop << <GRID, BLOCK >> > (dev_lattice, (vec3*)dev_color, -1);
     else
-        interop << <GRID2, BLOCK2 >> > (dev_lattice, (vec3*)dev_color, false);
+        interop << <GRID, BLOCK >> > (dev_lattice, (vec3*)dev_color, sublattice);
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
@@ -149,11 +120,12 @@ void updateVoxels()
     }
     //
     cudaGraphicsUnmapResources(1, &cuda_resource, 0);
+   
 }
 
 void animation()
 {
-    commute << <GRID2, BLOCK2 >> > (dev_lattice);
+    commute << <GRID, BLOCK >> > (dev_lattice);
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
@@ -161,7 +133,7 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    compare << <GRID2, BLOCK2 >> > (dev_lattice);
+    compare << <GRID, BLOCK >> > (dev_lattice);
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
@@ -169,7 +141,7 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    replicate << <GRID2, BLOCK2 >> > (dev_lattice);
+    replicate << <GRID, BLOCK >> > (dev_lattice);
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
@@ -177,7 +149,7 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    interact << <GRID2, BLOCK2 >> > (dev_lattice);
+    interact << <GRID, BLOCK >> > (dev_lattice);
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
@@ -185,7 +157,7 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    expand << <GRID1, BLOCK1 >> > (dev_lattice);
+    expand << <GRID, BLOCK >> > (dev_lattice);
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
@@ -193,14 +165,14 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    // printResults(false);
+    //printResults(false);
     //
     // Generate graphics
     //
     updateVoxels();
     display();
     //
-    //Sleep(1000);
+    //Sleep(3000);
     step++;
 }
 

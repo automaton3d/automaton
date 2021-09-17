@@ -22,24 +22,19 @@
 #define NEUTRINO	3
 #define Z			4
 #define W			5
+#define RMAX        ((SIDE2-2*SIDE+1)/4)
 
 // GPU symbols
 
 #if ORDER==5
-  #define GRID1       16
-  #define BLOCK1      64
-  #define GRID2       256
-  #define BLOCK2      128
+  #define GRID       256
+  #define BLOCK      128
 #elif ORDER==4
-  #define GRID1       16
-  #define BLOCK1      16
-  #define GRID2       32
-  #define BLOCK2      128
+  #define GRID       32
+  #define BLOCK      128
 #else
-  #define GRID1       16
-  #define BLOCK1      16
-  #define GRID2       16
-  #define BLOCK2      32
+  #define GRID       16
+  #define BLOCK      32
 #endif
 
 // Charge masks
@@ -53,12 +48,14 @@
 
 typedef struct
 {
+    unsigned short floor;        // DEBUG
+
     unsigned char dir;
-    char z;  // debug
     unsigned char type;
     bool active;
     unsigned char f;
-    short t, b;
+    int t;
+    short b;
     unsigned char charge;
     char o[3], p[3], s[3], pole[3];
     char phi;
@@ -69,6 +66,8 @@ typedef struct
     unsigned char ctrl;
 
 } Cell;
+
+#define S   (SIDE/2)
 
 // Macros
 
@@ -88,7 +87,7 @@ __global__ void interact(Cell* lattice);
 __global__ void compare(Cell* lattice);
 __global__ void replicate(Cell* lattice);
 __global__ void hologram(Cell* lattice);
-__global__ void interop(Cell* lattice, vec3* dev_color, int all);
+__global__ void interop(Cell* lattice, vec3* dev_color, int floor);
 
 // Functions
 
@@ -97,3 +96,6 @@ void closeApp();
 void updateCamera();
 void printResults(bool full);
 void display();
+void closeApp();
+void keyboard(unsigned char key, int x, int y);
+void specialKeys(int key, int x, int y);

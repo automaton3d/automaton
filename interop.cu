@@ -2,37 +2,47 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "automaton.h"
+#include "curand.h"
+#include "curand_kernel.h"
 #include "cglm/vec3.h"
 
-__global__ void interop(Cell* lattice, vec3 *dev_color, int all)
+__global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 {
 	long id = blockDim.x * blockIdx.x + threadIdx.x;
 	if (id < SIDE3)
 	{
+		curandState state;
+		curand_init(0, id, 0, &state);
 		bool p = false, f = false;
 		Cell* cell = lattice + id;
 		//
 		// Calculate voxel color
 		//
-		if (all)
+		if (floor < 0)
 		{
 			for (int i = 0; i < SIDE2; i++)
 			{
-				if (!ISNULL(cell->p))
+				int rnd = curand(&state)& (SIDE2 - 1);
+				if (rnd < SIDE/4)
 				{
-					p = true;
-					break;
-				}
-				else if (cell->f > 0)
-				{
-					f = true;
+					if (!ISNULL(cell->p))
+					{
+						floor = i;
+						p = true;
+						break;
+					}
+					else if (cell->f > 0)
+					{
+						floor = i;
+						f = true;
+					}
 				}
 				cell = nextV(cell);
 			}
 		}
 		else
 		{
-			for (int i = 0; i < 150; i++)
+			for (int i = 0; i < floor; i++)
 				cell = nextV(cell);
 			//
 			if (!ISNULL(cell->p))
@@ -40,7 +50,6 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int all)
 			else if (cell->f > 0)
 				f = true;
 		}
-
 		//
 		// Update voxel color
 		//
@@ -49,19 +58,34 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int all)
 		{
 			*ptr++ = 1;
 			*ptr++ = 0;
-			*ptr++ = 0;
+			*ptr = 0;
 		}
 		else if(f)
 		{
-			*ptr++ = 0;
-			*ptr++ = 0;
-			*ptr++ = 1;
+			switch (floor % 3)
+			{
+				case 0:
+					*ptr++ = 0;
+					*ptr++ = 1;
+					*ptr = 0;
+					break;
+				case 1:
+					*ptr++ = 0;
+					*ptr++ = 0;
+					*ptr = 1;
+					break;
+				case 2:
+					*ptr++ = 1;
+					*ptr++ = 1;
+					*ptr = 0;
+					break;
+			}
 		}
 		else
 		{
 			*ptr++ = 0.6;
 			*ptr++ = 0.6;
-			*ptr++ = 0.7;
+			*ptr = 0.8;
 		}
 	}
 }

@@ -21,29 +21,39 @@
 
 const char* vertexShaderSource = "#version 460 core\n"
 "layout(location = 0) in vec3 aPos;\n"
-"layout(location = 1) in vec3 aOffset;\n"
-"layout(location = 2) in vec3 aColor;\n"
-"out vec3 fColor;\n"
+"layout(location = 1) in vec3 aColor;\n"
+"out vec4 fColor;\n"
 "uniform mat4 projection;\n"
 "uniform mat4 view;\n"
 "uniform mat4 model;\n"
+
 "void main()\n"
 "{\n"
+"	vec3 aOffset;"
+#if ORDER==4
+"	aOffset[0] = (gl_InstanceID & 15) * 8 - 64;\n"
+"	aOffset[1] = ((gl_InstanceID >> 4) & 15) * 8 - 64;\n"
+"	aOffset[2] = (gl_InstanceID >> 8) * 8 - 64;\n"
+#else  if ORDER==5
+"	aOffset[0] = (gl_InstanceID & 31) * 16 - 128;\n"
+"	aOffset[1] = ((gl_InstanceID >> 8) & 31) * 16 - 128;\n"
+"	aOffset[2] = (gl_InstanceID >> 16) * 16 - 128;\n"
+#endif
 "	gl_Position = projection * view * model * vec4(aPos + aOffset, 1.0);\n"
-"	fColor = aColor;\n"
+"	if(aColor.x==0.6 && aColor.y==0.6 && aColor.z==0.8)\n"
+"		fColor = vec4(aColor, 0.2);\n"
+"	else\n"
+"		fColor = vec4(aColor, 1.0);\n"
 "}\0";
 
 unsigned int vertexShader;
 
 const char* fragmentShaderSource = "#version 460 core\n"
-"in vec3 fColor;\n"
+"in vec4 fColor;\n"
 "out vec4 FragColor;\n"
 "void main()\n"
 "{\n"
-"	if(fColor==vec3(0.6,0.6,0.7))"
-"		FragColor = vec4(0.6,0.6,0.7,0.05);\n"
-"	else\n"
-"		FragColor = vec4(fColor, 1);\n"
+"	FragColor = fColor;\n"
 "}\0";
 
 unsigned int shaderProgram;
@@ -67,11 +77,52 @@ Cell* dev_lattice;
 
 struct cudaGraphicsResource* cuda_resource;
 unsigned int colorVBO;
-vec3 colors[SIDE3];
 size_t num_bytes;
 
 cudaError_t cudaStatus;
 DWORD start;
+
+vec3 colors[SIDE3];
+
+GLfloat cubeVertices[] = 
+{
+	-1.0f,-1.0f,-1.0f, // triangle 1 : begin
+	-1.0f,-1.0f, 1.0f,
+	-1.0f, 1.0f, 1.0f, // triangle 1 : end
+	1.0f, 1.0f,-1.0f, // triangle 2 : begin
+	-1.0f,-1.0f,-1.0f,
+	-1.0f, 1.0f,-1.0f, // triangle 2 : end
+	1.0f,-1.0f, 1.0f,
+	-1.0f,-1.0f,-1.0f,
+	1.0f,-1.0f,-1.0f,
+	1.0f, 1.0f,-1.0f,
+	1.0f,-1.0f,-1.0f,
+	-1.0f,-1.0f,-1.0f,
+	-1.0f,-1.0f,-1.0f,
+	-1.0f, 1.0f, 1.0f,
+	-1.0f, 1.0f,-1.0f,
+	1.0f,-1.0f, 1.0f,
+	-1.0f,-1.0f, 1.0f,
+	-1.0f,-1.0f,-1.0f,
+	-1.0f, 1.0f, 1.0f,
+	-1.0f,-1.0f, 1.0f,
+	1.0f,-1.0f, 1.0f,
+	1.0f, 1.0f, 1.0f,
+	1.0f,-1.0f,-1.0f,
+	1.0f, 1.0f,-1.0f,
+	1.0f,-1.0f,-1.0f,
+	1.0f, 1.0f, 1.0f,
+	1.0f,-1.0f, 1.0f,
+	1.0f, 1.0f, 1.0f,
+	1.0f, 1.0f,-1.0f,
+	-1.0f, 1.0f,-1.0f,
+	1.0f, 1.0f, 1.0f,
+	-1.0f, 1.0f,-1.0f,
+	-1.0f, 1.0f, 1.0f,
+	1.0f, 1.0f, 1.0f,
+	-1.0f, 1.0f, 1.0f,
+	1.0f,-1.0f, 1.0f
+};
 
 void initCuda()
 {
@@ -103,7 +154,7 @@ void initCuda()
 		perror("host ram unavailable");
 		exit(1);
 	}
-	hologram << <GRID1, BLOCK1 >> > (dev_lattice);
+	hologram << <GRID, BLOCK >> > (dev_lattice);
 	cudaStatus = cudaDeviceSynchronize();
 	if (cudaStatus != cudaSuccess)
 	{
@@ -205,56 +256,21 @@ int initOpenGL(int argc, char** argv)
 	}
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
-	//
-	// Initialize common point
-	//
-	vec3 pointVertices = { 0, 0, 0 };
-	//
-	// Initialize instance translations
-	//
-	vec3 translations[SIDE3];
-	int index = 0;
-	for (int z = 0; z < SIDE; z++)
+	for (int i = 0; i < SIDE3; i++)
 	{
-		for (int y = 0; y < SIDE; y++)
-		{
-			for (int x = 0; x < SIDE; x++)
-			{
-				translations[index][0] = x / (float)SIDE - 0.5f;
-				translations[index][1] = y / (float)SIDE - 0.5f;
-				translations[index][2] = z / (float)SIDE - 0.5f;
-				index++;
-			}
-		}
-	}
-	//
-	// Initialize instance colors
-	//
-	index = 0;
-	for (int z = 0; z < SIDE; z++)
-	{
-		for (int y = 0; y < SIDE; y++)
-		{
-			for (int x = 0; x < SIDE; x++)
-			{
-				colors[index][0] = 0.5f;
-				colors[index][1] = 0.5f;
-				colors[index][2] = 0.8f;
-				index++;
-			}
-		}
+		colors[i][0] = 0;
+		colors[i][1] = 1;
+		colors[i][2] = 1;
 	}
 	glUseProgram(shaderProgram);
 	//
 	// Create vbos
 	//
-	unsigned int pointVBO, positionVBO, colorVBO;
-	glGenBuffers(1, &pointVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3), pointVertices, GL_STATIC_DRAW);
-	glGenBuffers(1, &positionVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * SIDE3, &translations[0], GL_STATIC_DRAW);
+	unsigned int cubeVBO;
+	glGenBuffers(1, &cubeVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+	//
 	glGenBuffers(1, &colorVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * SIDE3, &colors[0], GL_DYNAMIC_DRAW);
@@ -268,24 +284,16 @@ int initOpenGL(int argc, char** argv)
 	// Add vbos
 	//
 	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//
 	glEnableVertexAttribArray(1);
-	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 	glVertexAttribDivisor(1, 1);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//
-	glEnableVertexAttribArray(2);
-	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
-	glVertexAttribDivisor(2, 1);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//
-	// Voxel size
-	//
-	glPointSize(4);	
 	//
 	// Connect color vbo to cuda
 	//
@@ -307,27 +315,32 @@ int initOpenGL(int argc, char** argv)
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND); 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDepthFunc(GL_LESS);
 	//
 	// Upadte uniforms
 	//
 	int loc = glGetUniformLocation(shaderProgram, "projection");
 	glUniformMatrix4fv(loc, 1, GL_FALSE, projection[0]);
-	vec3 v = { 0, 0, 0 };
-	glm_translate(model, v);
+	#if ORDER == 4
+	vec3 scale = { 0.008, 0.008, 0.008 };
+	#else if ORDER == 5
+	vec3 scale = { 0.004, 0.004, 0.004 };
+	#endif
+	glm_scale(model, scale);
 	loc = glGetUniformLocation(shaderProgram, "model");
 	glUniformMatrix4fv(loc, 1, GL_FALSE, model[0]);
+	//
+	// Update camera
+	//
 	updateCamera();
-	//
-	glClearColor(0.1f, 0.2f, 0.2f, 1.0f);
-	glutKeyboardFunc(&keyboard);
-	glutIdleFunc(&animation);
-	//
-	// Draw first frame 
-	//
+	glClearColor(0.1, 0.2, 0.2, 1.0);
 	glUseProgram(shaderProgram);
 	//
-	// Set display function
+	// Define callback routines
 	//
+	glutKeyboardFunc(&keyboard);
+	glutSpecialFunc(&specialKeys);
+	glutIdleFunc(&animation);
 	glutDisplayFunc(&display);
 	//
 	return 0;

@@ -3,9 +3,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "automaton.h"
-
-#define S   (SIDE/2)
 
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
@@ -27,11 +26,8 @@ __device__ bool isAllowed(int dir, char vdir[3], char o[3], unsigned char d0)
     //
     // Wrapping test
     //
-    if (x == S + 1 || x == -S || y == S + 1 || y == -S || z == S + 1 || z == -S)
-    {
-        //printf("%d,%d,%d\n", o[0], o[1], o[2]);
+    if (x == S + 1 || x == -S || y == S + 1 || y == -S || z ==S + 1 || z == -S)
         return false;
-    }
     //
     // Root allows all six directions
     //
@@ -179,31 +175,138 @@ __device__ bool isAllowed(int dir, char vdir[3], char o[3], unsigned char d0)
     return false;
 }
 
-__device__ void branch(Cell* active_cell, Cell* passive_cell)
+__device__ void spread(Cell* stable, Cell* draft, int floor)
 {
-    if (passive_cell->ctrl > 0)
+    // Update tracking info
+    //
+    if (draft->ctrl > 0)
     {
         // Track decay
         //
-        passive_cell->phi *= (1 - 1 / (2 * passive_cell->t));
+        draft->phi *= (1 - 1 / (2 * draft->t));
         //
         // Minsky circle algorithm
         //
-        int xNew = passive_cell->cosine - (passive_cell->sine >> SHIFT);
-        int yNew = passive_cell->sine + (passive_cell->cosine >> SHIFT);
-        passive_cell->cosine = xNew;
-        passive_cell->sine = yNew;
+        int xNew = draft->cosine - (draft->sine >> SHIFT);
+        int yNew = draft->sine + (draft->cosine >> SHIFT);
+        draft->cosine = xNew;
+        draft->sine = yNew;
         //
-        passive_cell->ctrl--;
+        draft->ctrl--;
     }
-    if (active_cell->f > 0 || !ISNULL(active_cell->p))
+    //
+    // Spread cell contents if not empty
+    //
+    if (draft->f > 0)
     {
+        draft->t++; 
         Cell* neighbor;
-        if (active_cell->t * active_cell->t > active_cell->synch)
+        //
+        // Momentum evolution
+        //
+        if (!ISNULL(draft->p) && draft->t * draft->t > draft->synch)
+        {
+            for (int dir = 0; dir < 6; dir++)
+            {
+                char vdir[3] = { 0, 0, 0 };
+                switch (dir)
+                {
+                case 0:
+                    vdir[0] = +1;
+                    if (draft->type & 0x40)
+                        neighbor = draft - (SIDE - 1);
+                    else
+                        neighbor = draft + 1;
+                    break;
+                case 1:
+                    vdir[0] = -1;
+                    if (draft->type & 0x80)
+                        neighbor = draft + (SIDE - 1);
+                    else
+                        neighbor = draft - 1;
+                    break;
+                case 2:
+                    vdir[1] = +1;
+                    if (draft->type & 0x10)
+                        neighbor = draft - (SIDE2 - SIDE);
+                    else
+                        neighbor = draft + SIDE;
+                    break;
+                case 3:
+                    vdir[1] = -1;
+                    if (draft->type & 0x20)
+                        neighbor = draft + (SIDE2 - SIDE);
+                    else
+                        neighbor = draft - SIDE;
+                    break;
+                case 4:
+                    vdir[2] = +1;
+                    if (draft->type & 0x04)
+                        neighbor = draft - (SIDE3 - SIDE2);
+                    else
+                        neighbor = draft + SIDE2;
+                    break;
+                case 5:
+                    vdir[2] = -1;
+                    if (draft->type & 0x08)
+                        neighbor = draft + (SIDE3 - SIDE2);
+                    else
+                        neighbor = draft - SIDE2;
+                    break;
+                }
+                char pole[3];
+                COPY(pole, draft->pole);
+                pole[0] -= vdir[0];
+                pole[1] -= vdir[1];
+                pole[2] -= vdir[2];
+                //
+                if (MOD2(pole) < MOD2(draft->pole))
+                {
+                    neighbor->pole[0] = pole[0];
+                    neighbor->pole[1] = pole[1];
+                    neighbor->pole[2] = pole[2];
+                    //
+                    neighbor->t = draft->t;
+                    neighbor->f = draft->f;
+                    neighbor->b = draft->b;
+                    neighbor->charge = draft->charge;
+                    //
+                    neighbor->o[0] = draft->o[0] + vdir[0];
+                    neighbor->o[1] = draft->o[1] + vdir[1];
+                    neighbor->o[2] = draft->o[2] + vdir[2];
+                    //
+                    COPY(neighbor->s, draft->s);
+                    COPY(neighbor->p, draft->p);
+                    neighbor->synch = LIGHT2 * MOD2(neighbor->o);
+                    int t = neighbor->t;
+                    if (ISNULL(neighbor->pole))
+                    {
+                        neighbor->t = 0;
+                        neighbor->synch = -1;
+                        neighbor->f = 1;
+                        neighbor->b = 0;
+                        neighbor->code = 0;
+                        RESET(neighbor->o);
+                        COPY(neighbor->pole, neighbor->p);
+
+                        if (stable->floor == 130)
+                            printf("\tREISSUE VIA POLE t=%d f=%d n->pole=(%d,%d,%d) act=%d charge=%d\n", 
+                                t, neighbor->f, neighbor->pole[0], neighbor->pole[1], neighbor->pole[2], neighbor->active, neighbor->charge);
+                    }
+                    RESET(draft->p);
+                    if(!ISEQUAL(draft->p, draft->pole))
+                        draft->f = 0;
+                    break;
+                }
+            }
+        }
+            //
+        // Phase cells spread synchronized
+        //
+        if (draft->t * draft->t > draft->synch)
         {
             // Explore von Neumann directions
             //
-            bool dec = false;
             Cell* neighbor;
             for (int dir = 0; dir < 6; dir++)
             {
@@ -212,121 +315,93 @@ __device__ void branch(Cell* active_cell, Cell* passive_cell)
                 {
                     case 0:
                         vdir[0] = +1;
-                        if (active_cell->type & 0x40)
-                            neighbor = passive_cell - (SIDE - 1);
+                        if (draft->type & 0x40)
+                            neighbor = draft - (SIDE - 1);
                         else
-                            neighbor = passive_cell + 1;
-                        dec = active_cell->pole[0] > 0;
+                            neighbor = draft + 1;
                         break;
                     case 1:
                         vdir[0] = -1;
-                        if (active_cell->type & 0x80)
-                            neighbor = passive_cell + (SIDE - 1);
+                        if (draft->type & 0x80)
+                            neighbor = draft + (SIDE - 1);
                         else
-                            neighbor = passive_cell - 1;
-                        dec = active_cell->pole[0] < 0;
+                            neighbor = draft - 1;
                         break;
                     case 2:
                         vdir[1] = +1;
-                        if (active_cell->type & 0x10)
-                            neighbor = passive_cell - (SIDE2 - SIDE);
+                        if (draft->type & 0x10)
+                            neighbor = draft - (SIDE2 - SIDE);
                         else
-                            neighbor = passive_cell + SIDE;
-                        dec = active_cell->pole[1] > 0;
+                            neighbor = draft + SIDE;
                         break;
                     case 3:
                         vdir[1] = -1;
-                        if (active_cell->type & 0x20)
-                            neighbor = passive_cell + (SIDE2 - SIDE);
+                        if (draft->type & 0x20)
+                            neighbor = draft + (SIDE2 - SIDE);
                         else
-                            neighbor = passive_cell - SIDE;
-                        dec = active_cell->pole[1] < 0;
+                            neighbor = draft - SIDE;
                         break;
                     case 4:
                         vdir[2] = +1;
-                        if (active_cell->type & 0x04)
-                            neighbor = passive_cell - (SIDE3 - SIDE2);
+                        if (draft->type & 0x04)
+                            neighbor = draft - (SIDE3 - SIDE2);
                         else
-                            neighbor = passive_cell + SIDE2;
-                        dec = active_cell->pole[2] > 0;
+                            neighbor = draft + SIDE2;
                         break;
                     case 5:
                         vdir[2] = -1;
-                        if (active_cell->type & 0x08)
-                            neighbor = passive_cell + (SIDE3 - SIDE2);
+                        if (draft->type & 0x08)
+                            neighbor = draft + (SIDE3 - SIDE2);
                         else
-                            neighbor = passive_cell - SIDE2;
-                        dec = active_cell->pole[2] < 0;
+                            neighbor = draft - SIDE2;
                         break;
                 }
                 //
                 // Test if branch is legal
                 //
-                if(isAllowed(dir, vdir, active_cell->o, active_cell->dir))
+                if(isAllowed(dir, vdir, draft->o, draft->dir))
                 {
-                    neighbor->t = active_cell->t;
+                    neighbor->t = draft->t;
                     neighbor->dir = dir;
-                    neighbor->f = active_cell->f;
-                    neighbor->b = active_cell->b;
-                    neighbor->charge = active_cell->charge;
+                    neighbor->f = stable->f;
+                    neighbor->b = stable->b;
+                    neighbor->charge = stable->charge;
                     //
-                    neighbor->o[0] = active_cell->o[0] + vdir[0];
-                    neighbor->o[1] = active_cell->o[1] + vdir[1];
-                    neighbor->o[2] = active_cell->o[2] + vdir[2];
+                    neighbor->o[0] = stable->o[0] + vdir[0];
+                    neighbor->o[1] = stable->o[1] + vdir[1];
+                    neighbor->o[2] = stable->o[2] + vdir[2];
                     //
-                    RESET(neighbor->p);
-                    COPY(neighbor->s, active_cell->s);
+                    COPY(neighbor->s, stable->s);
                     neighbor->synch = LIGHT2 * MOD2(neighbor->o);
-                    //
-                    if (!ISNULL(active_cell->p) && !ISNULL(active_cell->pole))
-                    {
-                        if (dec)
-                        {
-                            neighbor->pole[0] = active_cell->pole[0] - vdir[0];
-                            neighbor->pole[1] = active_cell->pole[1] - vdir[1];
-                            neighbor->pole[2] = active_cell->pole[2] - vdir[2];
-                            COPY(neighbor->p, active_cell->p);
-                        }
-                    }
                 }
             }
             //
-            passive_cell->f = 0;
-            RESET(passive_cell->p);
+            draft->f = 0;
         }
     }
-    passive_cell->t++;
 }
 
 __global__ void expand(Cell* lattice)
 {
-    long idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if(idx < SIDE2)
+    long xyz = blockDim.x * blockIdx.x + threadIdx.x;
+    if (xyz < SIDE3)
     {
-        Cell* cell = lattice + idx * (long long)SIDE3;
-        Cell* active_cube, * passive_cube;
-        if (cell->active)
+        Cell* draft = lattice + xyz;
+        Cell* stable = lattice + xyz + SIDE2 * SIDE3;
+        if (draft->active)
         {
-            active_cube = cell;
-            passive_cube = cell + SIDE3 * SIDE2;
+            Cell* temp = draft;
+            draft = stable;
+            stable = temp;
         }
-        else
+        for (int v = 0; v < SIDE2; v++)
         {
-            passive_cube = cell;
-            active_cube = cell + SIDE3 * SIDE2;
-        }
-        //
-        for (int z = 0; z < SIDE; z++)
-        {
-            for (int y = 0; y < SIDE; y++)
-            {
-                for (int x = 0; x < SIDE; x++)
-                {
-                    branch(active_cube, passive_cube);
-                    active_cube++;
-                    passive_cube++;
-                }
-            }
+            spread(stable, draft, stable->floor);
+            //
+            // Next register
+            //
+            draft = nextV(draft);
+            stable = nextV(stable);
         }
     }
 }

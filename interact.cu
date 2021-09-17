@@ -1,75 +1,87 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "curand.h"
+#include "curand_kernel.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "automaton.h"
 
-__device__ volatile int T = 16;
+__device__ unsigned int rnd;
 
 __global__ void interact(Cell* lattice)
 {
 	long id = blockDim.x * blockIdx.x + threadIdx.x;
 	if (id < SIDE3)
 	{
-		if (lattice->t % LIGHT != 0)
-			return;
-		//
 		Cell* cell = lattice + id;
-		Cell *active_stack, *passive_stack;
+		Cell *stable, *draft;
 		if (cell->active)
 		{
-			active_stack = cell;
-			passive_stack = cell + SIDE3 * SIDE2;
+			stable = cell;
+			draft = cell + SIDE3 * SIDE2;
 		}
 		else
 		{
-			passive_stack = cell;
-			active_stack = cell + SIDE3 * SIDE2;
+			draft = cell;
+			stable = cell + SIDE3 * SIDE2;
 		}
+		//
+		// Interactions only allowed at the last tick of a light step
+		//
+		if (draft->t % LIGHT != 0)
+		{
+			return;
+		}
+		curandState state;
+		// curand_init(0, id, 0, &state);
+
+		//
+		// Compare the two columns for interaction matches
+		//
 		for (int v = 0; v < SIDE2; v++)
 		{
-			/*
-			int sig1 = ((active_stack->charge ^ passive_stack->charge) & C_MASK) == 0 && (passive_stack->charge & C_MASK) == 0 &&
-				((active_stack->charge ^ passive_stack->charge) & Q_MASK) == 0 && (passive_stack->charge & Q_MASK) == Q_MASK && 
-				((active_stack->charge ^ passive_stack->charge) & D_MASK) == 0 && (passive_stack->charge & D_MASK) == 0;
-			int sig2 = ((active_stack->charge ^ passive_stack->charge) & C_MASK) == 0 &&
-				(passive_stack->charge & C_MASK) == C_MASK && ((active_stack->charge ^ passive_stack->charge) & Q_MASK) == 0 && 
-				(passive_stack->charge & Q_MASK) == 0 && ((active_stack->charge ^ passive_stack->charge) & D_MASK) == 0 && (passive_stack->charge & D_MASK) == D_MASK;
-			int sig3 = ((active_stack->charge ^ passive_stack->charge) & C_MASK) == 0 && (passive_stack->charge & C_MASK) != 0 && (passive_stack->charge & C_MASK) != C_MASK &&
-				((active_stack->charge ^ passive_stack->charge) & Q_MASK) == 0;
+			#ifdef INTERACT
+			int sig1 = ((stable->charge ^ draft->charge) & C_MASK) == 0 && (draft->charge & C_MASK) == 0 &&
+				((stable->charge ^ draft->charge) & Q_MASK) == 0 && (draft->charge & Q_MASK) == Q_MASK && 
+				((stable->charge ^ draft->charge) & D_MASK) == 0 && (draft->charge & D_MASK) == 0;
+			int sig2 = ((stable->charge ^ draft->charge) & C_MASK) == 0 &&
+				(draft->charge & C_MASK) == C_MASK && ((stable->charge ^ draft->charge) & Q_MASK) == 0 && 
+				(draft->charge & Q_MASK) == 0 && ((stable->charge ^ draft->charge) & D_MASK) == 0 && (draft->charge & D_MASK) == D_MASK;
+			int sig3 = ((stable->charge ^ draft->charge) & C_MASK) == 0 && (draft->charge & C_MASK) != 0 && (draft->charge & C_MASK) != C_MASK &&
+				((stable->charge ^ draft->charge) & Q_MASK) == 0;
 			//
-			int c1 = ((active_stack->charge ^ passive_stack->charge) & Q_MASK) == 0 && ((active_stack->charge ^ passive_stack->charge) & W_MASK) == 0 && sig1 == sig2;
-			int c2 = ((active_stack->charge ^ passive_stack->charge) & Q_MASK) != 0 && ((active_stack->charge ^ passive_stack->charge) & W_MASK) != 0 && sig1 != sig2;
-			int c3 = (active_stack->charge & D_MASK) == 0 && (active_stack->charge & W_MASK) == 0 && ((active_stack->charge ^ passive_stack->charge) & W_MASK) != 0;
-			int c4 = (active_stack->charge & D_MASK) == D_MASK && (active_stack->charge & W_MASK) == W_MASK && ((active_stack->charge ^ passive_stack->charge) & W_MASK) != 0;
+			int c1 = ((stable->charge ^ draft->charge) & Q_MASK) == 0 && ((stable->charge ^ draft->charge) & W_MASK) == 0 && sig1 == sig2;
+			int c2 = ((stable->charge ^ draft->charge) & Q_MASK) != 0 && ((stable->charge ^ draft->charge) & W_MASK) != 0 && sig1 != sig2;
+			int c3 = (stable->charge & D_MASK) == 0 && (stable->charge & W_MASK) == 0 && ((stable->charge ^ draft->charge) & W_MASK) != 0;
+			int c4 = (stable->charge & D_MASK) == D_MASK && (stable->charge & W_MASK) == W_MASK && ((stable->charge ^ draft->charge) & W_MASK) != 0;
 			//
-			if(ISNULL(active_stack->pole))
-				COPY(passive_stack->pole, active_stack->p);
+			if(ISNULL(stable->pole))
+				COPY(draft->pole, stable->p);
 			//
 			// Play pseudo dices
 			//
-			if (false)//active_stack->noise > abs(active_stack->phi) && passive_stack->noise > abs(passive_stack->phi) && (!ISNULL(active_stack->p) || !ISNULL(passive_stack->p)))
+			if (stable->noise > abs(stable->phi) && draft->noise > abs(draft->phi) && (!ISNULL(stable->p) || !ISNULL(draft->p)))
 			{
-				if (((active_stack->charge ^ passive_stack->charge) & D_MASK) == 0)
+				if (((stable->charge ^ draft->charge) & D_MASK) == 0)
 				{
 					// Same sector?
 					//
-					if (active_stack->f == 1 && passive_stack->f == 1)
+					if (stable->f == 1 && draft->f == 1)
 					{
 						// F x F
 						//
-						if (((active_stack->charge ^ passive_stack->charge) & Q_MASK) != 0)
+						if (((stable->charge ^ draft->charge) & Q_MASK) != 0)
 						{
 							// Annihilation?
 							//
-							active_stack->b = (active_stack->b * passive_stack->b) % SIDE2; // ??? erro ???
-							passive_stack->b = active_stack->b;
+							stable->b = (stable->b * draft->b) % SIDE2; // ??? erro ???
+							draft->b = stable->b;
 							//
 							// Reissue R1 and R2 from this
 							//
-							RESET(active_stack->pole);// ???
-							COPY(passive_stack->pole, active_stack->p);
+							RESET(stable->pole);// ???
+							COPY(draft->pole, stable->p);
 						}
 						else if (sig1 || sig2 || sig3)
 						{
@@ -77,55 +89,55 @@ __global__ void interact(Cell* lattice)
 							//
 							// Cohesion
 							//
-							if (active_stack->b != passive_stack->b)
+							if (stable->b != draft->b)
 							{
-								active_stack->b = (active_stack->b * passive_stack->b) % SIDE2;
-								passive_stack->b = active_stack->b;
+								stable->b = (stable->b * draft->b) % SIDE2;
+								draft->b = stable->b;
 							}
 							//
 							// s1 <-> s2
 							//
 							int temp;
-							temp = active_stack->s[0];
-							passive_stack->s[0] = active_stack->s[0];
-							active_stack->s[0] = temp;
-							temp = active_stack->s[1];
-							passive_stack->s[1] = active_stack->s[1];
-							active_stack->s[1] = temp;
-							temp = active_stack->s[2];
-							passive_stack->s[2] = active_stack->s[2];
-							active_stack->s[2] = temp;
+							temp = stable->s[0];
+							draft->s[0] = stable->s[0];
+							stable->s[0] = temp;
+							temp = stable->s[1];
+							draft->s[1] = stable->s[1];
+							stable->s[1] = temp;
+							temp = stable->s[2];
+							draft->s[2] = stable->s[2];
+							stable->s[2] = temp;
 							//
 							// Reissue R1 from pole(R1) and R2 from pole(R2)
 							//
-							RESET(active_stack->o);
-							RESET(passive_stack->o);	//???
-							COPY(passive_stack->pole, active_stack->p); // ???
+							RESET(stable->o);
+							RESET(draft->o);	//???
+							COPY(draft->pole, stable->p); // ???
 						}
 					}
-					else if (active_stack->f > 1 && passive_stack->f > 1)
+					else if (stable->f > 1 && draft->f > 1)
 					{
 						// B x B
 						//
-						if (((active_stack->charge ^ ~passive_stack->charge) & C_MASK) == 0 && active_stack->code == passive_stack->code && passive_stack->code == GLUON)
+						if (((stable->charge ^ ~draft->charge) & C_MASK) == 0 && stable->code == draft->code && draft->code == GLUON)
 						{
 							// gluon-gluon?
 							//
 							// Swap colors
 							//
-							int temp = active_stack->charge & C_MASK;
-							active_stack->charge &= ~C_MASK;
-							active_stack->charge |= (passive_stack->charge & C_MASK);
-							passive_stack->charge &= ~C_MASK;
-							passive_stack->charge |= temp;
+							int temp = stable->charge & C_MASK;
+							stable->charge &= ~C_MASK;
+							stable->charge |= (draft->charge & C_MASK);
+							draft->charge &= ~C_MASK;
+							draft->charge |= temp;
 							//
 							// Reissue R1 from pole(R1)
 							//
-							RESET(active_stack->o);
-							passive_stack->d0 = 0;	// replicar !!!
-							passive_stack->t = 0;	// replicar !!!
+							RESET(stable->o);
+							draft->dir = 0;	// replicar !!!
+							draft->t = 0;	// replicar !!!
 						}
-						else if (!ISNULL(active_stack->p) && !ISNULL(passive_stack->p))
+						else if (!ISNULL(stable->p) && !ISNULL(draft->p))
 						{
 							if (c1 || c2 || c3 || c4)
 							{
@@ -133,12 +145,12 @@ __global__ void interact(Cell* lattice)
 								//
 								// Reissue R1 and R2 from cp1
 								//
-								passive_stack->b = active_stack->b;
-								RESET(active_stack->o);
+								draft->b = stable->b;
+								RESET(stable->o);
 								//
 								// Reissue R2 from cp1
 								//
-								RESET(passive_stack->o);
+								RESET(draft->o);
 							}
 							else
 							{
@@ -147,106 +159,106 @@ __global__ void interact(Cell* lattice)
 						}
 						else if (sig1 != 0 && sig1 != 3 && sig2 != 0 && sig2 != 3)
 						{
-							int temp = active_stack->charge & C_MASK;
-							active_stack->charge &= ~C_MASK;
-							active_stack->charge |= (passive_stack->charge & C_MASK);
-							passive_stack->charge &= ~C_MASK;
-							passive_stack->charge |= temp;
-							passive_stack->b = active_stack->b;
+							int temp = stable->charge & C_MASK;
+							stable->charge &= ~C_MASK;
+							stable->charge |= (draft->charge & C_MASK);
+							draft->charge &= ~C_MASK;
+							draft->charge |= temp;
+							draft->b = stable->b;
 							//
 							// Reissue R1 and R2 from cp1
 							//
-							passive_stack->b = active_stack->b;
-							RESET(active_stack->o);
-							RESET(passive_stack->o);
+							draft->b = stable->b;
+							RESET(stable->o);
+							RESET(draft->o);
 						}
 					}
-					if (active_stack->f == 1 && passive_stack->f > 1)
+					if (stable->f == 1 && draft->f > 1)
 					{
 						// F x B
 						//
-						if ((active_stack->charge & C_MASK) != 0 && (active_stack->charge & C_MASK) != C_MASK && (passive_stack->charge & C_MASK) != 0 && 
-							(passive_stack->charge & C_MASK) != C_MASK)
+						if ((stable->charge & C_MASK) != 0 && (stable->charge & C_MASK) != C_MASK && (draft->charge & C_MASK) != 0 && 
+							(draft->charge & C_MASK) != C_MASK)
 						{
-							int temp = active_stack->charge & C_MASK;
-							active_stack->charge &= ~C_MASK;
-							active_stack->charge |= (passive_stack->charge & C_MASK);
-							passive_stack->charge &= ~C_MASK;
-							passive_stack->charge |= temp;
-							passive_stack->b = active_stack->b;
+							int temp = stable->charge & C_MASK;
+							stable->charge &= ~C_MASK;
+							stable->charge |= (draft->charge & C_MASK);
+							draft->charge &= ~C_MASK;
+							draft->charge |= temp;
+							draft->b = stable->b;
 							//
 							// Reissue R1 from pole(R1) and R2 from pole(R2)
 							//
-							RESET(active_stack->o);
-							RESET(passive_stack->o);
+							RESET(stable->o);
+							RESET(draft->o);
 						}
 						else
 						{
-							passive_stack->b = active_stack->b;
+							draft->b = stable->b;
 							//
 							// Reissue R1 and R2 from this
 							//
-							RESET(active_stack->pole);
-							RESET(active_stack->o);
-							RESET(passive_stack->pole);
-							RESET(passive_stack->o);
+							RESET(stable->pole);
+							RESET(stable->o);
+							RESET(draft->pole);
+							RESET(draft->o);
 						}
 					}
-					else if (active_stack->f > 1 && passive_stack->f == 1)
+					else if (stable->f > 1 && draft->f == 1)
 					{
 						// B x F
 						//
-						if ((active_stack->charge & C_MASK) != 0 && (active_stack->charge & C_MASK) != C_MASK && (passive_stack->charge & C_MASK) != 0 && 
-							(passive_stack->charge & C_MASK) != C_MASK)
+						if ((stable->charge & C_MASK) != 0 && (stable->charge & C_MASK) != C_MASK && (draft->charge & C_MASK) != 0 && 
+							(draft->charge & C_MASK) != C_MASK)
 						{
-							int temp = active_stack->charge & C_MASK;
-							active_stack->charge &= ~C_MASK;
-							active_stack->charge |= (passive_stack->charge & C_MASK);
-							passive_stack->charge &= ~C_MASK;
-							passive_stack->charge |= temp;
+							int temp = stable->charge & C_MASK;
+							stable->charge &= ~C_MASK;
+							stable->charge |= (draft->charge & C_MASK);
+							draft->charge &= ~C_MASK;
+							draft->charge |= temp;
 							//
 							// Reissue R1 from pole(R1) and R2 from pole(R2)
 							//
-							RESET(active_stack->o);
-							RESET(passive_stack->o);
+							RESET(stable->o);
+							RESET(draft->o);
 						}
 						else
 						{
-							passive_stack->b = active_stack->b;
+							draft->b = stable->b;
 							//
 							// Reissue R1 and R2 from this
 							//
-							RESET(active_stack->pole);
-							RESET(passive_stack->pole);
+							RESET(stable->pole);
+							RESET(draft->pole);
 						}
 					}
-					else if (active_stack->b == passive_stack->b)
+					else if (stable->b == draft->b)
 					{
 						// Messenger interactions
 						//
-						if (!ISNULL(active_stack->p))
+						if (!ISNULL(stable->p))
 						{
-							// REISSUE(active_stack, POLE(active_stack))
+							// REISSUE(stable, POLE(stable))
 							//
-							RESET(active_stack->pole);
+							RESET(stable->pole);
 							//
-							// REISSUE(passive_stack, TRANSPORT(passive_stack, active_stack));
+							// REISSUE(draft, TRANSPORT(draft, stable));
 							//
-							passive_stack->pole[0] = active_stack->o[0] - passive_stack->o[0];
-							passive_stack->pole[1] = active_stack->o[1] - passive_stack->o[1];
-							passive_stack->pole[2] = active_stack->o[2] - passive_stack->o[2];
+							draft->pole[0] = stable->o[0] - draft->o[0];
+							draft->pole[1] = stable->o[1] - draft->o[1];
+							draft->pole[2] = stable->o[2] - draft->o[2];
 						}
 						else
 						{
-							// REISSUE(passive_stack, POLE(passive_stack));
+							// REISSUE(draft, POLE(draft));
 							//
-							RESET(passive_stack->pole);
+							RESET(draft->pole);
 							//
-							// REISSUE(active_stack, TRANSPORT(active_stack, passive_stack));
+							// REISSUE(stable, TRANSPORT(stable, draft));
 							//
-							active_stack->pole[0] = passive_stack->o[0] - active_stack->o[0];
-							active_stack->pole[1] = passive_stack->o[1] - active_stack->o[1];
-							active_stack->pole[2] = passive_stack->o[2] - active_stack->o[2];
+							stable->pole[0] = draft->o[0] - stable->o[0];
+							stable->pole[1] = draft->o[1] - stable->o[1];
+							stable->pole[2] = draft->o[2] - stable->o[2];
 						}
 					}
 				}
@@ -254,68 +266,51 @@ __global__ void interact(Cell* lattice)
 				{
 					// Inter-sector
 					//
-					if ((((active_stack->charge & D_MASK) == 0 && sig1 == 2) || ((active_stack->charge & D_MASK) == 1 && sig1 == 3)))
+					if ((((stable->charge & D_MASK) == 0 && sig1 == 2) || ((stable->charge & D_MASK) == 1 && sig1 == 3)))
 					{
-						int temp = active_stack->charge & C_MASK;
-						active_stack->charge &= ~C_MASK;
-						active_stack->charge |= (passive_stack->charge & C_MASK);
-						passive_stack->charge &= ~C_MASK;
-						passive_stack->charge |= temp;
+						int temp = stable->charge & C_MASK;
+						stable->charge &= ~C_MASK;
+						stable->charge |= (draft->charge & C_MASK);
+						draft->charge &= ~C_MASK;
+						draft->charge |= temp;
 						//
 						// Reissue R1 and R2 from this
 						//
-						RESET(active_stack->pole);
-						RESET(passive_stack->pole);
+						RESET(stable->pole);
+						RESET(draft->pole);
 					}
 					else if (c1 || c2 || c3 || c4)
 					{
 						// Chiral?
 						//
-						int temp = active_stack->charge & W_MASK;
-						active_stack->charge &= ~W_MASK;
-						active_stack->charge |= (passive_stack->charge & W_MASK);
-						passive_stack->charge &= ~W_MASK;
-						passive_stack->charge |= temp;
+						int temp = stable->charge & W_MASK;
+						stable->charge &= ~W_MASK;
+						stable->charge |= (draft->charge & W_MASK);
+						draft->charge &= ~W_MASK;
+						draft->charge |= temp;
 						//
 						// Reissue R1 and R2 from this
 						//
-						RESET(active_stack->pole);
-						RESET(passive_stack->pole);
+						RESET(stable->pole);
+						RESET(draft->pole);
 					}
 				}
 			}
-			*/
-/*
-			if (active_stack->t > T)
+			#endif
+			if (!ISNULL(stable->p) && !ISNULL(stable->o))
 			{
-				printf("t=%d\n", active_stack->t);
-				if(id == 0)
-					T++;
-			}
-	*/		
-			if (active_stack->t == SIDE / 2 || (ISNULL(passive_stack->pole) && !ISNULL(passive_stack->p)))
-			{
-				active_stack->t = 0;
-				passive_stack->t = 0;
-				active_stack->synch = 0;
-				passive_stack->synch = 0;
-				COPY(passive_stack->pole, passive_stack->p);
-				COPY(active_stack->pole, passive_stack->p);
-				RESET(active_stack->o);
-				RESET(passive_stack->o);
-				if(ISNULL(active_stack->p))
+				rnd = curand(&state);
+				if (rnd % 100 < 50 && draft->t > 0)
 				{
-					active_stack->f = 0;
-					passive_stack->f = 0;
-				}
-				else
-				{
-					active_stack->f = 1;
-					passive_stack->f = 1;
+					rnd = curand(&state);
+					//printf("t=%d LIGHT=%d: %d\n", draft->t , draft->t / LIGHT, rnd);
 				}
 			}
-			active_stack = nextV(active_stack);
-			passive_stack = nextV(passive_stack);
+			//
+			// Next register
+			//
+			stable = nextV(stable);
+			draft = nextV(draft);
 		}
 	}
 }

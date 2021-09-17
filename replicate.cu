@@ -2,37 +2,39 @@
 #include "device_launch_parameters.h"
 
 #include <stdlib.h>
+#include <assert.h>
 #include "automaton.h"
 
 __global__ void replicate(Cell* lattice)
 {
-	long id = blockDim.x * blockIdx.x + threadIdx.x;
-	if (id < SIDE3)
+	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
+	if (xyz < SIDE3)
 	{
-		Cell *cell = lattice + id;
-		Cell* active_stack, *passive_stack;
-		if (cell->active)
+		Cell* draft = lattice + xyz;
+		Cell* stable = draft + SIDE2 * SIDE3;
+		if (draft->active)
 		{
-			active_stack = cell;
-			passive_stack = cell + SIDE3 * SIDE2;
+			Cell* temp = draft;
+			draft = stable;
+			stable = temp;
 		}
-		else
+		if (draft->t % LIGHT != 0)
 		{
-			passive_stack = cell;
-			active_stack = cell + SIDE3 * SIDE2;
+			return;
 		}
 		//
 		for (int v = 0; v < SIDE2; v++)
 		{
-			active_stack->f = passive_stack->f;
-			active_stack->b = passive_stack->b;
-			active_stack->code = passive_stack->code;
-			active_stack->noise = passive_stack->noise;
-			COPY(active_stack->pole, passive_stack->pole);
-			COPY(active_stack->p, passive_stack->p);
+			// Copy only variables that changed in compare()
 			//
-			active_stack = nextV(active_stack);
-			passive_stack = nextV(passive_stack);
+			stable->f = draft->f;
+			stable->code = draft->code;
+			assert(ISEQUAL(stable->pole, draft->pole));
+			//
+			// Next register
+			//
+			stable = nextV(stable);
+			draft = nextV(draft);
 		}
 	}
 }
