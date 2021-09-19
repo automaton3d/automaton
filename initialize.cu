@@ -102,9 +102,6 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     }
     //
     COPY(cell->pole, cell->p);
-
-//    cell->pole[0] = SIDE / 3; cell->pole[1] = SIDE / 3; cell->pole[2] = SIDE / 3;    // DEBUG
-
     RESET(cell->o);
     cell->sine = 0;
     cell->cosine = SIDE / 2;

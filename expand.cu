@@ -175,6 +175,57 @@ __device__ bool isAllowed(int dir, char vdir[3], char o[3], unsigned char d0)
     return false;
 }
 
+__device__ Cell* getPointer(int dir, Cell *draft, char* vdir)
+{
+    Cell* neighbor = draft;
+    switch (dir)
+    {
+    case 0:
+        *vdir = +1;
+        if (draft->type & 0x40)
+            neighbor -= (SIDE - 1);
+        else
+            neighbor++;
+        break;
+    case 1:
+        *vdir = -1;
+        if (draft->type & 0x80)
+            neighbor += (SIDE - 1);
+        else
+            neighbor--;
+        break;
+    case 2:
+        *(++vdir) = +1;
+        if (draft->type & 0x10)
+            neighbor -= (SIDE2 - SIDE);
+        else
+            neighbor += SIDE;
+        break;
+    case 3:
+        *(++vdir) = -1;
+        if (draft->type & 0x20)
+            neighbor += (SIDE2 - SIDE);
+        else
+            neighbor -= SIDE;
+        break;
+    case 4:
+        *(++(++vdir)) = +1;
+        if (draft->type & 0x04)
+            neighbor -= (SIDE3 - SIDE2);
+        else
+            neighbor += SIDE2;
+        break;
+    case 5:
+        *(++(++vdir)) = -1;
+        if (draft->type & 0x08)
+            neighbor = draft + (SIDE3 - SIDE2);
+        else
+            neighbor = draft - SIDE2;
+        break;
+    }
+    return neighbor;
+}
+
 __device__ void spread(Cell* stable, Cell* draft, int floor)
 {
     // Update tracking info
@@ -206,59 +257,22 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
         //
         if (!ISNULL(draft->p) && draft->t * draft->t > draft->synch)
         {
+            // Select the only path for momentum
+            //
             for (int dir = 0; dir < 6; dir++)
             {
                 char vdir[3] = { 0, 0, 0 };
-                switch (dir)
-                {
-                case 0:
-                    vdir[0] = +1;
-                    if (draft->type & 0x40)
-                        neighbor = draft - (SIDE - 1);
-                    else
-                        neighbor = draft + 1;
-                    break;
-                case 1:
-                    vdir[0] = -1;
-                    if (draft->type & 0x80)
-                        neighbor = draft + (SIDE - 1);
-                    else
-                        neighbor = draft - 1;
-                    break;
-                case 2:
-                    vdir[1] = +1;
-                    if (draft->type & 0x10)
-                        neighbor = draft - (SIDE2 - SIDE);
-                    else
-                        neighbor = draft + SIDE;
-                    break;
-                case 3:
-                    vdir[1] = -1;
-                    if (draft->type & 0x20)
-                        neighbor = draft + (SIDE2 - SIDE);
-                    else
-                        neighbor = draft - SIDE;
-                    break;
-                case 4:
-                    vdir[2] = +1;
-                    if (draft->type & 0x04)
-                        neighbor = draft - (SIDE3 - SIDE2);
-                    else
-                        neighbor = draft + SIDE2;
-                    break;
-                case 5:
-                    vdir[2] = -1;
-                    if (draft->type & 0x08)
-                        neighbor = draft + (SIDE3 - SIDE2);
-                    else
-                        neighbor = draft - SIDE2;
-                    break;
-                }
+                neighbor = getPointer(dir, draft, (char *)vdir);
+                //
+                // Predict next pole value
+                //
                 char pole[3];
                 COPY(pole, draft->pole);
                 pole[0] -= vdir[0];
                 pole[1] -= vdir[1];
                 pole[2] -= vdir[2];
+                //
+                // Test if pole shrunk
                 //
                 if (MOD2(pole) < MOD2(draft->pole))
                 {
@@ -277,30 +291,35 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
                     //
                     COPY(neighbor->s, draft->s);
                     COPY(neighbor->p, draft->p);
+                    //
+                    // Synchronize to keep inside spherical wavefront
+                    //
                     neighbor->synch = LIGHT2 * MOD2(neighbor->o);
                     int t = neighbor->t;
                     if (ISNULL(neighbor->pole))
                     {
+                        //assert(neighbor->t % LIGHT == 1);
                         neighbor->t = 0;
-                        neighbor->synch = -1;
+                        neighbor->synch = LIGHT;
                         neighbor->f = 1;
                         neighbor->b = 0;
                         neighbor->code = 0;
                         RESET(neighbor->o);
+                        //
+                        // This characterizes free propagation
+                        //
                         COPY(neighbor->pole, neighbor->p);
 
-                        if (stable->floor == 130)
-                            printf("\tREISSUE VIA POLE t=%d f=%d n->pole=(%d,%d,%d) act=%d charge=%d\n", 
-                                t, neighbor->f, neighbor->pole[0], neighbor->pole[1], neighbor->pole[2], neighbor->active, neighbor->charge);
+                        //if (stable->floor == 130)
+                          //  printf("\tREISSUE t=%d f=%d n->pole=(%d,%d,%d) act=%d charge=%d\n", 
+                            //    t, neighbor->f, neighbor->pole[0], neighbor->pole[1], neighbor->pole[2], neighbor->active, neighbor->charge);
                     }
                     RESET(draft->p);
-                    if(!ISEQUAL(draft->p, draft->pole))
-                        draft->f = 0;
                     break;
                 }
             }
         }
-            //
+        //
         // Phase cells spread synchronized
         //
         if (draft->t * draft->t > draft->synch)
@@ -311,51 +330,10 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
             for (int dir = 0; dir < 6; dir++)
             {
                 char vdir[3] = { 0, 0, 0 };
-                switch (dir)
-                {
-                    case 0:
-                        vdir[0] = +1;
-                        if (draft->type & 0x40)
-                            neighbor = draft - (SIDE - 1);
-                        else
-                            neighbor = draft + 1;
-                        break;
-                    case 1:
-                        vdir[0] = -1;
-                        if (draft->type & 0x80)
-                            neighbor = draft + (SIDE - 1);
-                        else
-                            neighbor = draft - 1;
-                        break;
-                    case 2:
-                        vdir[1] = +1;
-                        if (draft->type & 0x10)
-                            neighbor = draft - (SIDE2 - SIDE);
-                        else
-                            neighbor = draft + SIDE;
-                        break;
-                    case 3:
-                        vdir[1] = -1;
-                        if (draft->type & 0x20)
-                            neighbor = draft + (SIDE2 - SIDE);
-                        else
-                            neighbor = draft - SIDE;
-                        break;
-                    case 4:
-                        vdir[2] = +1;
-                        if (draft->type & 0x04)
-                            neighbor = draft - (SIDE3 - SIDE2);
-                        else
-                            neighbor = draft + SIDE2;
-                        break;
-                    case 5:
-                        vdir[2] = -1;
-                        if (draft->type & 0x08)
-                            neighbor = draft + (SIDE3 - SIDE2);
-                        else
-                            neighbor = draft - SIDE2;
-                        break;
-                }
+                neighbor = getPointer(dir, draft, (char*)vdir);
+                //
+                if (!ISNULL(neighbor->p))
+                    continue;
                 //
                 // Test if branch is legal
                 //
@@ -372,6 +350,9 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
                     neighbor->o[2] = stable->o[2] + vdir[2];
                     //
                     COPY(neighbor->s, stable->s);
+                    //
+                    // Schedule for spherical evolution
+                    //
                     neighbor->synch = LIGHT2 * MOD2(neighbor->o);
                 }
             }

@@ -7,8 +7,6 @@
 #include <stdlib.h>
 #include "automaton.h"
 
-__device__ unsigned int rnd;
-
 __global__ void interact(Cell* lattice)
 {
 	long id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -299,11 +297,31 @@ __global__ void interact(Cell* lattice)
 			#endif
 			if (!ISNULL(stable->p) && !ISNULL(stable->o))
 			{
-				rnd = curand(&state);
-				if (rnd % 100 < 50 && draft->t > 0)
+				int rnd = curand(&state) & 10023;
+				if (rnd % 100 < 5 && draft->t > 0)
 				{
-					rnd = curand(&state);
-					//printf("t=%d LIGHT=%d: %d\n", draft->t , draft->t / LIGHT, rnd);
+					double x1, x2;
+					do
+					{
+						x1 = curand_uniform(&state);
+						x2 = curand_uniform(&state);
+					} while (x1 * x1 + x2 * x2 >= 1);
+					//
+					int sgnx = curand_uniform(&state) < 0.5;
+					int sgny = curand_uniform(&state) < 0.5;
+					int sgnz = curand_uniform(&state) < 0.5;
+					vec3 v;
+					v[0] = 2 * sgnx * x1 * sqrtf(1 - x1 * x1 - x2 * x2);
+					v[1] = 2 * sgny * x2 * sqrtf(1 - x1 * x1 - x2 * x2);
+					v[2] = sgnz * (1 - 2 * (x1 * x1 + x2 * x2));
+					float r = sqrtf(MOD2(draft->o));
+					if (v[0]>0 && v[1]>0 && v[2]>0 && r > 1.0)
+					{
+						draft->pole[0] = (char)(v[0] * r);
+						draft->pole[1] = (char)(v[1] * r);
+						draft->pole[2] = (char)(v[2] * r);
+						printf("CURAND: t=%d r=%f LIGHT=%d: %d,%d,%d\n", draft->t, r, draft->t / LIGHT, draft->pole[0], draft->pole[1], draft->pole[2]);
+					}
 				}
 			}
 			//

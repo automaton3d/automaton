@@ -41,9 +41,9 @@ void display()
     // Draw text
     //
     glWindowPos2i(10, 600 - 30);
-    char s[25];
+    char s[35];
     DWORD time = GetTickCount() - start;
-    sprintf(s, "step=%d, time=%0.1f", step, time/1000.0);
+    sprintf(s, "step=%d, time=%0.1f light=%d", step, time/1000.0, step/LIGHT);
     glutBitmapString(GLUT_BITMAP_HELVETICA_18, (const unsigned char*) s);
     //
     glutSwapBuffers();
@@ -172,7 +172,7 @@ void animation()
     updateVoxels();
     display();
     //
-    //Sleep(3000);
+    //Sleep(100);
     step++;
 }
 

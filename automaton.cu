@@ -35,9 +35,9 @@ const char* vertexShaderSource = "#version 460 core\n"
 "	aOffset[1] = ((gl_InstanceID >> 4) & 15) * 8 - 64;\n"
 "	aOffset[2] = (gl_InstanceID >> 8) * 8 - 64;\n"
 #else  if ORDER==5
-"	aOffset[0] = (gl_InstanceID & 31) * 16 - 128;\n"
-"	aOffset[1] = ((gl_InstanceID >> 8) & 31) * 16 - 128;\n"
-"	aOffset[2] = (gl_InstanceID >> 16) * 16 - 128;\n"
+"	aOffset[0] = (gl_InstanceID & 31) * 16 - 256;\n"
+"	aOffset[1] = ((gl_InstanceID >> 5) & 31) * 16 - 256;\n"
+"	aOffset[2] = (gl_InstanceID >> 10) * 16 - 256;\n"
 #endif
 "	gl_Position = projection * view * model * vec4(aPos + aOffset, 1.0);\n"
 "	if(aColor.x==0.6 && aColor.y==0.6 && aColor.z==0.8)\n"
@@ -65,8 +65,8 @@ mat4 projection;
 
 // Camera
 
-float yaw = -90;
-float pitch = 0;
+float yaw = -120;// -90;
+float pitch = 45;// 0;
 
 vec3 cameraPos;
 vec3 cameraFront;
@@ -312,10 +312,10 @@ int initOpenGL(int argc, char** argv)
 	//
 	// Depth and transparency
 	//
-	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND); 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthFunc(GL_LESS);
+	//glDepthFunc(GL_LESS);
 	//
 	// Upadte uniforms
 	//
@@ -324,7 +324,7 @@ int initOpenGL(int argc, char** argv)
 	#if ORDER == 4
 	vec3 scale = { 0.008, 0.008, 0.008 };
 	#else if ORDER == 5
-	vec3 scale = { 0.004, 0.004, 0.004 };
+	vec3 scale = { 0.003, 0.003, 0.003 };
 	#endif
 	glm_scale(model, scale);
 	loc = glGetUniformLocation(shaderProgram, "model");
