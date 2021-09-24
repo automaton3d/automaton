@@ -14,6 +14,6 @@ I'm an independent researcher. My link to the Research Gate portal is
 
 https://www.researchgate.net/project/Recovery-of-global-symmetries-in-a-t-Hooftian-universe
 
-Your help will be very valuable :)
+Notice that I do not receive funds from any university, so your help will be very valuable :)
 
 
