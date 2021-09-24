@@ -298,7 +298,6 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
                     int t = neighbor->t;
                     if (ISNULL(neighbor->pole))
                     {
-                        //assert(neighbor->t % LIGHT == 1);
                         neighbor->t = 0;
                         neighbor->synch = LIGHT;
                         neighbor->f = 1;
@@ -309,12 +308,20 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
                         // This characterizes free propagation
                         //
                         COPY(neighbor->pole, neighbor->p);
-
-                        //if (stable->floor == 130)
-                          //  printf("\tREISSUE t=%d f=%d n->pole=(%d,%d,%d) act=%d charge=%d\n", 
-                            //    t, neighbor->f, neighbor->pole[0], neighbor->pole[1], neighbor->pole[2], neighbor->active, neighbor->charge);
                     }
+                    //
+                    // Keep only a single copy of momentum
+                    //
                     RESET(draft->p);
+                    //
+                    // When momentum moves, it casts a spherical perturbation
+                    //
+                    draft->t = 0;
+                    draft->synch = LIGHT;
+                    draft->f = 1;
+                    draft->b = 0;
+                    draft->code = 0;
+                    RESET(draft->o);
                     break;
                 }
             }

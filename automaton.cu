@@ -56,12 +56,38 @@ const char* fragmentShaderSource = "#version 460 core\n"
 "	FragColor = fColor;\n"
 "}\0";
 
-unsigned int shaderProgram;
-unsigned int vao;
+const char* axesVShaderSrc = "#version 460 core\n"
+"layout(location = 0) in vec3 aPos;\n"
+"layout(location = 1) in vec3 aColor;\n"
+"out vec4 fColor;\n"
+"uniform mat4 projection;\n"
+"uniform mat4 view;\n"
+"uniform mat4 model;\n"
+
+"void main() {\n"
+"	gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+"	fColor = vec4(aColor, 1.0);\n"
+"}\0";
+
+const char* axesFShaderSrc = "#version 460 core\n"
+"out vec4 FragColor;\n"
+"in vec4 fColor;\n"
+"void main() {\n"
+"	FragColor = fColor;\n"
+"}\0";
+
+unsigned int shaderProgram, axesProgram;
+unsigned int axesVAO, gridVAO;
 
 mat4 model = GLM_MAT4_IDENTITY_INIT;
 mat4 view = GLM_MAT4_IDENTITY_INIT;
 mat4 projection;
+
+#if ORDER == 4
+vec3 scale = { 0.008, 0.008, 0.008 };
+#else if ORDER == 5
+vec3 scale = { 0.003, 0.003, 0.003 };
+#endif
 
 // Camera
 
@@ -76,7 +102,6 @@ Cell* host_lattice;
 Cell* dev_lattice;
 
 struct cudaGraphicsResource* cuda_resource;
-unsigned int colorVBO;
 size_t num_bytes;
 
 cudaError_t cudaStatus;
@@ -122,6 +147,16 @@ GLfloat cubeVertices[] =
 	1.0f, 1.0f, 1.0f,
 	-1.0f, 1.0f, 1.0f,
 	1.0f,-1.0f, 1.0f
+};
+
+GLfloat axesVertices[] =
+{
+	0, 0, 0,		1, 0, 0,
+	20000, 0, 0,	1, 0, 0,
+	0, 0, 0,		1, 0, 0,
+	0, 20000, 0,	1, 0, 0,
+	0, 0, 0,		1, 0, 0,
+	0, 0, 20000,	1, 0, 0,
 };
 
 void initCuda()
@@ -195,14 +230,28 @@ void updateCamera()
 	glm_vec3_add(cameraPos, cameraFront, sum);
 	glm_lookat(cameraPos, sum, cameraUp, view);
 	//
+	glUseProgram(shaderProgram);
 	int loc = glGetUniformLocation(shaderProgram, "view");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, view[0]);
+	glUseProgram(axesProgram);
+	loc = glGetUniformLocation(axesProgram, "view");
 	glUniformMatrix4fv(loc, 1, GL_FALSE, view[0]);
 }
 
 int initOpenGL(int argc, char** argv)
 {
+	// Initialize data
+	//
+	for (int i = 0; i < SIDE3; i++)
+	{
+		colors[i][0] = 0;
+		colors[i][1] = 1;
+		colors[i][2] = 1;
+	}
+	//
 	glutInit(&argc, argv);
-	glutInitWindowSize(800, 600);
+	glutInitWindowSize(800, 800);
+	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - 800) / 2, (glutGet(GLUT_SCREEN_HEIGHT) - 800) / 2);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 	char s[] = "                              ";
 	sprintf(s, "Automaton %dx%dx%dx%dx%d", SIDE, SIDE, SIDE, SIDE2, 2);
@@ -233,11 +282,33 @@ int initOpenGL(int argc, char** argv)
 	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
 	glCompileShader(fragmentShader);
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
 	if (!success)
 	{
-		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+		perror("Fragment shader failed.\n");
+		return -1;
+	}
+	//
+	unsigned int axesVShader, axesFShader;
+	axesVShader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(axesVShader, 1, &axesVShaderSrc, NULL);
+	glCompileShader(axesVShader);
+	glGetShaderiv(axesVShader, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(axesVShader, 512, NULL, infoLog);
 		perror("Vertex shader failed.\n");
+		return -1;
+	}
+	axesFShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(axesFShader, 1, &axesFShaderSrc, NULL);
+	glCompileShader(axesFShader);
+	glGetShaderiv(axesFShader, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(axesFShader, 512, NULL, infoLog);
+		perror("Fragment shader failed.\n");
 		return -1;
 	}
 	//
@@ -256,17 +327,23 @@ int initOpenGL(int argc, char** argv)
 	}
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
-	for (int i = 0; i < SIDE3; i++)
+	//
+	axesProgram = glCreateProgram();
+	glAttachShader(axesProgram, axesVShader);
+	glAttachShader(axesProgram, axesFShader);
+	glLinkProgram(axesProgram);
+	glGetProgramiv(axesProgram, GL_LINK_STATUS, &success);
+	if (!success)
 	{
-		colors[i][0] = 0;
-		colors[i][1] = 1;
-		colors[i][2] = 1;
+		glGetProgramInfoLog(axesProgram, 512, NULL, infoLog);
+		perror("Linking error.\n");
+		return -1;
 	}
+	glDeleteShader(axesVShader);
+	glDeleteShader(axesFShader);
+	//
 	glUseProgram(shaderProgram);
-	//
-	// Create vbos
-	//
-	unsigned int cubeVBO;
+	unsigned int cubeVBO, colorVBO;
 	glGenBuffers(1, &cubeVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
@@ -276,18 +353,12 @@ int initOpenGL(int argc, char** argv)
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * SIDE3, &colors[0], GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//
-	// Create vao
+	glGenVertexArrays(1, &gridVAO);
+	glBindVertexArray(gridVAO);
 	//
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	//
-	// Add vbos
-	//
-	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//
 	glEnableVertexAttribArray(1);
 	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
@@ -295,8 +366,22 @@ int initOpenGL(int argc, char** argv)
 	glVertexAttribDivisor(1, 1);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//
+	glUseProgram(axesProgram);
+	unsigned int axesVBO;
+	glGenBuffers(1, &axesVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, axesVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(axesVertices), axesVertices, GL_STATIC_DRAW);
+	//
+	glGenVertexArrays(1, &axesVAO);
+	glBindVertexArray(axesVAO);
+	//
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//
 	// Connect color vbo to cuda
 	//
+	glUseProgram(shaderProgram);
 	cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_resource, colorVBO, cudaGraphicsMapFlagsNone);
 	if (cudaStatus != cudaSuccess)
 	{
@@ -307,7 +392,6 @@ int initOpenGL(int argc, char** argv)
 	//
 	// Create the projection matrix
 	//
-	glUseProgram(shaderProgram);
 	glm_ortho(-1, 1, -1, 1, -1.0f, 200, projection);
 	//
 	// Depth and transparency
@@ -317,24 +401,25 @@ int initOpenGL(int argc, char** argv)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//glDepthFunc(GL_LESS);
 	//
-	// Upadte uniforms
+	// Update uniforms
 	//
 	int loc = glGetUniformLocation(shaderProgram, "projection");
 	glUniformMatrix4fv(loc, 1, GL_FALSE, projection[0]);
-	#if ORDER == 4
-	vec3 scale = { 0.008, 0.008, 0.008 };
-	#else if ORDER == 5
-	vec3 scale = { 0.003, 0.003, 0.003 };
-	#endif
 	glm_scale(model, scale);
 	loc = glGetUniformLocation(shaderProgram, "model");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, model[0]);
+	//
+	glUseProgram(axesProgram);
+	loc = glGetUniformLocation(axesProgram, "projection");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, projection[0]);
+	glm_scale(model, scale);
+	loc = glGetUniformLocation(axesProgram, "model");
 	glUniformMatrix4fv(loc, 1, GL_FALSE, model[0]);
 	//
 	// Update camera
 	//
 	updateCamera();
 	glClearColor(0.1, 0.2, 0.2, 1.0);
-	glUseProgram(shaderProgram);
 	//
 	// Define callback routines
 	//

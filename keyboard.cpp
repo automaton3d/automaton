@@ -57,5 +57,25 @@ void keyboard(unsigned char key, int x, int y)
         case 'x':
             flag = !flag;
             break;
+        case '0':
+            yaw = -120;
+            pitch = 45;
+            updateCamera();
+            break;
+        case '1':
+            yaw = -90;
+            pitch = 0;
+            updateCamera();
+            break;
+        case '2':
+            yaw = -180;
+            pitch = 0;
+            updateCamera();
+            break;
+        case '3':
+            yaw = -90;
+            pitch = 90;
+            updateCamera();
+            break;
     }
 }

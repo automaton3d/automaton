@@ -19,7 +19,6 @@ __global__ void commute(Cell* lattice)
 			draft = stable;
 			stable = temp;
 		}
-		assert(draft->active != stable->active);
 		for (int v = 0; v < SIDE2; v++)
 		{
 			// Copy all variables

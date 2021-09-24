@@ -62,6 +62,7 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 		}
 		else if(f)
 		{
+			/*
 			switch (floor % 3)
 			{
 				case 0:
@@ -80,6 +81,10 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 					*ptr = 0;
 					break;
 			}
+			*/
+			*ptr++ = (MOD2(cell->o) & (SIDE-1))/ (float)SIDE;
+			*ptr++ = ((MOD2(cell->o) >> 8) & (SIDE - 1)) / (float)SIDE;
+			*ptr = ((MOD2(cell->o) >> 16) & (SIDE - 1)) / (float)SIDE;
 		}
 		else
 		{

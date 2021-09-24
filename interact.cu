@@ -9,20 +9,16 @@
 
 __global__ void interact(Cell* lattice)
 {
-	long id = blockDim.x * blockIdx.x + threadIdx.x;
-	if (id < SIDE3)
+	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
+	if (xyz < SIDE3)
 	{
-		Cell* cell = lattice + id;
-		Cell *stable, *draft;
-		if (cell->active)
+		Cell* draft = lattice + xyz;
+		Cell* stable = draft + SIDE2 * SIDE3;
+		if (draft->active)
 		{
-			stable = cell;
-			draft = cell + SIDE3 * SIDE2;
-		}
-		else
-		{
-			draft = cell;
-			stable = cell + SIDE3 * SIDE2;
+			Cell* temp = draft;
+			draft = stable;
+			stable = temp;
 		}
 		//
 		// Interactions only allowed at the last tick of a light step
@@ -294,7 +290,7 @@ __global__ void interact(Cell* lattice)
 					}
 				}
 			}
-			#endif
+			#else
 			if (!ISNULL(stable->p) && !ISNULL(stable->o))
 			{
 				int rnd = curand(&state) & 10023;
@@ -320,10 +316,10 @@ __global__ void interact(Cell* lattice)
 						draft->pole[0] = (char)(v[0] * r);
 						draft->pole[1] = (char)(v[1] * r);
 						draft->pole[2] = (char)(v[2] * r);
-						printf("CURAND: t=%d r=%f LIGHT=%d: %d,%d,%d\n", draft->t, r, draft->t / LIGHT, draft->pole[0], draft->pole[1], draft->pole[2]);
 					}
 				}
 			}
+			#endif
 			//
 			// Next register
 			//

@@ -22,7 +22,7 @@
 #define NEUTRINO	3
 #define Z			4
 #define W			5
-#define RMAX        ((SIDE2-2*SIDE+1)/4)
+#define EXTRA		6
 
 // GPU symbols
 
@@ -48,13 +48,12 @@
 
 typedef struct
 {
+    int t;
     unsigned short floor;        // DEBUG
-
     unsigned char dir;
     unsigned char type;
     bool active;
     unsigned char f;
-    int t;
     short b;
     unsigned char charge;
     char o[3], p[3], s[3], pole[3];
@@ -78,6 +77,8 @@ typedef struct
 #define MOD2(v)         (v[0]*v[0]+v[1]*v[1]+v[2]*v[2])
 #define nextV(c)        {c->type&0x02?c-(SIDE3*(SIDE2-1)):c+SIDE3}
 #define CELL            sizeof(Cell)
+
+#define FLOOR           173
 
 // Kernels
 

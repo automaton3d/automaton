@@ -17,8 +17,8 @@
 #include "cglm/vec3.h"
 #include "automaton.h"
 
-extern unsigned int shaderProgram;
-extern unsigned int vao;
+extern unsigned int shaderProgram, axesProgram;
+extern unsigned int gridVAO, axesVAO;
 extern struct cudaGraphicsResource* cuda_resource;
 extern cudaError_t cudaStatus;
 extern Cell *host_lattice, *dev_lattice;
@@ -26,24 +26,32 @@ extern DWORD start;
 int step = 0;
 
 boolean flag;
+int sublattice = FLOOR;
 
 void display()
 {
     glClearColor(0.5, 0.5, 0.5, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //
+    glUseProgram(axesProgram);
+    glBindVertexArray(axesVAO);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glDrawArraysInstanced(GL_LINES, 0, 12, SIDE3);
+    //
     glUseProgram(shaderProgram);
-    glBindVertexArray(vao);
+    glBindVertexArray(gridVAO);
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 36, SIDE3);
     glBindVertexArray(0);
-    //
+    // 
     // Draw text
     //
-    glWindowPos2i(10, 600 - 30);
-    char s[35];
+    glWindowPos2i(10, 800 - 30);
+    char s[100];
     DWORD time = GetTickCount() - start;
-    sprintf(s, "step=%d, time=%0.1f light=%d", step, time/1000.0, step/LIGHT);
+    sprintf(s, "step=%d, time=%0.1f light=%d floor=%d", step, time/1000.0, step/LIGHT, sublattice);
     glutBitmapString(GLUT_BITMAP_HELVETICA_18, (const unsigned char*) s);
     //
     glutSwapBuffers();
@@ -85,8 +93,6 @@ void printResults(bool full)
     printf("step %d\n", step);
     fflush(stdout);
 }
-
-int sublattice = 130;
 
 void updateVoxels()
 {

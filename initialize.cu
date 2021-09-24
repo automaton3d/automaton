@@ -40,7 +40,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     cell->ctrl = 0;
     RESET(cell->p);
     RESET(cell->s);
-    if (z == 0 && (x + SIDE * y) == floor)
+    if (z == SIDE/2 && (x + SIDE * y) == floor)
     {
         cell->f = 1;
         if (x < SIDE / 2)

@@ -18,6 +18,9 @@ __global__ void replicate(Cell* lattice)
 			draft = stable;
 			stable = temp;
 		}
+		//
+		// Not last tick?
+		//
 		if (draft->t % LIGHT != 0)
 		{
 			return;
@@ -29,7 +32,6 @@ __global__ void replicate(Cell* lattice)
 			//
 			stable->f = draft->f;
 			stable->code = draft->code;
-			assert(ISEQUAL(stable->pole, draft->pole));
 			//
 			// Next register
 			//
