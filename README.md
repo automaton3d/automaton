@@ -1,4 +1,4 @@
-# It from bit - a concrete attempt
+# Recovery of global symmetries in a 't Hooftian universe
 I'm developing toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://www.preprints.org/manuscript/202107.0513/v2">pdf</A> file.
 
 Here I present my efforts to implement a tiny version (in computational terms only because the rules are independent of the memory size of the model) of the universal automaton described in the aforementioned document mixing Cuda and OpenGL.
