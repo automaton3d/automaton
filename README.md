@@ -14,6 +14,10 @@ I'm an independent researcher. My link to the Research Gate portal is
 
 https://www.researchgate.net/project/Recovery-of-global-symmetries-in-a-t-Hooftian-universe
 
-Notice that I do not receive funds from any university, so your help will be very valuable :)
+The immediate goals of this computational implementation are
+* Compute the Poincaré Cycle for sizes SIDE=8, SIDE=16 and SIDE=32
+* Check charge quantization for SIDE=32
+
+To achieve even these simple goals, I need lots of computational power, far beyond my limited budget. Notice that I do not receive funds from any university, so your help will be very valuable :)
 
 
