@@ -44,6 +44,11 @@
 #define W_MASK      0x10
 #define D_MASK      0x20
 
+// Color symbols
+
+#define NEUTRAL	1
+#define N_BAR	2
+
 // Automaton cell structure
 
 typedef struct

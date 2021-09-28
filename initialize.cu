@@ -13,7 +13,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     int z = (xyz >> (2 * ORDER));
     cell->floor = floor;                        // DEBUG
     //
-    // Variable type is a hint for wrapping in the expand() kernel
+    // Variable type is a hint for wrapping in other kernels
     //
     cell->type = 0;
     if (z == 0)
@@ -30,6 +30,8 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
         cell->type |= 0x40;
     if (floor == SIDE2 - 1)
         cell->type |= 0x02;
+    if (!cell->active)
+        cell->type |= 0x01;
     //
     cell->t = 0;
     cell->noise = floor;

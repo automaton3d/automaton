@@ -21,6 +21,11 @@ __global__ void commute(Cell* lattice)
 		}
 		for (int v = 0; v < SIDE2; v++)
 		{
+			// On the last tick, disassemble all pairs
+			//
+			if (draft->t % LIGHT == 0 && draft->f > 0)
+				draft->f = 1;
+			//
 			// Copy all variables
 			//
 			stable->t = draft->t;

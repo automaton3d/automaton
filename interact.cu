@@ -7,6 +7,290 @@
 #include <stdlib.h>
 #include "automaton.h"
 
+__device__ void compareColumns(Cell *stable1, Cell *stable2, Cell *draft1, Cell *draft2)
+{
+	// Isolate charge bits
+	//
+	unsigned c1 = (stable1->charge & C_MASK) & 7;
+	unsigned q1 = ((stable1->charge & Q_MASK) >> 3) & 1;
+	unsigned w1 = ((stable1->charge & W_MASK) >> 4) & 1;
+	unsigned d1 = (stable1->charge & D_MASK) >> 5;
+	unsigned c2 = (stable2->charge & C_MASK) & 7;
+	unsigned q2 = ((stable2->charge & Q_MASK) >> 3) & 1;
+	unsigned w2 = ((stable2->charge & W_MASK) >> 4) & 1;
+	unsigned d2 = (stable2->charge & D_MASK) >> 5;
+	//
+	// Play pseudo dices
+	//
+	if (stable1->noise > abs(stable1->phi) &&
+		stable2->noise > abs(stable2->phi) &&
+		(!ISNULL(stable1->p) || !ISNULL(stable2->p)))
+	{
+		bool sig1 = (c1 == NEUTRAL && c2 == NEUTRAL && q1 == 1 && q2 == 1 && d1 == 0);
+		bool sig2 = (c1 == N_BAR && c2 == N_BAR && q1 == 1 && q2 == 1 && d1 == 1);
+		bool sig3 = (c2 != NEUTRAL && c2 != N_BAR && q1 == q2);
+		//
+		int c1 = (q1 == q2 && w1 == w2 && sig1 == sig2);
+		int c2 = (q1 != q2 && w1 != w2 && sig1 != sig2);
+		int c3 = (d1 == 0 && w1 == 0 && w1 != w2);
+		int c4 = (d1 != d2 && w1 == 1 && w1 != w2);
+		//
+		// Same sector?
+		//
+		if (d1 == d2)
+		{
+			// Non-overlapping?
+			//
+			if (!ISEQUAL(stable1->o, stable2->o))
+			{
+				// Fermionic x Fermionic case
+				//
+				if (q1 != q2)
+				{
+					// Annihilation
+					//
+					draft1->b = (stable1->b * stable2->b) % SIDE2;
+					draft2->b = draft1->b;
+					//
+					// Reissue R1 and R2 from this
+					//
+					RESET(draft1->o);
+					RESET(draft2->o);
+				}
+				//
+				// Are the two cells similar?
+				//
+				else if (q1 == q2 && w1 == w2 && c1 == c2)
+				{
+					// Cohesion
+					//
+					if (stable1->b != stable2->b)
+					{
+						// Calculate the new unique bonding value
+						//
+						draft1->b = (stable1->b * stable2->b) % SIDE2;
+						draft2->b = draft1->b;
+					}
+					//
+					// Exchange spins: s1 <-> s2
+					//
+					draft1->s[0] = stable2->s[0];
+					draft2->s[0] = stable1->s[0];
+					draft1->s[1] = stable2->s[1];
+					draft2->s[1] = stable1->s[1];
+					draft1->s[2] = stable2->s[2];
+					draft2->s[2] = stable1->s[2];
+					//
+					// Reissue R1 from pole(R1) and R2 from pole(R2)
+					//
+					RESET(draft1->o);
+					RESET(draft2->o);
+					COPY(draft1->pole, stable1->p);
+					COPY(draft2->pole, stable2->p);
+				}
+			}
+			//
+			// Bosonic x Bosonic case
+			//
+			else if (stable1->f > 1 && stable2->f > 1)
+			{
+				// gluon-gluon?
+				//
+				if (c1 == c2 && stable1->code == GLUON && stable2->code == GLUON)
+				{
+					// Swap colors
+					//
+					int color1 = stable1->charge & C_MASK;
+					int color2 = stable2->charge & C_MASK;
+					draft1->charge &= ~C_MASK;
+					draft2->charge &= ~C_MASK;
+					draft1->charge |= color2;
+					draft2->charge |= color1;
+					//
+					// Reissue R1 from pole(R1)
+					//
+					RESET(draft1->o);
+					draft1->dir = 0;
+					draft1->t = 0;
+					draft2->dir = 0;
+					draft2->t = 0;
+				}
+				else if (!ISNULL(stable1->p) && !ISNULL(stable2->p))
+				{
+					// Chiral?
+					//
+					if (c1 || c2 || c3 || c4)
+					{
+						// Reissue R1 and R2 from cstable1
+						//
+						draft2->b = draft1->b;
+						RESET(draft1->o);
+						RESET(draft2->o);
+					}
+					else
+					{
+						// TODO
+					}
+				}
+				else if (sig1 != 0 && sig1 != 3 && sig2 != 0 && sig2 != 3)
+				{
+					// Swap colors
+					//
+					int c1 = stable1->charge & C_MASK;
+					int c2 = stable2->charge & C_MASK;
+					draft1->charge &= ~C_MASK;
+					draft2->charge &= ~C_MASK;
+					draft1->charge |= c2;
+					draft2->charge |= c1;
+					//
+					draft2->b = draft1->b;
+					//
+					// Reissue R1 and R2 from cstable1
+					//
+					draft2->b = draft1->b;
+					RESET(draft1->o);
+					RESET(draft2->o);
+				}
+			}
+			//
+			// F x B
+			//
+			if (stable1->f == 1 && stable2->f > 1)
+			{
+				// F x B
+				//
+				if ((stable1->charge & C_MASK) != 0 && (stable1->charge & C_MASK) != C_MASK && (stable2->charge & C_MASK) != 0 &&
+					(stable2->charge & C_MASK) != C_MASK)
+				{
+					// Swap colors
+					//
+					int c1 = stable1->charge & C_MASK;
+					int c2 = stable2->charge & C_MASK;
+					draft1->charge &= ~C_MASK;
+					draft2->charge &= ~C_MASK;
+					draft1->charge |= c2;
+					draft2->charge |= c1;
+					draft2->b = draft2->b;
+					//
+					// Reissue R1 from pole(R1) and R2 from pole(R2)
+					//
+					RESET(draft1->o);
+					RESET(draft2->o);
+				}
+				else
+				{
+					draft2->b = draft1->b;
+					//
+					// Reissue R1 and R2 from this
+					//
+					RESET(draft1->pole);
+					RESET(draft1->o);
+					RESET(draft2->pole);
+					RESET(draft2->o);
+				}
+			}
+			else if (stable1->f > 1 && stable2->f == 1)
+			{
+				// B x F
+				//
+				if ((stable1->charge & C_MASK) != 0 && (stable1->charge & C_MASK) != C_MASK && (stable2->charge & C_MASK) != 0 &&
+					(stable2->charge & C_MASK) != C_MASK)
+				{
+					// Swap colors
+					//
+					int c1 = stable1->charge & C_MASK;
+					int c2 = stable2->charge & C_MASK;
+					draft1->charge &= ~C_MASK;
+					draft2->charge &= ~C_MASK;
+					draft1->charge |= c2;
+					draft2->charge |= c1;
+					//
+					// Reissue R1 from pole(R1) and R2 from pole(R2)
+					//
+					RESET(draft1->o);
+					RESET(draft2->o);
+				}
+				else
+				{
+					draft2->b = draft1->b;
+					//
+					// Reissue R1 and R2 from this
+					//
+					RESET(draft1->pole);
+					RESET(draft2->pole);
+				}
+			}
+			else if (stable1->b == stable2->b)
+			{
+				// Messenger interactions
+				//
+				if (!ISNULL(stable1->p))
+				{
+					// REISSUE(stable, POLE(stable))
+					//
+					RESET(draft1->pole);
+					//
+					// REISSUE(draft, TRANSPORT(draft, stable));
+					//
+					draft2->pole[0] = draft1->o[0] - stable2->o[0];
+					draft2->pole[1] = draft1->o[1] - stable2->o[1];
+					draft2->pole[2] = draft1->o[2] - stable2->o[2];
+				}
+				else
+				{
+					// REISSUE(draft, POLE(draft));
+					//
+					RESET(draft2->pole);
+					//
+					// REISSUE(stable, TRANSPORT(stable, draft));
+					//
+					draft1->pole[0] = stable2->o[0] - stable1->o[0];
+					draft1->pole[1] = stable2->o[1] - stable1->o[1];
+					draft1->pole[2] = stable2->o[2] - stable1->o[2];
+				}
+			}
+		}
+		else
+		{
+			// Inter-sector
+			//
+			if ((d1 == 0 && sig1 == sig2) || (d1 == 1 && sig1 == sig3))
+			{
+				// Swap colors
+				//
+				int c1 = stable1->charge & C_MASK;
+				int c2 = stable2->charge & C_MASK;
+				draft1->charge &= ~C_MASK;
+				draft2->charge &= ~C_MASK;
+				draft1->charge |= c2;
+				draft2->charge |= c1;
+				//
+				// Reissue R1 and R2 from this
+				//
+				RESET(draft1->pole);
+				RESET(draft2->pole);
+			}
+			//
+			// Chiral?
+			//
+			else if (q1 == q2 && w1 == w2)//c1 || c2 || c3 || c4)
+			{
+				int c1 = stable1->charge & W_MASK;
+				int c2 = stable2->charge & W_MASK;
+				draft1->charge &= ~W_MASK;
+				draft2->charge &= ~W_MASK;
+				draft1->charge |= c2;
+				draft2->charge |= c1;
+				//
+				// Reissue R1 and R2 from this
+				//
+				RESET(draft1->pole);
+				RESET(draft2->pole);
+			}
+		}
+	}
+}
+
 __global__ void interact(Cell* lattice)
 {
 	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
@@ -24,307 +308,39 @@ __global__ void interact(Cell* lattice)
 		// Interactions only allowed at the last tick of a light step
 		//
 		if (draft->t % LIGHT != 0)
-		{
 			return;
-		}
-		curandState state;
-		// curand_init(0, id, 0, &state);
-
 		//
-		// Compare the two columns for interaction matches
+		// Compare columns for interaction match
 		//
-		for (int v = 0; v < SIDE2; v++)
+		Cell* stable1 = stable;
+		Cell* draft1 = draft;
+		for (int i = 0; i < SIDE2; i++)
 		{
-			#ifdef INTERACT
-			int sig1 = ((stable->charge ^ draft->charge) & C_MASK) == 0 && (draft->charge & C_MASK) == 0 &&
-				((stable->charge ^ draft->charge) & Q_MASK) == 0 && (draft->charge & Q_MASK) == Q_MASK && 
-				((stable->charge ^ draft->charge) & D_MASK) == 0 && (draft->charge & D_MASK) == 0;
-			int sig2 = ((stable->charge ^ draft->charge) & C_MASK) == 0 &&
-				(draft->charge & C_MASK) == C_MASK && ((stable->charge ^ draft->charge) & Q_MASK) == 0 && 
-				(draft->charge & Q_MASK) == 0 && ((stable->charge ^ draft->charge) & D_MASK) == 0 && (draft->charge & D_MASK) == D_MASK;
-			int sig3 = ((stable->charge ^ draft->charge) & C_MASK) == 0 && (draft->charge & C_MASK) != 0 && (draft->charge & C_MASK) != C_MASK &&
-				((stable->charge ^ draft->charge) & Q_MASK) == 0;
+			// If the re-emission cell was reached, reset the pole vector to the free bubble
 			//
-			int c1 = ((stable->charge ^ draft->charge) & Q_MASK) == 0 && ((stable->charge ^ draft->charge) & W_MASK) == 0 && sig1 == sig2;
-			int c2 = ((stable->charge ^ draft->charge) & Q_MASK) != 0 && ((stable->charge ^ draft->charge) & W_MASK) != 0 && sig1 != sig2;
-			int c3 = (stable->charge & D_MASK) == 0 && (stable->charge & W_MASK) == 0 && ((stable->charge ^ draft->charge) & W_MASK) != 0;
-			int c4 = (stable->charge & D_MASK) == D_MASK && (stable->charge & W_MASK) == W_MASK && ((stable->charge ^ draft->charge) & W_MASK) != 0;
-			//
-			if(ISNULL(stable->pole))
-				COPY(draft->pole, stable->p);
-			//
-			// Play pseudo dices
-			//
-			if (stable->noise > abs(stable->phi) && draft->noise > abs(draft->phi) && (!ISNULL(stable->p) || !ISNULL(draft->p)))
+			if (ISNULL(stable1->pole))
 			{
-				if (((stable->charge ^ draft->charge) & D_MASK) == 0)
+				COPY(draft1->pole, stable1->p);
+				RESET(draft1->o);
+				draft1->t = 0;
+			}
+			else
+			{
+				Cell* stable2 = stable;
+				Cell* draft2 = draft;
+				for (int j = 0; j < SIDE2; j++)
 				{
-					// Same sector?
+					if (i != j && stable1->f > 0 && stable2->f > 0 &&
+						stable1->b != stable2->b && !ISEQUAL(stable1->o, stable2->o))
+						compareColumns(stable1, stable2, draft1, draft2);
 					//
-					if (stable->f == 1 && draft->f == 1)
-					{
-						// F x F
-						//
-						if (((stable->charge ^ draft->charge) & Q_MASK) != 0)
-						{
-							// Annihilation?
-							//
-							stable->b = (stable->b * draft->b) % SIDE2; // ??? erro ???
-							draft->b = stable->b;
-							//
-							// Reissue R1 and R2 from this
-							//
-							RESET(stable->pole);// ???
-							COPY(draft->pole, stable->p);
-						}
-						else if (sig1 || sig2 || sig3)
-						{
-							// Similar?
-							//
-							// Cohesion
-							//
-							if (stable->b != draft->b)
-							{
-								stable->b = (stable->b * draft->b) % SIDE2;
-								draft->b = stable->b;
-							}
-							//
-							// s1 <-> s2
-							//
-							int temp;
-							temp = stable->s[0];
-							draft->s[0] = stable->s[0];
-							stable->s[0] = temp;
-							temp = stable->s[1];
-							draft->s[1] = stable->s[1];
-							stable->s[1] = temp;
-							temp = stable->s[2];
-							draft->s[2] = stable->s[2];
-							stable->s[2] = temp;
-							//
-							// Reissue R1 from pole(R1) and R2 from pole(R2)
-							//
-							RESET(stable->o);
-							RESET(draft->o);	//???
-							COPY(draft->pole, stable->p); // ???
-						}
-					}
-					else if (stable->f > 1 && draft->f > 1)
-					{
-						// B x B
-						//
-						if (((stable->charge ^ ~draft->charge) & C_MASK) == 0 && stable->code == draft->code && draft->code == GLUON)
-						{
-							// gluon-gluon?
-							//
-							// Swap colors
-							//
-							int temp = stable->charge & C_MASK;
-							stable->charge &= ~C_MASK;
-							stable->charge |= (draft->charge & C_MASK);
-							draft->charge &= ~C_MASK;
-							draft->charge |= temp;
-							//
-							// Reissue R1 from pole(R1)
-							//
-							RESET(stable->o);
-							draft->dir = 0;	// replicar !!!
-							draft->t = 0;	// replicar !!!
-						}
-						else if (!ISNULL(stable->p) && !ISNULL(draft->p))
-						{
-							if (c1 || c2 || c3 || c4)
-							{
-								// chiral?
-								//
-								// Reissue R1 and R2 from cp1
-								//
-								draft->b = stable->b;
-								RESET(stable->o);
-								//
-								// Reissue R2 from cp1
-								//
-								RESET(draft->o);
-							}
-							else
-							{
-								// TODO
-							}
-						}
-						else if (sig1 != 0 && sig1 != 3 && sig2 != 0 && sig2 != 3)
-						{
-							int temp = stable->charge & C_MASK;
-							stable->charge &= ~C_MASK;
-							stable->charge |= (draft->charge & C_MASK);
-							draft->charge &= ~C_MASK;
-							draft->charge |= temp;
-							draft->b = stable->b;
-							//
-							// Reissue R1 and R2 from cp1
-							//
-							draft->b = stable->b;
-							RESET(stable->o);
-							RESET(draft->o);
-						}
-					}
-					if (stable->f == 1 && draft->f > 1)
-					{
-						// F x B
-						//
-						if ((stable->charge & C_MASK) != 0 && (stable->charge & C_MASK) != C_MASK && (draft->charge & C_MASK) != 0 && 
-							(draft->charge & C_MASK) != C_MASK)
-						{
-							int temp = stable->charge & C_MASK;
-							stable->charge &= ~C_MASK;
-							stable->charge |= (draft->charge & C_MASK);
-							draft->charge &= ~C_MASK;
-							draft->charge |= temp;
-							draft->b = stable->b;
-							//
-							// Reissue R1 from pole(R1) and R2 from pole(R2)
-							//
-							RESET(stable->o);
-							RESET(draft->o);
-						}
-						else
-						{
-							draft->b = stable->b;
-							//
-							// Reissue R1 and R2 from this
-							//
-							RESET(stable->pole);
-							RESET(stable->o);
-							RESET(draft->pole);
-							RESET(draft->o);
-						}
-					}
-					else if (stable->f > 1 && draft->f == 1)
-					{
-						// B x F
-						//
-						if ((stable->charge & C_MASK) != 0 && (stable->charge & C_MASK) != C_MASK && (draft->charge & C_MASK) != 0 && 
-							(draft->charge & C_MASK) != C_MASK)
-						{
-							int temp = stable->charge & C_MASK;
-							stable->charge &= ~C_MASK;
-							stable->charge |= (draft->charge & C_MASK);
-							draft->charge &= ~C_MASK;
-							draft->charge |= temp;
-							//
-							// Reissue R1 from pole(R1) and R2 from pole(R2)
-							//
-							RESET(stable->o);
-							RESET(draft->o);
-						}
-						else
-						{
-							draft->b = stable->b;
-							//
-							// Reissue R1 and R2 from this
-							//
-							RESET(stable->pole);
-							RESET(draft->pole);
-						}
-					}
-					else if (stable->b == draft->b)
-					{
-						// Messenger interactions
-						//
-						if (!ISNULL(stable->p))
-						{
-							// REISSUE(stable, POLE(stable))
-							//
-							RESET(stable->pole);
-							//
-							// REISSUE(draft, TRANSPORT(draft, stable));
-							//
-							draft->pole[0] = stable->o[0] - draft->o[0];
-							draft->pole[1] = stable->o[1] - draft->o[1];
-							draft->pole[2] = stable->o[2] - draft->o[2];
-						}
-						else
-						{
-							// REISSUE(draft, POLE(draft));
-							//
-							RESET(draft->pole);
-							//
-							// REISSUE(stable, TRANSPORT(stable, draft));
-							//
-							stable->pole[0] = draft->o[0] - stable->o[0];
-							stable->pole[1] = draft->o[1] - stable->o[1];
-							stable->pole[2] = draft->o[2] - stable->o[2];
-						}
-					}
-				}
-				else
-				{
-					// Inter-sector
-					//
-					if ((((stable->charge & D_MASK) == 0 && sig1 == 2) || ((stable->charge & D_MASK) == 1 && sig1 == 3)))
-					{
-						int temp = stable->charge & C_MASK;
-						stable->charge &= ~C_MASK;
-						stable->charge |= (draft->charge & C_MASK);
-						draft->charge &= ~C_MASK;
-						draft->charge |= temp;
-						//
-						// Reissue R1 and R2 from this
-						//
-						RESET(stable->pole);
-						RESET(draft->pole);
-					}
-					else if (c1 || c2 || c3 || c4)
-					{
-						// Chiral?
-						//
-						int temp = stable->charge & W_MASK;
-						stable->charge &= ~W_MASK;
-						stable->charge |= (draft->charge & W_MASK);
-						draft->charge &= ~W_MASK;
-						draft->charge |= temp;
-						//
-						// Reissue R1 and R2 from this
-						//
-						RESET(stable->pole);
-						RESET(draft->pole);
-					}
+					stable2 = nextV(stable2);
+					draft2 = nextV(draft2);
 				}
 			}
-			#else
-			if (!ISNULL(stable->p) && !ISNULL(stable->o))
-			{
-				int rnd = curand(&state) & 10023;
-				if (rnd % 100 < 5 && draft->t > 0)
-				{
-					double x1, x2;
-					do
-					{
-						x1 = curand_uniform(&state);
-						x2 = curand_uniform(&state);
-					} while (x1 * x1 + x2 * x2 >= 1);
-					//
-					int sgnx = curand_uniform(&state) < 0.5;
-					int sgny = curand_uniform(&state) < 0.5;
-					int sgnz = curand_uniform(&state) < 0.5;
-					vec3 v;
-					v[0] = 2 * sgnx * x1 * sqrtf(1 - x1 * x1 - x2 * x2);
-					v[1] = 2 * sgny * x2 * sqrtf(1 - x1 * x1 - x2 * x2);
-					v[2] = sgnz * (1 - 2 * (x1 * x1 + x2 * x2));
-					float r = sqrtf(MOD2(draft->o));
-					if (v[0]>0 && v[1]>0 && v[2]>0 && r > 1.0)
-					{
-						draft->pole[0] = (char)(v[0] * r);
-						draft->pole[1] = (char)(v[1] * r);
-						draft->pole[2] = (char)(v[2] * r);
-					}
-				}
-			}
-			#endif
 			//
-			// Next register
-			//
-			stable = nextV(stable);
-			draft = nextV(draft);
+			stable1 = nextV(stable1);
+			draft1 = nextV(draft1);
 		}
 	}
 }

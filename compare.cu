@@ -31,79 +31,76 @@ __global__ void compare(Cell* lattice)
 		//
 		#define COMPARE
 		#if defined(COMPARE)
-		Cell* active_cell, * passive_cell;
+		Cell* ptr1, * ptr2;
 		for (int i = 0; i < SIDE2; i++)
 		{
 			// Shift 'vertically' the passive column
 			//
-			passive_cell = draft;
-			Cell temp = *passive_cell;
+			ptr2 = draft;
+			Cell temp = *ptr2;
 			for (int j = 0; j < SIDE2; j++)
 			{
-				Cell* next = nextV(passive_cell);
+				Cell* next = nextV(ptr2);
 				if (j == SIDE2 - 1)
 					next = &temp;
-				passive_cell->f = next->f;
-				passive_cell->b = next->b;
-				passive_cell->charge = next->charge;
-				COPY(passive_cell->o, next->o);
-				COPY(passive_cell->p, next->p);
-				COPY(passive_cell->s, next->s);
-				passive_cell->phi = next->phi;
-				passive_cell->code = next->code;
+				ptr2->f = next->f;
+				ptr2->b = next->b;
+				ptr2->charge = next->charge;
+				COPY(ptr2->o, next->o);
+				COPY(ptr2->p, next->p);
+				COPY(ptr2->s, next->s);
+				ptr2->phi = next->phi;
+				ptr2->code = next->code;
 				//
 				// Next pointer value
 				//
-				passive_cell = next;
+				ptr2 = next;
 			}
 			//
 			// Compare 'columns'
 			//
-			active_cell = stable;
-			passive_cell = draft;
+			ptr1 = stable;
+			ptr2 = draft;
 			for (int j = 0; j < SIDE2; j++)
 			{
+				// Update frequency
+				//
+				if (ptr1->f > 0 && ptr2->f > 0 && ptr1->b == ptr2->b)
+					ptr2->f++;
+				//
 				// Test if the bubbles are superposing
 				//
-				if (active_cell->b == passive_cell->b &&
-					ISEQUAL(active_cell->o, passive_cell->o))
+				if (ptr1->b == ptr2->b &&
+					ISEQUAL(ptr1->o, ptr2->o))
 				{
 					// Virgin?
 					//
-					if (passive_cell->code == 0)
+					if (ptr2->code == 0)
 					{
 						unsigned char cc = 
-							(passive_cell->charge & C_MASK) ^ (active_cell->charge & C_MASK);
+							(ptr2->charge & C_MASK) ^ (ptr1->charge & C_MASK);
 						unsigned char ww = 
-							(passive_cell->charge & W_MASK) ^ (active_cell->charge & W_MASK);
+							(ptr2->charge & W_MASK) ^ (ptr1->charge & W_MASK);
 						unsigned char qq = 
-							(passive_cell->charge & Q_MASK) ^ (active_cell->charge & Q_MASK);
+							(ptr2->charge & Q_MASK) ^ (ptr1->charge & Q_MASK);
 						//
 						if (cc == 0 && ww == 0 && qq == Q_MASK)
-							passive_cell->code = NEUTRINO;
+							ptr2->code = NEUTRINO;
 						else if (cc == 0 && ww == W_MASK && qq == Q_MASK)
-							passive_cell->code = GLUON;
+							ptr2->code = GLUON;
 						else if (cc == C_MASK && ww == 0 && qq == 0)
-							passive_cell->code = W;
+							ptr2->code = W;
 						else if (cc == C_MASK && ww == 0 && qq == Q_MASK)
-							passive_cell->code = Z;
+							ptr2->code = Z;
 						else if (cc == C_MASK && ww == W_MASK && qq == Q_MASK)
-							passive_cell->code = PHOTON;
-						//
-						if (passive_cell->code != 0 && passive_cell->f > 0)
-							passive_cell->f++;
-					}
-					else if (passive_cell->code == active_cell->code && 
-						passive_cell->f > 0)
-					{
-						passive_cell->f++;
+							ptr2->code = PHOTON;
 					}
 				}
 				//
 				// Next pointer values
 				//
-				active_cell = nextV(active_cell);
-				passive_cell = nextV(passive_cell);
+				ptr1 = nextV(ptr1);
+				ptr2 = nextV(ptr2);
 			}
 		}
 		#endif
