@@ -17,4 +17,4 @@ The immediate goals of this computational implementation are
 
 To achieve even these simple goals, I need lots of computational power, far beyond my limited budget. Notice that I do not receive funds from any university, so your help will be very valuable :)
 
-Last update: 24/09/2021
+Last update: 04/10/2021
