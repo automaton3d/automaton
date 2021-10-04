@@ -16,7 +16,7 @@
 /*
  * Both re-emmited from CP.
  */
-__device__ void cpcp(Cell* draft1, Cell* draft2)
+__device__ void cpcp(Cell* draft1, Cell* draft2, bool collapse)
 {
 	if (ALIGNED(draft1->o, draft1->p))
 	{
@@ -30,6 +30,13 @@ __device__ void cpcp(Cell* draft1, Cell* draft2)
 	}
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
+	if (collapse)
+	{
+		draft1->f = 1;
+		draft2->f = 1;
+		draft1->b = 0;
+		draft2->b = 0;
+	}
 }
 
 /*
@@ -78,6 +85,7 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 	if (d1 != d2)
 	{
 		// SUPRESSED
+		// Interactions between pairs in different sectors are not allowed
 		//
 		return;
 	}
@@ -146,7 +154,7 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 			}
 		}
 		//
-		// Diverse colors
+		// Colors are diverse
 		//
 		else
 		{
@@ -177,6 +185,7 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 		}
 		//
 		// Swap colors
+		// Blindly exchange colors, ignoring all other charges
 		//
 		int c1 = stable1->charge & C_MASK;
 		int c2 = stable2->charge & C_MASK;
@@ -184,6 +193,7 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 		draft2->charge &= ~C_MASK;
 		draft1->charge |= c2;
 		draft2->charge |= c1;
+		//
 		polepole(draft1, draft2);
 	}
 	//
@@ -273,6 +283,8 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 			}
 			// SUPRESSED
 		}
+		// SUPRESSED
+		// There is no evidence for gluon interacting with other bosons
 	}
 	//
 	// [photon,Z,W] x [gluon]
@@ -361,6 +373,7 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 			}
 		}
 		// SUPRESSED
+		// There is no evidence for gluon interacting with other bosons
 	}
 	//
 	// [photon,Z,W] x [photon,Z,W]
@@ -392,6 +405,7 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 			// SUPRESSED
 		}
 		// SUPRESSED
+		// There is no evidence for interaction between these bosons
 	}
 }
 
@@ -411,6 +425,7 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 	if (d1 != d2)
 	{
 		// SUPRESSED
+		// Only bubbles in the same sector are allowed to interact in this way
 		//
 		return;
 	}
@@ -493,7 +508,7 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 			//
 			// Reissue both from CP
 			//
-			cpcp(draft1, draft2);
+			cpcp(draft1, draft2, true);
 		}
 	}
 	//
@@ -662,7 +677,7 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 						//
 						if (c1 == ~c2)
 						{
-							cpcp(draft1, draft2);
+							cpcp(draft1, draft2, true);
 						}
 						else
 						{
@@ -701,7 +716,7 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 					//
 					else
 					{
-						cpcp(draft1, draft2);
+						cpcp(draft1, draft2, true);
 					}
 				}
 			}
@@ -740,7 +755,7 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 				draft2->charge &= ~C_MASK;
 				draft1->charge |= c2;
 				draft2->charge |= c1;
-				cpcp(draft1, draft2);
+				cpcp(draft1, draft2, false);
 			}
 		}
 		//
@@ -787,7 +802,7 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 			}
 		}
 		//
-		// Electron x quark
+		// electron x quark
 		//
 		else if (c2 != NEUTRAL && c2 != NEUTRAL_BAR)
 		{
@@ -804,9 +819,25 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 			{
 				if (w1 == w2)
 				{
+					if (matter1 == matter2)
+					{
+						polepole(draft1, draft2);
+					}
+					else
+					{
+						// SUPRESSED
+					}
 				}
 				else
 				{
+					if (matter1 != matter2)
+					{
+						polepole(draft1, draft2);
+					}
+					else
+					{
+						// SUPRESSED
+					}
 				}
 			}
 		}
@@ -836,7 +867,7 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 			draft1->charge |= c2;
 			draft2->charge |= c1;
 			//
-			cpcp(draft1, draft2);
+			cpcp(draft1, draft2, true);
 		}
 		//
 		// Chiral?

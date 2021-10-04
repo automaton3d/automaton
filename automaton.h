@@ -14,8 +14,6 @@
 #define LIGHT2		(LIGHT*LIGHT)
 #define SIDE2		(SIDE*SIDE)
 #define SIDE3		(SIDE*SIDE2)
-#define TMAX		((4*SIDE2+3)*LIGHT)
-#define TMED		((TMAX-2*SIDE2)*LIGHT)
 #define SHIFT		(ORDER/2)
 
 // Physical symbols (used with variable code)
@@ -64,7 +62,7 @@ typedef struct
     int t;
     unsigned short floor;        // DEBUG
     unsigned char dir;
-    unsigned char type;
+    unsigned char wrap;
     bool active;
     unsigned char flash;
     unsigned char f;
@@ -89,7 +87,7 @@ typedef struct
 #define RESET(v)		{v[0]=0;v[1]=0;v[2]=0;}
 #define COPY(u,v)		{u[0]=v[0];u[1]=v[1];u[2]=v[2];}
 #define MOD2(v)         (v[0]*v[0]+v[1]*v[1]+v[2]*v[2])
-#define nextV(c)        {c->type&0x02?c-(SIDE3*(SIDE2-1)):c+SIDE3}
+#define nextV(c)        {c->wrap&0x02?c-(SIDE3*(SIDE2-1)):c+SIDE3}
 #define ALIGNED(u,v)    (u[1]*v[2]-u[2]*v[1]+u[2]*v[0]-u[0]*v[2]+u[0]*v[1]-u[1]*v[0]==0)
 
 #define FLOOR           173

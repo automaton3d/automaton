@@ -3,35 +3,40 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "curand.h"
+#include "curand_kernel.h"
 
 #include "automaton.h"
 
+__device__ curandState state;
+
 __device__ void initCell(Cell* cell, int floor, int xyz)
 {
+    curand_init(0, xyz, 0, &state);
     int x = xyz & (SIDE-1);
     int y = (xyz >> ORDER) & (SIDE - 1);
     int z = (xyz >> (2 * ORDER));
     cell->floor = floor;                        // DEBUG
     //
-    // Variable type is a hint for wrapping in other kernels
+    // Variable wrap is a hint for wrapping in other kernels
     //
-    cell->type = 0;
+    cell->wrap = 0;
     if (z == 0)
-        cell->type |= 0x08;
+        cell->wrap |= 0x08;
     else if (z == SIDE - 1)
-        cell->type |= 0x04;
+        cell->wrap |= 0x04;
     if (y == 0)
-        cell->type |= 0x20;
+        cell->wrap |= 0x20;
     else if (y == SIDE - 1)
-        cell->type |= 0x10;
+        cell->wrap |= 0x10;
     if (x == 0)
-        cell->type |= 0x80;
+        cell->wrap |= 0x80;
     else if (x == SIDE - 1)
-        cell->type |= 0x40;
+        cell->wrap |= 0x40;
     if (floor == SIDE2 - 1)
-        cell->type |= 0x02;
+        cell->wrap |= 0x02;
     if (!cell->active)
-        cell->type |= 0x01;
+        cell->wrap |= 0x01;
     //
     cell->t = 0;
     cell->noise = floor;
@@ -73,6 +78,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
         }
         else
         {
+            /*
             switch (floor % 6)
             {
             case 0:
@@ -100,6 +106,34 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
                 cell->p[0] = -SIDE / 2;
                 break;
             }
+            */
+            switch (curand(&state) % 3)
+            {
+            case 0: // xy
+                cell->s[0] = curand(&state) % 2 == 0 ? +1 : -1;
+                cell->s[0] *= curand(&state) % SIDE/2;
+                cell->s[1] = curand(&state) % 2 == 0 ? +1 : -1;
+                cell->s[1] *= curand(&state) % SIDE / 2;
+                cell->s[2] = curand(&state) % 2 == 0 ? SIDE / 2 : -SIDE / 2;
+                break;
+            case 1: // yz
+                cell->s[0] = curand(&state) % 2 == 0 ? SIDE / 2 : -SIDE / 2;
+                cell->s[1] = curand(&state) % 2 == 0 ? +1 : -1;
+                cell->s[1] *= curand(&state) % SIDE / 2;
+                cell->s[2] = curand(&state) % 2 == 0 ? +1 : -1;
+                cell->s[2] *= curand(&state) % SIDE / 2;
+                break;
+            case 2: // zx
+                cell->s[0] = curand(&state) % 2 == 0 ? +1 : -1;
+                cell->s[0] *= curand(&state) % SIDE / 2;
+                cell->s[1] = curand(&state) % 2 == 0 ? SIDE / 2 : -SIDE / 2;
+                cell->s[2] = curand(&state) % 2 == 0 ? +1 : -1;
+                cell->s[2] *= curand(&state) % SIDE / 2;
+                break;
+            }
+            cell->p[0] = -cell->s[0];
+            cell->p[1] = -cell->s[1];
+            cell->p[2] = -cell->s[2];
         }
     }
     //

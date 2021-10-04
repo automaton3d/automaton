@@ -182,42 +182,42 @@ __device__ Cell* getPointer(int dir, Cell *draft, char* vdir)
     {
     case 0:
         *vdir = +1;
-        if (draft->type & 0x40)
+        if (draft->wrap & 0x40)
             neighbor -= (SIDE - 1);
         else
             neighbor++;
         break;
     case 1:
         *vdir = -1;
-        if (draft->type & 0x80)
+        if (draft->wrap & 0x80)
             neighbor += (SIDE - 1);
         else
             neighbor--;
         break;
     case 2:
         *(++vdir) = +1;
-        if (draft->type & 0x10)
+        if (draft->wrap & 0x10)
             neighbor -= (SIDE2 - SIDE);
         else
             neighbor += SIDE;
         break;
     case 3:
         *(++vdir) = -1;
-        if (draft->type & 0x20)
+        if (draft->wrap & 0x20)
             neighbor += (SIDE2 - SIDE);
         else
             neighbor -= SIDE;
         break;
     case 4:
         *(++(++vdir)) = +1;
-        if (draft->type & 0x04)
+        if (draft->wrap & 0x04)
             neighbor -= (SIDE3 - SIDE2);
         else
             neighbor += SIDE2;
         break;
     case 5:
         *(++(++vdir)) = -1;
-        if (draft->type & 0x08)
+        if (draft->wrap & 0x08)
             neighbor = draft + (SIDE3 - SIDE2);
         else
             neighbor = draft - SIDE2;

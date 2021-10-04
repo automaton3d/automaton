@@ -437,7 +437,7 @@ int initOpenGL(int argc, char** argv)
 int main(int argc, char** argv)
 {
 	initCuda();
-	//printResults(true);
+	printResults(true);
 	initOpenGL(argc, argv);
 	start = GetTickCount();
 	glutMainLoop();
