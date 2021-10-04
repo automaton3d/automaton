@@ -39,7 +39,7 @@ __global__ void commute(Cell* lattice)
 			COPY(stable->p, draft->p);
 			COPY(stable->s, draft->s);
 			COPY(stable->o, draft->o);
-			COPY(stable->pole, draft->pole);
+			stable->flash = draft->flash;
 			//
 			// Commute roles
 			//

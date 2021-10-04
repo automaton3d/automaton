@@ -7,7 +7,577 @@
 #include <stdlib.h>
 #include "automaton.h"
 
-__device__ void compareColumns(Cell *stable1, Cell *stable2, Cell *draft1, Cell *draft2)
+/*
+ * Both re-emmited from CP.
+ */
+__device__ void cpcp(Cell* draft1, Cell* draft2)
+{
+	if (ALIGNED(draft1->o, draft1->p))
+	{
+		COPY(draft1->pole, draft1->p);
+		COPY(draft2->pole, draft1->p);
+	}
+	else
+	{
+		COPY(draft1->pole, draft2->p);
+		COPY(draft2->pole, draft2->p);
+	}
+	draft1->flash = SIDE;
+	draft2->flash = SIDE;
+}
+
+/*
+ * Both re-emmited from respective pole.
+ */
+__device__ void polepole(Cell* draft1, Cell* draft2)
+{
+	COPY(draft1->pole, draft1->p);
+	COPY(draft2->pole, draft2->p);
+	draft1->flash = SIDE;
+	draft2->flash = SIDE;
+}
+
+/*
+ * Inertia mechanism.
+ */
+__device__ void inertia(Cell* draft1, Cell* draft2)
+{
+	if (ALIGNED(draft1->o, draft1->p))
+	{
+		COPY(draft1->pole, draft2->p);
+		COPY(draft2->pole, draft2->p);
+	}
+	else
+	{
+		COPY(draft1->pole, draft1->p);
+		COPY(draft2->pole, draft1->p);
+	}
+	draft1->flash = SIDE;
+	draft2->flash = SIDE;
+}
+
+__device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
+{
+	// Isolate charge bits
+	//
+	unsigned c1 = (stable1->charge & C_MASK) & 7;
+	unsigned q1 = ((stable1->charge & Q_MASK) >> 3) & 1;
+	unsigned w1 = ((stable1->charge & W_MASK) >> 4) & 1;
+	unsigned c2 = (stable2->charge & C_MASK) & 7;
+	unsigned q2 = ((stable2->charge & Q_MASK) >> 3) & 1;
+	unsigned w2 = ((stable2->charge & W_MASK) >> 4) & 1;
+	//
+	// Non-trivial colors?
+	//
+	if (c1 != NEUTRAL && c1 != NEUTRAL_BAR && c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+	{
+		// Cohesion of gluons?
+		//
+		if (c1 == c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		//
+		// Complementary colors?
+		//
+		else if (c1 == ~c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		//
+		// Diverse colors
+		//
+		else
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		//
+		// Swap colors
+		//
+		int c1 = stable1->charge & C_MASK;
+		int c2 = stable2->charge & C_MASK;
+		draft1->charge &= ~C_MASK;
+		draft2->charge &= ~C_MASK;
+		draft1->charge |= c2;
+		draft2->charge |= c1;
+		polepole(draft1, draft2);
+	}
+	//
+	// Gluon x [photon, Z, W]
+	//
+	else if (c1 != NEUTRAL && c1 != NEUTRAL_BAR)
+	{
+		if (c1 == c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		else if (c1 == ~c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		else
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			// SUPRESSED
+		}
+	}
+	//
+	// [photon,Z,W] x [gluon]
+	//
+	else if (c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+	{
+		if (c1 == c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		else if (c1 == ~c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		else
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+		}
+		// SUPRESSED
+	}
+	//
+	// [photon,Z,W] x [photon,Z,W]
+	//
+	else
+	{
+		if (q1 == q2)
+		{
+			if (w1 == w2)
+			{
+				// SUPRESSED
+			}
+			else
+			{
+				// SUPRESSED
+			}
+			// SUPRESSED
+		}
+		else
+		{
+			if (w1 == w2)
+			{
+				// SUPRESSED
+			}
+			else
+			{
+				// SUPRESSED
+			}
+			// SUPRESSED
+		}
+		// SUPRESSED
+	}
+}
+
+__device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
+{
+	// Isolate charge bits
+	//
+	unsigned c1 = (stable1->charge & C_MASK) & 7;
+	unsigned q1 = ((stable1->charge & Q_MASK) >> 3) & 1;
+	unsigned w1 = ((stable1->charge & W_MASK) >> 4) & 1;
+	unsigned c2 = (stable2->charge & C_MASK) & 7;
+	unsigned q2 = ((stable2->charge & Q_MASK) >> 3) & 1;
+	unsigned w2 = ((stable2->charge & W_MASK) >> 4) & 1;
+	//
+	// Quark x gluon?
+	//
+	if (c1 != NEUTRAL && c1 != NEUTRAL_BAR && c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+	{
+		if (c1 == c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+				}
+				else
+				{
+				}
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+				}
+				else
+				{
+				}
+			}
+		}
+		else if (c1 == ~c2)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+				}
+				else
+				{
+				}
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+				}
+				else
+				{
+				}
+			}
+		}
+		//
+		// Electron x photon
+		//
+		else
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
+			}
+			//
+			// Reissue both from CP
+			//
+			cpcp(draft1, draft2);
+		}
+	}
+	//
+	// Quark x [photon, Z, W]?
+	//
+	else if (c1 != NEUTRAL && c1 != NEUTRAL_BAR)
+	{
+		if (q1 == q2)
+		{
+			if (w1 == w2)
+			{
+			}
+			else
+			{
+			}
+		}
+		else
+		{
+			if (w1 == w2)
+			{
+			}
+			else
+			{
+			}
+		}
+	}
+	//
+	// Electron x gluon?
+	//
+	else if (c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+	{
+		if (q1 == q2)
+		{
+			if (w1 == w2)
+			{
+				// SUPRESSED
+			}
+			else
+			{
+				// SUPRESSED
+			}
+			// SUPRESSED
+		}
+		else
+		{
+			if (w1 == w2)
+			{
+				// SUPRESSED
+			}
+			else
+			{
+				// SUPRESSED
+			}
+			//
+			// Swap colors
+			//
+			int c1 = stable1->charge & C_MASK;
+			int c2 = stable2->charge & C_MASK;
+			draft1->charge &= ~C_MASK;
+			draft2->charge &= ~C_MASK;
+			draft1->charge |= c2;
+			draft2->charge |= c1;
+			polepole(draft1, draft2);
+		}
+		// SUPRESSED
+	}
+	//
+	// Electron x [photon, Z, W]?
+	//
+	else
+	{
+		if (q1 == q2)
+		{
+			if (w1 == w2)
+			{
+				// SUPRESSED
+			}
+			else
+			{
+				// SUPRESSED
+			}
+			// SUPRESSED
+		}
+		else
+		{
+			if (w1 == w2)
+			{
+				// SUPRESSED
+			}
+			else
+			{
+				// SUPRESSED
+			}
+			// SUPRESSED
+		}
+		//
+		// Is it a propeller?
+		//
+		if (stable1->b == stable2->b)
+		{
+			// Inertia
+			//
+			inertia(draft1, draft2);
+		}
+	}
+}
+
+__device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
 {
 	// Isolate charge bits
 	//
@@ -20,277 +590,277 @@ __device__ void compareColumns(Cell *stable1, Cell *stable2, Cell *draft1, Cell 
 	unsigned w2 = ((stable2->charge & W_MASK) >> 4) & 1;
 	unsigned d2 = (stable2->charge & D_MASK) >> 5;
 	//
-	// Play pseudo dices
 	//
-	if (stable1->noise > abs(stable1->phi) &&
-		stable2->noise > abs(stable2->phi) &&
-		(!ISNULL(stable1->p) || !ISNULL(stable2->p)))
+	// Matter/antimatter flags
+	//
+	bool matter1 = c1 == 0 || c1 == 1 || c1 == 2 || c1 == 4;
+	bool matter2 = c2 == 0 || c2 == 1 || c2 == 2 || c2 == 4;
+	//
+	// Same sector?
+	//
+	if (d1 == d2)
 	{
-		bool sig1 = (c1 == NEUTRAL && c2 == NEUTRAL && q1 == 1 && q2 == 1 && d1 == 0);
-		bool sig2 = (c1 == N_BAR && c2 == N_BAR && q1 == 1 && q2 == 1 && d1 == 1);
-		bool sig3 = (c2 != NEUTRAL && c2 != N_BAR && q1 == q2);
+		// quark x quark?
 		//
-		int c1 = (q1 == q2 && w1 == w2 && sig1 == sig2);
-		int c2 = (q1 != q2 && w1 != w2 && sig1 != sig2);
-		int c3 = (d1 == 0 && w1 == 0 && w1 != w2);
-		int c4 = (d1 != d2 && w1 == 1 && w1 != w2);
-		//
-		// Same sector?
-		//
-		if (d1 == d2)
+		if (c1 != NEUTRAL && c1 != NEUTRAL_BAR && c2 != NEUTRAL && c2 != NEUTRAL_BAR)
 		{
-			// Non-overlapping?
-			//
-			if (!ISEQUAL(stable1->o, stable2->o))
+			if (c1 == c2)
 			{
-				// Fermionic x Fermionic case
+				// Quark cohesion?
 				//
-				if (q1 != q2)
+				if (q1 == q2)
 				{
-					// Annihilation
-					//
-					draft1->b = (stable1->b * stable2->b) % SIDE2;
-					draft2->b = draft1->b;
-					//
-					// Reissue R1 and R2 from this
-					//
-					RESET(draft1->o);
-					RESET(draft2->o);
-				}
-				//
-				// Are the two cells similar?
-				//
-				else if (q1 == q2 && w1 == w2 && c1 == c2)
-				{
-					// Cohesion
-					//
-					if (stable1->b != stable2->b)
+					if (w1 == w2)
 					{
-						// Calculate the new unique bonding value
-						//
-						draft1->b = (stable1->b * stable2->b) % SIDE2;
-						draft2->b = draft1->b;
-					}
-					//
-					// Exchange spins: s1 <-> s2
-					//
-					draft1->s[0] = stable2->s[0];
-					draft2->s[0] = stable1->s[0];
-					draft1->s[1] = stable2->s[1];
-					draft2->s[1] = stable1->s[1];
-					draft1->s[2] = stable2->s[2];
-					draft2->s[2] = stable1->s[2];
-					//
-					// Reissue R1 from pole(R1) and R2 from pole(R2)
-					//
-					RESET(draft1->o);
-					RESET(draft2->o);
-					COPY(draft1->pole, stable1->p);
-					COPY(draft2->pole, stable2->p);
-				}
-			}
-			//
-			// Bosonic x Bosonic case
-			//
-			else if (stable1->f > 1 && stable2->f > 1)
-			{
-				// gluon-gluon?
-				//
-				if (c1 == c2 && stable1->code == GLUON && stable2->code == GLUON)
-				{
-					// Swap colors
-					//
-					int color1 = stable1->charge & C_MASK;
-					int color2 = stable2->charge & C_MASK;
-					draft1->charge &= ~C_MASK;
-					draft2->charge &= ~C_MASK;
-					draft1->charge |= color2;
-					draft2->charge |= color1;
-					//
-					// Reissue R1 from pole(R1)
-					//
-					RESET(draft1->o);
-					draft1->dir = 0;
-					draft1->t = 0;
-					draft2->dir = 0;
-					draft2->t = 0;
-				}
-				else if (!ISNULL(stable1->p) && !ISNULL(stable2->p))
-				{
-					// Chiral?
-					//
-					if (c1 || c2 || c3 || c4)
-					{
-						// Reissue R1 and R2 from cstable1
-						//
-						draft2->b = draft1->b;
-						RESET(draft1->o);
-						RESET(draft2->o);
+						// SUPRESSED
 					}
 					else
 					{
-						// TODO
+						// SUPRESSED
+					}
+					polepole(draft1, draft2);
+				}
+				//
+				// Different electric charge
+				//
+				else
+				{
+					if (w1 == w2)
+					{
+						// SUPRESSED
+					}
+					else
+					{
+						// Quark annihilation?
+						//
+						if (c1 == ~c2)
+						{
+							cpcp(draft1, draft2);
+						}
+						else
+						{
+							// SUPRESSED
+						}
 					}
 				}
-				else if (sig1 != 0 && sig1 != 3 && sig2 != 0 && sig2 != 3)
+			}
+			//
+			// Complementary colors?
+			//
+			else if (c1 == ~c2)
+			{
+				if (q1 == q2)
 				{
-					// Swap colors
+					if (w1 == w2)
+					{
+						// SUPRESSED
+					}
+					else
+					{
+						// SUPRESSED
+					}
+				}
+				//
+				// Opposite electric charges
+				//
+				else
+				{
+					if (w1 == w2)
+					{
+						// SUPPRESSED
+					}
 					//
-					int c1 = stable1->charge & C_MASK;
-					int c2 = stable2->charge & C_MASK;
-					draft1->charge &= ~C_MASK;
-					draft2->charge &= ~C_MASK;
-					draft1->charge |= c2;
-					draft2->charge |= c1;
+					// Quark annihilation
 					//
-					draft2->b = draft1->b;
-					//
-					// Reissue R1 and R2 from cstable1
-					//
-					draft2->b = draft1->b;
-					RESET(draft1->o);
-					RESET(draft2->o);
+					else
+					{
+						cpcp(draft1, draft2);
+					}
 				}
 			}
 			//
-			// F x B
+			// Diverse colors
 			//
-			if (stable1->f == 1 && stable2->f > 1)
+			else
 			{
-				// F x B
-				//
-				if ((stable1->charge & C_MASK) != 0 && (stable1->charge & C_MASK) != C_MASK && (stable2->charge & C_MASK) != 0 &&
-					(stable2->charge & C_MASK) != C_MASK)
+				if (q1 == q2)
 				{
-					// Swap colors
-					//
-					int c1 = stable1->charge & C_MASK;
-					int c2 = stable2->charge & C_MASK;
-					draft1->charge &= ~C_MASK;
-					draft2->charge &= ~C_MASK;
-					draft1->charge |= c2;
-					draft2->charge |= c1;
-					draft2->b = draft2->b;
-					//
-					// Reissue R1 from pole(R1) and R2 from pole(R2)
-					//
-					RESET(draft1->o);
-					RESET(draft2->o);
+					if (w1 == w2)
+					{
+						// SUPPRESSED
+					}
+					else
+					{
+						// SUPPRESSED
+					}
+					// SUPPRESSED
 				}
 				else
 				{
-					draft2->b = draft1->b;
-					//
-					// Reissue R1 and R2 from this
-					//
-					RESET(draft1->pole);
-					RESET(draft1->o);
-					RESET(draft2->pole);
-					RESET(draft2->o);
+					if (w1 == w2)
+					{
+						// SUPPRESSED
+					}
+					else
+					{
+						// SUPPRESSED
+					}
+					// SUPPRESSED
 				}
-			}
-			else if (stable1->f > 1 && stable2->f == 1)
-			{
-				// B x F
-				//
-				if ((stable1->charge & C_MASK) != 0 && (stable1->charge & C_MASK) != C_MASK && (stable2->charge & C_MASK) != 0 &&
-					(stable2->charge & C_MASK) != C_MASK)
-				{
-					// Swap colors
-					//
-					int c1 = stable1->charge & C_MASK;
-					int c2 = stable2->charge & C_MASK;
-					draft1->charge &= ~C_MASK;
-					draft2->charge &= ~C_MASK;
-					draft1->charge |= c2;
-					draft2->charge |= c1;
-					//
-					// Reissue R1 from pole(R1) and R2 from pole(R2)
-					//
-					RESET(draft1->o);
-					RESET(draft2->o);
-				}
-				else
-				{
-					draft2->b = draft1->b;
-					//
-					// Reissue R1 and R2 from this
-					//
-					RESET(draft1->pole);
-					RESET(draft2->pole);
-				}
-			}
-			else if (stable1->b == stable2->b)
-			{
-				// Messenger interactions
-				//
-				if (!ISNULL(stable1->p))
-				{
-					// REISSUE(stable, POLE(stable))
-					//
-					RESET(draft1->pole);
-					//
-					// REISSUE(draft, TRANSPORT(draft, stable));
-					//
-					draft2->pole[0] = draft1->o[0] - stable2->o[0];
-					draft2->pole[1] = draft1->o[1] - stable2->o[1];
-					draft2->pole[2] = draft1->o[2] - stable2->o[2];
-				}
-				else
-				{
-					// REISSUE(draft, POLE(draft));
-					//
-					RESET(draft2->pole);
-					//
-					// REISSUE(stable, TRANSPORT(stable, draft));
-					//
-					draft1->pole[0] = stable2->o[0] - stable1->o[0];
-					draft1->pole[1] = stable2->o[1] - stable1->o[1];
-					draft1->pole[2] = stable2->o[2] - stable1->o[2];
-				}
-			}
-		}
-		else
-		{
-			// Inter-sector
-			//
-			if ((d1 == 0 && sig1 == sig2) || (d1 == 1 && sig1 == sig3))
-			{
-				// Swap colors
-				//
 				int c1 = stable1->charge & C_MASK;
 				int c2 = stable2->charge & C_MASK;
 				draft1->charge &= ~C_MASK;
 				draft2->charge &= ~C_MASK;
 				draft1->charge |= c2;
 				draft2->charge |= c1;
-				//
-				// Reissue R1 and R2 from this
-				//
-				RESET(draft1->pole);
-				RESET(draft2->pole);
+				cpcp(draft1, draft2);
 			}
-			//
-			// Chiral?
-			//
-			else if (q1 == q2 && w1 == w2)//c1 || c2 || c3 || c4)
+		}
+		//
+		// quark x electron?
+		//
+		else if (c1 != NEUTRAL && c1 != NEUTRAL_BAR)
+		{
+			if (q1 == q2)
 			{
-				int c1 = stable1->charge & W_MASK;
-				int c2 = stable2->charge & W_MASK;
-				draft1->charge &= ~W_MASK;
-				draft2->charge &= ~W_MASK;
-				draft1->charge |= c2;
-				draft2->charge |= c1;
-				//
-				// Reissue R1 and R2 from this
-				//
-				RESET(draft1->pole);
-				RESET(draft2->pole);
+				if (w1 == w2)
+				{
+					// SUPRESSED
+				}
+				else
+				{
+					// SUPRESSED
+				}
+				// SUPRESSED
 			}
+			else
+			{
+				if (w1 == w2)
+				{
+					if (matter1 != matter2)
+					{
+						polepole(draft1, draft2);
+					}
+					else
+					{
+						// SUPRESSED
+					}
+				}
+				else
+				{
+					if (matter1 == matter2)
+					{
+						polepole(draft1, draft2);
+					}
+					else
+					{
+						// SUPRESSED
+					}
+				}
+			}
+		}
+		//
+		// Electron x quark
+		//
+		else if (c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+		{
+			if (q1 == q2)
+			{
+				if (w1 == w2)
+				{
+				}
+				else
+				{
+				}
+			}
+			else
+			{
+				if (w1 == w2)
+				{
+				}
+				else
+				{
+				}
+			}
+		}
+	}
+	//
+	// Different sectors
+	//
+	else
+	{
+		bool s1 = (c1 == c2 == 0 && q1 == q2 == 1 && d1 == d2 == 0);
+		bool s2 = (c1 == c2 == 7 && q1 == q2 == 0 && d1 == d2 == 1);
+		bool s3 = (c1 == c2 != 0 != 7 && q1 == q2);
+		//
+		bool c1 = (q1 == q2 && w1 == w2 && s1 == s2);
+		bool c2 = (q1 != q2 && w1 != w2 && s1 != s2);
+		bool c3 = (d1 == 0 && w1 == 0 && w1 != w2);
+		bool c4 = (d1 == 1 && w1 == 1 && w1 != w2);
+		//
+		if ((d1 == 0 && s1 == s2) || (d1 == 1 && s1 == s3 && s1 != s2))
+		{
+			// Swap colors
+			//
+			int c1 = stable1->charge & C_MASK;
+			int c2 = stable2->charge & C_MASK;
+			draft1->charge &= ~C_MASK;
+			draft2->charge &= ~C_MASK;
+			draft1->charge |= c2;
+			draft2->charge |= c1;
+			//
+			cpcp(draft1, draft2);
+		}
+		//
+		// Chiral?
+		//
+		else if (c1  ||  c2  ||  c3  ||  c4) 
+		{
+			// Change hands
+			//
+			int w1 = stable1->charge & W_MASK;
+			int w2 = stable2->charge & W_MASK;
+			draft1->charge &= ~W_MASK;
+			draft2->charge &= ~W_MASK;
+			draft1->charge |= w2;
+			draft2->charge |= w1;
+			//
+			polepole(draft1, draft2);
 		}
 	}
 }
 
+
+/*
+ * Compares two cells in adjacent columns. 
+ */
+__device__ void compareCols(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
+{
+	// Play pseudo dices
+	//
+	if (stable1->noise > abs(stable1->phi) &&
+		stable2->noise > abs(stable2->phi) &&
+		(!ISNULL(stable1->p) || !ISNULL(stable2->p)))
+	{
+		// Preserve momentum for parallel transport
+		//
+		COPY(draft1->pole, stable2->p);
+		COPY(draft2->pole, stable1->p);
+		//
+		if (stable1->code == BOSON && stable2->code == BOSON)
+			bosonxboson(stable1, stable2, draft1, draft2);
+		else if (stable1->code == BOSON && stable2->code == FERMION)
+			fermionxboson(stable2, stable1, draft2, draft1);
+		else if (stable1->code == FERMION && stable2->code == BOSON)
+			fermionxboson(stable1, stable2, draft1, draft2);
+		else
+			fermionxfermion(stable1, stable2, draft1, draft2);
+	}
+}
+
+/*
+ * Confronts cells for interactions. 
+ */
 __global__ void interact(Cell* lattice)
 {
 	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
@@ -318,9 +888,8 @@ __global__ void interact(Cell* lattice)
 		{
 			// If the re-emission cell was reached, reset the pole vector to the free bubble
 			//
-			if (ISNULL(stable1->pole))
+			if (stable1->flash)
 			{
-				COPY(draft1->pole, stable1->p);
 				RESET(draft1->o);
 				draft1->t = 0;
 			}
@@ -332,7 +901,7 @@ __global__ void interact(Cell* lattice)
 				{
 					if (i != j && stable1->f > 0 && stable2->f > 0 &&
 						stable1->b != stable2->b && !ISEQUAL(stable1->o, stable2->o))
-						compareColumns(stable1, stable2, draft1, draft2);
+						compareCols(stable1, stable2, draft1, draft2);
 					//
 					stable2 = nextV(stable2);
 					draft2 = nextV(draft2);

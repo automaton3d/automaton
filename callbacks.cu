@@ -74,8 +74,8 @@ void printResults(bool full)
                     char act = cell->active ? 'A' : ' ';
                     char* arrow = ISNULL(cell->p) ? "" : "<---";
                     if(!ISNULL(cell->p))
-                        printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] pole=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", 
-                            cell->t, act, x, y, z, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->pole[0], cell->pole[1], cell->pole[2], cell->f, cell->t * cell->t, cell->synch, arrow);
+                        printf("t=%d: (%c) [%d, %d, %d] v=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] f=%d t2=%d syn=%d \t%s\n", 
+                            cell->t, act, x, y, z, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->f, cell->t * cell->t, cell->synch, arrow);
                     /*
                     if (full)
                     {

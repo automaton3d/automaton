@@ -63,37 +63,42 @@ __global__ void compare(Cell* lattice)
 			ptr2 = draft;
 			for (int j = 0; j < SIDE2; j++)
 			{
-				// Update frequency
+				// Same sector?
 				//
-				if (ptr1->f > 0 && ptr2->f > 0 && ptr1->b == ptr2->b)
-					ptr2->f++;
-				//
-				// Test if the bubbles are superposing
-				//
-				if (ptr1->b == ptr2->b &&
-					ISEQUAL(ptr1->o, ptr2->o))
+				if (((ptr1->charge ^ ptr2->charge) & C_MASK) == 0)
 				{
-					// Virgin?
+					// Update frequency
 					//
-					if (ptr2->code == 0)
+					if (ptr1->f > 0 && ptr2->f > 0 && ptr1->b == ptr2->b)
+						ptr2->f++;
+					//
+					// Test if the bubbles are superposing
+					//
+					if (ptr1->b == ptr2->b &&
+						ISEQUAL(ptr1->o, ptr2->o))
 					{
-						unsigned char cc = 
-							(ptr2->charge & C_MASK) ^ (ptr1->charge & C_MASK);
-						unsigned char ww = 
-							(ptr2->charge & W_MASK) ^ (ptr1->charge & W_MASK);
-						unsigned char qq = 
-							(ptr2->charge & Q_MASK) ^ (ptr1->charge & Q_MASK);
+						// Virgin?
 						//
-						if (cc == 0 && ww == 0 && qq == Q_MASK)
-							ptr2->code = NEUTRINO;
-						else if (cc == 0 && ww == W_MASK && qq == Q_MASK)
-							ptr2->code = GLUON;
-						else if (cc == C_MASK && ww == 0 && qq == 0)
-							ptr2->code = W;
-						else if (cc == C_MASK && ww == 0 && qq == Q_MASK)
-							ptr2->code = Z;
-						else if (cc == C_MASK && ww == W_MASK && qq == Q_MASK)
-							ptr2->code = PHOTON;
+						if (ptr2->code == 0)
+						{
+							unsigned char cc =
+								(ptr2->charge & C_MASK) ^ (ptr1->charge & C_MASK);
+							unsigned char ww =
+								(ptr2->charge & W_MASK) ^ (ptr1->charge & W_MASK);
+							unsigned char qq =
+								(ptr2->charge & Q_MASK) ^ (ptr1->charge & Q_MASK);
+							//
+							if (cc == 0 && ww == 0 && qq == Q_MASK)
+								ptr2->code = NEUTRINO;
+							else if (cc == 0 && ww == W_MASK && qq == Q_MASK)
+								ptr2->code = GLUON;
+							else if (cc == C_MASK && ww == 0 && qq == 0)
+								ptr2->code = W;
+							else if (cc == C_MASK && ww == 0 && qq == Q_MASK)
+								ptr2->code = Z;
+							else if (cc == C_MASK && ww == W_MASK && qq == Q_MASK)
+								ptr2->code = PHOTON;
+						}
 					}
 				}
 				//

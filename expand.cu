@@ -251,100 +251,37 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
     if (draft->f > 0)
     {
         draft->t++; 
-        Cell* neighbor;
         //
-        // Momentum evolution
+        // Re-emmited?
         //
-        if (!ISNULL(draft->p) && draft->t * draft->t > draft->synch)
+        if (stable->flash && ALIGNED(stable->o, stable->pole))
         {
-            // Select the only path for momentum
-            //
-            for (int dir = 0; dir < 6; dir++)
-            {
-                char vdir[3] = { 0, 0, 0 };
-                neighbor = getPointer(dir, draft, (char *)vdir);
-                //
-                // Predict next pole value
-                //
-                char pole[3];
-                COPY(pole, draft->pole);
-                pole[0] -= vdir[0];
-                pole[1] -= vdir[1];
-                pole[2] -= vdir[2];
-                //
-                // Test if pole shrunk
-                //
-                if (MOD2(pole) < MOD2(draft->pole))
-                {
-                    neighbor->pole[0] = pole[0];
-                    neighbor->pole[1] = pole[1];
-                    neighbor->pole[2] = pole[2];
-                    //
-                    neighbor->t = draft->t;
-                    neighbor->f = draft->f;
-                    neighbor->b = draft->b;
-                    neighbor->charge = draft->charge;
-                    //
-                    neighbor->o[0] = draft->o[0] + vdir[0];
-                    neighbor->o[1] = draft->o[1] + vdir[1];
-                    neighbor->o[2] = draft->o[2] + vdir[2];
-                    //
-                    COPY(neighbor->s, draft->s);
-                    COPY(neighbor->p, draft->p);
-                    //
-                    // Synchronize to keep inside spherical wavefront
-                    //
-                    neighbor->synch = LIGHT2 * MOD2(neighbor->o);
-                    int t = neighbor->t;
-                    if (ISNULL(neighbor->pole))
-                    {
-                        neighbor->t = 0;
-                        neighbor->synch = LIGHT;
-                        neighbor->f = 1;
-                        neighbor->b = 0;
-                        neighbor->code = 0;
-                        RESET(neighbor->o);
-                        //
-                        // This characterizes free propagation
-                        //
-                        COPY(neighbor->pole, neighbor->p);
-                    }
-                    //
-                    // Keep only a single copy of momentum
-                    //
-                    RESET(draft->p);
-                    //
-                    // When momentum moves, it casts a spherical perturbation
-                    //
-                    draft->t = 0;
-                    draft->synch = LIGHT;
-                    draft->f = 1;
-                    draft->b = 0;
-                    draft->code = 0;
-                    RESET(draft->o);
-                    break;
-                }
-            }
+            RESET(draft->o);
+            draft->t = 0;
         }
         //
-        // Phase cells spread synchronized
+        // Explore von Neumann directions
         //
-        if (draft->t * draft->t > draft->synch)
+        Cell* neighbor;
+        for (int dir = 0; dir < 6; dir++)
         {
-            // Explore von Neumann directions
+            char vdir[3] = { 0, 0, 0 };
+            neighbor = getPointer(dir, draft, (char*)vdir);
             //
-            Cell* neighbor;
-            for (int dir = 0; dir < 6; dir++)
+            // Test if branch is legal
+            //
+            if(isAllowed(dir, vdir, draft->o, draft->dir))
             {
-                char vdir[3] = { 0, 0, 0 };
-                neighbor = getPointer(dir, draft, (char*)vdir);
+                // Superluminal signal spreads not synchronized
                 //
-                if (!ISNULL(neighbor->p))
-                    continue;
+                if (stable->flash)
+                {
+                    neighbor->flash = stable->flash - 1;
+                }
                 //
-                // Test if branch is legal
+                // Bubble cells spread synchronized
                 //
-                if(isAllowed(dir, vdir, draft->o, draft->dir))
+                if (draft->t * draft->t > draft->synch)
                 {
                     neighbor->t = draft->t;
                     neighbor->dir = dir;
@@ -357,14 +294,16 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
                     neighbor->o[2] = stable->o[2] + vdir[2];
                     //
                     COPY(neighbor->s, stable->s);
+                    COPY(neighbor->p, stable->p);
                     //
                     // Schedule for spherical evolution
                     //
                     neighbor->synch = LIGHT2 * MOD2(neighbor->o);
+                    //
+                    draft->f = 0;
+                    RESET(draft->p);
                 }
             }
-            //
-            draft->f = 0;
         }
     }
 }

@@ -17,12 +17,20 @@
 #define TMAX		((4*SIDE2+3)*LIGHT)
 #define TMED		((TMAX-2*SIDE2)*LIGHT)
 #define SHIFT		(ORDER/2)
+
+// Physical symbols (used with variable code)
+
 #define PHOTON		1
 #define GLUON		2
 #define NEUTRINO	3
 #define Z			4
 #define W			5
-#define EXTRA		6
+#define ELECTRON    6
+#define QUARK       7
+#define FERMION     (ELECTRON | QUARK | NEUTRINO)
+#define BOSON       (PHOTON | GLUON | Z | W)
+
+#define EXTRA		8
 
 // GPU symbols
 
@@ -46,8 +54,8 @@
 
 // Color symbols
 
-#define NEUTRAL	1
-#define N_BAR	2
+#define NEUTRAL     1
+#define NEUTRAL_BAR	2
 
 // Automaton cell structure
 
@@ -58,6 +66,7 @@ typedef struct
     unsigned char dir;
     unsigned char type;
     bool active;
+    unsigned char flash;
     unsigned char f;
     short b;
     unsigned char charge;
@@ -81,7 +90,7 @@ typedef struct
 #define COPY(u,v)		{u[0]=v[0];u[1]=v[1];u[2]=v[2];}
 #define MOD2(v)         (v[0]*v[0]+v[1]*v[1]+v[2]*v[2])
 #define nextV(c)        {c->type&0x02?c-(SIDE3*(SIDE2-1)):c+SIDE3}
-#define CELL            sizeof(Cell)
+#define ALIGNED(u,v)    (u[1]*v[2]-u[2]*v[1]+u[2]*v[0]-u[0]*v[2]+u[0]*v[1]-u[1]*v[0]==0)
 
 #define FLOOR           173
 

@@ -103,8 +103,8 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
         }
     }
     //
-    COPY(cell->pole, cell->p);
     RESET(cell->o);
+    cell->flash = false;
     cell->sine = 0;
     cell->cosine = SIDE / 2;
 }
