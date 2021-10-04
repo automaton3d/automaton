@@ -1,3 +1,9 @@
+/*
+ * Interaction routines
+ * 
+ * The code is intentionally left not optimized to enhance
+ * where the rules were supressed.
+*/
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "curand.h"
@@ -63,9 +69,18 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 	unsigned c1 = (stable1->charge & C_MASK) & 7;
 	unsigned q1 = ((stable1->charge & Q_MASK) >> 3) & 1;
 	unsigned w1 = ((stable1->charge & W_MASK) >> 4) & 1;
+	unsigned d1 = (stable1->charge & D_MASK) >> 5;
 	unsigned c2 = (stable2->charge & C_MASK) & 7;
 	unsigned q2 = ((stable2->charge & Q_MASK) >> 3) & 1;
 	unsigned w2 = ((stable2->charge & W_MASK) >> 4) & 1;
+	unsigned d2 = (stable2->charge & D_MASK) >> 5;
+	//
+	if (d1 != d2)
+	{
+		// SUPRESSED
+		//
+		return;
+	}
 	//
 	// Non-trivial colors?
 	//
@@ -387,9 +402,18 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 	unsigned c1 = (stable1->charge & C_MASK) & 7;
 	unsigned q1 = ((stable1->charge & Q_MASK) >> 3) & 1;
 	unsigned w1 = ((stable1->charge & W_MASK) >> 4) & 1;
+	unsigned d1 = (stable1->charge & D_MASK) >> 5;
 	unsigned c2 = (stable2->charge & C_MASK) & 7;
 	unsigned q2 = ((stable2->charge & Q_MASK) >> 3) & 1;
 	unsigned w2 = ((stable2->charge & W_MASK) >> 4) & 1;
+	unsigned d2 = (stable2->charge & D_MASK) >> 5;
+	//
+	if (d1 != d2)
+	{
+		// SUPRESSED
+		//
+		return;
+	}
 	//
 	// Quark x gluon?
 	//
@@ -523,16 +547,7 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 			{
 				// SUPRESSED
 			}
-			//
-			// Swap colors
-			//
-			int c1 = stable1->charge & C_MASK;
-			int c2 = stable2->charge & C_MASK;
-			draft1->charge &= ~C_MASK;
-			draft2->charge &= ~C_MASK;
-			draft1->charge |= c2;
-			draft2->charge |= c1;
-			polepole(draft1, draft2);
+			// SUPRESSED
 		}
 		// SUPRESSED
 	}
@@ -545,25 +560,37 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 		{
 			if (w1 == w2)
 			{
-				// SUPRESSED
+				if (c1 == c2 == 0 && w1 == 1)
+				{
+					polepole(draft1, draft2);
+				}
+				else if (c1 == c2 == 7 && w1 == 0)
+				{
+					polepole(draft1, draft2);
+				}
 			}
 			else
 			{
 				// SUPRESSED
 			}
-			// SUPRESSED
 		}
 		else
 		{
 			if (w1 == w2)
 			{
-				// SUPRESSED
+				if (c1 == c2 == 0 && w1 == 1)
+				{
+					polepole(draft1, draft2);
+				}
+				else if (c1 == c2 == 7 && w1 == 0)
+				{
+					polepole(draft1, draft2);
+				}
 			}
 			else
 			{
 				// SUPRESSED
 			}
-			// SUPRESSED
 		}
 		//
 		// Is it a propeller?
