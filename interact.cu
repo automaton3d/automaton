@@ -18,6 +18,8 @@
  */
 __device__ void cpcp(Cell* draft1, Cell* draft2, bool collapse)
 {
+	// Copy momentum information for flash
+	//
 	if (ALIGNED(draft1->o, draft1->p))
 	{
 		COPY(draft1->pole, draft1->p);
@@ -28,14 +30,18 @@ __device__ void cpcp(Cell* draft1, Cell* draft2, bool collapse)
 		COPY(draft1->pole, draft2->p);
 		COPY(draft2->pole, draft2->p);
 	}
+	//
+	// Start flash flooding
+	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
+	//
 	if (collapse)
 	{
-		draft1->f = 1;
-		draft2->f = 1;
-		draft1->b = 0;
-		draft2->b = 0;
+		// Disintegrate the packet
+		//
+		draft1->code = COLLAPSE;
+		draft2->code = COLLAPSE;
 	}
 }
 
@@ -44,8 +50,13 @@ __device__ void cpcp(Cell* draft1, Cell* draft2, bool collapse)
  */
 __device__ void polepole(Cell* draft1, Cell* draft2)
 {
+	// Copy momentum information for flash
+	//
 	COPY(draft1->pole, draft1->p);
 	COPY(draft2->pole, draft2->p);
+	//
+	// Start flash flooding
+	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
 }
@@ -55,6 +66,8 @@ __device__ void polepole(Cell* draft1, Cell* draft2)
  */
 __device__ void inertia(Cell* draft1, Cell* draft2)
 {
+	// Copy momentum information for flash
+	//
 	if (ALIGNED(draft1->o, draft1->p))
 	{
 		COPY(draft1->pole, draft2->p);
@@ -65,6 +78,9 @@ __device__ void inertia(Cell* draft1, Cell* draft2)
 		COPY(draft1->pole, draft1->p);
 		COPY(draft2->pole, draft1->p);
 	}
+	//
+	// Start flash flooding
+	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
 }

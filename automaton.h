@@ -15,6 +15,7 @@
 #define SIDE2		(SIDE*SIDE)
 #define SIDE3		(SIDE*SIDE2)
 #define SHIFT		(ORDER/2)
+#define S           (SIDE/2)
 
 // Physical symbols (used with variable code)
 
@@ -27,6 +28,7 @@
 #define QUARK       7
 #define FERMION     (ELECTRON | QUARK | NEUTRINO)
 #define BOSON       (PHOTON | GLUON | Z | W)
+#define COLLAPSE    0x02
 
 #define EXTRA		8
 
@@ -77,8 +79,6 @@ typedef struct
     unsigned char ctrl;
 
 } Cell;
-
-#define S   (SIDE/2)
 
 // Macros
 
