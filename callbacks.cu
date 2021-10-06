@@ -156,7 +156,7 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
-    printResults(false);
+    //printResults(false);
     //
     // Generate graphics
     //

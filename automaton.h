@@ -30,8 +30,6 @@
 #define BOSON       (PHOTON | GLUON | Z | W)
 #define COLLAPSE    0x02
 
-#define EXTRA		8
-
 // GPU symbols
 
 #if ORDER==5
@@ -66,17 +64,21 @@ typedef struct
     unsigned char dir;
     unsigned char wrap;
     bool active;
-    unsigned char flash;
     unsigned char f;
     short b;
     unsigned char charge;
-    char o[3], p[3], s[3], pole[3];
+    char o[3], p[3], s[3];
     char phi;
     unsigned char noise;
     unsigned char code;
     int synch;
     char sine, cosine;
     unsigned char ctrl;
+
+    // Superluminal variables
+
+    unsigned char flash;
+    char pole[3];
 
 } Cell;
 

@@ -226,7 +226,7 @@ __device__ Cell* getPointer(int dir, Cell *draft, char* vdir)
     return neighbor;
 }
 
-__device__ void spread(Cell* stable, Cell* draft, int floor)
+__device__ void spread(Cell* stable, Cell* draft)
 {
     // Update tracking info
     //
@@ -248,7 +248,7 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
     //
     // Spread cell contents if not empty
     //
-    if (draft->f > 0)
+    if (draft->f > 0 || draft->flash > 0)
     {
         draft->t++; 
         //
@@ -258,10 +258,12 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
         {
             RESET(draft->o);
             draft->t = 0;
+            draft->synch = LIGHT2;
         }
         //
         // Explore von Neumann directions
         //
+        bool propag = false;
         Cell* neighbor;
         for (int dir = 0; dir < 6; dir++)
         {
@@ -272,17 +274,22 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
             //
             if(isAllowed(dir, vdir, draft->o, draft->dir))
             {
-                // Superluminal signal spreads not synchronized
+                // Is a flash present?
                 //
                 if (stable->flash)
                 {
+                    // Superluminal signal spreads not synchronized
+                    //
                     neighbor->flash = stable->flash - 1;
+                    COPY(neighbor->pole, stable->pole);
                 }
                 //
                 // Bubble cells spread synchronized
                 //
                 if (draft->t * draft->t > draft->synch)
                 {
+                    // Copy necessary values
+                    //
                     neighbor->t = draft->t;
                     neighbor->dir = dir;
                     neighbor->f = stable->f;
@@ -299,11 +306,18 @@ __device__ void spread(Cell* stable, Cell* draft, int floor)
                     // Schedule for spherical evolution
                     //
                     neighbor->synch = LIGHT2 * MOD2(neighbor->o);
-                    //
-                    draft->f = 0;
-                    RESET(draft->p);
+                    propag = true;
                 }
             }
+        }
+        //
+        // Erase origin cell
+        //
+        draft->flash = 0;
+        if (propag)
+        {
+            draft->f = 0;
+            RESET(draft->p);
         }
     }
 }
@@ -323,7 +337,7 @@ __global__ void expand(Cell* lattice)
         }
         for (int v = 0; v < SIDE2; v++)
         {
-            spread(stable, draft, stable->floor);
+            spread(stable, draft);
             //
             // Next register
             //

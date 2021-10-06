@@ -904,7 +904,6 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 	}
 }
 
-
 /*
  * Compares two cells in adjacent columns. 
  */
@@ -964,8 +963,8 @@ __global__ void interact(Cell* lattice)
 			//
 			if (stable1->flash)
 			{
-				RESET(draft1->o);
-				draft1->t = 0;
+				RESET(draft1->o);	// ????
+				draft1->t = 0;		// ????
 			}
 			else
 			{

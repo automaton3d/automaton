@@ -6,11 +6,16 @@
 #include <assert.h>
 #include "automaton.h"
 
+/*
+ * Reverses roles. 
+ */
 __global__ void commute(Cell* lattice)
 {
 	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
 	if (xyz < SIDE3)
 	{
+		// Calculate pointers
+		//
 		Cell* draft = lattice + xyz;
 		Cell* stable = draft + SIDE2 * SIDE3;
 		if (draft->active)
@@ -19,6 +24,9 @@ __global__ void commute(Cell* lattice)
 			draft = stable;
 			stable = temp;
 		}
+		//
+		// Scan an entire column
+		//
 		for (int v = 0; v < SIDE2; v++)
 		{
 			// On the last tick, disassemble all pairs

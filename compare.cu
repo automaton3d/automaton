@@ -84,6 +84,8 @@ __global__ void compare(Cell* lattice)
 							//
 							if (ptr2->code == 0)
 							{
+								// Pair formation
+								//
 								unsigned char cc =
 									(ptr2->charge & C_MASK) ^ (ptr1->charge & C_MASK);
 								unsigned char ww =

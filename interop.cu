@@ -13,7 +13,7 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 	{
 		curandState state;
 		curand_init(0, id, 0, &state);
-		bool p = false, f = false;
+		bool p = false, flash = false;
 		Cell* cell = lattice + id;
 		//
 		// Calculate voxel color
@@ -34,7 +34,7 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 					else if (cell->f > 0)
 					{
 						floor = i;
-						f = true;
+						flash = true;
 					}
 				}
 				cell = nextV(cell);
@@ -47,8 +47,8 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 			//
 			if (!ISNULL(cell->p))
 				p = true;
-			else if (cell->f > 0)
-				f = true;
+			else if (cell->flash)
+				flash = true;
 		}
 		//
 		// Update voxel color
@@ -60,31 +60,16 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 			*ptr++ = 0;
 			*ptr = 0;
 		}
-		else if(f)
+		else if(flash)
 		{
+			*ptr++ = 0;
+			*ptr++ = 01;
+			*ptr = 0;
 			/*
-			switch (floor % 3)
-			{
-				case 0:
-					*ptr++ = 0;
-					*ptr++ = 1;
-					*ptr = 0;
-					break;
-				case 1:
-					*ptr++ = 0;
-					*ptr++ = 0;
-					*ptr = 1;
-					break;
-				case 2:
-					*ptr++ = 1;
-					*ptr++ = 1;
-					*ptr = 0;
-					break;
-			}
-			*/
 			*ptr++ = (MOD2(cell->o) & (SIDE-1))/ (float)SIDE;
 			*ptr++ = ((MOD2(cell->o) >> 8) & (SIDE - 1)) / (float)SIDE;
 			*ptr = ((MOD2(cell->o) >> 16) & (SIDE - 1)) / (float)SIDE;
+			*/
 		}
 		else
 		{

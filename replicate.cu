@@ -5,11 +5,16 @@
 #include <assert.h>
 #include "automaton.h"
 
+/*
+ * Lets the two columns equal. 
+ */
 __global__ void replicate(Cell* lattice)
 {
 	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
 	if (xyz < SIDE3)
 	{
+		// Calculate pointers
+		//
 		Cell* draft = lattice + xyz;
 		Cell* stable = draft + SIDE2 * SIDE3;
 		if (draft->active)
@@ -25,6 +30,8 @@ __global__ void replicate(Cell* lattice)
 		{
 			return;
 		}
+		//
+		// Scan the two columns
 		//
 		for (int v = 0; v < SIDE2; v++)
 		{
