@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "curand.h"
 #include "curand_kernel.h"
 
@@ -78,67 +79,68 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
         }
         else
         {
-            /*
-            switch (floor % 6)
+            switch ((x + SIDE*y) % 6)
             {
             case 0:
-                cell->s[0] = +SIDE / 2;
-                cell->p[1] = +SIDE / 2;
+                cell->p[0] = x - SIDE / 2;
+                cell->p[1] = y - SIDE / 2;
+                cell->p[2] = SIDE / 2;
+                //
+                cell->s[0] = y - SIDE / 2;
+                cell->s[1] = x - SIDE / 2;
+                cell->s[2] = -SIDE / 2;
                 break;
             case 1:
+                cell->p[0] = SIDE / 2;
+                cell->p[1] = x - SIDE / 2;
+                cell->p[2] = y - SIDE / 2;
+                //
                 cell->s[0] = -SIDE / 2;
-                cell->p[1] = -SIDE / 2;
+                cell->s[1] = y - SIDE / 2;
+                cell->s[2] = x - SIDE / 2;
                 break;
             case 2:
-                cell->s[1] = +SIDE / 2;
-                cell->p[2] = +SIDE / 2;
+                cell->p[0] = y - SIDE / 2;
+                cell->p[1] = SIDE / 2;
+                cell->p[2] = x - SIDE / 2;
+                //
+                cell->s[0] = x - SIDE / 2;
+                cell->s[1] = y - SIDE / 2;
+                cell->s[2] = SIDE / 2;
                 break;
             case 3:
-                cell->s[1] = -SIDE / 2;
+                cell->p[0] = y - SIDE / 2;
+                cell->p[1] = x - SIDE / 2;
                 cell->p[2] = -SIDE / 2;
+                //
+                cell->s[0] = x - SIDE / 2;
+                cell->s[1] = y - SIDE / 2;
+                cell->s[2] = SIDE / 2;
                 break;
             case 4:
-                cell->s[2] = +SIDE / 2;
-                cell->p[0] = +SIDE / 2;
+                cell->p[0] = -SIDE / 2;
+                cell->p[1] = y - SIDE / 2;
+                cell->p[2] = x - SIDE / 2;
+                //
+                cell->s[0] = SIDE / 2;
+                cell->s[1] = x - SIDE / 2;
+                cell->s[2] = y - SIDE / 2;
                 break;
             case 5:
-                cell->s[2] = -SIDE / 2;
-                cell->p[0] = -SIDE / 2;
+                cell->p[0] = x - SIDE / 2;
+                cell->p[1] = -SIDE / 2;
+                cell->p[2] = y - SIDE / 2;
+                //
+                cell->s[0] = y - SIDE / 2;
+                cell->s[1] = SIDE / 2;
+                cell->s[2] = x - SIDE / 2;
                 break;
             }
-            */
-            switch (curand(&state) % 3)
-            {
-            case 0: // xy
-                cell->s[0] = curand(&state) % 2 == 0 ? +1 : -1;
-                cell->s[0] *= curand(&state) % SIDE/2;
-                cell->s[1] = curand(&state) % 2 == 0 ? +1 : -1;
-                cell->s[1] *= curand(&state) % SIDE / 2;
-                cell->s[2] = curand(&state) % 2 == 0 ? SIDE / 2 : -SIDE / 2;
-                break;
-            case 1: // yz
-                cell->s[0] = curand(&state) % 2 == 0 ? SIDE / 2 : -SIDE / 2;
-                cell->s[1] = curand(&state) % 2 == 0 ? +1 : -1;
-                cell->s[1] *= curand(&state) % SIDE / 2;
-                cell->s[2] = curand(&state) % 2 == 0 ? +1 : -1;
-                cell->s[2] *= curand(&state) % SIDE / 2;
-                break;
-            case 2: // zx
-                cell->s[0] = curand(&state) % 2 == 0 ? +1 : -1;
-                cell->s[0] *= curand(&state) % SIDE / 2;
-                cell->s[1] = curand(&state) % 2 == 0 ? SIDE / 2 : -SIDE / 2;
-                cell->s[2] = curand(&state) % 2 == 0 ? +1 : -1;
-                cell->s[2] *= curand(&state) % SIDE / 2;
-                break;
-            }
-            cell->p[0] = -cell->s[0];
-            cell->p[1] = -cell->s[1];
-            cell->p[2] = -cell->s[2];
         }
     }
     //
     RESET(cell->o);
-    cell->flash = false;
+    cell->flash = 0;
     cell->sine = 0;
     cell->cosine = SIDE / 2;
 }

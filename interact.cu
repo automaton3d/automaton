@@ -43,6 +43,7 @@ __device__ void cpcp(Cell* draft1, Cell* draft2, bool collapse)
 		draft1->code = COLLAPSE;
 		draft2->code = COLLAPSE;
 	}
+	printf("cpcp\n");
 }
 
 /*
@@ -59,6 +60,7 @@ __device__ void polepole(Cell* draft1, Cell* draft2)
 	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
+	printf("polepole\n");
 }
 
 /*
@@ -83,6 +85,7 @@ __device__ void inertia(Cell* draft1, Cell* draft2)
 	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
+	printf("inertia\n");
 }
 
 __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
@@ -961,13 +964,13 @@ __global__ void interact(Cell* lattice)
 		{
 			// If the re-emission cell was reached, reset the pole vector to the free bubble
 			//
-			if (stable1->flash)
-			{
-				RESET(draft1->o);	// ????
-				draft1->t = 0;		// ????
-			}
-			else
-			{
+		//	if (stable1->flash)
+			//{
+				//RESET(draft1->o);	// ????
+				//draft1->t = 0;		// ????
+		//	}
+			//else
+			//{
 				Cell* stable2 = stable;
 				Cell* draft2 = draft;
 				for (int j = 0; j < SIDE2; j++)
@@ -979,7 +982,7 @@ __global__ void interact(Cell* lattice)
 					stable2 = nextV(stable2);
 					draft2 = nextV(draft2);
 				}
-			}
+			//}
 			//
 			stable1 = nextV(stable1);
 			draft1 = nextV(draft1);

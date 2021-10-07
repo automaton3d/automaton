@@ -259,6 +259,7 @@ __device__ void spread(Cell* stable, Cell* draft)
             RESET(draft->o);
             draft->t = 0;
             draft->synch = LIGHT2;
+            printf("BINGO\n");
         }
         //
         // Explore von Neumann directions
