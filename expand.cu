@@ -271,20 +271,18 @@ __device__ void spread(Cell* stable, Cell* draft)
             char vdir[3] = { 0, 0, 0 };
             neighbor = getPointer(dir, draft, (char*)vdir);
             //
+            // Is flash active?
+            //
+            if (stable->flash > 0 && neighbor->flash == 0)
+            {
+                neighbor->flash = stable->flash;
+                COPY(neighbor->pole, stable->pole);
+            }
+            //
             // Test if branch is legal
             //
             if(isAllowed(dir, vdir, draft->o, draft->dir))
             {
-                // Is a flash present?
-                //
-                if (stable->flash)
-                {
-                    // Superluminal signal spreads not synchronized
-                    //
-                    neighbor->flash = stable->flash - 1;
-                    COPY(neighbor->pole, stable->pole);
-                }
-                //
                 // Bubble cells spread synchronized
                 //
                 if (draft->t * draft->t > draft->synch)
@@ -297,9 +295,9 @@ __device__ void spread(Cell* stable, Cell* draft)
                     neighbor->b = stable->b;
                     neighbor->charge = stable->charge;
                     //
-                    neighbor->o[0] = stable->o[0] + vdir[0];
-                    neighbor->o[1] = stable->o[1] + vdir[1];
-                    neighbor->o[2] = stable->o[2] + vdir[2];
+                    neighbor->o[0] = (stable->o[0] + vdir[0]) & (SIDE - 1);
+                    neighbor->o[1] = (stable->o[1] + vdir[1]) & (SIDE - 1);
+                    neighbor->o[2] = (stable->o[2] + vdir[2]) & (SIDE - 1);
                     //
                     COPY(neighbor->s, stable->s);
                     COPY(neighbor->p, stable->p);
@@ -312,11 +310,17 @@ __device__ void spread(Cell* stable, Cell* draft)
             }
         }
         //
-        // Erase origin cell
+        // Decrement flash
         //
-        draft->flash = 0;
+        if (draft->flash > 0)
+            draft->flash--;
+        //
+        // Bubble propagated?
+        //
         if (propag)
         {
+            // Erase origin cell
+            //
             draft->f = 0;
             RESET(draft->p);
         }

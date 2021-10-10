@@ -17,7 +17,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     int x = xyz & (SIDE-1);
     int y = (xyz >> ORDER) & (SIDE - 1);
     int z = (xyz >> (2 * ORDER));
-    cell->floor = floor;                        // DEBUG
+    cell->floor = floor;
     //
     // Variable wrap is a hint for wrapping in other kernels
     //
@@ -39,25 +39,32 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     if (!cell->active)
         cell->wrap |= 0x01;
     //
+    // Initialize simple variables
+    //
     cell->t = 0;
     cell->noise = floor;
     cell->f = 0;
     cell->b = 0;
-    cell->synch = -1;
+    cell->synch = 0;
     cell->charge = 0;
     cell->ctrl = 0;
+    cell->flash = 0;
+    cell->sine = 0;
+    cell->cosine = SIDE / 2;
     RESET(cell->p);
     RESET(cell->s);
+    RESET(cell->o);
+    //
+    // Cell belongs to the hologram?
+    //
     if (z == SIDE/2 && (x + SIDE * y) == floor)
     {
+        // Initialize charges, spin and momentum
+        //
         cell->f = 1;
         if (x < SIDE / 2)
         {
             cell->charge |= D_MASK;
-        }
-        else
-        {
-            cell->charge &= ~D_MASK;
         }
         //
         unsigned char tiling = (x % 2) ^ (y % 2);
@@ -74,11 +81,15 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
         //
         if (x == SIDE - 1)
         {
+            // Enforce monopole
+            //
             cell->s[2] = (cell->charge & D_MASK) ? -SIDE / 2 : +SIDE / 2;
             cell->p[2] = (floor % 2) ? +SIDE / 2 : -SIDE / 2;
         }
         else
         {
+            // Isotropic distribution
+            //
             switch ((x + SIDE*y) % 6)
             {
             case 0:
@@ -138,11 +149,6 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
             }
         }
     }
-    //
-    RESET(cell->o);
-    cell->flash = 0;
-    cell->sine = 0;
-    cell->cosine = SIDE / 2;
 }
 
 __global__ void hologram(Cell* lattice)

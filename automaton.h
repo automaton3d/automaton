@@ -59,8 +59,8 @@
 
 typedef struct
 {
-    int t;
-    unsigned short floor;        // DEBUG
+    short t;
+    unsigned short floor;
     unsigned char dir;
     unsigned char wrap;
     bool active;
@@ -71,7 +71,7 @@ typedef struct
     char phi;
     unsigned char noise;
     unsigned char code;
-    int synch;
+    unsigned short synch;
     char sine, cosine;
     unsigned char ctrl;
 
