@@ -15,16 +15,21 @@ __device__ bool compareCells(Cell* cell, int xyz)
     int y = (xyz >> ORDER) & (SIDE - 1);
     int z = (xyz >> (2 * ORDER));
     //
-    /*
     if (cell->t != 0)
         return false;
+    /*
     if(cell->noise != cell->floor)
         return false;
-//    cell->b = 0;
+*/
+    if(cell->b != 0)
+        return false;
     if (cell->synch != 0)
         return false;
-//    cell->ctrl = 0;
-//    cell->flash = 0;
+    if(cell->ctrl != 0)
+        return false;
+    if(cell->flash != 0)
+        return false;
+    /*
     if(cell->sine != 0)
         return false;
     if(cell->cosine != SIDE / 2)
@@ -35,7 +40,6 @@ __device__ bool compareCells(Cell* cell, int xyz)
     //
     // Cell belongs to the hologram?
     //
-    /*
     if (z == SIDE / 2 && (x + SIDE * y) == cell->floor)
     {
         // Initialize charges, spin and momentum
@@ -161,7 +165,6 @@ __device__ bool compareCells(Cell* cell, int xyz)
         if (cell->f != 0)
             return false;
     }
-    */
     return true;
 }
 
