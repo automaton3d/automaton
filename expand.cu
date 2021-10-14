@@ -330,6 +330,7 @@ __device__ void spread(Cell* stable, Cell* draft)
                 //
                 draft->f = 0;
                 RESET(draft->p);
+                RESET(draft->o);    // Patch
             }
         }
     }

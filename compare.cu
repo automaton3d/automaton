@@ -34,6 +34,7 @@ __global__ void compare(Cell* lattice)
 		{
 			// Shift 'vertically' the passive column
 			//
+			/*
 			ptr2 = draft;
 			Cell temp = *ptr2;
 			for (int j = 0; j < SIDE2; j++)
@@ -54,6 +55,7 @@ __global__ void compare(Cell* lattice)
 				//
 				ptr2 = next;
 			}
+			*/
 			/*
 			//
 			// Compare 'columns'
