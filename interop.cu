@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include "automaton.h"
+#include "automaton.cuh"
 #include "curand.h"
 #include "curand_kernel.h"
 #include "cglm/vec3.h"
@@ -63,13 +63,8 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 		else if(flash)
 		{
 			*ptr++ = 0;
-			*ptr++ = 01;
+			*ptr++ = 1;
 			*ptr = 0;
-			/*
-			*ptr++ = (MOD2(cell->o) & (SIDE-1))/ (float)SIDE;
-			*ptr++ = ((MOD2(cell->o) >> 8) & (SIDE - 1)) / (float)SIDE;
-			*ptr = ((MOD2(cell->o) >> 16) & (SIDE - 1)) / (float)SIDE;
-			*/
 		}
 		else
 		{

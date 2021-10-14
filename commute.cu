@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "automaton.h"
+#include "automaton.cuh"
 
 /*
  * Reverses roles. 
@@ -48,6 +48,11 @@ __global__ void commute(Cell* lattice)
 			COPY(stable->s, draft->s);
 			COPY(stable->o, draft->o);
 			stable->flash = draft->flash;
+
+
+
+			if (v == 173 && stable->t > 61 && stable->f > 0 && MOD2(stable->o) < 2)
+				printf("mod2(o)=%d\n", stable->t);
 			//
 			// Commute roles
 			//

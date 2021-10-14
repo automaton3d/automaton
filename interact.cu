@@ -11,7 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "automaton.h"
+#include "automaton.cuh"
 
 /*
  * Both re-emmited from CP.
@@ -923,6 +923,7 @@ __device__ void compareCols(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 		COPY(draft1->pole, stable2->p);
 		COPY(draft2->pole, stable1->p);
 		//
+		/*
 		if (stable1->code == BOSON && stable2->code == BOSON)
 			bosonxboson(stable1, stable2, draft1, draft2);
 		else if (stable1->code == BOSON && stable2->code == FERMION)
@@ -931,6 +932,7 @@ __device__ void compareCols(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 			fermionxboson(stable1, stable2, draft1, draft2);
 		else
 			fermionxfermion(stable1, stable2, draft1, draft2);
+			*/
 	}
 }
 

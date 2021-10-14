@@ -10,12 +10,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <assert.h>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include <cuda_gl_interop.h>
 
 #include "cglm/vec3.h"
-#include "automaton.h"
+#include "automaton.cuh"
 
 extern unsigned int shaderProgram, axesProgram;
 extern unsigned int gridVAO, axesVAO;
@@ -69,7 +70,7 @@ void printResults(bool full)
             for (int y = 0; y < SIDE; y++)
                 for (int x = 0; x < SIDE; x++)
                 {
-                    if(!ISNULL(cell->p))
+                    if(cell->f)
                         printf("t=%d: [%d, %d, %d] floor=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] f=%d\n", 
                             cell->t, x, y, z, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->f);
                     cell++;
@@ -156,6 +157,24 @@ void animation()
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
+    int h_count;
+    int* d_count;
+    cudaMalloc(&d_count, sizeof(int));
+    poincare << <GRID, BLOCK >> > (dev_lattice, d_count);
+    cudaStatus = cudaDeviceSynchronize();
+    if (cudaStatus != cudaSuccess)
+    {
+        puts("Poincaré error");
+        perror(cudaGetErrorString(cudaStatus));
+        exit(1);
+    }
+    cudaMemcpy(&h_count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
+    //printf("BINGO! %d\n", h_count);
+
+    if (h_count == 0)
+        printf("Poincareh cycle: %ld\n", step);
+    cudaFree(d_count);
+    //
     //printResults(false);
     //
     // Generate graphics

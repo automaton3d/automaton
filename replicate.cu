@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
-#include "automaton.h"
+#include "automaton.cuh"
 
 /*
  * Lets the two columns equal. 

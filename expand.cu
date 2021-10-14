@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "automaton.h"
+#include "automaton.cuh"
 
 /*
  * Tests whether the direction dir is a valid path in the visit-once-tree.
@@ -195,32 +195,32 @@ __device__ Cell* getPointer(int dir, Cell *draft, char* vdir)
             neighbor--;
         break;
     case 2:
-        *(++vdir) = +1;
+        *(vdir+1) = +1;
         if (draft->wrap & 0x10)
             neighbor -= (SIDE2 - SIDE);
         else
             neighbor += SIDE;
         break;
     case 3:
-        *(++vdir) = -1;
+        *(vdir+1) = -1;
         if (draft->wrap & 0x20)
             neighbor += (SIDE2 - SIDE);
         else
             neighbor -= SIDE;
         break;
     case 4:
-        *(++(++vdir)) = +1;
+        *(vdir+2) = +1;
         if (draft->wrap & 0x04)
             neighbor -= (SIDE3 - SIDE2);
         else
             neighbor += SIDE2;
         break;
     case 5:
-        *(++(++vdir)) = -1;
+        *(vdir+2) = -1;
         if (draft->wrap & 0x08)
-            neighbor = draft + (SIDE3 - SIDE2);
+            neighbor += (SIDE3 - SIDE2);
         else
-            neighbor = draft - SIDE2;
+            neighbor -= SIDE2;
         break;
     }
     return neighbor;
@@ -248,7 +248,7 @@ __device__ void spread(Cell* stable, Cell* draft)
     //
     // Spread cell contents if not empty
     //
-    if (draft->f > 0 || draft->flash > 0)
+    if (stable->f > 0 || draft->flash > 0)
     {
         draft->t++; 
         //
@@ -264,8 +264,8 @@ __device__ void spread(Cell* stable, Cell* draft)
         //
         // Explore von Neumann directions
         //
-        bool propag = false;
         Cell* neighbor;
+        bool ready = stable->f > 0 && stable->t * stable->t > stable->synch;
         for (int dir = 0; dir < 6; dir++)
         {
             char vdir[3] = { 0, 0, 0 };
@@ -281,32 +281,26 @@ __device__ void spread(Cell* stable, Cell* draft)
             //
             // Test if branch is legal
             //
-            if(isAllowed(dir, vdir, draft->o, draft->dir))
+            if(ready && isAllowed(dir, vdir, stable->o, stable->dir))
             {
-                // Bubble cells spread synchronized
+                // Copy necessary values
                 //
-                if (draft->t * draft->t > draft->synch)
-                {
-                    // Copy necessary values
-                    //
-                    neighbor->t = draft->t;
-                    neighbor->dir = dir;
-                    neighbor->f = stable->f;
-                    neighbor->b = stable->b;
-                    neighbor->charge = stable->charge;
-                    //
-                    neighbor->o[0] = (stable->o[0] + vdir[0]) & (SIDE - 1);
-                    neighbor->o[1] = (stable->o[1] + vdir[1]) & (SIDE - 1);
-                    neighbor->o[2] = (stable->o[2] + vdir[2]) & (SIDE - 1);
-                    //
-                    COPY(neighbor->s, stable->s);
-                    COPY(neighbor->p, stable->p);
-                    //
-                    // Schedule for spherical evolution
-                    //
-                    neighbor->synch = LIGHT2 * MOD2(neighbor->o);
-                    propag = true;
-                }
+                neighbor->t = draft->t;
+                neighbor->dir = dir;
+                neighbor->f = stable->f;
+                neighbor->b = stable->b;
+                neighbor->charge = stable->charge;
+                //
+                neighbor->o[0] = (stable->o[0] + vdir[0]);
+                neighbor->o[1] = (stable->o[1] + vdir[1]);
+                neighbor->o[2] = (stable->o[2] + vdir[2]);
+                //
+                COPY(neighbor->s, stable->s);
+                COPY(neighbor->p, stable->p);
+                //
+                // Schedule for spherical evolution
+                //
+                neighbor->synch = LIGHT2 * MOD2(neighbor->o);
             }
         }
         //
@@ -317,12 +311,26 @@ __device__ void spread(Cell* stable, Cell* draft)
         //
         // Bubble propagated?
         //
-        if (propag)
+        if (ready)
         {
-            // Erase origin cell
-            //
-            draft->f = 0;
-            RESET(draft->p);
+            if (MOD2(stable->o) == 3 * SIDE * SIDE / 4)
+            {
+                // Reissue by wrapping
+                //
+                if(stable->floor == 173)
+                    printf("wrap t=%d o=(%d,%d,%d) stable=%p\n", stable->t, stable->o[0], stable->o[1], stable->o[2], stable);
+
+                RESET(draft->o);
+                draft->synch = 0;
+                draft->t = 0;
+            }
+            else
+            {
+                // Erase origin cell
+                //
+                draft->f = 0;
+                RESET(draft->p);
+            }
         }
     }
 }

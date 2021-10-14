@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <GL/glut.h>
-#include "automaton.h"
+#include "automaton.cuh"
 
 extern float yaw, pitch;
 extern int sublattice;

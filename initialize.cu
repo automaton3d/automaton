@@ -7,17 +7,16 @@
 #include "curand.h"
 #include "curand_kernel.h"
 
-#include "automaton.h"
+#include "automaton.cuh"
 
 __device__ curandState state;
 
-__device__ void initCell(Cell* cell, int floor, int xyz)
+__device__ void initCell(Cell* cell, int xyz)
 {
     curand_init(0, xyz, 0, &state);
     int x = xyz & (SIDE-1);
     int y = (xyz >> ORDER) & (SIDE - 1);
     int z = (xyz >> (2 * ORDER));
-    cell->floor = floor;
     //
     // Variable wrap is a hint for wrapping in other kernels
     //
@@ -34,7 +33,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
         cell->wrap |= 0x80;
     else if (x == SIDE - 1)
         cell->wrap |= 0x40;
-    if (floor == SIDE2 - 1)
+    if (cell->floor == SIDE2 - 1)
         cell->wrap |= 0x02;
     if (!cell->active)
         cell->wrap |= 0x01;
@@ -42,10 +41,10 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     // Initialize simple variables
     //
     cell->t = 0;
-    cell->noise = floor;
+    cell->noise = cell->floor;
     cell->f = 0;
     cell->b = 0;
-    cell->synch = 0;
+    cell->synch = 0;// LIGHT2;
     cell->charge = 0;
     cell->ctrl = 0;
     cell->flash = 0;
@@ -57,7 +56,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     //
     // Cell belongs to the hologram?
     //
-    if (z == SIDE/2 && (x + SIDE * y) == floor)
+    if (z == SIDE/2 && (x + SIDE * y) == cell->floor)
     {
         // Initialize charges, spin and momentum
         //
@@ -84,7 +83,7 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
             // Enforce monopole
             //
             cell->s[2] = (cell->charge & D_MASK) ? -SIDE / 2 : +SIDE / 2;
-            cell->p[2] = (floor % 2) ? +SIDE / 2 : -SIDE / 2;
+            cell->p[2] = (cell->floor % 2) ? +SIDE / 2 : -SIDE / 2;
         }
         else
         {
@@ -151,6 +150,8 @@ __device__ void initCell(Cell* cell, int floor, int xyz)
     }
 }
 
+__shared__ Cell *mirror;
+
 __global__ void hologram(Cell* lattice)
 {
     // Calculate 3d index
@@ -164,7 +165,8 @@ __global__ void hologram(Cell* lattice)
         for (int floor = 0; floor < SIDE2; floor++)
         {
             cell->active = true;
-            initCell(cell, floor, xyz);
+            cell->floor = floor;
+            initCell(cell, xyz);
             cell = nextV(cell);
         }
         //
@@ -174,7 +176,8 @@ __global__ void hologram(Cell* lattice)
         for (int floor = 0; floor < SIDE2; floor++)
         {
             cell->active = false;
-            initCell(cell, floor, xyz);
+            cell->floor = floor;
+            initCell(cell, xyz);
             cell = nextV(cell);
         }
     }

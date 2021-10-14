@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "automaton.h"
+#include "automaton.cuh"
 
 /*
  * Compares two columns to update variables f and code.
@@ -54,6 +54,7 @@ __global__ void compare(Cell* lattice)
 				//
 				ptr2 = next;
 			}
+			/*
 			//
 			// Compare 'columns'
 			//
@@ -128,6 +129,7 @@ __global__ void compare(Cell* lattice)
 				ptr1 = nextV(ptr1);
 				ptr2 = nextV(ptr2);
 			}
+			*/
 		}
 	}
 }

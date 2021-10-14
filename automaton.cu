@@ -9,7 +9,7 @@
 #include <cuda_gl_interop.h>
 
 #include "callbacks.h"
-#include "automaton.h"
+#include "automaton.cuh"
 #include "cglm/mat4.h"
 #include "cglm/affine.h"
 #include "cglm/cglm.h"
@@ -17,7 +17,7 @@
 #include "cglm/cam.h"
 #include "cglm/vec3.h"
 
-#include "automaton.h"
+#include "automaton.cuh"
 
 const char* vertexShaderSource = "#version 460 core\n"
 "layout(location = 0) in vec3 aPos;\n"
@@ -41,7 +41,7 @@ const char* vertexShaderSource = "#version 460 core\n"
 #endif
 "	gl_Position = projection * view * model * vec4(aPos + aOffset, 1.0);\n"
 "	if(aColor.x==0.6 && aColor.y==0.6 && aColor.z==0.8)\n"
-"		fColor = vec4(aColor, 0.2);\n"
+"		fColor = vec4(aColor, 0.07);\n"
 "	else\n"
 "		fColor = vec4(aColor, 1.0);\n"
 "}\0";
