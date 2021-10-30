@@ -234,15 +234,7 @@ __device__ void spread(Cell* stable, Cell* draft)
     {
         // Track decay
         //
-        draft->phi *= (1 - 1 / (2 * draft->t));
-        //
-        // Minsky circle algorithm
-        //
-        int xNew = draft->cosine - (draft->sine >> SHIFT);
-        int yNew = draft->sine + (draft->cosine >> SHIFT);
-        draft->cosine = xNew;
-        draft->sine = yNew;
-        //
+        draft->span *= (1 - 1 / (2 * draft->t));
         draft->ctrl--;
     }
     //
@@ -250,22 +242,36 @@ __device__ void spread(Cell* stable, Cell* draft)
     //
     if (stable->f > 0 || draft->flash > 0)
     {
-        draft->t++; 
+        draft->t++;
+        //
+        // Last tick?
+        //
+        if (stable->t % LIGHT == 0)
+        {
+            // Sine recursive algorithm
+            //
+            draft->v = (K2D * stable->v + K2N * ((K1D * stable->u - K1N * stable->v) / K1D)) / K2D;
+            draft->u = (K1D * ((K1D * stable->u - K1N * stable->v) / K1D) - K1N * draft->v) / K1D;
+            //
+            if (stable->floor == 173)
+                printf("%d[%d]: v=%d\n", stable->t, stable->t/LIGHT, draft->v / SIDE);
+        }
         //
         // Re-emmited?
         //
         if (stable->flash && ALIGNED(stable->o, stable->pole))
         {
-            RESET(draft->o);
             draft->t = 0;
-            draft->synch = LIGHT2;
+            draft->sync = LIGHT2;
+            draft->span = MOD2(stable->o);
+            RESET(draft->o);
             printf("BINGO\n");
         }
         //
         // Explore von Neumann directions
         //
         Cell* neighbor;
-        bool ready = stable->f > 0 && stable->t * stable->t > stable->synch;
+        bool ready = stable->f > 0 && stable->t * stable->t > stable->sync;
         for (int dir = 0; dir < 6; dir++)
         {
             char vdir[3] = { 0, 0, 0 };
@@ -288,8 +294,10 @@ __device__ void spread(Cell* stable, Cell* draft)
                 neighbor->t = draft->t;
                 neighbor->dir = dir;
                 neighbor->f = stable->f;
-                neighbor->b = stable->b;
+                neighbor->a = stable->a;
                 neighbor->charge = stable->charge;
+                neighbor->u = draft->u;
+                neighbor->v = draft->v;
                 //
                 neighbor->o[0] = (stable->o[0] + vdir[0]);
                 neighbor->o[1] = (stable->o[1] + vdir[1]);
@@ -300,7 +308,7 @@ __device__ void spread(Cell* stable, Cell* draft)
                 //
                 // Schedule for spherical evolution
                 //
-                neighbor->synch = LIGHT2 * MOD2(neighbor->o);
+                neighbor->sync = LIGHT2 * MOD2(neighbor->o);
             }
         }
         //
@@ -313,15 +321,23 @@ __device__ void spread(Cell* stable, Cell* draft)
         //
         if (ready)
         {
+            // Clean data
+            //
+            draft->code = 0;
+            draft->u = SIDE2 / 2;
+            draft->v = 0;
+            RESET(draft->o);
+            //
+            // Bubble meets itself?
+            //
             if (MOD2(stable->o) == 3 * SIDE * SIDE / 4)
             {
                 // Reissue by wrapping
                 //
                 if(stable->floor == 173)
-                    printf("wrap t=%d o=(%d,%d,%d) stable=%p\n", stable->t, stable->o[0], stable->o[1], stable->o[2], stable);
+                    printf("wrap t=%d o=(%d,%d,%d) sine=%d stable=%p\n", stable->t, stable->v/SIDE, stable->o[0], stable->o[1], stable->o[2], stable);
 
-                RESET(draft->o);
-                draft->synch = 0;
+                draft->sync = 0;
                 draft->t = 0;
             }
             else
@@ -330,7 +346,6 @@ __device__ void spread(Cell* stable, Cell* draft)
                 //
                 draft->f = 0;
                 RESET(draft->p);
-                RESET(draft->o);    // Patch
             }
         }
     }

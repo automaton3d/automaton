@@ -71,8 +71,8 @@ void printResults(bool full)
                 for (int x = 0; x < SIDE; x++)
                 {
                     if(cell->f)
-                        printf("t=%d: [%d, %d, %d] floor=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] f=%d\n", 
-                            cell->t, x, y, z, cell->b, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->f);
+                        printf("t=%d: [%d, %d, %d] floor=%d, noise=%d p=[%d,%d,%d] o=[%d,%d,%d] f=%d u=%d v=%d\n", 
+                            cell->t, x, y, z, cell->a, cell->noise, cell->p[0], cell->p[1], cell->p[2], cell->o[0], cell->o[1], cell->o[2], cell->f, cell->u, cell->v);
                     cell++;
                 }
     }
@@ -175,7 +175,7 @@ void animation()
         printf("Poincareh cycle: %ld\n", step);
     cudaFree(d_count);
     //
-    //printResults(false);
+    // printResults(false);
     //
     // Generate graphics
     //

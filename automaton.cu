@@ -436,6 +436,7 @@ int initOpenGL(int argc, char** argv)
  */
 int main(int argc, char** argv)
 {
+	printf("%d\n", LIGHT);
 	initCuda();
 	printResults(true);
 	initOpenGL(argc, argv);

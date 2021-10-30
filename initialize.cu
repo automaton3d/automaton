@@ -43,13 +43,13 @@ __device__ void initCell(Cell* cell, int xyz)
     cell->t = 0;
     cell->noise = cell->floor;
     cell->f = 0;
-    cell->b = 0;
-    cell->synch = 0;// LIGHT2;
-    cell->charge = 0;
+    cell->a = cell->floor;
+    cell->sync = 0;
+    cell->charge = 0x00;
     cell->ctrl = 0;
     cell->flash = 0;
-    cell->sine = 0;
-    cell->cosine = SIDE / 2;
+    cell->v = 0;
+    cell->u = SIDE2 / 2;
     RESET(cell->p);
     RESET(cell->s);
     RESET(cell->o);

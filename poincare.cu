@@ -21,20 +21,18 @@ __device__ bool compareCells(Cell* cell, int xyz)
     if(cell->noise != cell->floor)
         return false;
 */
-    if(cell->b != 0)
+    if(cell->a != cell->floor)
         return false;
-    if (cell->synch != 0)
+    if (cell->sync != 0)
         return false;
     if(cell->ctrl != 0)
         return false;
     if(cell->flash != 0)
         return false;
-    /*
-    if(cell->sine != 0)
+    if(cell->v != 0)
         return false;
-    if(cell->cosine != SIDE / 2)
+    if(cell->u != SIDE / 2)
         return false;
-    */
     if(!ISNULL(cell->o))
         return false;
     //

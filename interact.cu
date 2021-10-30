@@ -629,7 +629,7 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 		//
 		// Is it a propeller?
 		//
-		if (stable1->b == stable2->b)
+		if (stable1->a == stable2->a)
 		{
 			// Inertia
 			//
@@ -914,8 +914,8 @@ __device__ void compareCols(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 {
 	// Play pseudo dices
 	//
-	if (stable1->noise > abs(stable1->phi) &&
-		stable2->noise > abs(stable2->phi) &&
+	if (stable1->noise > abs(stable1->span) &&
+		stable2->noise > abs(stable2->span) &&
 		(!ISNULL(stable1->p) || !ISNULL(stable2->p)))
 	{
 		// Preserve momentum for parallel transport
@@ -978,7 +978,7 @@ __global__ void interact(Cell* lattice)
 				for (int j = 0; j < SIDE2; j++)
 				{
 					if (i != j && stable1->f > 0 && stable2->f > 0 &&
-						stable1->b != stable2->b && !ISEQUAL(stable1->o, stable2->o))
+						stable1->a != stable2->a && !ISEQUAL(stable1->o, stable2->o))
 						compareCols(stable1, stable2, draft1, draft2);
 					//
 					stable2 = nextV(stable2);

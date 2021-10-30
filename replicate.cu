@@ -37,8 +37,11 @@ __global__ void replicate(Cell* lattice)
 		{
 			// Copy only variables that changed in compare()
 			//
+			stable->a = draft->a;
 			stable->f = draft->f;
 			stable->code = draft->code;
+			assert(stable->u == draft->u);
+			assert(stable->v == draft->v);
 			//
 			// Next register
 			//

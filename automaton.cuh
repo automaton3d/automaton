@@ -1,12 +1,13 @@
 #pragma once
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "ratnum.cuh"
 
 #include "cglm/vec3.h"
 
 // CA symbols
 
-#define ORDER		4           // 212 for the true universe
+#define ORDER		4           // 268 for the true universe  :)
 #define SIDE		(1<<ORDER)
 #define MASK		(SIDE-1)
 #define DIAG		(2*MASK)
@@ -16,6 +17,10 @@
 #define SIDE3		(SIDE*SIDE2)
 #define SHIFT		(ORDER/2)
 #define S           (SIDE/2)
+#define K1N         6551
+#define K1D         125000
+#define K2N         6533
+#define K2D         62500
 
 // Physical symbols (used with variable code)
 
@@ -30,28 +35,12 @@
 #define BOSON       (PHOTON | GLUON | Z | W)
 #define COLLAPSE    0x02
 
-// GPU symbols
-
-#if ORDER==5
-  #define GRID       256
-  #define BLOCK      128
-#elif ORDER==4
-  #define GRID       32
-  #define BLOCK      128
-#else
-  #define GRID       16
-  #define BLOCK      32
-#endif
-
-// Charge masks
+// Color symbols
 
 #define C_MASK      0x07
 #define Q_MASK      0x08
 #define W_MASK      0x10
 #define D_MASK      0x20
-
-// Color symbols
-
 #define NEUTRAL     1
 #define NEUTRAL_BAR	2
 
@@ -59,26 +48,48 @@
 
 typedef struct
 {
-    unsigned t;
-    unsigned short floor;
-    unsigned char dir;
-    unsigned char wrap;
     bool active;
-    unsigned char f;
-    short b;
-    unsigned char charge;
-    char o[3], p[3], s[3];
-    char phi;
-    unsigned char noise;
-    unsigned char code;
-    unsigned synch;
-    char sine, cosine;
-    unsigned char ctrl;
+
+    // Physical properties
+
+    unsigned char charge;   // charge bits d, c2, c1, c0, w, q
+    char p[3], s[3];        // momentum and spin
+    unsigned char f;        // frequency
+    short a;                // affinity
+
+    // Wavefront
+
+    unsigned t;             // absolute timelife
+    unsigned char dir;      // legal path
+    char o[3];              // origin vector
+    unsigned sync;          // synchronization 
+    long u, v;              // harmonic phase
 
     // Superluminal variables
 
-    unsigned char flash;
-    char pole[3];
+    unsigned char flash;    // messenger flag
+    char pole[3];           // target
+
+    // Footprint
+
+    unsigned short span;
+    unsigned t_foot;
+
+    // Particle boson
+
+    ratnum p_foot;
+
+    // Lattice boson
+
+    ratnum p_lattice;
+
+    // Auxiliary variables
+
+    unsigned char noise;
+    unsigned char code;
+    unsigned char ctrl;
+    unsigned short floor;
+    unsigned char wrap;
 
 } Cell;
 
@@ -93,6 +104,19 @@ typedef struct
 #define ALIGNED(u,v)    (u[1]*v[2]-u[2]*v[1]+u[2]*v[0]-u[0]*v[2]+u[0]*v[1]-u[1]*v[0]==0)
 
 #define FLOOR           173
+
+// GPU symbols
+
+#if ORDER==5
+#define GRID       256
+#define BLOCK      128
+#elif ORDER==4
+#define GRID       32
+#define BLOCK      128
+#else
+#define GRID       16
+#define BLOCK      32
+#endif
 
 // Kernels
 
