@@ -358,12 +358,6 @@ __global__ void expand(Cell* lattice)
     {
         Cell* draft = lattice + xyz;
         Cell* stable = lattice + xyz + SIDE2 * SIDE3;
-        if (draft->active)
-        {
-            Cell* temp = draft;
-            draft = stable;
-            stable = temp;
-        }
         for (int v = 0; v < SIDE2; v++)
         {
             spread(stable, draft);

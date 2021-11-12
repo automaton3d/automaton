@@ -18,12 +18,6 @@ __global__ void compare(Cell* lattice)
 		//
 		Cell* draft = lattice + xyz;
 		Cell* stable = draft + SIDE2 * SIDE3;
-		if (draft->active)
-		{
-			Cell* temp = draft;
-			draft = stable;
-			stable = temp;
-		}
 		//
 		// Not the last tick?
 		//

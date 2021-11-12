@@ -18,12 +18,6 @@ __global__ void commute(Cell* lattice)
 		//
 		Cell* draft = lattice + xyz;
 		Cell* stable = draft + SIDE2 * SIDE3;
-		if (draft->active)
-		{
-			Cell* temp = draft;
-			draft = stable;
-			stable = temp;
-		}
 		//
 		// Scan an entire column
 		//
@@ -53,11 +47,6 @@ __global__ void commute(Cell* lattice)
 
 			if (v == 173 && stable->t > 61 && stable->f > 0 && MOD2(stable->o) < 2)
 				printf("mod2(o)=%d\n", stable->t);
-			//
-			// Commute roles
-			//
-			stable->active = false;
-			draft->active = true;
 			//
 			// Next register
 			//

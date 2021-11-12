@@ -946,12 +946,6 @@ __global__ void interact(Cell* lattice)
 	{
 		Cell* draft = lattice + xyz;
 		Cell* stable = draft + SIDE2 * SIDE3;
-		if (draft->active)
-		{
-			Cell* temp = draft;
-			draft = stable;
-			stable = temp;
-		}
 		//
 		// Interactions only allowed at the last tick of a light step
 		//
