@@ -46,7 +46,6 @@ __device__ void initCell(Cell* cell, int xyz)
     cell->a = cell->floor;
     cell->sync = 0;
     cell->charge = 0x00;
-    cell->ctrl = 0;
     cell->flash = 0;
     cell->v = 0;
     cell->u = SIDE2 / 2;

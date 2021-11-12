@@ -44,9 +44,6 @@ __global__ void commute(Cell* lattice)
 			COPY(stable->p, draft->p);
 			COPY(stable->s, draft->s);
 			COPY(stable->o, draft->o);
-
-			if (v == 173 && stable->t > 61 && stable->f > 0 && MOD2(stable->o) < 2)
-				printf("mod2(o)=%d\n", stable->t);
 			//
 			// Next register
 			//

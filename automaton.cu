@@ -84,7 +84,7 @@ mat4 view = GLM_MAT4_IDENTITY_INIT;
 mat4 projection;
 
 #if ORDER == 4
-vec3 scale = { 0.008, 0.008, 0.008 };
+vec3 scale = { 0.008f, 0.008f, 0.008f };
 #else if ORDER == 5
 vec3 scale = { 0.003, 0.003, 0.003 };
 #endif
@@ -419,7 +419,7 @@ int initOpenGL(int argc, char** argv)
 	// Update camera
 	//
 	updateCamera();
-	glClearColor(0.1, 0.2, 0.2, 1.0);
+	glClearColor(0.1f, 0.2f, 0.2f, 1.0f);
 	//
 	// Define callback routines
 	//

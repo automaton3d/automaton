@@ -21,9 +21,7 @@ __global__ void replicate(Cell* lattice)
 		// Not last tick?
 		//
 		if (draft->t % LIGHT != 0)
-		{
 			return;
-		}
 		//
 		// Scan the two columns
 		//

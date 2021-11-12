@@ -43,7 +43,6 @@ __device__ void cpcp(Cell* draft1, Cell* draft2, bool collapse)
 		draft1->code = COLLAPSE;
 		draft2->code = COLLAPSE;
 	}
-	printf("cpcp\n");
 }
 
 /*
@@ -60,7 +59,6 @@ __device__ void polepole(Cell* draft1, Cell* draft2)
 	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
-	printf("polepole\n");
 }
 
 /*
@@ -85,7 +83,6 @@ __device__ void inertia(Cell* draft1, Cell* draft2)
 	//
 	draft1->flash = SIDE;
 	draft2->flash = SIDE;
-	printf("inertia\n");
 }
 
 __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
@@ -912,10 +909,11 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
  */
 __device__ void compareCols(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
 {
+	int span = 10;//DEBUG
 	// Play pseudo dices
 	//
-	if (stable1->noise > abs(stable1->span) &&
-		stable2->noise > abs(stable2->span) &&
+	if (stable1->noise > abs(span) &&
+		stable2->noise > abs(span) &&
 		(!ISNULL(stable1->p) || !ISNULL(stable2->p)))
 	{
 		// Preserve momentum for parallel transport

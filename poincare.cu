@@ -25,8 +25,6 @@ __device__ bool compareCells(Cell* cell, int xyz)
         return false;
     if (cell->sync != 0)
         return false;
-    if(cell->ctrl != 0)
-        return false;
     if(cell->flash != 0)
         return false;
     if(cell->v != 0)

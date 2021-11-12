@@ -228,22 +228,36 @@ __device__ Cell* getPointer(int dir, Cell *draft, char* vdir)
 
 __device__ void spread(Cell* stable, Cell* draft)
 {
-    // Update tracking info
+    draft->t++;
     //
-    if (draft->ctrl > 0)
+    // Decay momentum propensity
+    //
+    if(stable->t > 0 && !ISNULL(stable->p))
     {
-        // Track decay
+        // Non-trivial affinity?
         //
-        draft->span *= (1 - 1 / (2 * draft->t));
-        draft->ctrl--;
+        if (stable->a)
+        {
+            // Decay as space
+            //
+            draft->p[0] *= ((draft->t * draft->t) - draft->vp0[0] * draft->vp0[0]) / (draft->t * draft->t);
+            draft->p[1] *= ((draft->t * draft->t) - draft->vp0[1] * draft->vp0[1]) / (draft->t * draft->t);
+            draft->p[2] *= ((draft->t * draft->t) - draft->vp0[2] * draft->vp0[2]) / (draft->t * draft->t);
+        }
+        else
+        {
+            // Decay as particle
+            //
+            draft->p[0] *= (2 * draft->t - 1) / (2 * draft->t);
+            draft->p[1] *= (2 * draft->t - 1) / (2 * draft->t);
+            draft->p[2] *= (2 * draft->t - 1) / (2 * draft->t);
+        }
     }
     //
     // Spread cell contents if not empty
     //
     if (stable->f > 0 || draft->flash > 0)
     {
-        draft->t++;
-        //
         // Last tick?
         //
         if (stable->t % LIGHT == 0)
@@ -251,10 +265,7 @@ __device__ void spread(Cell* stable, Cell* draft)
             // Sine recursive algorithm
             //
             draft->v = (K2D * stable->v + K2N * ((K1D * stable->u - K1N * stable->v) / K1D)) / K2D;
-            draft->u = (K1D * ((K1D * stable->u - K1N * stable->v) / K1D) - K1N * draft->v) / K1D;
-            //
-            if (stable->floor == 173)
-                printf("%d[%d]: v=%d\n", stable->t, stable->t/LIGHT, draft->v / SIDE);
+            draft->u = (K1D * ((K1D * stable->u - K1N * stable->v) / K1D) - K1N * draft->v) / K1D;  
         }
         //
         // Re-emmited?
@@ -263,9 +274,7 @@ __device__ void spread(Cell* stable, Cell* draft)
         {
             draft->t = 0;
             draft->sync = LIGHT2;
-            draft->span = MOD2(stable->o);
             RESET(draft->o);
-            printf("BINGO\n");
         }
         //
         // Explore von Neumann directions
@@ -334,9 +343,6 @@ __device__ void spread(Cell* stable, Cell* draft)
             {
                 // Reissue by wrapping
                 //
-                if(stable->floor == 173)
-                    printf("wrap t=%d o=(%d,%d,%d) sine=%d stable=%p\n", stable->t, stable->v/SIDE, stable->o[0], stable->o[1], stable->o[2], stable);
-
                 draft->sync = 0;
                 draft->t = 0;
             }

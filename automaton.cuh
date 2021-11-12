@@ -70,24 +70,14 @@ typedef struct
     unsigned char flash;    // messenger flag
     char pole[3];           // target
 
-    // Footprint
-
-    unsigned short span;
-    unsigned t_foot;
-
-    // Particle boson
-
-    ratnum p_foot;
-
     // Lattice boson
 
-    ratnum p_lattice;
+    char vp0[3];
 
     // Auxiliary variables
 
     unsigned char noise;
     unsigned char code;
-    unsigned char ctrl;
     unsigned short floor;
     unsigned char wrap;
 
@@ -139,3 +129,4 @@ void display();
 void closeApp();
 void keyboard(unsigned char key, int x, int y);
 void specialKeys(int key, int x, int y);
+void debug(int index, Cell* stable, Cell* draft);
