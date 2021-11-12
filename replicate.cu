@@ -17,12 +17,6 @@ __global__ void replicate(Cell* lattice)
 		//
 		Cell* draft = lattice + xyz;
 		Cell* stable = draft + SIDE2 * SIDE3;
-		if (draft->active)
-		{
-			Cell* temp = draft;
-			draft = stable;
-			stable = temp;
-		}
 		//
 		// Not last tick?
 		//
