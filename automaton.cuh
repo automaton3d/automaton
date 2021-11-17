@@ -24,11 +24,11 @@
 
 // Physical symbols (used with variable code)
 
-#define PHOTON		1
-#define GLUON		2
-#define NEUTRINO	3
-#define Z			4
-#define W			5
+#define PHOTON		0x0010
+#define GLUON		0x0020
+#define NEUTRINO	0x0040
+#define Z			0x0080
+#define W			0x0100
 #define ELECTRON    6
 #define QUARK       7
 #define FERMION     (ELECTRON | QUARK | NEUTRINO)
@@ -52,7 +52,7 @@ typedef struct
 
     // Physical properties
 
-    unsigned char charge;   // charge bits d, c2, c1, c0, w, q
+    unsigned chrg;          // charge bits d, c2, c1, c0, w, q
     char p[3], s[3];        // momentum and spin
     unsigned char f;        // frequency
     short a;                // affinity

@@ -11,6 +11,8 @@
  */
 __global__ void commute(Cell* lattice)
 {
+	// Select the sublattice
+	//
 	long xyz = blockDim.x * blockIdx.x + threadIdx.x;
 	if (xyz < SIDE3)
 	{
@@ -32,7 +34,7 @@ __global__ void commute(Cell* lattice)
 			//
 			stable->t = draft->t;
 			stable->dir = draft->dir;
-			stable->charge = draft->charge;
+			stable->chrg = draft->chrg;
 			stable->code = draft->code;
 			stable->noise = draft->noise;
 			stable->a = draft->a;

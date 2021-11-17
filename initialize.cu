@@ -45,7 +45,7 @@ __device__ void initCell(Cell* cell, int xyz)
     cell->f = 0;
     cell->a = cell->floor;
     cell->sync = 0;
-    cell->charge = 0x00;
+    cell->chrg = 0x00;
     cell->flash = 0;
     cell->v = 0;
     cell->u = SIDE2 / 2;
@@ -62,17 +62,17 @@ __device__ void initCell(Cell* cell, int xyz)
         cell->f = 1;
         if (x < SIDE / 2)
         {
-            cell->charge |= D_MASK;
+            cell->chrg |= D_MASK;
         }
         //
         unsigned char tiling = (x % 2) ^ (y % 2);
         if (tiling)
         {
-            cell->charge |= Q_MASK;
+            cell->chrg |= Q_MASK;
         }
         else
         {
-            cell->charge |= C_MASK | W_MASK;
+            cell->chrg |= C_MASK | W_MASK;
         }
         //
         // Initialize spin and momentum
@@ -81,7 +81,7 @@ __device__ void initCell(Cell* cell, int xyz)
         {
             // Enforce monopole
             //
-            cell->s[2] = (cell->charge & D_MASK) ? -SIDE / 2 : +SIDE / 2;
+            cell->s[2] = (cell->chrg & D_MASK) ? -SIDE / 2 : +SIDE / 2;
             cell->p[2] = (cell->floor % 2) ? +SIDE / 2 : -SIDE / 2;
         }
         else

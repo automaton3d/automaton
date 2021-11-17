@@ -42,20 +42,20 @@ __device__ bool compareCells(Cell* cell, int xyz)
         //
         if(cell->f != 1)
             return false;
-        if (x < SIDE / 2 && (cell->charge & D_MASK) == 0)
+        if (x < SIDE / 2 && (cell->chrg & D_MASK) == 0)
             return false;
         //
         unsigned char tiling = (x % 2) ^ (y % 2);
         if (tiling)
         {
-            if ((cell->charge & Q_MASK) == 0)
+            if ((cell->chrg & Q_MASK) == 0)
                 return false;
         }
         else
         {
-            if ((cell->charge & C_MASK) != C_MASK)
+            if ((cell->chrg & C_MASK) != C_MASK)
                 return false;
-            if ((cell->charge & W_MASK) == 0)
+            if ((cell->chrg & W_MASK) == 0)
                 return false;
         }
         //
@@ -66,7 +66,7 @@ __device__ bool compareCells(Cell* cell, int xyz)
         {
             // Enforce monopole
             //
-            s[2] = (cell->charge & D_MASK) ? -SIDE / 2 : +SIDE / 2;
+            s[2] = (cell->chrg & D_MASK) ? -SIDE / 2 : +SIDE / 2;
             p[2] = (cell->floor % 2) ? +SIDE / 2 : -SIDE / 2;
             if (cell->s[2] != s[2])
                 return false;
@@ -156,7 +156,7 @@ __device__ bool compareCells(Cell* cell, int xyz)
             return false;
         if (!ISNULL(cell->s))
             return false;
-        if(cell->charge != 0)
+        if(cell->chrg != 0)
             return false;
         if (cell->f != 0)
             return false;

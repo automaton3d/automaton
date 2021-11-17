@@ -274,6 +274,8 @@ __device__ void spread(Cell* stable, Cell* draft)
         {
             draft->t = 0;
             draft->sync = LIGHT2;
+            draft->u = SIDE2 / 2;
+            draft->v = 0;
             RESET(draft->o);
         }
         //
@@ -304,7 +306,7 @@ __device__ void spread(Cell* stable, Cell* draft)
                 neighbor->dir = dir;
                 neighbor->f = stable->f;
                 neighbor->a = stable->a;
-                neighbor->charge = stable->charge;
+                neighbor->chrg = stable->chrg;
                 neighbor->u = draft->u;
                 neighbor->v = draft->v;
                 //
@@ -328,14 +330,11 @@ __device__ void spread(Cell* stable, Cell* draft)
         //
         // Bubble propagated?
         //
-        if (ready)
+        if(ready)
         {
             // Clean data
             //
             draft->code = 0;
-            draft->u = SIDE2 / 2;
-            draft->v = 0;
-            RESET(draft->o);
             //
             // Bubble meets itself?
             //
@@ -351,7 +350,6 @@ __device__ void spread(Cell* stable, Cell* draft)
                 // Erase origin cell
                 //
                 draft->f = 0;
-                RESET(draft->p);
             }
         }
     }

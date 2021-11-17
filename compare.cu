@@ -38,7 +38,7 @@ __global__ void compare(Cell* lattice)
 					next = &temp;
 				ptr2->f = next->f;
 				ptr2->a = next->a;
-				ptr2->charge = next->charge;
+				ptr2->chrg = next->chrg;
 				ptr2->code = next->code;
 				//
 				// Next pointer value
@@ -56,7 +56,7 @@ __global__ void compare(Cell* lattice)
 				assert(stable->v == draft->v);
 				// Same sector?
 				//
-				if (((ptr1->charge ^ ptr2->charge) & D_MASK) == 0)
+				if (((ptr1->chrg ^ ptr2->chrg) & D_MASK) == 0)
 				{
 					// Do they have same affinity?
 					//
@@ -79,43 +79,18 @@ __global__ void compare(Cell* lattice)
 							{
 								// Pair formation
 								//
-								unsigned char cc =
-									(ptr2->charge & C_MASK) ^ (ptr1->charge & C_MASK);
-								unsigned char ww =
-									(ptr2->charge & W_MASK) ^ (ptr1->charge & W_MASK);
-								unsigned char qq =
-									(ptr2->charge & Q_MASK) ^ (ptr1->charge & Q_MASK);
+								ptr2->code = 
+									((ptr2->chrg & C_MASK) ^ (ptr1->chrg & C_MASK)) |
+									((ptr2->chrg & W_MASK) ^ (ptr1->chrg & W_MASK)) |
+									((ptr2->chrg & Q_MASK) ^ (ptr1->chrg & Q_MASK));
 								//
-								if (cc == 0 && ww == 0 && qq == Q_MASK)
-								{
-									ptr2->a = ptr1->a;
-									ptr2->code = NEUTRINO;
-									ptr2->f++;
-								}
-								else if (cc == 0 && ww == W_MASK && qq == Q_MASK)
-								{
-									ptr2->a = ptr1->a;
-									ptr2->code = GLUON;
-									ptr2->f++;
-								}
-								else if (cc == C_MASK && ww == 0 && qq == 0)
-								{
-									ptr2->a = ptr1->a;
-									ptr2->code = W;
-									ptr2->f++;
-								}
-								else if (cc == C_MASK && ww == 0 && qq == Q_MASK)
-								{
-									ptr2->a = ptr1->a;
-									ptr2->code = Z;
-									ptr2->f++;
-								}
-								else if (cc == C_MASK && ww == W_MASK && qq == Q_MASK)
-								{
-									ptr2->a = ptr1->a;
-									ptr2->code = PHOTON;
-									ptr2->f++;
-								}
+								// Affinity is the same now
+								//
+								ptr2->a = ptr1->a;
+								//
+								// Adjust frequency
+								//
+								ptr2->f++;
 							}
 						}
 					}
