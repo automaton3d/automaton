@@ -41,8 +41,7 @@
 #define Q_MASK      0x08
 #define W_MASK      0x10
 #define D_MASK      0x20
-#define NEUTRAL     1
-#define NEUTRAL_BAR	2
+#define NEUTRAL     0x00
 
 // Automaton cell structure
 

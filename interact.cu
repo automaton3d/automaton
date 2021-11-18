@@ -1,16 +1,9 @@
 /*
  * Interaction routines
  * 
- * The code is intentionally left not optimized to enhance
- * where the rules were supressed.
-*/
+ */
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include "curand.h"
-#include "curand_kernel.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include "automaton.cuh"
 
 /*
@@ -91,18 +84,12 @@ __device__ void bosonxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* dr
 	//
 	if (((stable1->chrg ^ stable2->chrg) & D_MASK) == 0)
 	{
-		/*
-		// Antimatter test
-		//
-		bool a1 = ((stable1->chrg >> 2) | ((stable1->chrg >> 1) & stable1->chrg)) & 1;
-		bool a2 = ((stable2->chrg >> 2) | ((stable2->chrg >> 1) & stable2->chrg)) & 1;
-		*/
-		//
 		// Gluon x gluon?
 		//
-		if ((stable1->chrg & C_MASK) != 0 && (stable1->chrg & C_MASK) != C_MASK)
+		if ((stable1->chrg & C_MASK) != 0 && (stable1->chrg & C_MASK) != C_MASK &&
+			(stable2->chrg & C_MASK) != 0 && (stable2->chrg & C_MASK) != C_MASK)
 		{
-			// Blindly exchange colors, ignoring other charges
+			// Exchange colors, ignoring other charges
 			//
 			draft1->chrg &= ~C_MASK;
 			draft2->chrg &= ~C_MASK;
@@ -185,11 +172,11 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 {
 	// Isolate charge bits
 	//
-	unsigned c1 = (stable1->chrg & C_MASK) & 7;
+	unsigned c1 = (stable1->chrg & C_MASK) & C_MASK;
 	unsigned q1 = ((stable1->chrg & Q_MASK) >> 3) & 1;
 	unsigned w1 = ((stable1->chrg & W_MASK) >> 4) & 1;
 	unsigned d1 = (stable1->chrg & D_MASK) >> 5;
-	unsigned c2 = (stable2->chrg & C_MASK) & 7;
+	unsigned c2 = (stable2->chrg & C_MASK) & C_MASK;
 	unsigned q2 = ((stable2->chrg & Q_MASK) >> 3) & 1;
 	unsigned w2 = ((stable2->chrg & W_MASK) >> 4) & 1;
 	unsigned d2 = (stable2->chrg & D_MASK) >> 5;
@@ -204,14 +191,12 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 	//
 	// Quark x gluon?
 	//
-	if (c1 != NEUTRAL && c1 != NEUTRAL_BAR && c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+	if (c1 != NEUTRAL && c1 != ~NEUTRAL && c2 != NEUTRAL && c2 != ~NEUTRAL)
 	{
-		if (c1 == ~c2)
+		if (c1 == ~c2)		// TODO why??
 		{
 			// Blindly exchange colors, ignoring all other charges
 			//
-			int c1 = stable1->chrg & C_MASK;
-			int c2 = stable2->chrg & C_MASK;
 			draft1->chrg &= ~C_MASK;
 			draft2->chrg &= ~C_MASK;
 			draft1->chrg |= c2;
@@ -223,67 +208,8 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 	//
 	// Quark x [photon, Z, W]?
 	//
-	else if (c1 != NEUTRAL && c1 != NEUTRAL_BAR)
+	else if (c1 != NEUTRAL && c1 != ~NEUTRAL)
 	{
-		if (q1 == q2)
-		{
-			polepole(draft1, draft2);
-		}
-		else
-		{
-			polepole(draft1, draft2);
-		}
-	}
-	//
-	// Electron x gluon?
-	//
-	else if (c2 != NEUTRAL && c2 != NEUTRAL_BAR)
-	{
-		// SUPRESSED
-		// (no empirical evidence)
-	}
-	//
-	// Electron x [photon, Z, W]?
-	//
-	else
-	{
-		if (q1 == q2)
-		{
-			if (w1 == w2)
-			{
-				if (c1 == c2 == 0 && w1 == 1)
-				{
-					polepole(draft1, draft2);
-				}
-				else if (c1 == c2 == 7 && w1 == 0)
-				{
-					polepole(draft1, draft2);
-				}
-			}
-			else
-			{
-				// SUPRESSED
-			}
-		}
-		else
-		{
-			if (w1 == w2)
-			{
-				if (c1 == c2 == 0 && w1 == 1)
-				{
-					polepole(draft1, draft2);
-				}
-				else if (c1 == c2 == 7 && w1 == 0)
-				{
-					polepole(draft1, draft2);
-				}
-			}
-			else
-			{
-				// SUPRESSED
-			}
-		}
-		//
 		// Is it a propeller?
 		//
 		if (stable1->a == stable2->a)
@@ -291,6 +217,56 @@ __device__ void fermionxboson(Cell* stable1, Cell* stable2, Cell* draft1, Cell* 
 			// Inertia
 			//
 			inertia(draft1, draft2);
+		}
+		else if (q1 == q2)
+		{
+			polepole(draft1, draft2);
+		}
+		else
+		{
+			polepole(draft1, draft2);
+		}
+	}
+	//
+	// Electron x [photon, Z, W]?
+	//
+	else
+	{
+		// Is it a propeller?
+		//
+		if (stable1->a == stable2->a)
+		{
+			// Inertia
+			//
+			inertia(draft1, draft2);
+		}
+		else if (q1 == q2)
+		{
+			if (w1 == w2)
+			{
+				if (c1 == c2 == 0 && w1 == 1)
+				{
+					polepole(draft1, draft2);
+				}
+				else if (c1 == c2 == C_MASK && w1 == 0)
+				{
+					polepole(draft1, draft2);
+				}
+			}
+		}
+		else
+		{
+			if (w1 == w2)
+			{
+				if (c1 == c2 == 0 && w1 == 1)
+				{
+					polepole(draft1, draft2);
+				}
+				else if (c1 == c2 == C_MASK && w1 == 0)
+				{
+					polepole(draft1, draft2);
+				}
+			}
 		}
 	}
 }
@@ -311,8 +287,13 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 	//
 	// Matter/antimatter flags
 	//
+	#ifdef SOL1
+	bool matter1 = ((stable1->chrg >> 2) | ((stable1->chrg >> 1) & stable1->chrg)) & 1;
+	bool matter1 = ((stable2->chrg >> 2) | ((stable2->chrg >> 1) & stable2->chrg)) & 1;
+	#else
 	bool matter1 = c1 == 0 || c1 == 1 || c1 == 2 || c1 == 4;
 	bool matter2 = c2 == 0 || c2 == 1 || c2 == 2 || c2 == 4;
+	#endif
 	//
 	// Same sector?
 	//
@@ -320,201 +301,56 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
 	{
 		// quark x quark?
 		//
-		if (c1 != NEUTRAL && c1 != NEUTRAL_BAR && c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+		if (c1 != NEUTRAL && c1 != ~NEUTRAL && c2 != NEUTRAL && c2 != ~NEUTRAL)
 		{
-			if (c1 == c2)
+			// Same color and electric charge?
+			//
+			if (c1 == c2 && q1 == q2)	// TODO: include affinity?? weak charge??
 			{
-				// Quark cohesion?
+				// Quark cohesion
 				//
-				if (q1 == q2)
-				{
-					if (w1 == w2)
-					{
-						// SUPRESSED
-					}
-					else
-					{
-						// SUPRESSED
-					}
-					polepole(draft1, draft2);
-				}
-				//
-				// Different electric charge
-				//
-				else
-				{
-					if (w1 == w2)
-					{
-						// SUPRESSED
-					}
-					else
-					{
-						// Quark annihilation?
-						//
-						if (c1 == ~c2)
-						{
-							cpcp(draft1, draft2, true);
-						}
-						else
-						{
-							// SUPRESSED
-						}
-					}
-				}
+				polepole(draft1, draft2);
 			}
 			//
-			// Complementary colors?
+			// Complementary charges?
 			//
-			else if (c1 == ~c2)
+			else if (c1 == ~c2 && w1 == ~w2 && q1 == ~q2)
 			{
-				if (q1 == q2)
-				{
-					if (w1 == w2)
-					{
-						// SUPRESSED
-					}
-					else
-					{
-						// SUPRESSED
-					}
-				}
+				// Quark annihilation?
 				//
-				// Opposite electric charges
-				//
-				else
-				{
-					if (w1 == w2)
-					{
-						// SUPPRESSED
-					}
-					//
-					// Quark annihilation
-					//
-					else
-					{
-						cpcp(draft1, draft2, true);
-					}
-				}
-			}
-			//
-			// Diverse colors
-			//
-			else
-			{
-				if (q1 == q2)
-				{
-					if (w1 == w2)
-					{
-						// SUPPRESSED
-					}
-					else
-					{
-						// SUPPRESSED
-					}
-					// SUPPRESSED
-				}
-				else
-				{
-					if (w1 == w2)
-					{
-						// SUPPRESSED
-					}
-					else
-					{
-						// SUPPRESSED
-					}
-					// SUPPRESSED
-				}
-				int c1 = stable1->chrg & C_MASK;
-				int c2 = stable2->chrg & C_MASK;
-				draft1->chrg &= ~C_MASK;
-				draft2->chrg &= ~C_MASK;
-				draft1->chrg |= c2;
-				draft2->chrg |= c1;
-				cpcp(draft1, draft2, false);
+				cpcp(draft1, draft2, true);
 			}
 		}
 		//
 		// quark x electron?
 		//
-		else if (c1 != NEUTRAL && c1 != NEUTRAL_BAR)
+		else if (c1 != NEUTRAL && c1 != ~NEUTRAL)
 		{
-			if (q1 == q2)
+			if (q1 == q2 && matter1 == matter2)
 			{
-				if (w1 == w2)
-				{
-					// SUPRESSED
-				}
-				else
-				{
-					// SUPRESSED
-				}
-				// SUPRESSED
+				// Implement repulsion
 			}
-			else
+			else if (q1 != q2 && matter1 == matter2)
 			{
-				if (w1 == w2)
-				{
-					if (matter1 != matter2)
-					{
-						polepole(draft1, draft2);
-					}
-					else
-					{
-						// SUPRESSED
-					}
-				}
-				else
-				{
-					if (matter1 == matter2)
-					{
-						polepole(draft1, draft2);
-					}
-					else
-					{
-						// SUPRESSED
-					}
-				}
+				// Implement attraction
 			}
 		}
 		//
-		// electron x quark
+		// Electron x electron
 		//
-		else if (c2 != NEUTRAL && c2 != NEUTRAL_BAR)
+		else if ((c1 == NEUTRAL || c1 == ~NEUTRAL) && c1 == c2)
 		{
-			if (q1 == q2)
+			if (q1 == q2 && matter1 == matter2)
 			{
-				if (w1 == w2)
-				{
-				}
-				else
-				{
-				}
+				// Implement cohesion
+				//
+				polepole(draft1, draft2);
 			}
-			else
+			else if (q1 != q2 && w1 != w2 && matter1 != matter2)
 			{
-				if (w1 == w2)
-				{
-					if (matter1 == matter2)
-					{
-						polepole(draft1, draft2);
-					}
-					else
-					{
-						// SUPRESSED
-					}
-				}
-				else
-				{
-					if (matter1 != matter2)
-					{
-						polepole(draft1, draft2);
-					}
-					else
-					{
-						// SUPRESSED
-					}
-				}
+				// Electron annihilation?
+				//
+				cpcp(draft1, draft2, true);
 			}
 		}
 	}
@@ -569,11 +405,10 @@ __device__ void fermionxfermion(Cell* stable1, Cell* stable2, Cell* draft1, Cell
  */
 __device__ void compareCols(Cell* stable1, Cell* stable2, Cell* draft1, Cell* draft2)
 {
-	int span = 10;//DEBUG
-	// Play pseudo dices
+	// Play pseudo dices against the sine phase
 	//
-	if (stable1->noise > abs(span) &&
-		stable2->noise > abs(span) &&
+	if (stable1->noise > abs(stable1->v) &&
+		stable2->noise > abs(stable1->v) &&
 		(!ISNULL(stable1->p) || !ISNULL(stable2->p)))
 	{
 		// Preserve momentum for parallel transport
