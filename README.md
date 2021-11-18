@@ -20,7 +20,5 @@ To achieve even these simple goals, I need lots of computational power, far beyo
 Last update: 30/10/2021
 
 ```
-
 ![Visitor Count](https : //profile-counter.glitch.me/{YOUR USER}/count.svg)
-
 ```
