@@ -272,17 +272,21 @@ __device__ void spread(Cell* stable, Cell* draft)
         //
         if (stable->flash && ALIGNED(stable->o, stable->pole))
         {
+            // Bubble is in fact reissued
+            //
             draft->t = 0;
             draft->sync = LIGHT2;
             draft->u = SIDE2 / 2;
             draft->v = 0;
             RESET(draft->o);
+            draft->flash = 0;
+            return;
         }
         //
         // Explore von Neumann directions
         //
         Cell* neighbor;
-        bool ready = stable->f > 0 && stable->t * stable->t > stable->sync;
+        bool mature = stable->f > 0 && stable->t * stable->t > stable->sync;
         for (int dir = 0; dir < 6; dir++)
         {
             char vdir[3] = { 0, 0, 0 };
@@ -298,7 +302,7 @@ __device__ void spread(Cell* stable, Cell* draft)
             //
             // Test if branch is legal
             //
-            if(ready && isAllowed(dir, vdir, stable->o, stable->dir))
+            if(mature && isAllowed(dir, vdir, stable->o, stable->dir))
             {
                 // Copy necessary values
                 //
@@ -330,7 +334,7 @@ __device__ void spread(Cell* stable, Cell* draft)
         //
         // Bubble propagated?
         //
-        if(ready)
+        if(mature)
         {
             // Clean data
             //

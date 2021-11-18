@@ -84,7 +84,6 @@
     <CudaCompile Include="commute.cu" />
     <CudaCompile Include="compare.cu" />
     <CudaCompile Include="callbacks.cu" />
-    <CudaCompile Include="ratnum.cu" />
     <CudaCompile Include="poincare.cu" />
     <CudaCompile Include="interop.cu" />
     <CudaCompile Include="replicate.cu" />
@@ -95,7 +94,6 @@
   <ItemGroup>
     <ClInclude Include="automaton.cuh" />
     <ClInclude Include="callbacks.h" />
-    <ClInclude Include="ratnum.cuh" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glew.c" />

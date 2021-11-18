@@ -60,12 +60,14 @@ __global__ void interop(Cell* lattice, vec3 *dev_color, int floor)
 			*ptr++ = 0;
 			*ptr = 0;
 		}
+		/*
 		else if(flash)
 		{
 			*ptr++ = 0;
 			*ptr++ = 1;
 			*ptr = 0;
 		}
+		*/
 		else
 		{
 			*ptr++ = 0.6;
