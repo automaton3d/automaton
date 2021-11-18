@@ -22,4 +22,5 @@ Last update: 30/10/2021
 ```
 ![Visitor Count](https://profile-counter.glitch.me/javaresende/count.svg)
 ```
+https://profile-counter.glitch.me/javaresende/count.svg
 
