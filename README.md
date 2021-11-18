@@ -17,6 +17,8 @@ The immediate goals of this computational implementation are
 
 To achieve even these simple goals, I need lots of computational power, far beyond my limited budget. Notice that I do not receive funds from any university, so your help will be very valuable :)
 
-You are visitor ![Visitor Count](https://profile-counter.glitch.me/javaresende/count.svg)
+You are visitor 
+![Visitor Count](https://profile-counter.glitch.me/javaresende/count.svg)
+
 
 Last update: 30/10/2021
