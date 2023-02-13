@@ -1,4 +1,4 @@
-# Recovery of global symmetries in a 't Hooftian universe
+# It from bit -- a concrete attempt
 Hi all,
 
 I'm developing a toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://www.preprints.org/manuscript/202111.0501/v1">pdf</A> file.
