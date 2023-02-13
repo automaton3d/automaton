@@ -1,4 +1,4 @@
-# It from bit -- a concrete attempt
+# It from bit — a concrete attempt
 Hi all,
 
 I'm developing a toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://www.preprints.org/manuscript/202111.0501/v1">pdf</A> file.
@@ -9,10 +9,10 @@ This program is being developed under Visual Studio with Cuda Toolkit 7.5 under 
 
 I'm an independent researcher. My link to the Research Gate portal is
 
-https://www.researchgate.net/project/Recovery-of-global-symmetries-in-a-t-Hooftian-universe
+https://zenodo.org/record/7579718#.Y-p7LMfMK00
 
 The immediate goals of this computational implementation are
-* Compute the Poincaré Cycle for sizes SIDE=8, SIDE=16 and SIDE=32 (the universe is SIDE=2 to 212 power);
+* Compute the Poincaré Cycle for sizes SIDE=8, SIDE=16 and SIDE=32 (the universe is SIDE=2 to 268 power);
 * Check charge quantization for SIDE=32.
 
 To achieve even these simple goals, I need lots of computational power, far beyond my limited budget. Notice that I do not receive funds from any university, so your help will be very valuable :)
@@ -22,4 +22,4 @@ You are visitor
 ![Visitor Count](https://profile-counter.glitch.me/javaresende/count.svg)
 
 
-Last update: 30/10/2021
+Last update: 13/02/2023
