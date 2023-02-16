@@ -164,7 +164,7 @@ void animation()
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess)
     {
-        puts("Poincaré error");
+        puts("PoincarÃ© error");
         perror(cudaGetErrorString(cudaStatus));
         exit(1);
     }
