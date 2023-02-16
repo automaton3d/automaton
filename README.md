@@ -10,7 +10,7 @@ I'm an independent researcher. My link to the Research Gate portal is
 https://www.researchgate.net/
 
 The immediate goals of this computational implementation are
-* Compute the Poincaré Cycle for sizes SIDE=8, SIDE=16 and SIDE=32 (the universe is SIDE=2 to 268 power);
+* Compute the Poincaré Cycle for sizes SIDE=8, SIDE=16 and SIDE=32 (the universe is SIDE=2 to 269 power);
 * Check charge quantization for SIDE=32.
 
 To achieve even these simple goals, I need lots of computational power, far beyond my limited budget. Notice that I do not receive funds from any university, so your help will be very valuable :)
