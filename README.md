@@ -3,7 +3,7 @@ Hi all,
 
 I'm developing a toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://zenodo.org/record/7579718#.Y-p7LMfMK00">pdf</A> file.
 
-Here I present my efforts to implement a tiny version (in computational terms only because the rules are independent of the memory size of the model) of the universal automaton described in the aforementioned document. Two versions are being developed. One in the C programming language using CDT. The other, mixing Cuda and OpenGL, being developed under Visual Studio with Cuda Toolkit 7.5 under Windows 11. The GPU used is an NVIDIA GTX 1050 super. Only the CDT version is updated (16/02/2023).
+Here I present my efforts to implement a tiny version (in computational terms only because the rules are independent of the memory size of the model) of the universal automaton described in the aforementioned document. A program is being developed in the C programming language using CDT, last updated in 16/02/2023.
 
 I'm an independent researcher. My link to the Research Gate portal is
 
