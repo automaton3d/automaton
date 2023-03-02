@@ -11,6 +11,13 @@
 
 char vectorBuf[4][30];
 
+void reset3d(Vector3d *v)
+{
+	v->x = 0;
+	v->y = 0;
+	v->z = 0;
+}
+
 void normalize(Vector3d *v)
 {
 	double h = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);

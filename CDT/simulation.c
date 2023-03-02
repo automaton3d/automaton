@@ -38,7 +38,7 @@ int i4=0;	// electric
 int i5=0;	// inertia
 
 //Tuple cm1, cm2;		// debug
-extern Tensor *stbl, *draft;
+extern Tensor *stb, *drf;
 extern Tensor *lattice0, *lattice1;
 
 extern pthread_barrier_t barrier;
@@ -63,29 +63,49 @@ Tuple getPole(Vector3d v, Tuple cen, int r)
  */
 void simulation()
 {
-    stbl = lattice0;
-    draft = lattice1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stbl++, draft++)
+    stb = lattice0;
+    drf = lattice1;
+    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	copy();
-    stbl = lattice0;
-    draft = lattice1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stbl++, draft++)
+
+//#define CP
+#ifdef CP
+
+    stb = lattice0;
+    drf = lattice1;
+    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	flash();
-    stbl = lattice0;
-    draft = lattice1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stbl++, draft++)
+
+#endif
+
+#define EXPAND
+#ifdef EXPAND
+
+    stb = lattice0;
+    drf = lattice1;
+    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	expand();
-    stbl = lattice0;
-    draft = lattice1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stbl++, draft++)
+
+#endif
+
+//#define UPDATE
+#ifdef UPDATE
+
+    stb = lattice0;
+    drf = lattice1;
+    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	update();
-    //delay(50);
-    /*
+
+#endif
+
+#ifdef INTERACT
     stbl = lattice0;
     draft = lattice1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stbl++, draft++)
     	interact();
-    */
+#endif
+
+   //delay(150);
 }
 
 /*

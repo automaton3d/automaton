@@ -19,6 +19,8 @@
 #include "mouse.h"
 #include "assert.h"
 #include "engine.h"
+#include "quaternion.h"
+#include "trackball.h"
 
 #define PAIR
 
@@ -26,6 +28,10 @@ extern boolean ticks[NTICKS];
 extern Tuple center;
 extern Voxel *imgbuf[2], *buff, *clean;
 extern Tensor *lattice0, *lattice1;
+extern Quaternion currQ, lastQ;
+
+extern View view;
+View *vu;
 
 long OFFSET(int x, int y, int z)
 {
@@ -60,6 +66,20 @@ void initScreen()
 	//
 	begin = GetTickCount();				// initial milliseconds
 	setvbuf(stdout, 0, _IOLBF, 0);
+
+	// Initialize trackball
+
+	identityQ(&lastQ);
+	identityQ(&currQ);
+
+	// TRACKBALL
+
+	vu = &view;
+	vu->width = WIDTH;
+	vu->height = HEIGHT;
+	trackball (vu->quat , 0.0, 0.0, 0.0, 0.0);
+	vset(vu->rot_axis, 0., 0., 1.);
+	//
 	sleep(4);
 }
 
@@ -76,7 +96,7 @@ int template[6][3] =
 };
 
 void singularity(Tensor *grid)
-{//grid->flash = 1;
+{
   Tensor *pointer;
 
   pointer = grid;
@@ -158,13 +178,21 @@ void initEspacito(Tensor *lattice, Tensor *espacito, int x0, int y0, int z0)
         pointer->noise = offset;
         pointer->kind  = 0;
         pointer->flash  = 0;
-        pointer->target = 0;
+        pointer->target = SIDE3;
         RESET(pointer->o);
         RESET(pointer->pole);
         RESET(pointer->p);
         RESET(pointer->s);
         RESET(pointer->p0);
         RESET(pointer->prone);
+
+
+
+
+        pointer->pos[0] = x0;
+        pointer->pos[1] = y0;
+        pointer->pos[2] = z0;
+        pointer->edge = false;
 
         // Wires
 
@@ -208,6 +236,8 @@ void initEspacito(Tensor *lattice, Tensor *espacito, int x0, int y0, int z0)
 
 void initAutomaton()
 {
+  printf("LIMIT=%d DIAG=%d DIAG=%d SIDE=%d\n", LIMIT, DIAG, (int)(sqrt(3)*SIDE + 0.5), SIDE);
+
   lattice0 = malloc(SIDE6 * sizeof(Tensor));
   assert(lattice0 != NULL);
   lattice1 = malloc(SIDE6 * sizeof(Tensor));
@@ -217,11 +247,14 @@ void initAutomaton()
 
   // Create draft lattice
 
+  Tensor *sing = NULL;
   espacito = lattice1;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
       for(int x = 0; x < SIDE; x++)
       {
+    	  if(x == SIDE/2 && y == SIDE/2 && z == SIDE/2)
+    		  sing = espacito;
     	  initEspacito(lattice1, espacito, x, y, z);
     	  espacito += SIDE3;
       }
@@ -239,6 +272,6 @@ void initAutomaton()
 
   // Create singularity
 
-  singularity(lattice1); //lattice1->flash = 1;
+  singularity(sing); //lattice1->flash = 1;
 }
 

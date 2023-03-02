@@ -10,6 +10,16 @@
 
 #include <windows.h>
 
+typedef struct
+{
+	int width, height;
+	int lastx, lasty, lastt;
+	int dx, dy;
+    float quat[4];
+    float rot_axis[4];
+
+} View;
+
 /// Functions ///
 
 void mouse(UINT msg, WPARAM wparam, LPARAM lparam);

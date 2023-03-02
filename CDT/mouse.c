@@ -2,6 +2,7 @@
  * mouse.c
  */
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>//debug
 
@@ -13,14 +14,13 @@
 #include "quaternion.h"
 #include "gadget.h"
 #include "utils.h"
+#include "trackball.h"
 
-extern Quaternion q, qstart;
-Quaternion pstart;
 double radius = 0.4 * HEIGHT;
 boolean fDraw = false;
 boolean input_changed = true;
 
-static Vector3d p0, p1;
+//static Vector3d p0, p1;
 static Vector3d pos, dir, att;
 
 int zoomInt = 1000;
@@ -29,29 +29,55 @@ boolean ticks[NTICKS];
 boolean pan = false;
 int xx0, yy0;
 
-void pick(Vector3d *p, int x, int y)
+Quaternion currQ, lastQ, rotation;
+
+int lastx, lasty;
+boolean start = false;
+
+extern View *vu;
+
+void m4MultVec(float *vf, float mat[4][4], float *vi)
 {
-	p->x = (x - HEIGHT / 2) / radius;
-	p->y = (y - WIDTH / 2) / radius;
-	p->z = 0;
-	double r = p->x*p->x + p->y*p->y;
-	if(r > 1)
-	{
-		double s = 1 / sqrt(r);
-		p->x *= s;
-		p->y *= s;
-	}
-	else
-	{
-		p->z = sqrt(1 - r);
-	}
+	float tmp[4];
+	for (int i = 0; i < 4; i++)
+		tmp[i] = 0;
+	for (int i = 0; i < 4; i++)
+		for (int j = 0; j < 4; j++)
+			tmp[j] += mat[j][i] * vi[i];
+	for (int i = 0; i < 4; i++)
+		vf[i] = tmp[i];
+}
+
+void project(Vector3d *vec, float x, float y)
+{
+      float r = 1;
+      float res = min(WIDTH, HEIGHT) - 1;
+      //
+      // map to -1 to 1
+      //
+      x = (2 * x - WIDTH + 1) / res;
+      y = (2 * y - HEIGHT + 1) / res;
+
+      if (fabs(x) > LIMITX)
+    	  y = 0;
+      if (fabs(y) > LIMITY)
+    	  x = 0;
+      float dist2 = x * x + y * y;
+      float z;
+      if (dist2 <= r * r / 2)
+        z = sqrt(r * r - dist2);
+      else
+        z = (r * r / 2) / sqrt(dist2);
+      vec->x = -x;
+      vec->y = -y;
+      vec->z = z;
 }
 
 void mouse(UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	int delta;
-	int x = HIWORD(lparam);
-	int y = LOWORD(lparam);
+	int y = HIWORD(lparam);
+	int x = LOWORD(lparam);
 	pthread_mutex_lock(&mutex);
 	switch(msg)
 	{
@@ -65,18 +91,24 @@ void mouse(UINT msg, WPARAM wparam, LPARAM lparam)
         	}
         	else
         	{
+        		start = true;
+        		lastx = x;
+        		lasty = y;
             	fDraw = true;
-            	pick(&p0, x, y);
     			getCamera(&pos, &dir, &att);
-            	qstart.x = dir.x;
-            	qstart.y = dir.y;
-            	qstart.z = dir.z;
-            	qstart.w = 0;
-            	//
-            	pstart.x = att.x;
-            	pstart.y = att.y;
-            	pstart.z = att.z;
-            	pstart.w = 0;
+
+
+    			// TRACKBALL
+
+    			vu->lastx = x;
+    			vu->lasty = y;
+
+    			float di[3];
+    			di[0] = 1;
+    			di[1] = 1;
+    			di[2] = -1;
+    			vnormal(di);
+    			axis_to_quat(di, 0, vu->quat);
         	}
         	break;
         }
@@ -89,45 +121,78 @@ void mouse(UINT msg, WPARAM wparam, LPARAM lparam)
 			yy0 = y;
 			break;
 		case WM_RBUTTONUP:
+			if(start)
+			{
+				mulQ(&lastQ, currQ, lastQ);
+				identityQ(&currQ);
+				start = false;
+			}
 			pan = false;
 			break;
 		case WM_MOUSEMOVE:
 			if(fDraw && !input_changed)
 			{
-				pick(&p1, x, y);
-				Vector3d p2;
-				cross3d(p0, p1, &p2);
-				q.x = p2.x;
-				q.y = p2.y;
-				q.z = p2.z;
-				q.w = dot3d(p0, p1);
-				//
-				Vector3d newDir, newAtt, newPos;
-				Quaternion qnow;
-				mul(&qnow, q, qstart);
-				newDir.x = qnow.x;
-				newDir.y = qnow.y;
-				newDir.z = qnow.z;
-				normalize(&newDir);
-				//
-				mul(&qnow, q, pstart);
-				newAtt.x = qnow.x;
-				newAtt.y = qnow.y;
-				newAtt.z = qnow.z;
-				normalize(&newAtt);
-				//
-				double hy = sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z);
-				newPos.x = -newDir.x * hy;
-				newPos.y = -newDir.y * hy;
-				newPos.z = -newDir.z * hy;
-				setCamera(newPos, newDir, newAtt);
+				if(start)
+				{
+					Vector3d a;
+					project(&a, lastx, lasty);
+					normalize(&a);
+					Vector3d b;
+					project(&b, x, y);
+					normalize(&b);
+					fromBetweenVectors(&currQ, a, b);
+					normalise(&currQ);
+					mulQ(&rotation, currQ, lastQ);
+					rotateVector(&dir, rotation, dir);
+					normalize(&dir);
+					//
+					rotateVector(&att, rotation, att);
+					normalize(&att);
+
+
+					// TRACKBALL
+
+				    float dquat[4];
+				    trackball (dquat,
+				    	(2.0*vu->lastx -         WIDTH) / WIDTH,
+						(       HEIGHT - 2.0*vu->lasty) / HEIGHT,
+						(        2.0*x -         WIDTH) / WIDTH,
+						(       HEIGHT -         2.0*y) / HEIGHT);
+
+				    vu->dx = x - vu->lastx;
+				    vu->dy = y - vu->lasty;
+				    add_quats (dquat, vu->quat, vu->quat);
+				    float mat[4][4];
+				    build_rotmatrix(mat, dquat);
+				    float di[4], at[4];
+				    di[0] = dir.x;
+				    di[1] = dir.y;
+				    di[2] = dir.z;
+				    at[0] = att.x;
+				    at[1] = att.y;
+				    at[2] = att.z;
+				    m4MultVec(di, mat, di);
+				    m4MultVec(at, mat, at);
+					//
+				    dir.x = di[0];
+				    dir.y = di[1];
+				    dir.z = di[2];
+				    att.x = at[0];
+				    att.y = at[1];
+				    att.z = at[2];
+				    //
+					double hy = sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z);
+					pos.x = -dir.x * hy;
+					pos.y = -dir.y * hy;
+					pos.z = -dir.z * hy;
+					setCamera(pos, dir, att);
+					lastx = x; lasty = y;
+
+					// TRACKBALL
+
+					vu->lastx = x; vu->lasty = y;
+				}
 				input_changed = true;
-			}
-			else if(pan && !input_changed)
-			{
-				int dx = (x - xx0) / 10;
-				int dy = (y - yy0) / 10;
-				printf("pan %d,%d\n", dx, dy);
 			}
 			break;
 		case WM_MOUSEWHEEL:
@@ -137,3 +202,4 @@ void mouse(UINT msg, WPARAM wparam, LPARAM lparam)
 	}
 	pthread_mutex_unlock(&mutex);
 }
+

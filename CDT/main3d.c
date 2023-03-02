@@ -31,8 +31,6 @@ pthread_t loop, display;
 pthread_barrier_t barrier;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrierattr_t attr;
-Vector3d p0, p1;
-Quaternion q, qstart;
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -113,7 +111,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE,
 		500, 20, WIDTH + 4, HEIGHT + 4, NULL, NULL, hInstance, NULL);
  	free(title);
-	//
+ 	setvbuf(stdout, NULL, _IONBF, 0);
+ 	//
  	pthread_barrier_init(&barrier, &attr, 2);
  	pthread_create(&display, NULL, &DisplayLoop, NULL);
  	sleep(2);

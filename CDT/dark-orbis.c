@@ -16,9 +16,20 @@ Tensor *lattice0, *lattice1;
 
 // Current pointers
 
-Tensor *stbl, *draft;
+Tensor *stb, *drf;
 
 extern pthread_mutex_t mutex;
+
+int DOT(int *u, int *v)
+{
+	return u[0]*v[0]+u[1]*v[1]+u[2]*v[2];
+}
+
+int MOD2(int *v)
+{
+	return v[0]*v[0]+v[1]*v[1]+v[2]*v[2];
+}
+
 
 /**
  * Copy data.
@@ -26,26 +37,25 @@ extern pthread_mutex_t mutex;
 void copy()
 {
   pthread_mutex_lock(&mutex);
-  stbl->ch     = draft->ch;
-  stbl->a      = draft->a;
-  stbl->t      = draft->t;
-  stbl->tt     = draft->tt;
-  stbl->syn    = draft->syn;
-  stbl->u      = draft->u;
-  stbl->v      = draft->v;
-  stbl->f      = draft->f;
-  stbl->flash  = draft->flash;
-  stbl->kind   = draft->kind;
-  stbl->noise  = draft->noise;
-  stbl->target = draft->target;
-  stbl->offset = draft->offset;
-  COPY(stbl->p, draft->p);
-  COPY(stbl->s, draft->s);
-  COPY(stbl->o, draft->o);
-  COPY(stbl->pole, draft->pole);
-
-  COPY(stbl->p0, draft->p0);
-  COPY(stbl->prone, draft->prone);
+  stb->ch     = drf->ch;
+  stb->a      = drf->a;
+  stb->t      = drf->t;
+  stb->tt     = drf->tt;
+  stb->syn    = drf->syn;
+  stb->u      = drf->u;
+  stb->v      = drf->v;
+  stb->f      = drf->f;
+  stb->flash  = drf->flash;
+  stb->kind   = drf->kind;
+  stb->noise  = drf->noise;
+  stb->target = drf->target;
+  stb->offset = drf->offset;
+  COPY(stb->p, drf->p);
+  COPY(stb->s, drf->s);
+  COPY(stb->o, drf->o);
+  COPY(stb->pole, drf->pole);
+  COPY(stb->p0, drf->p0);
+  COPY(stb->prone, drf->prone);
   pthread_mutex_unlock(&mutex);
 }
 
@@ -56,115 +66,83 @@ void flash()
 {
   // Flash greedy expansion
 
-  if (stbl->flash == 0)
+  if (stb->flash == 0)
 	  return;
 
   // Flash decay
 
-  draft->flash = stbl->flash - 1;
+  drf->flash--;
 
-  // Test if pole was found (momentum must be present)
+  // Test if pole was found
 
-  int f = stbl->f;
-  if (!ISNULL(stbl->p) && ISNULL(stbl->pole) && stbl->f > 0 && ISNULL(stbl->o))
+  boolean isPole = false;
+  if (!ISNULL(stb->p) && ISNULL(stb->pole) && stb->f > 0 && ISNULL(stb->o))
   {
     // Pole found: create new seed
 
-    COPY(draft->p, stbl->p);
-    draft->f = stbl->f;
-    RESET(draft->pole);
-    RESET(draft->o);
-    draft->target = stbl->a;  // non trivial target
-    f = 0;                    // warn that pole was found
+    RESET(drf->pole);
+    RESET(drf->o);
+    drf->target = stb->a;  // non trivial target
+    isPole = true;
   }
 
-  // Collapse forces all affine bubbles to reissue
+  // A collapse forces all affine bubbles to reissue
 
-  if (stbl->a == stbl->target)
+  else if (stb->a == stb->target)
   {
     // Reissue
 
-    draft->f = stbl->f;
-    RESET(draft->pole);
-    RESET(draft->o);
-    draft->target = stbl->a;   // non trivial target
+    RESET(drf->pole);
+    RESET(drf->o);
+    drf->target = stb->a;   // non trivial target
+    isPole = true;
   }
 
   // Explore von Neumann directions
 
   int org[3];
-  Tensor* neighbor;
+  Tensor* nei;
   for (int dir = 0; dir < 6; dir++)
   {
-    // Wrapping condition
+    // Initialize new origin vector
 
-    COPY(org, stbl->o);
-    switch(dir)
+    COPY(org, stb->o);
+    int i = dir >> 1;
+    org[i] += (dir % 2 == 0) ? +1 : -1;
+
+    // Backwards?
+
+    if(abs(org[i]) < abs(stb->o[i]))
+      continue;
+
+    // No conflict?
+
+    if (isAllowed(dir, org))
     {
-      case 0:
-        if (org[0] == SIDE - 1 || org[0] < 0)
-      	  continue;
-      	org[0]++;
-      	break;
-      case 1:
-        if (org[0] == -SIDE + 1 || org[0] > 0)
-          continue;
-      	org[0]--;
-      	break;
-      case 2:
-        if (org[1] == SIDE - 1 || org[1] < 0)
-          continue;
-      	org[1]++;
-      	break;
-      case 3:
-        if (org[1] == -SIDE + 1 || org[1] > 0)
-          continue;
-      	org[1]--;
-      	break;
-      case 4:
-        if (org[2] == SIDE - 1 || org[2] < 0)
-      	  continue;
-      	org[2]++;
-      	break;
-      case 5:
-        if (org[2] == -SIDE + 1 || org[2] > 0)
-      	  continue;
-        org[2]--;
-        break;
-    }
-    neighbor = draft->wires[dir];
+      // Get neighbor
 
-    // Flash is short-lived
+      nei = drf->wires[dir];
 
-    neighbor->flash = 1;
+      // Propagate flash flag
 
-    // Propagate sought affinity for collapse
+      nei->flash = true;
 
-    neighbor->target = stbl->target;
+      // Propagate sought affinity for collapse
 
-    // Propagate particle presence
+      nei->target = stb->target;
 
-    neighbor->f = f;
-    COPY(neighbor->o, org);
+      // Propagate new radius
 
-    // Propagate momentum
+      COPY(nei->o, org);
 
-    if (f > 0)
-    {
-      COPY(neighbor->p, stbl->p);
-    }
-    else
-    {
-      RESET(neighbor->p);
-    }
+      if (!ISNULL(stb->pole) && !isPole)
+      {
+        // Shrink pole as flash approaches re-emission point
 
-    if (!ISNULL(stbl->pole) && stbl->f > 0)
-    {
-      // Shrink pole as flash approaches re-emission point
-
-   	  neighbor->pole[0] = stbl->pole[0] - (dir < 2);
-      neighbor->pole[1] = stbl->pole[1] - (dir %2 == 1);
-      neighbor->pole[2] = stbl->pole[2] - (dir > 3);
+        nei->pole[0] = stb->pole[0] - (dir < 2);
+        nei->pole[1] = stb->pole[1] - (dir %2 == 1);
+        nei->pole[2] = stb->pole[2] - (dir > 3);
+      }
     }
   }
 }
@@ -174,130 +152,119 @@ void flash()
  */
 void expand()
 {
-  // Test wrapping
+  // Empty?
 
-  if(stbl->o[0] * stbl->o[0] + stbl->o[1] * stbl->o[1] + stbl->o[2] * stbl->o[2] == LIMIT)
+  if (stb->f == 0)
+    return;
+
+  // Wrapping?
+
+  if (MOD2(stb->o) == 3 * SIDE2 / 4)
   {
-	//  if(ISNULL(stbl->p))
-		//  return;
+    // Brand new
 
-	  // Brand new
+    drf->t      = 0;
+    drf->tt     = 0;
+    drf->syn    = 0;
+    drf->target = SIDE3;
+    RESET(drf->o);
 
-	  draft->t = 0;
-	  draft->syn = 0;
-	  RESET(draft->o);
-	  RESET(draft->pole);
-	  draft->p[0] = 1;
+    // TODO: check these
+
+    RESET(drf->p0);
+    RESET(drf->prone);
+    RESET(drf->pole);
+
+    //  DEBUG
+
+    if (stb->a == 0)
+    	drf->flash = (rand() % 10) == 2 ? 1 : 0;
+    return;
   }
 
   // Increment lifetime
 
-  draft->t++;
+  drf->t++;
 
   // Is wavefront synchronized? (see Ref. [15])
 
-  if (draft->t * draft->t <= stbl->syn)
+  if (drf->t * drf->t <= stb->syn)
     return;
-  if(stbl->f == 0)
-	return;
 
   // Explore von Neumann directions
 
   int org[3];
-  Tensor* neighbor;
+  Tensor* nei;
   int dotMax = 0;
   Tensor *dst = NULL;
   for (int dir = 0; dir < 6; dir++)
   {
     // Initialize new origin vector
 
-    COPY(org, stbl->o);
+	COPY(org, stb->o);
+	int i = dir >> 1;
+	org[i] += (dir % 2 == 0) ? +1 : -1;
 
-    // Test if branch is legal
+	// Backwards?
 
-    neighbor = draft->wires[dir];
-    if (neighbor->f > 0)
-    	continue;
-    switch(dir)
-    {
-      case 0:
-        if (org[0] == SIDE - 1 || org[0] < 0)
-      	  continue;
-      	org[0]++;
-      	break;
-      case 1:
-        if (org[0] == -SIDE + 1 || org[0] > 0)
-          continue;
-      	org[0]--;
-      	break;
-      case 2:
-        if (org[1] == SIDE - 1 || org[1] < 0)
-          continue;
-      	org[1]++;
-      	break;
-      case 3:
-        if (org[1] == -SIDE + 1 || org[1] > 0)
-          continue;
-      	org[1]--;
-      	break;
-      case 4:
-        if (org[2] == SIDE - 1 || org[2] < 0)
-      	  continue;
-      	org[2]++;
-      	break;
-      case 5:
-        if (org[2] == -SIDE + 1 || org[2] > 0)
-      	  continue;
-        org[2]--;
-        break;
+	if(abs(org[i]) < abs(stb->o[i]))
+	  continue;
+
+	// No conflict?
+
+	if (isAllowed(dir, org))
+	{
+	  // Propagate information
+
+	  nei = drf->wires[dir];
+	  nei->t      = drf->t;  // copy the updated time
+	  nei->a      = stb->a;
+	  nei->ch     = stb->ch;
+	  nei->tt     = stb->tt;
+	  nei->u      = stb->u;
+	  nei->v      = stb->v;
+	  nei->f      = stb->f;
+	  nei->kind   = stb->kind;
+	  nei->target = stb->target;
+	  nei->offset = stb->offset;
+	  COPY(nei->pole, stb->pole);
+	  COPY(nei->o, org);
+	  COPY(nei->s, stb->s);
+	  COPY(nei->p0, stb->p0);
+	  COPY(nei->prone, stb->prone);
+	  RESET(nei->p);
+	  if(!ISNULL(stb->p))
+	  {
+		  int dot = abs(DOT(org, stb->s));
+		  if (dot >= dotMax)
+		  {
+			  dotMax = dot;
+			  dst = nei;
+		  }
+	  }
+
+	  // Update noise
+
+	  nei->noise = (nei->noise << 3) ^ dir;
+
+      // Set timing for spherical pattern (Section 3)
+
+      nei->syn = LIGHT2 * MOD2(org);
     }
-
-    // Check if is seed cell
-
-    int dot = org[0] * stbl->s[0] + org[1] * stbl->s[1] + org[2] * stbl->s[2];
-    if(dot > dotMax)
-    {
-    	dotMax = dot;
-    	dst = neighbor;
-    }
-
-    // Propagate all information
-
-    neighbor->t      = draft->t;  // copy the updated time
-    neighbor->a      = stbl->a;
-    neighbor->ch     = stbl->ch;
-    neighbor->tt     = stbl->tt;
-    neighbor->u      = stbl->u;
-    neighbor->v      = stbl->v;
-    neighbor->f      = stbl->f;
-    neighbor->kind   = stbl->kind;
-    neighbor->target = stbl->target;
-    neighbor->offset = stbl->offset;
-    COPY(neighbor->pole, stbl->pole);
-    COPY(neighbor->o, org);
-    COPY(neighbor->s, stbl->s);
-    COPY(neighbor->p0, stbl->p0);
-    COPY(neighbor->prone, stbl->prone);
-    RESET(neighbor->p);
-
-    // Update noise
-
-    neighbor->noise = (neighbor->noise << 3) ^ dir;
-
-    // Set timing for spherical pattern (Section 3)
-
-    neighbor->syn = LIGHT2 * MOD2(org);
   }
+  if (dst != NULL)
+  {
+    // Propagate momentum
 
-  // Propagate momentum
+    COPY(dst->p, stb->p);
 
-  if(!ISNULL(stbl->p))
-	    COPY(dst->p, stbl->p);
+    // Abandon the origin cell.
+    // Tracking information remains.
 
-  // Abandon the origin cell.
-  // Tracking information remains.
-
-  draft->f = 0;
+    RESET(drf->p);
+    //printf("if: %d,%d,%d\n", stb->o[0], stb->o[1], stb->o[2]);
+  }
+  drf->f = 0;
 }
 
 /**
@@ -307,77 +274,73 @@ void update()
 {
   // Is there a bubble in this cell?
 
-  if (stbl->f)
+  if (stb->f)
   {
     // Bump sine generator
     // (Euler formula for sine)
-/*
-    int v = stbl->t * stbl->t * SIDE2;
-    draft->u = stbl->u * (v - stbl->t * stbl->t);
-    draft->f--;  // original value is preserved in the stable cell
+
+    int v = stb->t * stb->t * SIDE2;
+    drf->u = stb->u * (v - stb->t * stb->t);
+    drf->f--;  // original value is preserved in the stable cell
 
     // Bubble track decay (Equation 1)
 
-    if (draft->f == 0 && !ISNULL(draft->p))
-//    if (draft->f == 0 && draft->t > 0)
+    if (drf->f == 0 && !ISNULL(drf->p))
     {
       // Vector p shrinks
 
-      draft->p[0] -= draft->p[0] / (2 * draft->t);
-      draft->p[1] -= draft->p[1] / (2 * draft->t);
-      draft->p[2] -= draft->p[2] / (2 * draft->t);
-//      draft->t--;
+      drf->p[0] -= drf->p[0] / (2 * drf->t);
+      drf->p[1] -= drf->p[1] / (2 * drf->t);
+      drf->p[2] -= drf->p[2] / (2 * drf->t);
+      // draft->t--;
     }
-    */
   }
 
-  /*
   // Update lattice decay
 
-  if (stbl->f == 0 && stbl->tt > 0)
+  if (stb->f == 0 && stb->tt > 0)
   {
     // Lattice track decay (Equation 2)
 
-    draft->p[0] -= draft->p[0] * draft->p0[0] / (draft->tt * draft->tt);
-    draft->p[1] -= draft->p[1] * draft->p0[1] / (draft->tt * draft->tt);
-    draft->p[2] -= draft->p[2] * draft->p0[2] / (draft->tt * draft->tt);
-    draft->tt--;
+    drf->p[0] -= drf->p[0] * drf->p0[0] / (drf->tt * drf->tt);
+    drf->p[1] -= drf->p[1] * drf->p0[1] / (drf->tt * drf->tt);
+    drf->p[2] -= drf->p[2] * drf->p0[2] / (drf->tt * drf->tt);
+    drf->tt--;
   }
 
   // Find new address for interaction
 
-  int x = ((stbl->offset & MASK) + stbl->o[0]) % SIDE ;
-  int y = (((stbl->offset >> ORDER) & MASK) + stbl->o[1]) % SIDE;
-  int z = ((stbl->offset >> ORDER >> ORDER) + stbl->o[2]) % SIDE;
-  Tensor *dst = stbl + x + y * SIDE + z * SIDE2;
+  int offset = (stb->t + stb->offset) % SIDE3;
+  Tensor *nxt = (offset == SIDE3 - 1) ? stb - SIDE3 + 1 : stb + 1;
+  assert(nxt != stb);
 
   // Superposing bubbles?
 
-  if (ISEQUAL(stbl->o, dst->o))
+  if (ISEQUAL(stb->o, nxt->o))
   {
     // Clump bubbles together to form particle pair fragments
 
-    if (stbl->a != dst->a && stbl->f == 1 && dst->f == 1)
+    if (stb->a != nxt->a && stb->f == 1 && nxt->f == 1)
     {
-      if ((GETC(stbl)^GETC(dst)) == C_MASK && GETW0(stbl) == !GETW0(dst) && GETQ(stbl) == !GETQ(dst))
-        draft->kind = PHOTON;
-      else if (GETC(stbl) == GETC(dst) && GETW0(stbl) == !GETW0(dst) && GETQ(stbl) == !GETQ(dst))
-        draft->kind = GLUON;
-      else if (GETC(stbl) == ~GETC(dst) && GETW0(stbl) == GETW0(dst) && GETQ(stbl) == !GETQ(dst))
-        draft->kind = ZB;
-      else if (GETC(stbl) == ~GETC(dst) && GETW0(stbl) == GETW0(dst) && GETQ(stbl) == GETQ(dst))
-        draft->kind = WB;
-      else if (GETC(stbl) == GETC(dst) && GETC(stbl) != 0 && GETC(stbl) != 7 && GETQ(stbl) == GETQ(dst) && GETQ(stbl) == 0)
-        draft->kind = UP;
-      else if (stbl->ch == dst->ch && (stbl->ch == 0 || stbl->ch == 7))
-        draft->kind = NEUTRINO;
+      if ((GETC(stb)^GETC(nxt)) == C_MASK && GETW0(stb) == !GETW0(nxt) && GETQ(stb) == !GETQ(nxt))
+        drf->kind = PHOTON;
+      else if (GETC(stb) == GETC(nxt) && GETW0(stb) == !GETW0(nxt) && GETQ(stb) == !GETQ(nxt))
+        drf->kind = GLUON;
+      else if (GETC(stb) == ~GETC(nxt) && GETW0(stb) == GETW0(nxt) && GETQ(stb) == !GETQ(nxt))
+        drf->kind = ZB;
+      else if (GETC(stb) == ~GETC(nxt) && GETW0(stb) == GETW0(nxt) && GETQ(stb) == GETQ(nxt))
+        drf->kind = WB;
+      else if (GETC(stb) == GETC(nxt) && GETC(stb) != 0 && GETC(stb) != 7 && GETQ(stb) == GETQ(nxt) && GETQ(stb) == 0)
+        drf->kind = UP;
+      else if (stb->ch == nxt->ch && (stb->ch == 0 || stb->ch == 7))
+        drf->kind = NEUTRINO;
       else
         return;
 
       // Calculate the common value for f and a
 
-      draft->a ^= stbl->a;
-      draft->f++;
+      drf->a ^= stb->a;
+      drf->f++;
 
       // A pair is actually formed, since the other cell performs
       // this same action in turn.
@@ -385,16 +348,15 @@ void update()
 
     // Combine pairs to form multi pairs
 
-    else if (stbl->f % 2 == 0 && dst->f %2 == 0 &&
-      stbl->a != dst->a)
+    else if (stb->f % 2 == 0 && nxt->f %2 == 0 &&
+      stb->a != nxt->a)
     {
-      draft->f += stbl->f;
-      draft->a ^= stbl->a;
+      drf->f += stb->f;
+      drf->a ^= stb->a;
 
       // Things fit at the end as above for the first pair
     }
   }
-  */
 }
 
 /**
@@ -404,35 +366,35 @@ void interact()
 {
   // Not the last pass of wavefront?
 
-  if (draft->t % LIGHT != 0)
+  if (drf->t % LIGHT != 0)
     return;
 
   // No interaction possible?
 
-  if (!draft->kind)
+  if (!drf->kind)
     return;
 
   // Update the sine signal pmf (see Section
 
-  int v = stbl->t * stbl->t * SIDE2;
-  draft->v += ((2 * stbl->t + 1) * v  * v) >> 1;
+  int v = stb->t * stb->t * SIDE2;
+  drf->v += ((2 * stb->t + 1) * v  * v) >> 1;
 
   // Figure out the expected kind of interaction
 
-  int code = (stbl->a == draft->a) | (!ISNULL(stbl->p) << 1)|
-                  (!ISNULL(draft->p) << 2);
+  int code = (stb->a == drf->a) | (!ISNULL(stb->p) << 1)|
+                  (!ISNULL(drf->p) << 2);
 
   // Initialize collapse target
 
-  unsigned target = 0;
+  unsigned target = SIDE3;
 
   // Play pseudo dices to decide bubble mixing
 
-  if (stbl->noise < draft->v)
+  if (stb->noise < drf->v)
   {
     // Test for same or different sectors
 
-    if (GETW1(stbl) == GETW1(draft))
+    if (GETW1(stb) == GETW1(drf))
     {
       // Same-sector
 
@@ -440,13 +402,13 @@ void interact()
       {
         case 1:    // Soft interactions
 
-          if (stbl->a == draft->a)
+          if (stb->a == drf->a)
           {
             // Self interference
 
             int sub[3];
-            SUB(sub, draft->o, stbl->o);
-            if (DOT(stbl->o, draft->o) == 0 && abs(MOD2(sub)) < TOL)
+            SUB(sub, drf->o, stb->o);
+            if (DOT(stb->o, drf->o) == 0 && abs(MOD2(sub)) < TOL)
             {
               // Sciarreta goes here
             }
@@ -464,33 +426,33 @@ void interact()
           // (prone1 != 0, photon2, p2 aligned with prone1)
           // This serves both to electrical or magnetic interaction
 
-          if (!ISNULL(stbl->prone) && draft->kind == PHOTON && DOT(stbl->prone, draft->p) == 0)
+          if (!ISNULL(stb->prone) && drf->kind == PHOTON && DOT(stb->prone, drf->p) == 0)
           {
             // Recruit it
 
-            draft->a = stbl->a;
-            RESET(draft->prone);
+            drf->a = stb->a;
+            RESET(drf->prone);
           }
 
           // fermion+ x fermion+ (partial scattering)
           // fermion- x fermion- (partial scattering)
           // repulsion
 
-          else if (stbl->f == 1 && draft->f == 1 && GETQ(stbl) == GETQ(draft) && !ISNULL(stbl->p))
+          else if (stb->f == 1 && drf->f == 1 && GETQ(stb) == GETQ(drf) && !ISNULL(stb->p))
           {
-            if (stbl->noise % 2 == 0)
+            if (stb->noise % 2 == 0)
             {
               // Electric radial force
 
-              SUB(draft->prone, draft->o, stbl->o);
+              SUB(drf->prone, drf->o, stb->o);
             }
             else
             {
               // Magnetic lateral kick
 
               int dif[3];
-              SUB(dif, draft->o, stbl->o);
-              CROSS(draft->prone, dif, draft->s);
+              SUB(dif, drf->o, stb->o);
+              CROSS(drf->prone, dif, drf->s);
             }
           }
 
@@ -498,112 +460,112 @@ void interact()
           // fermion- x fermion+ (partial scattering)
           // attraction
 
-          else if (stbl->f == 1 && draft->f == 1 && GETQ(stbl) != GETQ(draft) && !ISNULL(stbl->p))
+          else if (stb->f == 1 && drf->f == 1 && GETQ(stb) != GETQ(drf) && !ISNULL(stb->p))
           {
-            if (stbl->noise % 2 == 0)
+            if (stb->noise % 2 == 0)
             {
               // Electric radial force
 
-              SUB(draft->prone, stbl->o, draft->o);
+              SUB(drf->prone, stb->o, drf->o);
             }
             else
             {
               // Magnetic lateral kick
 
               int dif[3];
-              SUB(dif, draft->o, stbl->o);
-              CROSS(draft->prone, dif, draft->s);
-              NEG(draft->prone);
+              SUB(dif, drf->o, stb->o);
+              CROSS(drf->prone, dif, drf->s);
+              NEG(drf->prone);
             }
           }
 
           // fermion- x boson (local light-matter)
           // fermion+ x boson (local light-matter)
 
-          else if (stbl->f == 1 && draft->f > 1)
+          else if (stb->f == 1 && drf->f > 1)
           {
             // boson x fermion
 
-            switch(draft->kind)
+            switch(drf->kind)
             {
               case PHOTON:
 
                 // Reemit from cp
 
-                RESET(draft->pole);
-                RESET(draft->o);
+                RESET(drf->pole);
+                RESET(drf->o);
                 break;
 
               case ZB:
               case WB:
-                if (ISMATTER(stbl))
+                if (ISMATTER(stb))
                 {
-                  if (GETW0(stbl) == LEFT)
+                  if (GETW0(stb) == LEFT)
                   {
-                    if ((ISMATTER(draft) && GETW0(draft) == LEFT) || (!ISMATTER(draft) && GETW0(draft) == RIGHT))
+                    if ((ISMATTER(drf) && GETW0(drf) == LEFT) || (!ISMATTER(drf) && GETW0(drf) == RIGHT))
                     {
                       // Reemit from cp
 
-                      RESET(draft->pole);
-                      RESET(draft->o);
+                      RESET(drf->pole);
+                      RESET(drf->o);
                     }
                   }
                 }
                 else
                 {
-                  if (GETW0(stbl) == RIGHT)
+                  if (GETW0(stb) == RIGHT)
                   {
-                    if ((ISMATTER(draft) && GETW0(draft) == LEFT) || (!ISMATTER(draft) && GETW0(draft) == RIGHT))
+                    if ((ISMATTER(drf) && GETW0(drf) == LEFT) || (!ISMATTER(drf) && GETW0(drf) == RIGHT))
                     {
                       // Reemit from cp
 
-                      RESET(draft->pole);
-                      RESET(draft->o);
+                      RESET(drf->pole);
+                      RESET(drf->o);
                     }
                   }
                 }
                 break;
             }
           }
-          else if (stbl->f > 1 && draft->f == 1)
+          else if (stb->f > 1 && drf->f == 1)
           {
             // fermion x boson
 
-            switch(stbl->kind)
+            switch(stb->kind)
             {
               case PHOTON:
 
                 // Reemit from cp
 
-                RESET(draft->pole);
-                RESET(draft->o);
+                RESET(drf->pole);
+                RESET(drf->o);
                 break;
 
               case ZB:
               case WB:
-                if (ISMATTER(stbl))
+                if (ISMATTER(stb))
                 {
-                  if (GETW0(stbl) == LEFT)
+                  if (GETW0(stb) == LEFT)
                   {
-                    if ((ISMATTER(draft) && GETW0(draft) == LEFT) || (!ISMATTER(draft) && GETW0(draft) == RIGHT))
+                    if ((ISMATTER(drf) && GETW0(drf) == LEFT) || (!ISMATTER(drf) && GETW0(drf) == RIGHT))
                     {
                       // Reemit from cp
 
-                      RESET(draft->pole);
-                      RESET(draft->o);
+                      RESET(drf->pole);
+                      RESET(drf->o);
                     }
                   }
                 }
                 else
                 {
-                  if (GETW0(stbl) == RIGHT)
+                  if (GETW0(stb) == RIGHT)
                   {
-                    if ((ISMATTER(draft) && GETW0(draft) == LEFT) || (!ISMATTER(draft) && GETW0(draft) == RIGHT))
+                    if ((ISMATTER(drf) && GETW0(drf) == LEFT) || (!ISMATTER(drf) && GETW0(drf) == RIGHT))
                     {
                       // Reemit from cp
 
-                      RESET(draft->pole);
-                      RESET(draft->o);
+                      RESET(drf->pole);
+                      RESET(drf->o);
                     }
                   }
                 }
@@ -613,18 +575,18 @@ void interact()
 
           // boson x boson
 
-          else if (stbl->f > 1 && draft->f > 1)
+          else if (stb->f > 1 && drf->f > 1)
           {
             // Exchange charges and spins
 
-            COPY(draft->s, stbl->s);
-            draft->ch |= (stbl->ch & C_MASK);
-            draft->ch |= (stbl->ch & W0_MASK);
+            COPY(drf->s, stb->s);
+            drf->ch |= (stb->ch & C_MASK);
+            drf->ch |= (stb->ch & W0_MASK);
 
             // Reemit from cp
 
-            RESET(draft->pole);
-            RESET(draft->o);
+            RESET(drf->pole);
+            RESET(drf->o);
           }
           break;
 
@@ -632,16 +594,16 @@ void interact()
 
           // Calculate parallel transported pole
 
-          SUB(draft->pole, stbl->o, draft->o);
-          RESET(draft->o);
+          SUB(drf->pole, stb->o, drf->o);
+          RESET(drf->o);
           break;
 
         case 5:    // Inertia
 
           // Counterpart in inertia is trivial
 
-          RESET(draft->pole); // cp
-          RESET(draft->o);
+          RESET(drf->pole); // cp
+          RESET(drf->o);
           break;
 
         case 6:    // Collapse
@@ -649,58 +611,58 @@ void interact()
           // fermion+ x fermion- (annihilation) ?
           // fermion- x fermion+ (annihilation) ?
 
-          if ((stbl->ch & 0x1f) == ~(draft->ch & 0x1f) && stbl->kind == FERMION)
+          if ((stb->ch & 0x1f) == ~(drf->ch & 0x1f) && stb->kind == FERMION)
           {
             // Destroy particles, setting each 'a' property to a
             // new, pseudorandom value
 
-            draft->a ^= stbl->noise;
-            draft->target = draft->a;
-            target = draft->target;  // copy for flash
-            draft->kind = 0;         // undo pairing
+            drf->a ^= stb->noise;
+            drf->target = drf->a;
+            target = drf->target;  // copy for flash
+            drf->kind = 0;         // undo pairing
           }
-          else if (stbl->kind == FERMION && draft->kind != FERMION)
+          else if (stb->kind == FERMION && drf->kind != FERMION)
           {
             // fermion- x boson (light-matter)
             // fermion+ x boson (light-matter)
 
-            draft->a ^= stbl->noise;
-            draft->target = draft->a;
-            target = draft->target;    // copy for flash
-            draft->kind = 0;           // undo pairing
+            drf->a ^= stb->noise;
+            drf->target = drf->a;
+            target = drf->target;    // copy for flash
+            drf->kind = 0;           // undo pairing
           }
-          else if (stbl->kind != FERMION && draft->kind == FERMION)
+          else if (stb->kind != FERMION && drf->kind == FERMION)
           {
             // fermion- x boson (light-matter)
             // fermion+ x boson (light-matter)
 
-            draft->a ^= stbl->noise;
-            draft->target = draft->a;
-            target = draft->target; // copy for flash
-            draft->kind = 0;        // undo pairing
+            drf->a ^= stb->noise;
+            drf->target = drf->a;
+            target = drf->target; // copy for flash
+            drf->kind = 0;        // undo pairing
           }
           else
           {
             // fermion+ x fermion+ (scattering)
             // fermion- x fermion- (scattering)
 
-            draft->target = draft->a;
-            target = draft->target; // copy for flash
+            drf->target = drf->a;
+            target = drf->target; // copy for flash
           }
 
           // All options in this case reissue from cp
 
-          RESET(draft->pole);
-          RESET(draft->o);
-          draft->target = stbl->a;   // non trivial target
+          RESET(drf->pole);
+          RESET(drf->o);
+          drf->target = stb->a;   // non trivial target
           break;
 
         case 7:    // Internal collision
 
           // Reissue from cp
 
-          RESET(draft->pole);
-          RESET(draft->o);
+          RESET(drf->pole);
+          RESET(drf->o);
           break;
       }
     }
@@ -712,18 +674,18 @@ void interact()
     {
       // Exchange electrical charges if ions
 
-      if (stbl->ch == 0x03 && draft->ch == 0x28)
-        draft->ch ^= Q_MASK;
+      if (stb->ch == 0x03 && drf->ch == 0x28)
+        drf->ch ^= Q_MASK;
 
       // Reissue
 
-      RESET(draft->pole);
-      RESET(draft->o);
+      RESET(drf->pole);
+      RESET(drf->o);
     }
   }
 
   // Release a flash
 
-  draft->flash = 1;        // this low value vanishes quickly
-  draft->target = target;  // collapse target
+  drf->flash = true;
+  drf->target = target;  // collapse target
 }

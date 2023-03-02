@@ -38,6 +38,9 @@
 #define DISTANCE    312
 #define TRACEBUF    50000
 
+#define LIMITX		0.7
+#define LIMITY		0.7
+
 // Exported variables
 
 extern Vector3d position;	      	// view reference point

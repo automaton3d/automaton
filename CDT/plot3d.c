@@ -48,7 +48,7 @@ extern Tensor *lattice0;
 
 boolean showAxes  = true;
 boolean showModel = true;
-
+boolean showGrid  = false;
 unsigned long timer = 0;
 unsigned long begin;
 
@@ -70,6 +70,8 @@ boolean rebuild = true;
 
 extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
+
+View view;
 
 Vector3d t1[] =
 {
@@ -152,28 +154,33 @@ void drawGroundPlane()
 {
 	if(!ticks[PLANE])
 		return;
-	//
-	newView2();
-	newProjection();
-	newView3();
-	//
-	Vector3d center = getPerspective();
-	int x0 = floor(center.x/20)*20;
-	int y0 = floor(center.y/20)*20;
-	//
-	// Grid
-	//
-	Vector3d pos;
-	pos.z = 0;
-	for(pos.x = x0-1000; pos.x < x0+1000; pos.x+=20)
-		for(pos.y = y0-1000; pos.y < y0+1000; pos.y++)
-			plot(pos, gridcolor);
-	for(pos.y = y0-1000; pos.y < y0+1000; pos.y+=20)
-		for(pos.x = x0-1000; pos.x < x0+1000; pos.x++)
-			plot(pos, gridcolor);
-	pos.x = 0; pos.y = 0;
-	for(pos.z = 0; pos.z < +100; pos.z++)
-		plot(pos, YELLOW);
+	Vector3d p1, p2;
+	p1.x = -1000;
+	p1.y = -1000;
+	p1.z = 0;
+	p2.x = +1000;
+	p2.y = -1000;
+	p2.z = 0;
+	for(int i = 0; i < 100; i++)
+	{
+		line3d(p1, p2, gridcolor);
+		p1.y += 20; p2.y += 20;
+	}
+	p1.x = -1000;
+	p1.y = -1000;
+	p2.x = -1000;
+	p2.y = +1000;
+	for(int i = 0; i < 100; i++)
+	{
+		line3d(p1, p2, gridcolor);
+		p1.x += 20; p2.x += 20;
+	}
+	p1.x = 0;
+	p1.y = 0;
+	p2.x = 0;
+	p2.y = 0;
+	p2.z = 500;
+	line3d(p1, p2, YELLOW);
 }
 
 void drawMark(Vector3d p)
@@ -196,9 +203,9 @@ void drawMark(Vector3d p)
 	line3d(t1, t2, ORANGE);
 }
 
-int driftx = SIDE / 2;
-int drifty = SIDE / 2;
-int driftz = SIDE / 2;
+int driftx = 0;
+int drifty = 0;
+int driftz = 0;
 
 void drawEspacito(int x0, int y0, int z0, Tensor *espacito)
 {
@@ -207,29 +214,42 @@ void drawEspacito(int x0, int y0, int z0, Tensor *espacito)
 		for(int y = 0; y < SIDE; y++)
 			for(int x = 0; x < SIDE; x++)
 			{
-				xyz.x = WIDE * (SIDE * (x0 + driftx) + x - DRIFT);
-				xyz.y = WIDE * (SIDE * (y0 + drifty) + y - DRIFT);
-				xyz.z = WIDE * (SIDE * (z0 + driftz) + z - DRIFT);
-				if(espacito->f > 0)
-					putVoxel(xyz, RED);
-				else if(espacito->flash)
-					putVoxel(xyz, YELLOW);
-				else if(SIDE <= 4)
-					putVoxel(xyz, PALE);
+				if(x < 2 && y < 2 && z < 2)
+				{
+					xyz.x = WIDE * (SIDE * (x0 + driftx) + x - DRIFT);
+					xyz.y = WIDE * (SIDE * (y0 + drifty) + y - DRIFT);
+					xyz.z = WIDE * (SIDE * (z0 + driftz) + z - DRIFT);
+					if(!ISNULL(espacito->p))
+						putVoxel(xyz, CYAN);
+					else if(espacito->f > 0)
+						putVoxel(xyz, RED);
+					else if(espacito->flash)
+						putVoxel(xyz, YELLOW);
+					else //if(showGrid)
+						putVoxel(xyz, PALE);
+				}
 				espacito++;
 			}
 }
 
 void drawModel()
 {
-	Tensor *espacito = lattice0;
-	for(int z = 0; z < SIDE; z++)
-		for(int y = 0; y < SIDE; y++)
-			for(int x = 0; x < SIDE; x++)
-			{
-				drawEspacito(x, y, z, espacito);
-				espacito += SIDE3;
-			}
+#ifdef TEST
+  int root[3];
+  root[0] = 0;
+  root[1] = 0;
+  root[2] = 0;
+  explore(root, 0);
+#else
+  Tensor *espacito = lattice0;
+  for(int z = 0; z < SIDE; z++)
+    for(int y = 0; y < SIDE; y++)
+      for(int x = 0; x < SIDE; x++)
+        {
+		  drawEspacito(x, y, z, espacito);
+		  espacito += SIDE3;
+		}
+#endif
 }
 
 void drawBox()
@@ -312,6 +332,21 @@ void drawAxes()
 	setCamera(position, direction, attitude);
 }
 
+void drawVectors()
+{
+	Vector3d p0;
+	reset3d(&p0);
+	Vector3d position, direction, attitude;
+	getCamera(&position, &direction, &attitude);
+	Vector3d di, at;
+	at.x = 0; at.y = 0; at.z = -1;
+	di.x = 1; di.y = 0; di.z = 0;
+	setCamera(p0, di, at);
+//	newView2();
+//	newView3();
+	setCamera(position, direction, attitude);
+}
+
 void voxelize()
 {
 	if(showModel)
@@ -327,7 +362,6 @@ void update2d()
 	showCheckbox(20, 200, "track");
 	showCheckbox(20, 220, "momentum");
 	showCheckbox(20, 240, "model");
-	showCheckbox(20, 260, "centers");
 	//
  	char *s;
     //
@@ -383,7 +417,6 @@ void *DisplayLoop()
 {
     pthread_detach(pthread_self());
 	printf("Running...\n");
-	fflush(stdout);
 	//
 	initPlot();
 	flipBuffers();	// forces init of curr
@@ -412,6 +445,7 @@ void *DisplayLoop()
        		drawBox();
        		drawAxes();
    			drawGroundPlane();
+   			drawVectors();
         	//
         	update2d();
         	//

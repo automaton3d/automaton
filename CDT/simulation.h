@@ -15,7 +15,7 @@
 
 // Lattice symbols
 
-#define ORDER     3  //269 (see Section 2.3)
+#define ORDER     4  //269 (see Section 2.3)
 #define SIDE      (1<<ORDER)
 #define SIDE2     (SIDE*SIDE)
 #define SIDE3     (SIDE*SIDE2)
@@ -28,7 +28,8 @@
 #define LIGHT2    (LIGHT*LIGHT)
 #define S         (SIDE/2)
 #define TOL       (SIDE/1024)    // Provisional value
-#define LIMIT     (3*(SIDE2-2*SIDE+1))
+#define LIMIT     (3*(S-1)*(S-1))
+//#define LIMIT     (DIAG*DIAG/4)
 
 // Particle symbols (ored in code)
 
@@ -54,10 +55,7 @@
 #define ISNULL(v)     (v[0]==0 && v[1]==0 && v[2]==0)
 #define ISEQUAL(v,u)  (v[0]==u[0] && v[1]==u[1] && v[2]==u[2])
 #define RESET(v)      {v[0]=0;v[1]=0;v[2]=0;}
-#define COPY(u,v)     {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
-#define MOD2(v)       (v[0]*v[0]+v[1]*v[1]+v[2]*v[2])
 #define NEG(v)        {v[0]=-v[0];v[1]=-v[1];v[2]=-v[2];}
-#define DOT(u,v)      (u[0]*v[0]+u[1]*v[1]+u[2]*v[2])
 #define GETC(u)       (u->ch & C_MASK)
 #define GETW1(u)      ((u->ch & W1_MASK) == W1_MASK)
 #define GETW0(u)      ((u->ch & W0_MASK) == W0_MASK)
@@ -87,6 +85,9 @@ typedef struct Tensor
   unsigned tt;     // lifetime
   int o[3];        // origin
   unsigned syn;    // synchronism
+
+  // Other
+
   int u, v;        // Euler
   unsigned f;      // frequency
 
@@ -97,19 +98,25 @@ typedef struct Tensor
 
   // Superluminal variables
 
-  unsigned char flash; // flash
-  unsigned pole[3];    // pole
-  unsigned target;     // affinity collapsing
+  boolean flash;   // flash
+  int pole[3];     // pole
+  unsigned target; // affinity collapsing
 
   // Pointers
 
   unsigned offset;     // offset inside espacito (constant)
   struct Tensor *wires[6];  // wires to other cells (constant);
 
-  // Interaction data
+  // Interaction control
 
   unsigned char kind;  // kind of fragment
   unsigned noise;      // pseudorandom seed
+
+
+
+  // DEBUG
+  int pos[3];
+  boolean edge;
 
 } Tensor;
 
@@ -127,5 +134,7 @@ void initAutomaton();
 void initEspacito();
 void initScreen();
 void printCell(Tensor *cell);
+int isAllowed(int dir, int org[3]);
+void explore(int org[3], int level);	// DEBUG
 
 #endif /* SIMULATION_H_ */

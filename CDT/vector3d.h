@@ -19,6 +19,7 @@ typedef struct { double x, y, z; } Vector3d;
 
 /// Functions ///
 
+void reset3d(Vector3d *v);
 void normalize(Vector3d *v);
 void add3d(Vector3d *a, Vector3d b);
 void sub3d(Vector3d *a, Vector3d b);

@@ -29,5 +29,6 @@ double rnd();
 void rndInt(int *array, int max);
 Vector3d gravxpreon(Vector3d p0, Vector3d p1, Vector3d cen, double r);
 int string_length(char *s);
+void COPY(int *u, int *v);
 
 #endif /* UTILS_H_ */

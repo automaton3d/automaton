@@ -81,7 +81,7 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			break;
 		case 'V':
 			verbose = !verbose;
-			break;
+		    break;
 		case 'U':
 			ticks[MODEL] = !ticks[MODEL];
 	    	pthread_mutex_lock(&mutex);

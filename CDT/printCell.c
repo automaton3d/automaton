@@ -46,6 +46,5 @@ void printCell(Tensor *cell)
 
 	  unsigned char kind;  // kind of fragment
 */
-	fflush(stdout);
 }
 
