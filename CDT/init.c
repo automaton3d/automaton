@@ -25,9 +25,8 @@
 #define PAIR
 
 extern boolean ticks[NTICKS];
-extern Tuple center;
 extern Voxel *imgbuf[2], *buff, *clean;
-extern Tensor *lattice0, *lattice1;
+extern Cell *latt0, *latt1;
 extern Quaternion currQ, lastQ;
 
 extern View view;
@@ -49,19 +48,17 @@ void initScreen()
 	buff->color = -1;
 	clean->color = -1;
 	//
-	center.x = center.y = center.z = 0;
-	//
 	// Initialize gadgets
 	//
 	for(int i = 0; i < NTICKS; i++)
 		ticks[i] = true;
 	//
-	ticks[PLANE] 		= false;
-	ticks[MESSENGER]	= false;
-	ticks[CUBE] 		= false;
-	ticks[TRAJECTORY] 	= false;
-	ticks[SPIN] 		= false;
-	ticks[MOMENTUM]		= false;
+	ticks[PLANE] 	  = false;
+	ticks[MESSENGER]  = false;
+	ticks[CUBE] 	  = false;
+	ticks[TRAJECTORY] = false;
+	ticks[SPIN] 	  = false;
+	ticks[MOMENTUM]	  = false;
 
 	//
 	begin = GetTickCount();				// initial milliseconds
@@ -85,6 +82,8 @@ void initScreen()
 
 // Template for momentum recursion
 
+#define S (SIDE/2)
+
 int template[6][3] =
 {
   {+S, 0, 0},
@@ -95,9 +94,9 @@ int template[6][3] =
   {0, 0, -S},
 };
 
-void singularity(Tensor *grid)
+void singularity(Cell *grid)
 {
-  Tensor *pointer;
+  Cell *pointer;
 
   pointer = grid;
   int i = 0;
@@ -107,11 +106,10 @@ void singularity(Tensor *grid)
   for(int y = 0; y < SIDE; y++)
     for(int x = 0; x < SIDE; x++)
     {
-      COPY(pointer->s, template[i % 6]);
+      CP(pointer->s, template[i % 6]);
       pointer++; i++;
     }
   i = 0;
-
   pointer = grid;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
@@ -137,21 +135,23 @@ void singularity(Tensor *grid)
 
         // momentum
 
-        COPY(pointer->p, template[i % 6]);
+        CP(pointer->p, template[i % 6]);
 
         // spin
 
-        COPY(pointer->s, grid[i % SIDE2].s);
+        CP(pointer->s, grid[i % SIDE2].s);
 
-          // Other properties
+        // Other properties
 
         pointer->t     = 0;
         pointer->f     = 1;
+        pointer->bmp   = 1;
         pointer->a     = i;
-        pointer->noise = i;
+        pointer->seed  = i;
         pointer->kind  = 0;
         RESET(pointer->o);
         RESET(pointer->pole);
+        RESET(pointer->dom);
 
         // Next
 
@@ -159,9 +159,9 @@ void singularity(Tensor *grid)
       }
 }
 
-void initEspacito(Tensor *lattice, Tensor *espacito, int x0, int y0, int z0)
+void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
 {
-  Tensor *pointer = espacito;
+  Cell *pointer = espacito;
   unsigned offset = 0;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
@@ -169,31 +169,36 @@ void initEspacito(Tensor *lattice, Tensor *espacito, int x0, int y0, int z0)
       {
         pointer->ch    = 0;
         pointer->t     = 0;
-        pointer->tt    = 0;
         pointer->f     = 0;
+        pointer->bmp   = 0;
         pointer->a     = offset;
         pointer->syn   = 0;
         pointer->u     = 0;
-        pointer->v   = 0;
-        pointer->noise = offset;
+        pointer->pmf   = 0;
+
+        // Eq. 4
+
+        pointer->pow   = 1;
+        pointer->den   = 1;
+
+        pointer->seed  = offset;
         pointer->kind  = 0;
-        pointer->flash  = 0;
+        pointer->flash  = false;
         pointer->target = SIDE3;
         RESET(pointer->o);
         RESET(pointer->pole);
         RESET(pointer->p);
         RESET(pointer->s);
-        RESET(pointer->p0);
-        RESET(pointer->prone);
+        RESET(pointer->pP);
+        RESET(pointer->msg);
 
-
-
-
+        // DEBUG
+#define DEBUG
+#ifdef DEBUG
         pointer->pos[0] = x0;
         pointer->pos[1] = y0;
         pointer->pos[2] = z0;
-        pointer->edge = false;
-
+#endif
         // Wires
 
         if(x0 == SIDE - 1)
@@ -236,42 +241,42 @@ void initEspacito(Tensor *lattice, Tensor *espacito, int x0, int y0, int z0)
 
 void initAutomaton()
 {
-  printf("LIMIT=%d DIAG=%d DIAG=%d SIDE=%d\n", LIMIT, DIAG, (int)(sqrt(3)*SIDE + 0.5), SIDE);
+  printf("DIAG=%d DIAG=%d SIDE=%d\n", DIAG, (int)(sqrt(3)*SIDE + 0.5), SIDE);
 
-  lattice0 = malloc(SIDE6 * sizeof(Tensor));
-  assert(lattice0 != NULL);
-  lattice1 = malloc(SIDE6 * sizeof(Tensor));
-  assert(lattice1 != NULL);
+  latt0 = malloc(SIDE6 * sizeof(Cell));
+  assert(latt0 != NULL);
+  latt1 = malloc(SIDE6 * sizeof(Cell));
+  assert(latt1 != NULL);
 
-  Tensor *espacito;
+  Cell *espacito;
 
   // Create draft lattice
 
-  Tensor *sing = NULL;
-  espacito = lattice1;
+  Cell *sing = NULL;
+  espacito = latt1;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
       for(int x = 0; x < SIDE; x++)
       {
     	  if(x == SIDE/2 && y == SIDE/2 && z == SIDE/2)
     		  sing = espacito;
-    	  initEspacito(lattice1, espacito, x, y, z);
+    	  initEspacito(latt1, espacito, x, y, z);
     	  espacito += SIDE3;
       }
 
   // Create stable lattice
 
-  espacito = lattice0;
+  espacito = latt0;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
       for(int x = 0; x < SIDE; x++)
       {
-    	  initEspacito(lattice0, espacito, x, y, z);
+    	  initEspacito(latt0, espacito, x, y, z);
     	  espacito += SIDE3;
       }
 
   // Create singularity
 
-  singularity(sing); //lattice1->flash = 1;
+  singularity(sing);
 }
 

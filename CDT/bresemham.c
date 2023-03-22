@@ -39,10 +39,10 @@ void circle2d(int xc, int yc, int r, char color)
     }
 }
 
-void line3d(Vector3d t1, Vector3d t2, char color)
+void line3d(Vec3 t1, Vec3 t2, char color)
 {
     int i, err_1, err_2, dx2, dy2, dz2;
-    Vector3d point = t1;
+    Vec3 point = t1;
     int dx = t2.x - t1.x;
     int dy = t2.y - t1.y;
     int dz = t2.z - t1.z;

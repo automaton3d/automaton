@@ -14,7 +14,6 @@
 
 extern boolean showAxes;
 extern boolean showModel;
-extern boolean stop;
 extern boolean verbose;
 extern boolean ticks[NTICKS];
 extern boolean input_changed;
@@ -22,6 +21,7 @@ extern boolean rebuild;
 extern char gridcolor;
 extern pthread_mutex_t mutex;
 
+boolean stop;
 double depth = 2.5;
 
 void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
@@ -91,7 +91,7 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 		case '0':
 			{
 	        	pthread_mutex_lock(&mutex);
-				Vector3d p, d, a, xaxis;
+				Vec3 p, d, a, xaxis;
 				getCamera(&p, &d, &a);
 				cross3d(d, a, &xaxis);
 				p.x = sqrt(3);
@@ -110,7 +110,7 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case '1':
 			{
-				Vector3d p, d, a;
+				Vec3 p, d, a;
 				p.x = 44;
 				p.y = 0;
 				p.z = 0;
@@ -130,7 +130,7 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			break;
 		case '2':
 			{
-				Vector3d p, d, a;
+				Vec3 p, d, a;
 				p.x = 0;
 				p.y = 44;
 				p.z = 0;
@@ -150,7 +150,7 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			break;
 		case '3':
 			{
-				Vector3d p, d, a;
+				Vec3 p, d, a;
 				p.x = 0;
 				p.y = 0;
 				p.z = 44;
@@ -202,10 +202,10 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			}
 			else
 			{
-				Vector3d position, direction, attitude;
+				Vec3 position, direction, attitude;
 				pthread_mutex_lock(&mutex);
 				getCamera(&position, &direction, &attitude);
-				Vector3d z = direction;
+				Vec3 z = direction;
 				scale3d(&z, 60*(exp(depth)-exp(depth-0.1)));
 				add3d(&position, z);
 				setCamera(position, direction, attitude);
@@ -225,10 +225,10 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			}
 			else
 			{
-				Vector3d position, direction, attitude;
+				Vec3 position, direction, attitude;
 				pthread_mutex_lock(&mutex);
 				getCamera(&position, &direction, &attitude);
-				Vector3d z = direction;
+				Vec3 z = direction;
 				scale3d(&z, 60*(exp(depth+0.1)-exp(depth)));
 				sub3d(&position, z);
 				setCamera(position, direction, attitude);

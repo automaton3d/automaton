@@ -10,18 +10,18 @@
 #include "engine.h"
 #include "common.h"
 #include "plot3d.h"
-#include "vector3d.h"
 #include "quaternion.h"
 #include "gadget.h"
 #include "utils.h"
 #include "trackball.h"
+#include "vec3.h"
 
 double radius = 0.4 * HEIGHT;
 boolean fDraw = false;
 boolean input_changed = true;
 
 //static Vector3d p0, p1;
-static Vector3d pos, dir, att;
+static Vec3 pos, dir, att;
 
 int zoomInt = 1000;
 
@@ -48,7 +48,7 @@ void m4MultVec(float *vf, float mat[4][4], float *vi)
 		vf[i] = tmp[i];
 }
 
-void project(Vector3d *vec, float x, float y)
+void project(Vec3 *vec, float x, float y)
 {
       float r = 1;
       float res = min(WIDTH, HEIGHT) - 1;
@@ -134,10 +134,10 @@ void mouse(UINT msg, WPARAM wparam, LPARAM lparam)
 			{
 				if(start)
 				{
-					Vector3d a;
+					Vec3 a;
 					project(&a, lastx, lasty);
 					normalize(&a);
-					Vector3d b;
+					Vec3 b;
 					project(&b, x, y);
 					normalize(&b);
 					fromBetweenVectors(&currQ, a, b);

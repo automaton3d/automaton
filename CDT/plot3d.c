@@ -20,7 +20,7 @@
 
 #include "engine.h"
 #include "common.h"
-#include "vector3d.h"
+#include "vec3.h"
 #include "plot3d.h"
 #include "mouse.h"
 #include "text.h"
@@ -29,6 +29,7 @@
 #include "simulation.h"
 #include "bresenham.h"
 #include "utils.h"
+#include "test/test.h"
 
 // Global variables
 
@@ -44,7 +45,7 @@ extern HDC hdc;
 
 extern boolean input_changed;
 extern boolean ticks[NTICKS];
-extern Tensor *lattice0;
+extern Cell *latt0;
 
 boolean showAxes  = true;
 boolean showModel = true;
@@ -59,7 +60,7 @@ char X, Y, Z;
 
 // Markers
 
-Vector3d *marks;
+Vec3 *marks;
 int nmark;
 
 int yy[WIDTH];
@@ -73,7 +74,7 @@ extern pthread_barrier_t barrier;
 
 View view;
 
-Vector3d t1[] =
+Vec3 t1[] =
 {
 	{ BOXMIN, BOXMIN, BOXMIN },
 	{ BOXMIN, BOXMIN, BOXMIN },
@@ -93,7 +94,7 @@ Vector3d t1[] =
 	{ BOXMAX, BOXMAX, BOXMAX },
 };
 
-Vector3d t2[] =
+Vec3 t2[] =
 {
 	{ BOXMAX, BOXMIN, BOXMIN },
 	{ BOXMIN, BOXMAX, BOXMIN },
@@ -125,7 +126,7 @@ void initPlot()
     setBackground(BLK);
     gridcolor = NAVY;
     //
-	marks = malloc(TRACEBUF * sizeof(Vector3d));
+	marks = malloc(TRACEBUF * sizeof(Vec3));
     clearBuffer();
     char *s;
 	asprintf((char **)&s, "Wait, please...");
@@ -138,7 +139,7 @@ void initPlot()
 /*
  * Add a point to trajectory.
  */
-void addPoint(Vector3d p)
+void addPoint(Vec3 p)
 {
 	if(nmark < TRACEBUF)
 		marks[nmark++] = p;
@@ -154,7 +155,7 @@ void drawGroundPlane()
 {
 	if(!ticks[PLANE])
 		return;
-	Vector3d p1, p2;
+	Vec3 p1, p2;
 	p1.x = -1000;
 	p1.y = -1000;
 	p1.z = 0;
@@ -183,9 +184,9 @@ void drawGroundPlane()
 	line3d(p1, p2, YELLOW);
 }
 
-void drawMark(Vector3d p)
+void drawMark(Vec3 p)
 {
-	Vector3d t1, t2;
+	Vec3 t1, t2;
 	t1 = p;
 	t2 = p;
 	t1.x += DEV;
@@ -207,41 +208,50 @@ int driftx = 0;
 int drifty = 0;
 int driftz = 0;
 
-void drawEspacito(int x0, int y0, int z0, Tensor *espacito)
+void drawEspacito(int x0, int y0, int z0, Cell *espacito)
 {
-	Vector3d xyz;
+	Vec3 xyz;
 	for(int z = 0; z < SIDE; z++)
 		for(int y = 0; y < SIDE; y++)
 			for(int x = 0; x < SIDE; x++)
 			{
-				if(x < 2 && y < 2 && z < 2)
+				if(espacito->a == 0)	// DEBUG
+//				if(x < 2 && y < 2 && z < 2)	// DEBUG
 				{
 					xyz.x = WIDE * (SIDE * (x0 + driftx) + x - DRIFT);
 					xyz.y = WIDE * (SIDE * (y0 + drifty) + y - DRIFT);
 					xyz.z = WIDE * (SIDE * (z0 + driftz) + z - DRIFT);
-					if(!ISNULL(espacito->p))
+					if(!ZERO(espacito->p))
 						putVoxel(xyz, CYAN);
 					else if(espacito->f > 0)
-						putVoxel(xyz, RED);
-					else if(espacito->flash)
 						putVoxel(xyz, YELLOW);
-					else //if(showGrid)
+					else if(espacito->flash)
+						putVoxel(xyz, RED);
+					else if(showGrid)
 						putVoxel(xyz, PALE);
 				}
 				espacito++;
 			}
 }
 
+int visit = 0;	// TEST_TREE
+
 void drawModel()
 {
-#ifdef TEST
+#ifdef TEST_TREE
+
+  visit = 0;
   int root[3];
   root[0] = 0;
   root[1] = 0;
   root[2] = 0;
   explore(root, 0);
+//  assert(visit == (2 * SIDE - 2) * (2 * SIDE - 2) * (2 * SIDE - 2));
+  printf("visit=%d\n", visit);
+
 #else
-  Tensor *espacito = lattice0;
+
+  Cell *espacito = latt0;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
       for(int x = 0; x < SIDE; x++)
@@ -249,6 +259,7 @@ void drawModel()
 		  drawEspacito(x, y, z, espacito);
 		  espacito += SIDE3;
 		}
+
 #endif
 }
 
@@ -266,12 +277,12 @@ void drawAxes()
 	//
 	// Save status
 	//
-	Vector3d position, direction, attitude;
+	Vec3 position, direction, attitude;
 	getCamera(&position, &direction, &attitude);
 	//
 	// Prepare matrix
 	//
-	Vector3d tpos = direction;
+	Vec3 tpos = direction;
 	normalize(&tpos);
 	scale3d(&tpos, -30);
 	setViewPort(0.0, 0.2, 0.0, 0.2);
@@ -280,7 +291,7 @@ void drawAxes()
 	newView2();
 	newView3();
 	//
-	Vector3d point;
+	Vec3 point;
 	for(int i = 0; i < 35; i++)
 	{
 		double p = i;
@@ -334,11 +345,11 @@ void drawAxes()
 
 void drawVectors()
 {
-	Vector3d p0;
+	Vec3 p0;
 	reset3d(&p0);
-	Vector3d position, direction, attitude;
+	Vec3 position, direction, attitude;
 	getCamera(&position, &direction, &attitude);
-	Vector3d di, at;
+	Vec3 di, at;
 	at.x = 0; at.y = 0; at.z = -1;
 	di.x = 1; di.y = 0; di.z = 0;
 	setCamera(p0, di, at);
@@ -403,7 +414,7 @@ void update2d()
     //
     // Camera position
     //
-    Vector3d pos, dir, att;
+    Vec3 pos, dir, att;
     getCamera(&pos, &dir, &att);
 	asprintf((char **)&s, "[%.0f, %.0f, %.0f]", pos.x, pos.y, pos.z);
 	int n = string_length(s);
@@ -472,6 +483,7 @@ void *DisplayLoop()
         vprints(20, 40, s);
     	SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
     	BitBlt(hdc, 20, 35, 160, 20, myCompatibleDC, 20, 35, SRCCOPY);
+//    	SetWindowTextW(hwnd_test, L"Label:");
     }
 }
 

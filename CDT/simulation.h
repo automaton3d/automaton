@@ -11,11 +11,11 @@
 #define SIMULATION_H_
 
 #include "tuple.h"
-#include "vector3d.h"
+#include "vec3.h"
 
 // Lattice symbols
 
-#define ORDER     4  //269 (see Section 2.3)
+#define ORDER     3  //166 (see Section 2.3)
 #define SIDE      (1<<ORDER)
 #define SIDE2     (SIDE*SIDE)
 #define SIDE3     (SIDE*SIDE2)
@@ -26,10 +26,6 @@
 #define DIAG      (2*MASK)
 #define LIGHT     (2*DIAG)
 #define LIGHT2    (LIGHT*LIGHT)
-#define S         (SIDE/2)
-#define TOL       (SIDE/1024)    // Provisional value
-#define LIMIT     (3*(S-1)*(S-1))
-//#define LIMIT     (DIAG*DIAG/4)
 
 // Particle symbols (ored in code)
 
@@ -52,26 +48,26 @@
 
 // Macros (helps readability)
 
-#define ISNULL(v)     (v[0]==0 && v[1]==0 && v[2]==0)
-#define ISEQUAL(v,u)  (v[0]==u[0] && v[1]==u[1] && v[2]==u[2])
+#define ZERO(v)     (v[0]==0 && v[1]==0 && v[2]==0)
+#define EQ(v,u)       (v[0]==u[0] && v[1]==u[1] && v[2]==u[2])
 #define RESET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define NEG(v)        {v[0]=-v[0];v[1]=-v[1];v[2]=-v[2];}
-#define GETC(u)       (u->ch & C_MASK)
-#define GETW1(u)      ((u->ch & W1_MASK) == W1_MASK)
-#define GETW0(u)      ((u->ch & W0_MASK) == W0_MASK)
-#define GETQ(u)       ((u->ch & Q_MASK) == Q_MASK)
+#define C(u)          (u->ch & C_MASK)
+#define W1(u)         ((u->ch & W1_MASK) == W1_MASK)
+#define W0(u)         ((u->ch & W0_MASK) == W0_MASK)
+#define Q(u)          ((u->ch & Q_MASK) == Q_MASK)
 #define SUB(v,v1,v2)  {v[0]=v2[0]-v1[0];v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
 #define CROSS(a,b,c)  {a[0]=b[1]*c[2]-b[2]*c[1];a[1]=b[2]*c[0]-b[0]*c[2];a[2]=b[0]*c[1]-b[1]*c[0];}
-#define ISMATTER(u)   (GETC(u)>2&&GETC(u)!=4)
+#define MATTER(u)     (C(u)>2&&C(u)!=4)
 
 // Handedness
 
 #define RIGHT  0
 #define LEFT  1
 
-// Tensor structure
+// Cell structure
 
-typedef struct Tensor
+typedef struct Cell
 {
   // Physical properties
 
@@ -82,49 +78,48 @@ typedef struct Tensor
   // Wavefront
 
   unsigned t;      // lifetime
-  unsigned tt;     // lifetime
   int o[3];        // origin
   unsigned syn;    // synchronism
 
-  // Other
+  // Sine wave
 
-  int u, v;        // Euler
+  int u;           // Euler product formula
+  int pmf;         // sine PMF
+  int pow;         // auxiliary
+  int den;         // auxiliary
   unsigned f;      // frequency
+  unsigned bmp;    // angle
 
   // Footprint
 
-  int p0[3];       // momentum propensity
-  int prone[3];    // sought for direction
+  int pP[3];       // empodion
+  int msg[3];      // sought for direction
 
   // Superluminal variables
 
   boolean flash;   // flash
+  int dom[3];      // domino
   int pole[3];     // pole
   unsigned target; // affinity collapsing
 
   // Pointers
 
   unsigned offset;     // offset inside espacito (constant)
-  struct Tensor *wires[6];  // wires to other cells (constant);
+  struct Cell *wires[6];  // wires to other cells (constant);
 
   // Interaction control
 
   unsigned char kind;  // kind of fragment
-  unsigned noise;      // pseudorandom seed
+  unsigned seed;       // pseudorandom seed
 
-
-
-  // DEBUG
-  int pos[3];
-  boolean edge;
-
-} Tensor;
+  int pos[3];//debug
+} Cell;
 
 /// Functions ///
 
 void *AutomatonLoop();
 void DeleteAutomaton();
-Tuple getPole(Vector3d v, Tuple cen, int r);
+Tuple getPole(Vec3 v, Tuple cen, int r);
 void copy();
 void flash();
 void expand();
@@ -133,8 +128,8 @@ void interact();
 void initAutomaton();
 void initEspacito();
 void initScreen();
-void printCell(Tensor *cell);
-int isAllowed(int dir, int org[3]);
-void explore(int org[3], int level);	// DEBUG
+void printCell(Cell *cell);
+boolean isAllowed(int dir, int org[3]);
+long OFFSET(int x, int y, int z);
 
 #endif /* SIMULATION_H_ */

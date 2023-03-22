@@ -67,7 +67,7 @@ double sign(double d)
 	return d / fabs(d);
 }
 
-Tuple toTuple(Vector3d v)
+Tuple toTuple(Vec3 v)
 {
 	Tuple t;
 	t.x = v.x;
@@ -76,9 +76,9 @@ Tuple toTuple(Vector3d v)
 	return t;
 }
 
-Vector3d toVec(Tuple t)
+Vec3 toVec(Tuple t)
 {
-	Vector3d v;
+	Vec3 v;
 	v.x = t.x;
 	v.y = t.y;
 	v.z = t.z;
@@ -90,7 +90,7 @@ Vector3d toVec(Tuple t)
  *
  * Marsaglia (1972).
  */
-Vector3d rndVector()
+Vec3 rndVector()
 {
 	double x1, x2;
 	do
@@ -99,7 +99,7 @@ Vector3d rndVector()
 		x2 = rnd();
 	} while(x1*x1 + x2*x2 >= 1);
 	//
-	Vector3d v;
+	Vec3 v;
 	v.x = 2*rndSign()*x1*sqrt(1-x1*x1-x2*x2);
 	v.y = 2*rndSign()*x2*sqrt(1-x1*x1-x2*x2);
 	v.z = rndSign()*(1 - 2*(x1*x1 + x2*x2));
@@ -125,7 +125,7 @@ void rndInt(int *array, int max)
 	}
 }
 
-Vector3d gravxpreon(Vector3d p0, Vector3d p1, Vector3d cen, double r)
+Vec3 gravxpreon(Vec3 p0, Vec3 p1, Vec3 cen, double r)
 {
 	double cx = cen.x;
 	double cy = cen.y;
@@ -144,7 +144,7 @@ Vector3d gravxpreon(Vector3d p0, Vector3d p1, Vector3d cen, double r)
 	double C = px * px - 2 * px * cx + cx * cx + py * py - 2 * py * cy + cy * cy +
 	     pz * pz - 2 * pz * cz + cz * cz - r * r;
 	//
-	Vector3d solution;
+	Vec3 solution;
 	solution.x = solution.y = solution.z = 0;
 	//
 	// Discriminant
@@ -175,9 +175,19 @@ int string_length(char *s)
 	return c;
 }
 
-void COPY(int *u, int *v)
+void CP(int *u, int *v)
 {
 	u[0] = v[0];
 	u[1] = v[1];
 	u[2] = v[2];
+}
+
+int DOT(int *u, int *v)
+{
+	return u[0]*v[0]+u[1]*v[1]+u[2]*v[2];
+}
+
+int MOD2(int *v)
+{
+	return v[0]*v[0]+v[1]*v[1]+v[2]*v[2];
 }

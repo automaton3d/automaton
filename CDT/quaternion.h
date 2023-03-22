@@ -8,7 +8,7 @@
 #ifndef QUATERNION_H_
 #define QUATERNION_H_
 
-#include "vector3d.h"
+#include "vec3.h"
 
 typedef struct
 {
@@ -23,9 +23,9 @@ void normalise(Quaternion *q0);
 void scaleQ(Quaternion *q0, double s);
 void mul(Quaternion *q0, Quaternion q1, Quaternion q2);
 void add(Quaternion q0, Quaternion q1, Quaternion q2);
-void fromBetweenVectors(Quaternion *q, Vector3d u, Vector3d v);
+void fromBetweenVectors(Quaternion *q, Vec3 u, Vec3 v);
 void mulQ(Quaternion *r, Quaternion a, Quaternion b);
-void rotateVector(Vector3d *r, Quaternion q, Vector3d v);
+void rotateVector(Vec3 *r, Quaternion q, Vec3 v);
 void identityQ(Quaternion *q);
 
 

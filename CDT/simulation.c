@@ -15,20 +15,17 @@
 
 #include "common.h"
 #include "tuple.h"
-#include "vector3d.h"
 #include "utils.h"
 #include "plot3d.h"
 #include "text.h"
 #include "main3d.h"
 #include "engine.h"
+#include "test/test.h"
+#include "vec3.h"
 
 extern boolean rebuild;
 
 boolean verbose = false;
-boolean stop = false;
-Tuple center;
-
-struct Space *space0 = NULL;
 
 int i0=0;	// msgr x bub
 int i1=0;	// f=1 x f=1
@@ -38,74 +35,73 @@ int i4=0;	// electric
 int i5=0;	// inertia
 
 //Tuple cm1, cm2;		// debug
-extern Tensor *stb, *drf;
-extern Tensor *lattice0, *lattice1;
+extern Cell *stb, *drf;
+extern Cell *latt0, *latt1;
 
 extern pthread_barrier_t barrier;
-
-/*
- * Returns the point on sphere in cen.
- */
-Tuple getPole(Vector3d v, Tuple cen, int r)
-{
-	double a = v.x*v.x + v.y*v.y + v.z*v.z;
-	double c = -r*r;
-	double t = sqrt(-4*a*c)/(2*a);
-	Tuple result;
-	result.x = (int)(cen.x + v.x * t);
-	result.y = (int)(cen.y + v.y * t);
-	result.z = (int)(cen.z + v.z * t);
-	return result;
-}
 
 /*
  * Executes one cycle of the evolution algorithm.
  */
 void simulation()
 {
-    stb = lattice0;
-    drf = lattice1;
+    stb = latt0;
+    drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    	copy();
+    {
+    	if(stb->a == 0)	// DEBUG
+    		copy();
+    }
 
-//#define CP
+#define CP
 #ifdef CP
 
-    stb = lattice0;
-    drf = lattice1;
+    stb = latt0;
+    drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    	flash();
+    	if(stb->a == 0)	// DEBUG
+    		flash();
 
 #endif
 
 #define EXPAND
 #ifdef EXPAND
 
-    stb = lattice0;
-    drf = lattice1;
+    stb = latt0;
+    drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    	expand();
+    {
+    	if(stb->a == 0)	// DEBUG
+    		expand();
+    }
+    /* DEBUG
+    Cell *sing = isSingular(latt1);
+    if(sing != NULL)
+    	printf("SING %d,%d,%d\n", sing->pos[0], sing->pos[1], sing->pos[2]);
+    */
+
 
 #endif
 
-//#define UPDATE
+#define UPDATE
 #ifdef UPDATE
 
-    stb = lattice0;
-    drf = lattice1;
+    stb = latt0;
+    drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	update();
 
 #endif
 
+#define INTERACT
 #ifdef INTERACT
-    stbl = lattice0;
-    draft = lattice1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stbl++, draft++)
+    stb = latt0;
+    drf = latt1;
+    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	interact();
 #endif
 
-   //delay(150);
+    //delay(250);
 }
 
 /*
@@ -121,7 +117,9 @@ void *AutomatonLoop()
 	{
 		if(!stop)
 		{
+#ifndef TEST_TREE
 			simulation();
+#endif
 	    	pthread_mutex_lock(&mutex);
 			rebuild = true;
 		    pthread_mutex_unlock(&mutex);

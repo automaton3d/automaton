@@ -9,26 +9,28 @@
 #define UTILS_H_
 
 #include <windows.h>
-#include "vector3d.h"
 #include "tuple.h"
+#include "vec3.h"
 
 /// Functions ///
 
 void delay(unsigned int mseconds);
-double distance3d(Vector3d v, Vector3d b);
+double distance3d(Vec3 v, Vec3 b);
 int opposite(int dir);
 int rndSign();
 int signum(int a);
 double sign(double d);
 boolean pwm(int n);
 unsigned sqr(unsigned long n);
-Tuple toTuple(Vector3d v);
-Vector3d rndVector();
-Vector3d toVec(Tuple t);
+Tuple toTuple(Vec3 v);
+Vec3 rndVector();
+Vec3 toVec(Tuple t);
 double rnd();
 void rndInt(int *array, int max);
-Vector3d gravxpreon(Vector3d p0, Vector3d p1, Vector3d cen, double r);
+Vec3 gravxpreon(Vec3 p0, Vec3 p1, Vec3 cen, double r);
 int string_length(char *s);
-void COPY(int *u, int *v);
+void CP(int *u, int *v);
+int DOT(int *u, int *v);
+int MOD2(int *v);
 
 #endif /* UTILS_H_ */

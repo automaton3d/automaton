@@ -11,7 +11,7 @@
 #include <windows.h>
 #include <pthread.h>
 #include "quaternion.h"
-#include "vector3d.h"
+#include "vec3.h"
 
 // Exported variables
 

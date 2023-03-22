@@ -12,8 +12,8 @@
 #include <pthread.h>
 #include "common.h"
 #include "tuple.h"
-#include "vector3d.h"
 #include "simulation.h"
+#include "vec3.h"
 
 #define WHITEBG  0x00ffffff
 #define BLACKBG  0x00000000
@@ -43,9 +43,9 @@
 
 // Exported variables
 
-extern Vector3d position;	      	// view reference point
-extern Vector3d direction; 			// camera axis
-extern Vector3d attitude;  			// view-up direction
+extern Vec3 position;	      	// view reference point
+extern Vec3 direction; 			// camera axis
+extern Vec3 attitude;  			// view-up direction
 extern boolean showAxes, showGrid;
 extern pthread_mutex_t mutex;
 extern char gridcolor;
@@ -56,7 +56,7 @@ extern unsigned long begin;
 
 void initPlot();
 void *DisplayLoop();
-void addPoint(Vector3d p);
+void addPoint(Vec3 p);
 void voxelize();
 
 #endif /* PLOT3D_H_ */

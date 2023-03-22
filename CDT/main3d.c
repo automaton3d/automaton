@@ -119,6 +119,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
  	pthread_create(&loop, NULL, &AutomatonLoop, NULL);
  	sleep(2);
 	srand(time(NULL));
+//	SetWindowTextW(hwnd_test, L"Label:");
  	//
 	while(GetMessage(&msg, hwnd, 0,0))
 		DispatchMessage(&msg);

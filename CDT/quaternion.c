@@ -31,7 +31,7 @@ void mul(Quaternion *q0, Quaternion q1, Quaternion q2)
 /**
  * Calculates the quaternion to rotate one vector onto another
  */
-void fromBetweenVectors(Quaternion *q, Vector3d u, Vector3d v)
+void fromBetweenVectors(Quaternion *q, Vec3 u, Vec3 v)
 {
   float ux = u.x;
   float uy = u.y;
@@ -85,7 +85,7 @@ void mulQ(Quaternion *r, Quaternion a, Quaternion b)
  * @param {Array} v The vector to be rotated
  * @returns {Array}
  */
-void rotateVector(Vector3d *r, Quaternion q, Vector3d v)
+void rotateVector(Vec3 *r, Quaternion q, Vec3 v)
 {
   float qw = q.w;
   float qx = q.x;
