@@ -1,649 +1,874 @@
-/*
- ============================================================================
- Name        : color.c
- Author      : Alexandre
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
- ============================================================================
- */
-
+#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "combine.h"
 
-#define N         (6 * 4086)
-//#define N         (6 * 8192)
-//#define N         (6 * 65536)
-#define C_MASK    0x07
-#define W0_MASK   0x08
-#define W1_MASK   0x10
-#define Q_MASK    0x20
+#define REPEAT    1.0
 
-#define REPEAT    60.0
+int tryQuark();
+int tryElectron();
+int tryQuark_D();
+int tryElectron_D();
 
-char *binary[] =
+int frags[N];
+int control[N];
+
+// Total
+
+long t_e_O, t_e_D;
+long t_q_O, t_q_D;
+long t_v_O, t_v_D;
+long t_nu_O;
+long t_gl_O;
+long t_up_O;
+long t_ph_O;
+long t_PH_O;
+long t_zb_O;
+long t_wb_O;
+long t_nu_D;
+long t_gl_D;
+long t_up_D;
+long t_ph_D;
+long t_PH_D;
+long t_zb_D;
+long t_wb_D;
+
+// Partial
+
+int n_e = 0;
+int n_e_D = 0;
+int n_q = 0;
+int n_q_D = 0;
+int n_v = 0;
+int n_v_D = 0;
+int n_nu = 0;
+int n_nu_D = 0;
+int n_gl = 0;
+int n_gl_D = 0;
+int n_up = 0;
+int n_up_D = 0;
+int n_ph = 0;
+int n_ph_D = 0;
+int n_PH = 0;
+int n_PH_D = 0;
+int n_zb = 0;
+int n_zb_D = 0;
+int n_wb = 0;
+int n_wb_D = 0;
+
+int rgb0 = 1;
+int rgb1 = 1;
+
+int last = 0;
+
+int tot_O, tot_D;
+
+//extern int total;
+
+//extern int matter, antimatter;
+
+int anti(int frag)
 {
-	"000 N",
-	"001 R",
-	"010 G",
-	"011 b",
-	"100 B",
-	"101 g",
-	"110 r",
-	"111 n"
-};
-
-char *color[] = { "N", "R", "G", "b", "B", "g", "r", "n" };
-char *weak[] = { "R", "L" };
-char *electric[] = { "+", "-" };
-char *sector[] = { "O", "D" };
-
-int sets[2][N];
-int control[2][N];
-
-long t_e, t_e_D;
-long t_q, t_q_D;
-
-long t_nu;
-long t_gl;
-long t_up;
-long t_ph, t_ph_D;
-long t_PH;
-long t_zb;
-long t_wb;
-
-int tpO, tnO, tpD, tnD;
-
-long t_lo;
-
-int bonus;	// used to match up quarks with electrons
-
-int quarks[] =
-{
-	0x29, 0x2a, 0x2c, 0x06, 0x05, 0x03, 0x16, 0x15, 0x13, 0x39, 0x3a, 0x3c
-};
-
-int electrons[] =
-{
-	0x28, 0x07, 0x17, 0x38
-};
-
-char *formatFrag(int frag)
-{
-	static char s[20];
-	sprintf(s, "[%s][%s%s][%s] ", electric[1 & (frag >> 5)], sector[1 & (frag>>4)], weak[1 & (frag>>3)], color[frag & C_MASK]);
-	return s;
+	return ~frag & 0x3f;
 }
 
-int attempts = 30000000;
-
-void trySwap(int i, int j)
+int tryGluon()
 {
-	if(control[0][i] || control[1][j])
-		return;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0 = frag0 & C_MASK;
-	int c1 = frag1 & C_MASK;
-	if(c0 == 0 || c0 == 7 || c1 == 0 || c1 == 7)
-		return;
-	if((c0 ^ c1) == 7)
-	{
-		int val = 7 * (rand() % 2);
-		sets[0][i] = val;
-		sets[1][j] = val ^7;
-		sets[0][j] = val ^7;
-		sets[1][i] = val;
-	}
-}
-
-void trySwap2(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0 = frag0 & C_MASK;
-	int c1 = frag1 & C_MASK;
-	if(c0 == 0 || c0 == 7 || c1 == 0 || c1 == 7)
-		return;
-	int mask = rand() % 7;
-	sets[0][i] ^= mask;
-	sets[1][j] ^= mask;
-	sets[0][j] ^= mask;
-	sets[1][i] ^= mask;
-}
-
-int tryElectron(int i, int j)
-{
-	if(control[j][i] == 0 && bonus)
-	{
-		for(int k = 0; k < 4; k++)
-		{
-			int frag = sets[j][i];
-			if(frag == electrons[k])
-			{
-				int w1 = (frag & W1_MASK)>>4;
-				control[j][i] = 1;
-				if(w1)
-					t_e_D++;
-				bonus--;
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
-int tryQuark(int i, int j)
-{
-	if(control[j][i] == 0)
-	{
-		for(int k = 0; k < 12; k++)
-		{
-			int frag = sets[j][i];
-			if(frag == quarks[k])
-			{
-				int w1 = (frag & W1_MASK)>>4;
-				control[j][i] = 1;
-				if(w1)
-					t_q_D++;
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
-int tryWB(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	int w1_0 = (frag0 & W1_MASK)>>4;
-	int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(q0 != q1 || w1_0 != w1_1 || w0_0 != w0_1)
-		return 0;
-	if(q0 != w0_0)
-		return 0;
-	if((c0 == 0 && c1 == 7) || (c0 == 7 && c1 == 0))
-	{
-		control[0][i] = 1;
-		control[1][j] = 1;
-		return 1;
-	}
-	return 0;
-}
-
-int tryZB(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	int w1_0 = (frag0 & W1_MASK)>>4;
-	int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(q0 == q1)
-		return 0;
-	if(w1_0 != w1_1)	// different sectors?
-		return 0;
-	if(w0_0 == w0_1)
-		return 0;
-	if((c0 ^ c1) & 7)
-		return 0;
-	//
-	control[0][i] = 1;
-	control[1][j] = 1;
-	return 1;
-}
-
-int tryNeutrino(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	int w1_0 = (frag0 & W1_MASK)>>4;
-	int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(q0 == q1)
-		return 0;
-	if(w1_0 != w1_1)
-		return 0;
-	if(w1_0 != w1_1)
-		return 0;
-	if(w0_0 != w0_1)
-		return 0;
-	if(c0 != c1)
-		return 0;
-	if(c0 != 0 && c0 != 7)
-		return 0;
-	//
-	control[0][i] = 1;
-	control[1][j] = 1;
-	return 1;
-}
-
-int tryGluon(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	int w1_0 = (frag0 & W1_MASK)>>4;
-	int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(q0 == q1)						// not neutral?
-		return 0;
-	if(w1_0 != w1_1)					// different sector?
-		return 0;
-	if(w0_0 != w0_1)					// different handedness?
-		return 0;
-	if(w0_0 == w1_0 || w0_1 == w1_1)	// not conjugated?
-		return 0;
-
-	// color combination allowed?
-
-	if((c0 == 1 && c1 == 6) ||
-	   (c0 == 2 && c1 == 5) ||
-	   (c0 == 4 && c1 == 3) ||
-	   (c0 == 1 && c1 == 5) ||
-	   (c0 == 1 && c1 == 3) ||
-	   (c0 == 2 && c1 == 6) ||
-	   (c0 == 2 && c1 == 3) ||
-	   (c0 == 4 && c1 == 6) ||
-	   (c0 == 4 && c1 == 5) ||
-	   (c1 == 1 && c0 == 6) ||
-	   (c1 == 2 && c0 == 5) ||
-	   (c1 == 4 && c0 == 3) ||
-	   (c1 == 1 && c0 == 5) ||
-	   (c1 == 1 && c0 == 3) ||
-	   (c1 == 2 && c0 == 6) ||
-	   (c1 == 2 && c0 == 3) ||
-	   (c1 == 4 && c0 == 6) ||
-	   (c1 == 4 && c0 == 5))
-	{
-		control[0][i] = 1;
-		control[1][j] = 1;
-		return 1;
-	}
-	return 0;
-}
-
-float matter = 0;
-float antimatter = 0;
-
-int tryUp(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	int w1_0 = (frag0 & W1_MASK)>>4;
-	int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(w1_0 != w1_1)					// different sector?
-		return 0;
-	if(w0_0 != w0_1)					// different handedness?
-		return 0;
-	if(w0_0 == w1_0 || w0_1 == w1_1)	// not conjugated?
-		return 0;
-	if(c0 == c1 && c0 != 0 && c0 != 7 && q0 == q1 && q0 == 0)
-	{
-		bonus += 3;
-		control[0][i] = 1;
-		control[1][j] = 1;
-		if(w1_0 == 0)
-			matter++;
-		else
-			antimatter++;
-		return 1;
-	}
-	return 0;
-}
-
-int tryPhoton(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	int w1_0 = (frag0 & W1_MASK)>>4;
-	int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(w1_0 != w1_1)	// different sectors?
-		return 0;
-	if(q0 == q1)		// same charge?
-		return 0;
-	if(w0_0 == w0_1)	// same handedness?
-		return 0;
-	if(((c0 ^ c1) & 7) != 7)
-		return 0;
-	//
-	if(w1_0)
-		t_ph_D++;
-	control[0][i] = 1;
-	control[1][j] = 1;
-	return 1;
-}
-
-int tryPHOTON(int i, int j)
-{
-	if(control[0][i] || control[1][j])
-		return 0;
-	int frag0 = sets[0][i];
-	int frag1 = sets[1][j];
-	//
-	int c0   = frag0 & C_MASK;
-	int c1   = frag1 & C_MASK;
-	int w0_0 = (frag0 & W0_MASK)>>3;
-	int w0_1 = (frag1 & W0_MASK)>>3;
-	//int w1_0 = (frag0 & W1_MASK)>>4;
-	//int w1_1 = (frag1 & W1_MASK)>>4;
-	int q0   = (frag0 & Q_MASK)>>5;
-	int q1   = (frag1 & Q_MASK)>>5;
-	//
-	if(q0 == q1)		// same charge?
-		return 0;
-	if(w0_0 == w0_1)	// same handedness?
-		return 0;
-	if(((c0 ^ c1) & 7) != 7)
-		return 0;
-	//
-	control[0][i] = 1;
-	control[1][j] = 1;
-	return 1;
-}
-
-void initialize()
-{
-	bonus = 0;
-	for(int s = 0; s < 2; s++)
-	{
-		for(int i = 0; i < N; i++)
-		{
-			sets[s][i] = i & 0x3f;
-			control[s][i] = 0;
-			if(0)
-			{
-				printf(formatFrag(sets[s][i]), sets[s][i]);
-				if(i % 8 == 0)
-					printf("\n");
-			}
-		}
-	}
-}
-
-int nops = 9;
-
-void combine(int init)
-{
-	if(init)
-		initialize();
-	//
-	int n_e = 0;
-	int n_q = 0;
-	int n_nu = 0;
-	int n_gl = 0;
-	int n_up = 0;
-	int n_ph = 0;
-	int n_PH = 0;
-	int n_zb = 0;
-	int n_wb = 0;
-	for(int n = 0; n < attempts; n++)
-	{
-		int i = rand() % N;
-		int j = rand() % N;
-		int op = rand() % nops;
-		switch(op)
-		{
-		case 0:
-			n_e += tryElectron(i, j % 2);
-			break;
-		case 1:
-			n_q += tryQuark(i, j % 2);
-			break;
-		case 2:
-			n_nu += tryNeutrino(i, j);
-			break;
-		case 3:
-			n_gl += tryGluon(i, j);
-			break;
-		case 4:
-			n_up += tryUp(i, j);
-			break;
-		case 5:
-			n_ph += tryPhoton(i, j);
-			break;
-		case 6:
-			n_zb += tryZB(i, j);
-			break;
-		case 7:
-			n_wb += tryWB(i, j);
-			break;
-		case 8:
-			n_PH += tryPHOTON(i, j);
-			break;
-		default:
-			trySwap(i, j);
-		}
-	}
-	t_e += n_e;
-	t_q += n_q;
-	t_nu += n_nu;
-	t_gl += n_gl;
-	t_up += n_up;
-	t_ph += n_ph;
-	t_PH += n_PH;
-	t_zb += n_zb;
-	t_wb += n_wb;
-}
-
-int leftover(int flg)
-{
-	int n = 0;
-	int npO = 0, nnO = 0, npD = 0, nnD = 0;
 	for(int i = 0; i < N; i++)
 	{
-		if(!control[0][i])
-		{
-			int frag = sets[0][i];
-			int w1   = (frag & W1_MASK)>>4;
-			int q    = (frag & Q_MASK)>>5;
-			if(w1 == 0 && q == 0)
-				npO++;
-			else if(w1 == 0 && q == 1)
-				nnO++;
-			else if(w1 == 1 && q == 0)
-				npD++;
-			else if(w1 == 1 && q == 1)
-				nnD++;
-			n++;
-		}
-	}
-	for(int i = 0; i < N; i++)
-	{
-		if(!control[1][i])
-		{
-			int frag = sets[1][i];
-			int w1   = (frag & W1_MASK)>>4;
-			int q    = (frag & Q_MASK)>>5;
-			if(w1 == 0 && q == 0)
-				npO++;
-			else if(w1 == 0 && q == 1)
-				nnO++;
-			else if(w1 == 1 && q == 0)
-				npD++;
-			else if(w1 == 1 && q == 1)
-				nnD++;
-			n++;
-		}
-	}
-	t_lo += n;
-	tpO += npO;
-	tnO += nnO;
-	tpD += npD;
-	tnD += nnD;
-	return n;
-}
-
-/*
- * Inverts w1 charges if chg1 == ~chg2 of leftover chg1,2
- */
-void tiebraker()
-{
-	int r1[N], r2[N];
-	for(int i = 0; i < N; i++)
-	{
-		r1[i] = 0;
-		r2[i] = 0;
-	}
-	for(int i = 0; i < N; i++)
-	{
-		if(r1[i] || control[0][i])
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		int c0   = frag0 & C_MASK;
+		int w0_0 = (frag0 & W0_MASK)>>3;
+		int w1_0 = (frag0 & W1_MASK)>>4;
+		int q0   = (frag0 & Q_MASK)>>5;
+		int m0   = (c0 == 1 || c0 == 2 || c0 == 4);
+		if(w1_0 == 1 || w0_0 == 0 || c0 == 0 || c0 ==7)
 			continue;
 		for(int j = 0; j < N; j++)
 		{
-			if(r2[j] || control[1][j])
+			int frag1 = frags[j];
+			if(i == j || control[j])
 				continue;
-			r1[i] = 1;
-			r2[j] = 1;
-			if((sets[0][i] ^ sets[1][j]) == 0x3f)
+			int c1   = frag1 & C_MASK;
+			int w0_1 = (frag1 & W0_MASK)>>3;
+			int w1_1 = (frag1 & W1_MASK)>>4;
+			int q1   = (frag1 & Q_MASK)>>5;
+			int m1   = (c1 == 1 || c1 == 2 || c1 == 4);
+			//
+			// Orbis
+			//
+			if(w1_1 == 1 || w0_1 == 0 || m0 == m1 || q0 == q1 || c0 == c1 || c1 == 0 || c1 == 7)
+				continue;
+			n_gl += 2;
+			control[i] = 1;
+			control[j] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryGluon_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		int c0   = frag0 & C_MASK;
+		int w0_0 = (frag0 & W0_MASK)>>3;
+		int w1_0 = (frag0 & W1_MASK)>>4;
+		int q0   = (frag0 & Q_MASK)>>5;
+		int m0   = (c0 == 1 || c0 == 2 || c0 == 4);
+		if(w1_0 == 0 || w0_0 == 1 || c0 == 0 || c0 ==7)
+			continue;
+		for(int j = 0; j < N; j++)
+		{
+			int frag1 = frags[j];
+			if(i == j || control[j])
+				continue;
+			int c1   = frag1 & C_MASK;
+			int w0_1 = (frag1 & W0_MASK)>>3;
+			int w1_1 = (frag1 & W1_MASK)>>4;
+			int q1   = (frag1 & Q_MASK)>>5;
+			int m1   = (c1 == 1 || c1 == 2 || c1 == 4);
+			//
+			// Dark
+			//
+			if(w1_1 == 0 || w0_1 == 1 || m0 == m1 || q0 == q1 || c0 == c1 || c1 == 0 || c1 == 7)
+				continue;
+			n_gl_D += 2;
+			control[i] = 1;
+			control[j] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryUp()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		int c  = frag & C_MASK;
+		int w0 = (frag & W0_MASK)>>3;
+		int w1 = (frag & W1_MASK)>>4;
+		int q  = (frag & Q_MASK)>>5;
+		int m  = (c == 1 || c == 2 || c == 4);
+		if(w1 == 1 || w0 == 0 || q == 1 || c == 0 || c == 7 || !m)
+			continue;
+		for(int j = 0; j < N; j++)
+		{
+			int frag1 = frags[j];
+			if(i == j || control[j] || frag != frag1)
+				continue;
+			n_up += 2;
+			control[i] = 1;
+			control[j] = 1;
+			//
+			while(n_q < n_up / 4)
+				tryQuark();
+			while(n_e < n_up * 3 / 4)
+				tryElectron();
+			//
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryUp_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		int c  = frag & C_MASK;
+		int w0 = (frag & W0_MASK)>>3;
+		int w1 = (frag & W1_MASK)>>4;
+		int q  = (frag & Q_MASK)>>5;
+		int m  = (c == 1 || c == 2 || c == 4);
+		if(w1 == 0 || w0 == 1 || q == 0 || c == 0 || c == 7 || m)
+			continue;
+		for(int j = 0; j < N; j++)
+		{
+			int frag1 = frags[j];
+			if(i == j || control[j] || frag != frag1)
+				continue;
+			n_up_D += 2;
+			control[i] = 1;
+			control[j] = 1;
+			while(n_q_D < n_up_D / 4)
+				tryQuark_D();
+			while(n_e_D < n_up_D * 3 / 4)
+				tryElectron_D();
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryQuark()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		for(int k = 0; k < 3; k++)
+		{
+			rgb0 <<= 1;
+			if(rgb0 == 4)
+				rgb0 = 1;
+			if(frag == (0x28 | rgb0))
 			{
-				sets[0][i] ^= W1_MASK;
-				sets[1][j] ^= W1_MASK;
+				control[i] = 1;
+				n_q++;
+				return 1;
 			}
+		}
+	}
+	return 0;
+}
+
+int tryQuark_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		for(int k = 0; k < 3; k++)
+		{
+			rgb0 <<= 1;
+			if(rgb0 == 4)
+			rgb0 = 1;
+			if(frag == anti(0x28 | rgb0))
+			{
+				control[i] = 1;
+				n_q_D++;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryElectron()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		if(frag == 0x28)
+		{
+			control[i] = 1;
+			n_e++;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryElectron_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		if(frag == anti(0x28))
+		{
+			control[i] = 1;
+			n_e_D++;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryVirtual()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		for(int k = 0; k < 3; k++)
+		{
+			rgb0 <<= 1;
+			if(rgb0 == 4)
+				rgb0 = 1;
+			if(frag == (0x28 | rgb0))
+			{
+				control[i] = 1;
+				n_v++;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryVirtual_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		for(int k = 0; k < 3; k++)
+		{
+			rgb0 <<= 1;
+			if(rgb0 == 4)
+			rgb0 = 1;
+			if(frag == anti(0x28 | rgb0))
+			{
+				control[i] = 1;
+				n_v_D++;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryNeutrino()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		if(frag0 == 0x08 || frag0 == 0x28)
+		{
+			for(int j = 0; j < N; j++)
+			{
+				if(i == j || control[j])
+					continue;
+				int frag1 = frags[j];
+				if(frag0 != frag1)
+				{
+					if(frag1 == 0x28 || frag1 == 0x08)
+					{
+						control[i] = 1;
+						control[j] = 1;
+						n_nu += 2;
+						return 1;
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+int tryNeutrino_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		if(frag0 == anti(0x08) || frag0 == anti(0x28))
+		{
+			for(int j = 0; j < N; j++)
+			{
+				if(i == j || control[j])
+					continue;
+				int frag1 = frags[j];
+				if(frag0 != frag1)
+				{
+					if(frag1 == anti(0x08) || frag1 == anti(0x28))
+					{
+						control[i] = 1;
+						control[j] = 1;
+						n_nu_D += 2;
+						return 1;
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+int tryPhoton()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		if(frag0 == 0x08 || frag0 == 0x28)
+		{
+			for(int j = 0; j < N; j++)
+			{
+				if(i == j || control[j])
+					continue;
+				int frag1 = frags[j];
+				int c0   = frag0 & C_MASK;
+				int c1   = frag1 & C_MASK;
+				int w0_0 = (frag0 & W0_MASK)>>3;
+				int w0_1 = (frag1 & W0_MASK)>>3;
+				int w1_0 = (frag0 & W1_MASK)>>4;
+				int w1_1 = (frag1 & W1_MASK)>>4;
+				int q0   = (frag0 & Q_MASK)>>5;
+				int q1   = (frag1 & Q_MASK)>>5;
+				//
+				if(w1_0 != w1_1 || q0 == q1 || w0_0 == w0_1 || ((c0 ^ c1) & 7) != 7)
+					continue;
+				//
+				n_ph += 2;
+				control[i] = 1;
+				control[j] = 1;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryPhoton_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		if(frag0 == anti(0x08) || frag0 == anti(0x28))
+		{
+			for(int j = 0; j < N; j++)
+			{
+				if(i == j || control[j])
+					continue;
+				int frag1 = frags[j];
+				int c0   = frag0 & C_MASK;
+				int c1   = frag1 & C_MASK;
+				int w0_0 = (frag0 & W0_MASK)>>3;
+				int w0_1 = (frag1 & W0_MASK)>>3;
+				int w1_0 = (frag0 & W1_MASK)>>4;
+				int w1_1 = (frag1 & W1_MASK)>>4;
+				int q0   = (frag0 & Q_MASK)>>5;
+				int q1   = (frag1 & Q_MASK)>>5;
+				//
+				if(w1_0 != w1_1 || q0 == q1 || w0_0 == w0_1 || ((c0 ^ c1) & 7) != 7)
+					continue;
+				//
+				n_ph_D += 2;
+				control[i] = 1;
+				control[j] = 1;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryPHOTON()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		if(frag0 == 0x08 || frag0 == 0x28)
+		{
+			for(int j = 0; j < N; j++)
+			{
+				if(i == j || control[j])
+					continue;
+				int frag1 = frags[j];
+				int c0   = frag0 & C_MASK;
+				int c1   = frag1 & C_MASK;
+				int w0_0 = (frag0 & W0_MASK)>>3;
+				int w0_1 = (frag1 & W0_MASK)>>3;
+				int w1_0 = (frag0 & W1_MASK)>>4;
+				int w1_1 = (frag1 & W1_MASK)>>4;
+				int q0   = (frag0 & Q_MASK)>>5;
+				int q1   = (frag1 & Q_MASK)>>5;
+				//
+				if(w1_0 == w1_1 || q0 == q1 || w0_0 == w0_1 || ((c0 ^ c1) & 7) != 7)
+					continue;
+				//
+				n_PH += 2;
+				control[i] = 1;
+				control[j] = 1;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryPHOTON_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		if(frag0 == anti(0x08) || frag0 == anti(0x28))
+		{
+			for(int j = 0; j < N; j++)
+			{
+				if(i == j || control[j])
+					continue;
+				int frag1 = frags[j];
+				int c0   = frag0 & C_MASK;
+				int c1   = frag1 & C_MASK;
+				int w0_0 = (frag0 & W0_MASK)>>3;
+				int w0_1 = (frag1 & W0_MASK)>>3;
+				int w1_0 = (frag0 & W1_MASK)>>4;
+				int w1_1 = (frag1 & W1_MASK)>>4;
+				int q0   = (frag0 & Q_MASK)>>5;
+				int q1   = (frag1 & Q_MASK)>>5;
+				//
+				if(w1_0 == w1_1 || q0 == q1 || w0_0 == w0_1 || ((c0 ^ c1) & 7) != 7)
+					continue;
+				//
+				n_PH_D += 2;
+				control[i] = 1;
+				control[j] = 1;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryWB()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		int c0   = frag0 & C_MASK;
+		int w0_0 = (frag0 & W0_MASK)>>3;
+		int w1_0 = (frag0 & W1_MASK)>>4;
+		int q0   = (frag0 & Q_MASK)>>5;
+		if(w0_0 == 0 || w1_0 == 1)
+			return 0;
+		for(int j = 0; j < N; j++)
+		{
+			if(i == j || control[j])
+				continue;
+			int frag1 = frags[j];
+			int c1   = frag1 & C_MASK;
+//			int w0_1 = (frag1 & W0_MASK)>>3;
+			int w1_1 = (frag1 & W1_MASK)>>4;
+			int q1   = (frag1 & Q_MASK)>>5;
+			//
+			if(w1_1 == 1 || q0 != q1 || /* (w0_0 | w0_1) == 0 || */ ((c0 ^ c1) & 7) != 7)
+				continue;
+			//
+			n_wb += 2;
+			control[i] = 1;
+			control[j] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryWB_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		int c0   = frag0 & C_MASK;
+//		int w0_0 = (frag0 & W0_MASK)>>3;
+		int w1_0 = (frag0 & W1_MASK)>>4;
+		int q0   = (frag0 & Q_MASK)>>5;
+		if(w1_0 == 0)
+			return 0;
+		for(int j = 0; j < N; j++)
+		{
+			if(i == j || control[j])
+				continue;
+			int frag1 = frags[j];
+			int c1   = frag1 & C_MASK;
+//			int w0_1 = (frag1 & W0_MASK)>>3;
+			int w1_1 = (frag1 & W1_MASK)>>4;
+			int q1   = (frag1 & Q_MASK)>>5;
+			//
+			if(w1_1 == 0 || q0 != q1 || /*(w0_0 & w0_1) == 1 ||*/ ((c0 ^ c1) & 7) != 7)
+				continue;
+			//
+			n_wb_D += 2;
+			control[i] = 1;
+			control[j] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryZB()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		int c0   = frag0 & C_MASK;
+//		int w0_0 = (frag0 & W0_MASK)>>3;
+		int w1_0 = (frag0 & W1_MASK)>>4;
+		int q0   = (frag0 & Q_MASK)>>5;
+		if(w1_0 == 1)
+			return 0;
+		for(int j = 0; j < N; j++)
+		{
+			if(i == j || control[j])
+				continue;
+			int frag1 = frags[j];
+			int c1   = frag1 & C_MASK;
+//			int w0_1 = (frag1 & W0_MASK)>>3;
+			int w1_1 = (frag1 & W1_MASK)>>4;
+			int q1   = (frag1 & Q_MASK)>>5;
+			//
+			if(w1_1 == 1 || q0 == q1 || /*(w0_0 | w0_1) == 0 ||*/ ((c0 ^ c1) & 7) != 7)
+				continue;
+			//
+			n_zb += 2;
+			control[i] = 1;
+			control[j] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryZB_D()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag0 = frags[i];
+		int c0   = frag0 & C_MASK;
+//		int w0_0 = (frag0 & W0_MASK)>>3;
+		int w1_0 = (frag0 & W1_MASK)>>4;
+		int q0   = (frag0 & Q_MASK)>>5;
+		if(w1_0 == 0)
+			return 0;
+		for(int j = 0; j < N; j++)
+		{
+			if(i == j || control[j])
+				continue;
+			int frag1 = frags[j];
+			int c1   = frag1 & C_MASK;
+//			int w0_1 = (frag1 & W0_MASK)>>3;
+			int w1_1 = (frag1 & W1_MASK)>>4;
+			int q1   = (frag1 & Q_MASK)>>5;
+			//
+			if(w1_1 == 0 || q0 == q1 /*|| (w0_0 & w0_1) == 1*/ || ((c0 ^ c1) & 7) != 7)
+				continue;
+			//
+			n_zb_D += 2;
+			control[i] = 1;
+			control[j] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void combine()
+{
+	for(int i = 0; i < N; i++)
+	{
+		frags[i] = i & 0x3f;
+		control[i] = 0;
+	}
+	//
+	n_e = 0;
+	n_e_D = 0;
+	n_q = 0;
+	n_q_D = 0;
+	n_v = 0;
+	n_v_D = 0;
+	n_nu = 0;
+	n_nu_D = 0;
+	n_gl = 0;
+	n_gl_D = 0;
+	n_up = 0;
+	n_up_D = 0;
+	n_ph = 0;
+	n_ph_D = 0;
+	n_PH = 0;
+	n_PH_D = 0;
+	n_zb = 0;
+	n_zb_D = 0;
+	n_wb = 0;
+	n_wb_D = 0;
+	//
+	putchar('.');
+	for(int i = 0; i < N; i++)
+	{
+		double prob = rand() / (double)RAND_MAX;
+		if(prob < 0.001)
+		{
+			tryUp();
+			tryUp_D();
+		}
+		else
+		{
+			tryGluon();
+			tryGluon_D();
+		}
+	}
+	putchar('.');
+	for(int i = 0; i < N; i++)
+	{
+		tryVirtual();
+		tryVirtual_D();
+	}
+	putchar('.');
+	for(int i = 0; i < N; i++)
+	{
+		tryNeutrino();
+		tryNeutrino_D();
+	}
+	putchar('.');
+	for(int i = 0; i < N; i++)
+	{
+		tryPhoton();
+		tryPHOTON();
+		tryPhoton_D();
+		tryPHOTON_D();
+	}
+	putchar('.');
+	for(int i = 0; i < N; i++)
+	{
+		tryZB();
+		tryWB();
+		tryZB_D();
+		tryWB_D();
+	}
+	putchar('.');
+	t_e_O += n_e;
+	t_q_O += n_q;
+	t_v_O += n_v;
+	t_nu_O += n_nu;
+	t_gl_O += n_gl;
+	t_up_O += n_up;
+	t_ph_O += n_ph;
+	t_PH_O += n_PH;
+	t_zb_O += n_zb;
+	t_wb_O += n_wb;
+	t_e_D += n_e_D;
+	t_q_D += n_q_D;
+	t_v_D += n_v_D;
+	t_nu_D += n_nu_D;
+	t_gl_D += n_gl_D;
+	t_up_D += n_up_D;
+	t_ph_D += n_ph_D;
+	t_PH_D += n_PH_D;
+	t_zb_D += n_zb_D;
+	t_wb_D += n_wb_D;
+}
+
+void leftover()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(!control[i])
+		{
+			int frag = frags[i];
+			if((frag & W1_MASK)>>4)
+				tot_O++;
+			else
+				tot_D++;
 		}
 	}
 }
 
-int last = 100000000;
-
-int ratio_ = 0;
-
 int optimize()
 {
-	tpO = 0;
-	tnO = 0;
-	tpD = 0;
-	tnD = 0;
-	t_e = 0;
+	t_e_O = 0;
 	t_e_D = 0;
-	t_q = 0;
+	t_q_O = 0;
 	t_q_D = 0;
-	t_nu = 0;
-	t_gl = 0;
-	t_up = 0;
-	t_ph = 0;
+	t_v_O = 0;
+	t_v_D = 0;
+	t_nu_O = 0;
+	t_nu_D = 0;
+	t_gl_O = 0;
+	t_gl_D = 0;
+	t_up_O = 0;
+	t_up_D = 0;
+	t_ph_O = 0;
 	t_ph_D = 0;
-	t_PH = 0;
-	t_zb = 0;
-	t_wb = 0;
-	t_lo = 0;
-	printf("\n-- ZOO --\n\nN=%d ATTEMPTS=%d NR=%d\n\n", 2*N, attempts, (int)REPEAT);
-	int nleft = 0;
+	t_PH_O = 0;
+	t_PH_D = 0;
+	t_zb_O = 0;
+	t_zb_D = 0;
+	t_wb_O = 0;
+	t_wb_D = 0;
+	tot_O = 0;
+	tot_D = 0;
+	printf("\n-- ZOOOOO --\n\nN=%d NR=%d\n\n", N, (int)REPEAT);
 	for(int i = 0; i < REPEAT; i++)
 	{
-		combine(1);
-		tiebraker();
-		combine(0);
-		nleft += leftover(i);
+		combine();
+		leftover();
 		putchar('.');
 	}
 	printf("\n\nFragment\tType\t\tQuantity\n");
 	printf("----------------------------------------------------------------------\n");
-	int percent = (int)(100 * t_ph_D / (double)t_ph);
-	printf("neutrino\tPair\t\t%.2f\ngluon\t\tPair\t\t%.2f\n", t_nu / REPEAT, t_gl / REPEAT);
-	printf("up quark\tPair\t\t%.2f %f%%/%f%%\n", t_up / REPEAT, matter/t_up, antimatter/t_up);
-	printf("photon\t\tPair\t\t%.2f\t\tO %d%%, D %d%%\n", t_ph / REPEAT, 100 - percent, percent);
-	printf("PHoton\t\tPair\t\t%.2f\nZ boson\t\tPair\t\t%.2f\nW boson\t\tPair\t\t%.2f\n", t_PH / REPEAT, t_zb / REPEAT, t_wb / REPEAT);
-	percent = (int)(100 * t_e_D / (double)t_e);
-	printf("electron\tSingle\t\t%.2f\tO %d%%, D %d%%\n", t_e / REPEAT, 100 - percent, percent);
-	percent = (int)(100 * t_q_D / (double)t_q);
-	printf("quark\t\tSingle\t\t%.2f\t\tO %d%%, D %d%%\n", t_q / REPEAT, 100-percent, percent);
-	printf("leftover\tSingle\t\t%.2f\t\t", t_lo / REPEAT);
-	printf("O[+]=%.1f, O[-]=%.1f, D[+]=%.1f, D[-]=%.1f\n", tpO/REPEAT, tnO/REPEAT, tpD/REPEAT, tnD/REPEAT);
-	printf("Total\t\t\t\t%.2f\n", (2*t_nu + 2*t_gl + 2*t_up + 2*t_ph + 2*t_PH + 2*t_zb + 2*t_wb + t_e + t_q + t_lo) / REPEAT);
+	printf("gluon\t\tPair\t\t%.1f\t%.1f\n", t_gl_O / REPEAT, t_gl_D / REPEAT);
+	printf("up quark\tPair\t\t%.1f\t%.1f\n", t_up_O / REPEAT, t_up_D / REPEAT);
+	printf("quark\t\tSingle\t\t%.1f\t%.1f\n", t_q_O / REPEAT, t_q_D / REPEAT);
+	printf("virtual\t\tSingle\t\t%.1f\t%.1f\n", t_v_O / REPEAT, t_v_D / REPEAT);
+	printf("electron\tSingle\t\t%.1f\t%.1f\n", t_e_O / REPEAT, t_e_D / REPEAT);
+	printf("photon\t\tPair\t\t%.1f\t%.1f\n", t_ph_O / REPEAT, t_ph_D / REPEAT);
+	printf("PHoton\t\tPair\t\t%.1f\t%.1f\n", t_PH_O / REPEAT, t_PH_D / REPEAT);
+	printf("Z boson\t\tPair\t\t%.1f\t%.1f\n", t_zb_O / REPEAT, t_zb_D / REPEAT);
+	printf("W boson\t\tPair\t\t%.1f\t%.1f\n", t_wb_O / REPEAT, t_wb_D / REPEAT);
+	printf("neutrino\tPair\t\t%.1f\t%.1f\n", t_nu_O / REPEAT, t_nu_D / REPEAT);
+	printf("leftover\tSingle\t\t%.1f\t%.1f\t\t\n", tot_O / REPEAT, tot_D / REPEAT);
+	int totO = t_nu_O + t_gl_O + t_up_O + t_ph_O + t_PH_O + t_zb_O + t_wb_O + t_e_O + t_q_O + t_v_O;
+	int totD = t_nu_D + t_gl_D + t_up_D + t_ph_D + t_PH_D + t_zb_D + t_wb_D + t_e_D + t_q_D + t_v_D;
+	printf("Total\t\t\t\t%.1f\t(perdido: %0.1f%%)\n", (totO + totD + tot_O + tot_D) / REPEAT, 100*(tot_O + tot_D) / (double)N);
 	printf("----------------------------------------------------------------------\n");
-	int ratio = (2*t_gl + 2*t_up + 2*t_ph + 2*t_PH + t_q + t_lo) / (3*1836);
-	printf("ratio=%d\n", ratio);
-	/*
-	int tmp = last;
-	last = nleft;
-	return nleft >= tmp;
-	*/
-	if(ratio < ratio_)
+	float ratioO = (t_gl_O + t_up_O + t_q_O) / (float)t_e_O;
+	float ratioD = (t_gl_D + t_up_D + t_q_D) / (float)t_e_D;
+	printf("m_p/m_e: O=%f\t\tD=%f\n", ratioO, ratioD);
+	return 0;
+}
+
+int main (void)
+{
+	setvbuf(stdout, NULL, _IONBF, 0);
+#define OPTIMIZE
+#ifdef OPTIMIZE
+	//srand(time(0));
+	optimize();
+#endif
+	////////////////
+//#define REVERSE
+#ifdef REVERSE
+	orbis();
+	init();
+	dark();
+	printf("\nTotal=%d : %d\n", total, matter + antimatter);
+#endif
+	for(int i = 0; i < 5; i++)
 	{
-		ratio_ = ratio;
-		return 1;
+		Beep(800, 200);
+		Sleep(100);
 	}
-	ratio_ = ratio;
-	return 0;
-}
-
-int ____main(void)
-{
-	//srand(time(0));
-	setvbuf(stdout, NULL, _IONBF, 0);
-	while(!optimize())
-		attempts += 50000;
-	return 0;
-}
-
-
-int main(void)
-{
-	//srand(time(0));
-	setvbuf(stdout, NULL, _IONBF, 0);
-	while(!optimize())
-		nops++;
 	return 0;
 }
