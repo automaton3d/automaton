@@ -34,7 +34,6 @@ int i3=0;	// weak
 int i4=0;	// electric
 int i5=0;	// inertia
 
-//Tuple cm1, cm2;		// debug
 extern Cell *stb, *drf;
 extern Cell *latt0, *latt1;
 
@@ -48,10 +47,7 @@ void simulation()
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    {
-    	if(stb->a == 0)	// DEBUG
-    		copy();
-    }
+   		copy();
 
 #define CP
 #ifdef CP
@@ -59,8 +55,7 @@ void simulation()
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    	if(stb->a == 0)	// DEBUG
-    		flash();
+ 		flash();
 
 #endif
 
@@ -70,16 +65,7 @@ void simulation()
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    {
-    	if(stb->a == 0)	// DEBUG
-    		expand();
-    }
-    /* DEBUG
-    Cell *sing = isSingular(latt1);
-    if(sing != NULL)
-    	printf("SING %d,%d,%d\n", sing->pos[0], sing->pos[1], sing->pos[2]);
-    */
-
+   		expand();
 
 #endif
 

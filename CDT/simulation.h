@@ -29,15 +29,16 @@
 
 // Particle symbols (ored in code)
 
-#define PHOTON    0x0001
-#define GLUON     0x0002
-#define NEUTRINO  0x0004
-#define ZB        0x0008
-#define WB        0x0010
-#define UP        0x0020
-#define DOWN      0x0040
+#define SPHOTON   0x0001	// super photon
+#define PHOTON    0x0002
+#define GLUON     0x0004
+#define NEUTRINO  0x0008
+#define ZB        0x0010
+#define WB        0x0020
+#define UP        0x0040
+#define DOWN      0x0080
 
-#define FERMION   0x0080
+#define FERMION   0x0100
 
 // Charge masks
 

@@ -312,26 +312,40 @@ void update()
     drf->pP[2] -= drf->pP[2] * drf->pP[2] / (drf->t * drf->t);
     if(ZERO(drf->pP))
     {
-      // Sec. 4.7.3 - Disconnect empodion
+      // Disconnect empodion
+      // (Sect. 4.7.3)
 
       drf->a ^= stb->seed;
     }
   }
 
   // Find new address for interaction
+  // (Sect. 4.2)
 
-  int offset = (stb->t + stb->offset) % SIDE3;
-  Cell *nxt = (offset == SIDE3 - 1) ? stb - SIDE3 + 1 : stb + 1;
+  int t = (stb->t % LIGHT) + 1;	// look ahead
+  int offset = (t + stb->offset) % SIDE3;
+  Cell *nxt = stb - stb->offset + offset;
 
   // Superposing bubbles?
 
   if (EQ(stb->o, nxt->o))
   {
-    // Check if same w1 (Sec. 4.7.7)
+    // Check if different w1
+    // (Sec. 4.7.7)
 
-    if (W1(stb) == W1(drf))
+    if (W1(stb) != W1(drf))
     {
+      // Super photon formation
+      // (Sect. 3.1)
+
+      if ((C(stb)^C(nxt)) == C_MASK && W0(stb) == !W0(nxt) && Q(stb) == !Q(nxt))
+      {
+        drf->kind = SPHOTON;
+        return;
+      }
+
       // Symmetry breaking after singularity
+      // (Sect. 4.6.7)
 
       CP(drf->pole, stb->o);
       RESET(drf->o);
@@ -339,6 +353,7 @@ void update()
     }
 
     // Clump bubbles together to form particle pair fragments
+    // (Sect. 4.2)
 
     if (stb->a != nxt->a && stb->f == 1 && nxt->f == 1)
     {
@@ -358,6 +373,7 @@ void update()
         return;
 
       // Calculate the common value for f and a
+      // (Sect. 4.2)
 
       drf->a ^= stb->a;
       drf->f++;
@@ -367,6 +383,7 @@ void update()
     }
 
     // Combine pairs to form multi pairs
+    // (Sect. )
 
     else if (stb->f % 2 == 0 && nxt->f %2 == 0 &&
       stb->a != nxt->a)
@@ -386,51 +403,67 @@ void interact()
 {
   // Not the last pass of wavefront?
 
-  if (drf->t % LIGHT != 0 && stb->a == drf->a)
+  if (drf->t % LIGHT != 0)
+	  return;
+
+  // Internal process?
+
+  if(stb->a == drf->a && !ZERO(stb->p) && !ZERO(drf->p))
   {
-    // Self interference
+    // Self interference (Sect. 4.6.3)
 
     int dif[3];
     SUB(dif, drf->o, stb->o);
-    if (DOT(stb->o, drf->o) == 0 && MOD2(dif) == 0)
+    if (DOT(stb->o, drf->o) == 1 && MOD2(dif) == 0)
     {
-      // Trap empodions
+      // Trap empodions (Sect. 4.6.3)
 
-      CP(drf->msg, stb->pP);
+      if (stb->f > 0 && drf->f > 0)
+      {
+    	  CP(drf->msg, stb->pP);
+    	  return;
+      }
     }
     else
     {
-      // Exchange particle x lattice
+      // Exchange particle x lattice (Sect. 4.6.3)
 
-      if(stb->f > 0)
-        CP(drf->pP, stb->p);
-      else
-        CP(drf->p, stb->pP);
+      if (stb->f > 0 && drf->f == 0)
+      {
+        CP(drf->o, stb->o);
+        return;
+      }
+      if (stb->f == 0 && drf->f > 0)
+      {
+        CP(drf->o, stb->o);
+        return;
+      }
     }
-    return;
   }
-
-  // No interaction possible?
-
-  if (!drf->kind)
-    return;
-
-  // Figure out the expected kind of interaction
-
-  int code = (stb->a == drf->a) | (!ZERO(stb->p) << 1) |
-                (!ZERO(drf->p) << 2);
-
-  // Initialize collapse target
-
-  unsigned target = SIDE3;
 
   // Play pseudo dice to decide bubble mixing
 
-  if (stb->seed < drf->pmf)
+  else if (stb->seed < drf->pmf)
   {
+    // Find new address for interaction
+    // (Sect. 4.2)
+
+    int t = stb->t % LIGHT;
+    int offset = (t + stb->offset) % SIDE3;
+    Cell *nxt = stb - stb->offset + offset;
+
+    // Figure out the expected kind of interaction
+
+    int code = (nxt->a == drf->a) | (!ZERO(nxt->p) << 1) |
+	           (!ZERO(drf->p) << 2);
+
+    // Initialize collapse target
+
+    unsigned target = SIDE3;
+
     // Test for same or different sectors
 
-    if (W1(stb) == W1(drf))
+    if (W1(nxt) == W1(drf))
     {
       // Same-sector
 
@@ -438,7 +471,8 @@ void interact()
       {
         case 1:    // Soft interactions
 
-            // TODO: Phase only interaction
+            // Phase only interaction
+        	// (just a template for now)
 
           break;
 
@@ -449,35 +483,35 @@ void interact()
           // (msg1 != 0, photon2, p2 aligned with msg1)
           // This serves both to electrical or magnetic interaction
 
-          if (!ZERO(stb->msg) && drf->kind == PHOTON && DOT(stb->msg, drf->p) == 0)
+          if (!ZERO(nxt->msg) && drf->kind == PHOTON && DOT(nxt->msg, drf->p) == 0)
           {
             // Recruit it
 
-            drf->a = stb->a;
+            drf->a = nxt->a;
             RESET(drf->msg);
           }
 
           // Static forces
 
-          else if (stb->f == 1 && drf->f == 1 && !ZERO(stb->p))
+          else if (nxt->f == 1 && drf->f == 1 && !ZERO(nxt->p))
           {
             // Electric radial force (default)
             // drf is now a messenger
             // Sect. 4.7.2
 
-            if (Q(stb) == Q(drf))
+            if (Q(nxt) == Q(drf))
             {
               // Repulsion
 
-              SUB(drf->msg, drf->o, stb->o);
+              SUB(drf->msg, drf->o, nxt->o);
             }
             else
             {
               // Attraction
 
-              SUB(drf->msg, stb->o, drf->o);
+              SUB(drf->msg, nxt->o, drf->o);
             }
-            if (stb->seed % 2 == 1)
+            if (nxt->seed % 2 == 1)
             {
               // Magnetic lateral kick
               // Sect. 4.7.2
@@ -489,7 +523,7 @@ void interact()
           // fermion- x boson (local light-matter)
           // fermion+ x boson (local light-matter)
 
-          else if (stb->f == 1 && drf->f > 1)
+          else if (nxt->f == 1 && drf->f > 1)
           {
             // boson x fermion
 
@@ -505,9 +539,9 @@ void interact()
 
               case ZB:
               case WB:
-                if (MATTER(stb))
+                if (MATTER(nxt))
                 {
-                  if (W0(stb) == LEFT)
+                  if (W0(nxt) == LEFT)
                   {
                     if ((MATTER(drf) && W0(drf) == LEFT) || (!MATTER(drf) && W0(drf) == RIGHT))
                     {
@@ -520,7 +554,7 @@ void interact()
                 }
                 else
                 {
-                  if (W0(stb) == RIGHT)
+                  if (W0(nxt) == RIGHT)
                   {
                     if ((MATTER(drf) && W0(drf) == LEFT) || (!MATTER(drf) && W0(drf) == RIGHT))
                     {
@@ -534,11 +568,11 @@ void interact()
                 break;
             }
           }
-          else if (stb->f > 1 && drf->f == 1)
+          else if (nxt->f > 1 && drf->f == 1)
           {
             // fermion x boson
 
-            switch(stb->kind)
+            switch(nxt->kind)
             {
               case PHOTON:
 
@@ -550,9 +584,9 @@ void interact()
 
               case ZB:
               case WB:
-                if (MATTER(stb))
+                if (MATTER(nxt))
                 {
-                  if (W0(stb) == LEFT)
+                  if (W0(nxt) == LEFT)
                   {
                     if ((MATTER(drf) && W0(drf) == LEFT) || (!MATTER(drf) && W0(drf) == RIGHT))
                     {
@@ -565,7 +599,7 @@ void interact()
                 }
                 else
                 {
-                  if (W0(stb) == RIGHT)
+                  if (W0(nxt) == RIGHT)
                   {
                     if ((MATTER(drf) && W0(drf) == LEFT) || (!MATTER(drf) && W0(drf) == RIGHT))
                     {
@@ -582,13 +616,13 @@ void interact()
 
           // boson x boson
 
-          else if (stb->f > 1 && drf->f > 1)
+          else if (nxt->f > 1 && drf->f > 1)
           {
             // Exchange charges and spins
 
-            CP(drf->s, stb->s);
-            drf->ch |= (stb->ch & C_MASK);
-            drf->ch |= (stb->ch & W0_MASK);
+            CP(drf->s, nxt->s);
+            drf->ch |= (nxt->ch & C_MASK);
+            drf->ch |= (nxt->ch & W0_MASK);
 
             // Reemit from cp
 
@@ -601,7 +635,7 @@ void interact()
 
           // Calculate parallel transported pole
 
-          SUB(drf->pole, stb->o, drf->o);
+          SUB(drf->pole, nxt->o, drf->o);
           RESET(drf->o);
           break;
 
@@ -618,39 +652,39 @@ void interact()
           // fermion+ x fermion- (annihilation) ?
           // fermion- x fermion+ (annihilation) ?
 
-          if ((stb->ch & 0x1f) == ~(drf->ch & 0x1f) && stb->kind == FERMION)
+          if ((nxt->ch & 0x1f) == ~(drf->ch & 0x1f) && nxt->kind == FERMION)
           {
             // Destroy particles, setting each 'a' property to a
             // new, pseudorandom value
 
-            drf->a ^= stb->seed;
+            drf->a ^= nxt->seed;
             drf->target = drf->a;
             target = drf->target;  // copy for flash
             drf->kind = 0;         // undo pairing
           }
-          else if (stb->kind == FERMION && drf->kind != FERMION)
+          else if (nxt->kind == FERMION && drf->kind != FERMION)
           {
             // fermion- x boson (light-matter)
             // fermion+ x boson (light-matter)
 
-            drf->a ^= stb->seed;
+            drf->a ^= nxt->seed;
             drf->target = drf->a;
             target = drf->target;    // copy for flash
             drf->kind = 0;           // undo pairing
           }
-          else if (stb->kind != FERMION && drf->kind == FERMION)
+          else if (nxt->kind != FERMION && drf->kind == FERMION)
           {
             // fermion- x boson (light-matter)
             // fermion+ x boson (light-matter)
 
-            drf->a ^= stb->seed;
+            drf->a ^= nxt->seed;
             drf->target = drf->a;
             target = drf->target; // copy for flash
             drf->kind = 0;        // undo pairing
           }
-          else if (stb->kind == NEUTRINO && drf->kind == FERMION)
+          else if (nxt->kind == NEUTRINO && drf->kind == FERMION)
           {
-        	  CP(drf->pole, stb->o); // enough?!
+        	  CP(drf->pole, nxt->o); // enough?!
           }
           else
           {
@@ -665,7 +699,7 @@ void interact()
 
           RESET(drf->pole);
           RESET(drf->o);
-          drf->target = stb->a;   // non trivial target
+          drf->target = nxt->a;   // non trivial target
           break;
 
         case 7:    // Internal collision
@@ -679,24 +713,28 @@ void interact()
     }
 
     // Inter-sector interaction
-    // (see Section 4.7.6)
+    // (see Sect. 4.7.6)
 
-    else if ((code >> 1) == 3)
+    else
     {
-      // Exchange electrical charges if ions
+      // Super photon x fermion
 
-      if (stb->ch == 0x03 && drf->ch == 0x28)
-        drf->ch ^= Q_MASK;
-
-      // Reissue
-
-      RESET(drf->pole);
-      RESET(drf->o);
+      if (nxt->f == 1 && drf->f > 1 && drf->kind == SPHOTON)
+      {
+        RESET(drf->pole);
+        RESET(drf->o);
+      }
+      else if (nxt->f > 1 && drf->f == 1 && nxt->kind == SPHOTON)
+      {
+        RESET(drf->o);
+        RESET(drf->pole);
+      }
     }
+
+    // Release a flash
+
+    drf->flash = true;
+    drf->target = target;  // collapse target
   }
-
-  // Release a flash
-
-  drf->flash = true;
-  drf->target = target;  // collapse target
 }
+
