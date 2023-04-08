@@ -5,10 +5,11 @@
  *      Author: Alexandre
  */
 
+#define PTW32_STATIC_LIB
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <math.h>
 #include <time.h>
 #include "common.h"
@@ -53,15 +54,16 @@ void initScreen()
 	for(int i = 0; i < NTICKS; i++)
 		ticks[i] = true;
 	//
-	ticks[PLANE] 	  = false;
+	ticks[FRONT]	  = false;
 	ticks[MESSENGER]  = false;
-	ticks[CUBE] 	  = false;
-	ticks[TRAJECTORY] = false;
 	ticks[SPIN] 	  = false;
-	ticks[MOMENTUM]	  = false;
+	ticks[MODE1] 	  = false;
+	ticks[MODE2] 	  = false;
+	ticks[PLANE] 	  = false;
+	ticks[CUBE] 	  = false;
 
 	//
-	begin = GetTickCount();				// initial milliseconds
+	begin = GetTickCount64();				// initial milliseconds
 	setvbuf(stdout, 0, _IOLBF, 0);
 
 	// Initialize trackball
@@ -77,7 +79,7 @@ void initScreen()
 	trackball (vu->quat , 0.0, 0.0, 0.0, 0.0);
 	vset(vu->rot_axis, 0., 0., 1.);
 	//
-	sleep(4);
+	Sleep(4);
 }
 
 // Template for momentum recursion
@@ -143,12 +145,12 @@ void singularity(Cell *grid)
 
         // Other properties
 
-        pointer->t     = 0;
-        pointer->f     = 1;
-        pointer->bmp   = 1;
-        pointer->a     = i;
-        pointer->seed  = i;
-        pointer->kind  = 0;
+        pointer->f      = 1;
+        pointer->bmp    = 1;
+        pointer->a      = i;
+        pointer->seed   = i;
+        pointer->kind   = 0;
+        pointer->reemit = IMMEDIATE;
         RESET(pointer->o);
         RESET(pointer->pole);
         RESET(pointer->dom);
@@ -168,7 +170,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
       for(int x = 0; x < SIDE; x++)
       {
         pointer->ch    = 0;
-        pointer->t     = 0;
+        pointer->n     = 0;
         pointer->f     = 0;
         pointer->bmp   = 0;
         pointer->a     = offset;

@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <unistd.h>
 #include <math.h>
 #include <assert.h>
 
@@ -27,17 +26,12 @@ extern boolean rebuild;
 
 boolean verbose = false;
 
-int i0=0;	// msgr x bub
-int i1=0;	// f=1 x f=1
-int i2=0;	// strong
-int i3=0;	// weak
-int i4=0;	// electric
-int i5=0;	// inertia
-
 extern Cell *stb, *drf;
 extern Cell *latt0, *latt1;
 
 extern pthread_barrier_t barrier;
+
+int a = 0;
 
 /*
  * Executes one cycle of the evolution algorithm.
@@ -49,43 +43,43 @@ void simulation()
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		copy();
 
-#define CP
-#ifdef CP
+	#define CP
+	#ifdef CP
 
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
  		flash();
 
-#endif
+	#endif
 
-#define EXPAND
-#ifdef EXPAND
+	#define EXPAND
+	#ifdef EXPAND
 
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		expand();
 
-#endif
+	#endif
 
-#define UPDATE
-#ifdef UPDATE
+	#define UPDATE
+	#ifdef UPDATE
 
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	update();
 
-#endif
+	#endif
 
-#define INTERACT
-#ifdef INTERACT
+	#define INTERACT
+	#ifdef INTERACT
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	interact();
-#endif
+	#endif
 
     //delay(250);
 }
@@ -103,17 +97,19 @@ void *AutomatonLoop()
 	{
 		if(!stop)
 		{
-#ifndef TEST_TREE
+			#ifndef TEST_TREE
 			simulation();
-#endif
+			#endif
 	    	pthread_mutex_lock(&mutex);
 			rebuild = true;
 		    pthread_mutex_unlock(&mutex);
 			timer++;
+			if(timer % 256)
+				a = rand() % SIDE3;
 		}
 		else
 		{
-	        usleep(80000);
+	        Sleep(80);
 		}
 	}
 	return NULL;

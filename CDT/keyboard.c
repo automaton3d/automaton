@@ -11,13 +11,13 @@
 #include "engine.h"
 #include "keyboard.h"
 #include "plot3d.h"
+#include "gadget.h"
 
 extern boolean showAxes;
 extern boolean showModel;
 extern boolean verbose;
 extern boolean ticks[NTICKS];
 extern boolean input_changed;
-extern boolean rebuild;
 extern char gridcolor;
 extern pthread_mutex_t mutex;
 
@@ -82,12 +82,6 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 		case 'V':
 			verbose = !verbose;
 		    break;
-		case 'U':
-			ticks[MODEL] = !ticks[MODEL];
-	    	pthread_mutex_lock(&mutex);
-			rebuild = true;
-	    	pthread_mutex_unlock(&mutex);
-			break;
 		case '0':
 			{
 	        	pthread_mutex_lock(&mutex);

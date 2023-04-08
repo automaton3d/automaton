@@ -63,7 +63,7 @@ void project(Vec3 *vec, float x, float y)
       if (fabs(y) > LIMITY)
     	  x = 0;
       float dist2 = x * x + y * y;
-      float z;
+      double z;
       if (dist2 <= r * r / 2)
         z = sqrt(r * r - dist2);
       else

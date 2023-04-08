@@ -10,6 +10,7 @@
  */
 
 #define _GNU_SOURCE
+#define PTW32_STATIC_LIB
 
 #include <windows.h>
 #include <stdio.h>
@@ -65,12 +66,11 @@ int nmark;
 
 int yy[WIDTH];
 
-extern int i0, i1, i2, i3, i4, i5;
-
 boolean rebuild = true;
 
 extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
+extern int a;
 
 View view;
 
@@ -208,29 +208,38 @@ int driftx = 0;
 int drifty = 0;
 int driftz = 0;
 
-void drawEspacito(int x0, int y0, int z0, Cell *espacito)
+void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 {
 	Vec3 xyz;
-	for(int z = 0; z < SIDE; z++)
-		for(int y = 0; y < SIDE; y++)
-			for(int x = 0; x < SIDE; x++)
+	xyz.x = WIDE * (SIDE * (t0->x + driftx) + t->x - DRIFT);
+	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
+	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
+	if(ticks[MOMENTUM] && !ZERO(cell->p))
+		putVoxel(xyz, CYAN);
+	else if(ticks[FRONT] && cell->f > 0)
+		putVoxel(xyz, YELLOW);
+	else if(ticks[MESSENGER] && cell->flash)
+		putVoxel(xyz, RED);
+	else if(showGrid)
+		putVoxel(xyz, PALE);
+	else
+		putVoxel(xyz, BLK);
+}
+
+void drawEspacito(Tuple *t0, Cell *esp)
+{
+	Tuple t;
+	for(t.z = 0; t.z < SIDE; t.z++)
+		for(t.y = 0; t.y < SIDE; t.y++)
+			for(t.x = 0; t.x < SIDE; t.x++)
 			{
-				if(espacito->a == 0)	// DEBUG
-//				if(x < 2 && y < 2 && z < 2)	// DEBUG
-				{
-					xyz.x = WIDE * (SIDE * (x0 + driftx) + x - DRIFT);
-					xyz.y = WIDE * (SIDE * (y0 + drifty) + y - DRIFT);
-					xyz.z = WIDE * (SIDE * (z0 + driftz) + z - DRIFT);
-					if(!ZERO(espacito->p))
-						putVoxel(xyz, CYAN);
-					else if(espacito->f > 0)
-						putVoxel(xyz, YELLOW);
-					else if(espacito->flash)
-						putVoxel(xyz, RED);
-					else if(showGrid)
-						putVoxel(xyz, PALE);
-				}
-				espacito++;
+				if(ticks[MODE0])
+					drawCell(t0, &t, esp);
+				else if(ticks[MODE1] && esp->a == a)
+					drawCell(t0, &t, esp);
+				else if(ticks[MODE2] && t.x < 2 && t.y < 2 && t.z < 2)
+					drawCell(t0, &t, esp);
+				esp++;
 			}
 }
 
@@ -251,12 +260,16 @@ void drawModel()
 
 #else
 
+  Tuple t;
   Cell *espacito = latt0;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
       for(int x = 0; x < SIDE; x++)
         {
-		  drawEspacito(x, y, z, espacito);
+    	  t.x = x;
+    	  t.y = y;
+    	  t.z = z;
+		  drawEspacito(&t, espacito);
 		  espacito += SIDE3;
 		}
 
@@ -366,57 +379,52 @@ void voxelize()
 
 void update2d()
 {
-	showCheckbox(20, 120, "messengers");
-	showCheckbox(20, 140, "spin");
-	showCheckbox(20, 160, "plane");
-	showCheckbox(20, 180, "box");
-	showCheckbox(20, 200, "track");
-	showCheckbox(20, 220, "momentum");
-	showCheckbox(20, 240, "model");
+	showCheckbox(20,  80, "wavefront");
+	showCheckbox(20, 100, "messengers");
+	showCheckbox(20, 120, "spin");
+	showCheckbox(20, 140, "momentum");
+	showCheckbox(20, 160, "mode 0");
+	showCheckbox(20, 180, "mode 1");
+	showCheckbox(20, 200, "mode 2");
+	showCheckbox(20, 220, "plane");
+	showCheckbox(20, 240, "box");
 	//
- 	char *s;
+ 	char *s = NULL;
     //
-    asprintf(&s, "Automaton %d", SIDE);
+ 	asprintf(&s, "Automaton %d", SIDE);
     vprints(20, 20, s);
     //
- 	asprintf(&s, "light: %lu tick: %lu", timer / LIGHT, timer);
+    asprintf(&s, "light: %lu tick: %lu", timer / LIGHT, timer);
 	vprints(20, 60, s);
     //
-    asprintf((char **)&s, "S: pause/resume");
+	asprintf(&s, "S: pause/resume");
     vprints(650, 700, s);
     //
-    asprintf((char **)&s, "G: grid on-off");
+    asprintf(&s, "G: grid on-off");
     vprints(650, 720, s);
     //
-    asprintf((char **)&s, "X: box on-off");
+    asprintf(&s, "X: box on-off");
     vprints(650, 740, s);
 	//
     setTextColor(ORANGE);
     if(isParallel())
-    	asprintf((char **)&s, "PARALLEL");
+    	asprintf(&s, "PARALLEL");
     else
-    	asprintf((char **)&s, "PERSPECTIVE");
+    	asprintf(&s, "PERSPECTIVE");
     vprints(350, 740, s);
     setTextColor(WHT);
     //
     if(stop)
     {
-    	asprintf((char **)&s, "[PAUSED]");
+    	asprintf(&s, "[PAUSED]");
     	vprints(370, 395, s);
     }
-    //
-	asprintf((char **)&s, "msgr=%d f1xf1=%d", i0, i1);
-    vprints(20, 620, s);
-	asprintf((char **)&s, "strong=%d weak=%d", i2, i3);
-    vprints(20, 640, s);
-	asprintf((char **)&s, "elemag=%d inertia=%d", i4, i5);
-    vprints(20, 660, s);
     //
     // Camera position
     //
     Vec3 pos, dir, att;
     getCamera(&pos, &dir, &att);
-	asprintf((char **)&s, "[%.0f, %.0f, %.0f]", pos.x, pos.y, pos.z);
+    asprintf(&s, "[%.0f, %.0f, %.0f]", pos.x, pos.y, pos.z);
 	int n = string_length(s);
     vprints(800-10*n, 150, s);
 }
@@ -431,7 +439,7 @@ void *DisplayLoop()
 	//
 	initPlot();
 	flipBuffers();	// forces init of curr
- 	begin = GetTickCount();
+ 	begin = GetTickCount64();
     pthread_barrier_wait(&barrier);
     while(true)
     {
@@ -472,18 +480,17 @@ void *DisplayLoop()
     	else
     	{
         	pthread_mutex_unlock(&mutex);
-            usleep(80000);
+            Sleep(80);
     	}
     	//
     	// Update elapsed time display
     	//
-     	char *s;
-     	unsigned long millis = GetTickCount() - begin;
-        asprintf(&s, "Elapsed %.1fs ", millis / 1000.0);
+     	char *s = NULL;
+     	unsigned long millis = GetTickCount64() - begin;
+     	asprintf(&s, "Elapsed %.1fs ", millis / 1000.0);
         vprints(20, 40, s);
     	SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
     	BitBlt(hdc, 20, 35, 160, 20, myCompatibleDC, 20, 35, SRCCOPY);
-//    	SetWindowTextW(hwnd_test, L"Label:");
     }
 }
 

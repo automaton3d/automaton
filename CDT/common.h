@@ -37,8 +37,9 @@
 #define WHT 	15
 #define SILVER	16
 #define PALE    17
-#define BOX		OLIVE
+#define VANILLA 18
+#define BOX		PURPLE
 
-#define NCOLORS	18
+#define NCOLORS	19
 
 #endif /* COMMON_H_ */

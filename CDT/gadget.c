@@ -11,6 +11,7 @@
 #include "engine.h"
 #include "plot3d.h"
 #include "text.h"
+#include "gadget.h"
 
 extern boolean ticks[NTICKS];
 
@@ -23,23 +24,33 @@ void showCheckbox(int x, int y, char *label)
 	//
 	vprints(x+15, y, label);
 	//
-	if(ticks[(y-100)/20-1])
+	if(ticks[(y-60)/20-1])
 	{
 		line2d(x+1, HEIGHT-y-4, x+4, HEIGHT-y-8, YELLOW);
 		line2d(x+4, HEIGHT-y-8, x+9, HEIGHT-y-1, YELLOW);
 	}
 }
 
-boolean testCheckbox(int x, int y)
+boolean testCheckbox(int y, int x)
 {
 	if(x > 17 && x < 100)
 	{
-		int yy = 120;
+		int yy = 80;
 		for(int i = 0; i < NTICKS; i++)
 		{
 			if(y > yy && y < yy+20)
 			{
-				ticks[i] = !ticks[i];
+				if(i >= MODE0 && i < PLANE)
+				{
+					ticks[MODE0] = false;
+					ticks[MODE1] = false;
+					ticks[MODE2] = false;
+					ticks[i] = true;
+				}
+				else
+				{
+					ticks[i] = !ticks[i];
+				}
 				return true;
 			}
 			yy += 20;

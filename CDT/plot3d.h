@@ -5,6 +5,8 @@
  *      Author: Alexandre
  */
 
+#pragma once
+
 #ifndef PLOT3D_H_
 #define PLOT3D_H_
 
@@ -18,21 +20,11 @@
 #define WHITEBG  0x00ffffff
 #define BLACKBG  0x00000000
 
-#define MESSENGER	0
-#define SPIN		1
-#define PLANE		2
-#define CUBE		3
-#define TRAJECTORY	4
-#define MOMENTUM	5
-#define MODEL		6
-#define CENTERS		7
-
-#define NTICKS		8
-
-#define WIDE        (512/SIDE2)
+#define WIDE        (1024/SIDE2)
 #define DRIFT       ((SIDE2+SIDE)/2)
-#define BOXMIN      (-WIDE * DRIFT)
-#define BOXMAX      (WIDE * SIDE2 - DRIFT - 1)
+
+#define BOXMIN      (-WIDE*DRIFT)
+#define BOXMAX      (+WIDE*(DRIFT-SIDE))
 
 #define DEV         12
 #define DISTANCE    312

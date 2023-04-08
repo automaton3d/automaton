@@ -7,10 +7,11 @@
 
 #define _GNU_SOURCE
 
+#define PTW32_STATIC_LIB
+
 #include "main3d.h"
 #include <GL/GL.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <math.h>
 #include <pthread.h>
 #include "utils.h"
@@ -103,7 +104,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wc.hbrBackground = NULL;
 	wc.hCursor       = LoadCursor(0, IDC_ARROW);
 	//
- 	char *title;
+ 	char *title = NULL;
  	asprintf(&title, "Mundo virtual");
  	//
 	RegisterClass(&wc);
@@ -115,9 +116,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
  	//
  	pthread_barrier_init(&barrier, &attr, 2);
  	pthread_create(&display, NULL, &DisplayLoop, NULL);
- 	sleep(2);
+ 	Sleep(2);
  	pthread_create(&loop, NULL, &AutomatonLoop, NULL);
- 	sleep(2);
+ 	Sleep(2);
 	srand(time(NULL));
 //	SetWindowTextW(hwnd_test, L"Label:");
  	//

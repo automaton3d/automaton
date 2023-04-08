@@ -76,6 +76,7 @@ void initPalette()
     colors[15] = 0x00ffffff;		// WHT
 	colors[16] = 0x00c0c0c0;		// SILVER
     colors[17] = 0x00111100;		// PALE
+    colors[18] = 0x00800080;		// PURPLE
 }
 
 // Scale is the value you multiply x and y with before you divide

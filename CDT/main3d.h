@@ -5,6 +5,8 @@
  *      Author: Alexandre
  */
 
+#pragma once
+
 #ifndef MAIN3D_H_
 #define MAIN3D_H_
 

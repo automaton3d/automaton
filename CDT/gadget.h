@@ -8,6 +8,18 @@
 #ifndef GADGET_H_
 #define GADGET_H_
 
+#define FRONT		0
+#define MESSENGER	1
+#define SPIN		2
+#define MOMENTUM	3
+#define MODE0		4
+#define MODE1		5
+#define MODE2		6
+#define PLANE		7
+#define CUBE		8
+
+#define NTICKS		9
+
 // Functions
 
 void showCheckbox(int x, int y, char *label);

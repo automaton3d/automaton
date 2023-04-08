@@ -146,8 +146,8 @@ unsigned imod2(Tuple v)
 
 char *tuple2str(Tuple *t)
 {
-	char *s;
-	asprintf((char **)&s, "[%d,%d,%d]", t->x, t->y, t->z);
+	char *s = NULL;
+	asprintf(&s, "[%d,%d,%d]", t->x, t->y, t->z);
 	return s;
 }
 

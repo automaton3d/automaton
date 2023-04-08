@@ -43,9 +43,9 @@ void line3d(Vec3 t1, Vec3 t2, char color)
 {
     int i, err_1, err_2, dx2, dy2, dz2;
     Vec3 point = t1;
-    int dx = t2.x - t1.x;
-    int dy = t2.y - t1.y;
-    int dz = t2.z - t1.z;
+    int dx = (int)(t2.x - t1.x);
+    int dy = (int)(t2.y - t1.y);
+    int dz = (int)(t2.z - t1.z);
     int x_inc = (dx < 0) ? -1 : 1;
     int l = abs(dx);
     int y_inc = (dy < 0) ? -1 : 1;

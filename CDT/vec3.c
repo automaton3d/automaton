@@ -102,7 +102,7 @@ char *vector2str(Vec3 *v)
 {
 	static int index = 0;
 	char *ptr = vectorBuf[index];
-	sprintf(ptr, "(%f,%f,%f)", v->x, v->y, v->z);
+	printf_s(ptr, "(%f,%f,%f)", 30, v->x, v->y, v->z);
 	index++;
 	index &= 3;
 	return ptr;
