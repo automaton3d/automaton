@@ -17,6 +17,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <assert.h>
 
 #include "engine.h"
@@ -214,12 +215,12 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 	xyz.x = WIDE * (SIDE * (t0->x + driftx) + t->x - DRIFT);
 	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
 	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
-	if(ticks[MOMENTUM] && !ZERO(cell->p))
-		putVoxel(xyz, CYAN);
-	else if(ticks[FRONT] && cell->f > 0)
-		putVoxel(xyz, YELLOW);
-	else if(ticks[MESSENGER] && cell->flash)
+	if(ticks[MESSENGER] && cell->f)
 		putVoxel(xyz, RED);
+	else if(ticks[MOMENTUM] && !ZERO(cell->p))
+		putVoxel(xyz, CYAN);
+	else if(ticks[FRONT] && BUSY(cell))
+		putVoxel(xyz, YELLOW);
 	else if(showGrid)
 		putVoxel(xyz, PALE);
 	else

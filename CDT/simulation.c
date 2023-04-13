@@ -43,17 +43,22 @@ void simulation()
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		copy();
 
-	#define CP
-	#ifdef CP
+	#define FLASH
+	#ifdef FLASH
 
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
  		flash();
 
-	#endif
+    if(rand() % 10 == 1)
+    {
+    	(latt1 + rand() % SIDE3)->f = true;
+    }
 
-	#define EXPAND
+    #endif
+
+	//#define EXPAND
 	#ifdef EXPAND
 
     stb = latt0;
@@ -63,7 +68,7 @@ void simulation()
 
 	#endif
 
-	#define UPDATE
+	//#define UPDATE
 	#ifdef UPDATE
 
     stb = latt0;
@@ -73,15 +78,17 @@ void simulation()
 
 	#endif
 
-	#define INTERACT
+	//#define INTERACT
 	#ifdef INTERACT
+
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
     	interact();
+
 	#endif
 
-    //delay(250);
+    delay(250);
 }
 
 /*

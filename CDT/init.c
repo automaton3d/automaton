@@ -54,7 +54,7 @@ void initScreen()
 	for(int i = 0; i < NTICKS; i++)
 		ticks[i] = true;
 	//
-	ticks[FRONT]	  = false;
+	//ticks[FRONT]	  = false;
 	ticks[MESSENGER]  = false;
 	ticks[SPIN] 	  = false;
 	ticks[MODE1] 	  = false;
@@ -145,15 +145,13 @@ void singularity(Cell *grid)
 
         // Other properties
 
-        pointer->f      = 1;
-        pointer->bmp    = 1;
-        pointer->a      = i;
-        pointer->seed   = i;
-        pointer->kind   = 0;
-        pointer->reemit = IMMEDIATE;
-        RESET(pointer->o);
-        RESET(pointer->pole);
-        RESET(pointer->dom);
+        pointer->a    = i;
+        pointer->r    = i;
+        pointer->k    = FERMION;
+        pointer->emit = IMMEDIATE;
+        RSET(pointer->o);
+        RSET(pointer->po);
+        RSET(pointer->fo);
 
         // Next
 
@@ -171,8 +169,6 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
       {
         pointer->ch    = 0;
         pointer->n     = 0;
-        pointer->f     = 0;
-        pointer->bmp   = 0;
         pointer->a     = offset;
         pointer->syn   = 0;
         pointer->u     = 0;
@@ -183,16 +179,16 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         pointer->pow   = 1;
         pointer->den   = 1;
 
-        pointer->seed  = offset;
-        pointer->kind  = 0;
-        pointer->flash  = false;
-        pointer->target = SIDE3;
-        RESET(pointer->o);
-        RESET(pointer->pole);
-        RESET(pointer->p);
-        RESET(pointer->s);
-        RESET(pointer->pP);
-        RESET(pointer->msg);
+        pointer->r  = offset;
+        pointer->k  = EMPTY;
+        pointer->f  = false;
+        pointer->obj = SIDE3;
+        RSET(pointer->o);
+        RSET(pointer->po);
+        RSET(pointer->p);
+        RSET(pointer->s);
+        RSET(pointer->pP);
+        RSET(pointer->m);
 
         // DEBUG
 #define DEBUG
@@ -204,35 +200,35 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         // Wires
 
         if(x0 == SIDE - 1)
-        	pointer->wires[0] = lattice + OFFSET(0, y0, z0) + offset;
+        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
         else
-        	pointer->wires[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
+        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
         if(x0 == 0)
-        	pointer->wires[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
+        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
         else
-        	pointer->wires[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
+        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
 
         if(y0 == SIDE - 1)
-        	pointer->wires[2] = lattice + OFFSET(x0, 0, z0) + offset;
+        	pointer->ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
         else
-        	pointer->wires[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
+        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
         if(y0 == 0)
-        	pointer->wires[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
+        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
         else
-        	pointer->wires[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
+        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
 
         if(z0 == SIDE - 1)
-        	pointer->wires[4] = lattice + OFFSET(x0, y0, 0) + offset;
+        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
         else
-        	pointer->wires[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
+        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
         if(z0 == 0)
-        	pointer->wires[5] = lattice + OFFSET(x0, y0, SIDE -1) + offset;
+        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE -1) + offset;
         else
-        	pointer->wires[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
+        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
 
         // Offset inside espacito
 
-        pointer->offset = offset;
+        pointer->off = offset;
 
         // Next
 
