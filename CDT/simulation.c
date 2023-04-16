@@ -51,22 +51,21 @@ void simulation()
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
  		flash();
 
-    if(rand() % 10 == 1)
-    {
-    	(latt1 + rand() % SIDE3)->f = true;
-    }
+    //if(rand() % 40 == 0)
+    	//latt1->f = true;
 
     #endif
 
-	//#define EXPAND
+	#define EXPAND
 	#ifdef EXPAND
 
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		expand();
+    printf("n=%ld: np=%d\n", timer, countMomentum(latt1));
 
-	#endif
+    #endif
 
 	//#define UPDATE
 	#ifdef UPDATE
@@ -88,7 +87,7 @@ void simulation()
 
 	#endif
 
-    delay(250);
+    delay(100);
 }
 
 /*
@@ -100,6 +99,7 @@ void *AutomatonLoop()
 	initAutomaton();
     pthread_barrier_wait(&barrier);
 	//
+    printf("n=%d\n", countMomentum(latt1));
 	while(true)
 	{
 		if(!stop)

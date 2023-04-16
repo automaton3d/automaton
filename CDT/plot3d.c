@@ -71,7 +71,7 @@ boolean rebuild = true;
 
 extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
-extern int a;
+//extern int a;
 
 View view;
 
@@ -209,6 +209,46 @@ int driftx = 0;
 int drifty = 0;
 int driftz = 0;
 
+#define BLOB
+#ifdef BLOB
+
+void putBlob(Vec3 xyz, int color)
+{
+	putVoxel(xyz, color);
+	xyz.x++;
+	putVoxel(xyz, color);
+	xyz.y++;
+	putVoxel(xyz, color);
+	xyz.z++;
+	putVoxel(xyz, color);
+	xyz.x -= 2;
+	putVoxel(xyz, color);
+	xyz.y -= 2;
+	putVoxel(xyz, color);
+	xyz.z -= 2;
+	putVoxel(xyz, color);
+}
+
+void drawCell(Tuple *t0, Tuple *t, Cell *cell)
+{
+	Vec3 xyz;
+	xyz.x = WIDE * (SIDE * (t0->x + driftx) + t->x - DRIFT);
+	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
+	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
+	if(ticks[MESSENGER] && cell->f)
+		putBlob(xyz, RED);
+	else if(ticks[MOMENTUM] && !ZERO(cell->p) && BUSY(cell))
+		putBlob(xyz, CYAN);
+	else if(ticks[FRONT] && BUSY(cell))
+		putBlob(xyz, YELLOW);
+	else if(showGrid)
+		putBlob(xyz, PALE);
+	else
+		putBlob(xyz, BLK);
+}
+
+#else
+
 void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 {
 	Vec3 xyz;
@@ -227,6 +267,8 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 		putVoxel(xyz, BLK);
 }
 
+#endif
+
 void drawEspacito(Tuple *t0, Cell *esp)
 {
 	Tuple t;
@@ -236,7 +278,7 @@ void drawEspacito(Tuple *t0, Cell *esp)
 			{
 				if(ticks[MODE0])
 					drawCell(t0, &t, esp);
-				else if(ticks[MODE1] && esp->a == a)
+				else if(ticks[MODE1] && esp->a == 0)//a)
 					drawCell(t0, &t, esp);
 				else if(ticks[MODE2] && t.x < 2 && t.y < 2 && t.z < 2)
 					drawCell(t0, &t, esp);
@@ -263,16 +305,13 @@ void drawModel()
 
   Tuple t;
   Cell *espacito = latt0;
-  for(int z = 0; z < SIDE; z++)
-    for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++)
-        {
-    	  t.x = x;
-    	  t.y = y;
-    	  t.z = z;
-		  drawEspacito(&t, espacito);
+  for(t.z = 0; t.z < SIDE; t.z++)
+    for(t.y = 0; t.y < SIDE; t.y++)
+      for(t.x = 0; t.x < SIDE; t.x++)
+      {
+    	  drawEspacito(&t, espacito);
 		  espacito += SIDE3;
-		}
+	  }
 
 #endif
 }

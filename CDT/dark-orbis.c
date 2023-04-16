@@ -12,6 +12,7 @@
 
 #include "simulation.h"
 #include "utils.h"
+#include "test/test.h"
 
 Cell *latt0, *latt1;
 
@@ -28,13 +29,13 @@ void copy()
 {
   pthread_mutex_lock(&mutex);
 
-  // Clock tick
+  // Reissue?
 
-  if (stb->emit)
+  if (drf->emit)
   {
     // Common updates
 
-    drf->n = 0;
+    drf->n = 1;  // synchronize all clocks
     drf->syn  = 0;
     drf->obj  = SIDE3;
 
@@ -43,22 +44,17 @@ void copy()
     drf->den  = 1;      // 2^0	TODO: check if den always > 0
     drf->pow  = 1;      // y^0
 
-    CP(drf->p, stb->p);	// patch 18/3
+    drf->u = 0;   // always reset sine
+    drf->pmf = 0; // and PMF
+
     RSET(drf->o);
     RSET(drf->pP);
     RSET(drf->m);
-    RSET(drf->po);
+    RSET(drf->po);  // TODO: assert 0 is not a special case
 
     // Specific updates
 
-    if (drf->emit == CONTACT)
-    {
-      // Pole is the contact point
-
-      RSET(drf->po);
-      RSET(drf->o);
-    }
-    else if (drf->emit == POLE)
+    if (drf->emit == POLE)
     {
       // Pole is the negation of p
 
@@ -66,12 +62,7 @@ void copy()
       CP(pole, drf->p);
       NEG(pole);
       CP(drf->po, pole);
-      RSET(drf->o);
     }
-
-    // Done
-
-    drf->emit = NONE;
   }
   else
   {
@@ -79,6 +70,10 @@ void copy()
 
     drf->n++;
   }
+
+  // Done
+
+  drf->emit = NONE;
 
   // Lattice update
 
@@ -91,7 +86,7 @@ void copy()
   stb->f   = drf->f;        // flash
   stb->k   = drf->k;        // kind
   stb->r   = drf->r;        // random
-  stb->obj = drf->obj;      // target
+  stb->obj = drf->obj;      // target TODO: affect collapse?
   CP(stb->p, drf->p);       // momentum
   CP(stb->s, drf->s);       // spin
   CP(stb->o, drf->o);       // bubble origin
@@ -108,9 +103,6 @@ void copy()
   pthread_mutex_unlock(&mutex);
 }
 
-/**
- * Spreads flash.
- */
 void flash()
 {
   // Flash greedy expansion
@@ -123,96 +115,42 @@ void flash()
   drf->f = false;
 
   // Test if pole was found
+  // stb->po is the pole inherited from the beginning of the flash.
 
-  if (!ZERO(stb->p) && ZERO(stb->po) && BUSY(stb) && !ZERO(stb->o))
+  if (BUSY(stb) && ZERO(stb->po))
   {
     // Pole found: create new seed
 
     drf->emit = IMMEDIATE;
-    drf->obj = stb->a;  // non trivial target
-    goto EXPAND;
+    RSET(drf->po);
   }
+
+  // Physical time
+
+  int t = stb->n / LIGHT;
+
+  // Find new address for interaction
+  // (Sect. 4.2)
+
+  int off;
+  if (stb->off % 2 == 0)
+	  off = (stb->off + t) % SIDE3;
+  else
+	  off = (stb->off - t) % SIDE3;
+  Cell *nxt = stb - stb->off + off;
+  Cell *lst = drf - drf->off + off;
 
   // A collapse forces all affine bubbles to reissue
+  // nxt->a is the skewed cell affinity that the flash is exploring
+  // stb->obj is the affinity inherited from the beginning of the flash
+  // It only matters non trivial p.
 
-  else if (stb->a == stb->obj)
+  if (nxt->a == stb->obj && !ZERO(nxt->p))
   {
-    // Reissue
+    // Reissue this particular bubble
 
-    drf->emit = IMMEDIATE;
-    drf->obj = stb->a;  // non trivial target
-    goto EXPAND;
-  }
-
-  // Explore von Neumann directions
-
-  int org[3];
-  Cell* nei;
-  for (int dir = 0; dir < 6; dir ++)
-  {
-    CP(org, stb->fo);
-    int i = dir >> 1;
-    org[i] += (dir % 2 == 0) ? +1 : -1;
-
-      // Propagate information
-
-    nei = drf->ws[dir];
-    if(!nei->f)
-    {
-      // Propagate flash
-
-      nei->f = true;
-      CP(nei->fo, org);
-
-      // Propagate sought affinity for collapse
-
-      nei->obj = stb->obj;
-
-      if (!ZERO(stb->po))
-      {
-        // Shrink pole as flash approaches re-emission point
-
-        nei->po[0] = stb->po[0] - (dir < 2);
-        nei->po[1] = stb->po[1] - (dir % 2 == 1);
-        nei->po[2] = stb->po[2] - (dir > 3);
-      }
-    }
-  }
-
-  EXPAND: ;
-}
-
-void flashxxxx()
-{
-  // Flash greedy expansion
-
-  if (!stb->f)
-    goto EXPAND;
-
-  // Clean flash
-
-  drf->f = false;
-
-  // Test if pole was found
-
-  if (!ZERO(stb->p) && ZERO(stb->po) && BUSY(stb) && !ZERO(stb->o))
-  {
-    // Pole found: create new seed
-
-    drf->emit = IMMEDIATE;
-    drf->obj = stb->a;  // non trivial target
-    goto EXPAND;
-  }
-
-  // A collapse forces all affine bubbles to reissue
-
-  else if (stb->a == stb->obj)
-  {
-    // Reissue
-
-    drf->emit = IMMEDIATE;
-    drf->obj = stb->a;  // non trivial target
-    goto EXPAND;
+    lst->emit = IMMEDIATE;
+    lst->obj = lst->a;       // default
   }
 
   // Explore von Neumann directions
@@ -232,28 +170,45 @@ void flashxxxx()
 
     // No conflict?
 
-    if (isAllowed(dir, org))
+    if (tree3d(dir, org))
     {
       // Propagate information
 
-      nei = drf->ws[dir];
+      nei      = drf->ws[dir]; // branch address
+      nei->f   = true;         // flash wavefront
+      nei->obj = stb->obj;     // collapse targets
+      nei->k   = stb->k;       // collapse type
+      CP(nei->fo, org);        // update origin
+      CP(nei->po, stb->po);    // value before shrink
 
-      // Propagate flash
+      // Shrink pole as flash approaches re-emission point
 
-      nei->f = true;
-      CP(nei->fo, org);
-
-      // Propagate sought affinity for collapse
-
-      nei->obj = stb->obj;
-
-      if (!ZERO(stb->po))
+      switch(dir)
       {
-        // Shrink pole as flash approaches re-emission point
-
-        nei->po[0] = stb->po[0] - (dir < 2);
-        nei->po[1] = stb->po[1] - (dir % 2 == 1);
-        nei->po[2] = stb->po[2] - (dir > 3);
+        case 0:
+          if(nei->po[0] < 0)
+            nei->po[0]++;
+          break;
+        case 1:
+    	  if(nei->po[0] > 0)
+    	    nei->po[0]--;
+          break;
+      case 2:
+          if(nei->po[1] < 0)
+    	    nei->po[1]++;
+          break;
+      case 3:
+          if(nei->po[1] > 0)
+    	    nei->po[1]--;
+          break;
+      case 4:
+          if(nei->po[2] < 0)
+    	    nei->po[2]++;
+          break;
+      case 5:
+          if(nei->po[2] > 0)
+            nei->po[2]--;
+          break;
       }
     }
   }
@@ -278,18 +233,18 @@ void expand()
 
   // Wrapping?
 
-  if (abs(stb->o[0]) == SIDE - 2 &&
-      abs(stb->o[1]) == SIDE - 2 &&
-      abs(stb->o[2]) == SIDE - 2)
+  if (abs(stb->o[0]) == SIDE_2 &&
+      abs(stb->o[1]) == SIDE_2 &&
+      abs(stb->o[2]) == SIDE_2)
   {
-    assert(!ZERO(stb->p));
-    drf->emit = IMMEDIATE;
+    if(!ZERO(stb->p))
+      drf->emit = IMMEDIATE;
     goto UPDATE;
   }
 
   // Is wavefront synchronized? (see Ref. [15])
 
-  if (drf->n * drf->n <= stb->syn)
+  else if (drf->n * drf->n <= stb->syn)
     goto UPDATE;
 
   // Explore von Neumann neighborhood
@@ -313,7 +268,7 @@ void expand()
 
     // No conflict?
 
-    if (isAllowed(dir, org))
+    if (tree1d(dir, org) || tree2d(dir, org) || tree3d(dir, org))
     {
       // Propagate information
 
@@ -338,6 +293,8 @@ void expand()
       CP(nei->m, stb->m);
       RSET(nei->p);
 
+      // Select momentum destination
+
       int dot = abs(DOT(org, stb->s));
       if (dot >= dotMax)
       {
@@ -356,9 +313,13 @@ void expand()
   }
   if (!ZERO(stb->p))
   {
+    assert(dst != NULL);
+
     // Propagate momentum
 
     CP(dst->p, stb->p);
+    assert(ZERO(drf->p));
+    RSET(drf->p);
 
     // Abandon the origin cell.
     // Tracking information remains.
@@ -369,6 +330,7 @@ void expand()
   {
     drf->k = EMPTY;
   }
+  assert(ZERO(drf->p));
 
   UPDATE: ;
 }
@@ -411,7 +373,7 @@ void update()
       {
         // Sec. 4.7.3 - Disconnect empodion
 
-        drf->a ^= stb->r;
+        drf->a = stb->off;
       }
     }
 
@@ -439,7 +401,7 @@ void update()
       // Disconnect empodion
       // (Sect. 4.7.3)
 
-      drf->a ^= stb->r;
+      drf->a = stb->off;
     }
   }
 
@@ -476,8 +438,8 @@ void update()
         // Calculate the common value for a
         // (Sect. 4.2)
 
-        drf->a ^= nxt->a;
-        lst->a ^= stb->a;
+        drf->a |= (nxt->a << ORDER);
+        lst->a |= (stb->a << ORDER);
       }
       else
       {
@@ -539,7 +501,7 @@ void update()
       // Calculate the common value for affinity
       // (Sect. 4.2)
 
-      drf->a = stb->a ^ nxt->a;
+      drf->a = stb->a | (nxt->a << ORDER);
       lst->a = drf->a;
     }
 
@@ -549,7 +511,8 @@ void update()
     else if (stb->k == nxt->k && stb->k > FERMION &&
              stb->a != nxt->a)
     {
-      drf->a ^= nxt->a;		// TODO: check mutiple case
+      drf->a = nxt->a;		// TODO: check mutiple case
+      lst->a = drf->a;
     }
   }
 
@@ -645,7 +608,7 @@ void interact()
 
     // Initialize collapse target
 
-    unsigned target = SIDE3;
+//    unsigned target = SIDE3;
 
     // Test for same or different sectors
 
@@ -847,25 +810,25 @@ void interact()
 
           if (CMPL(nxt->ch, drf->ch) && nxt->k == FERMION && stb->k == FERMION)
           {
-            // Destroy particles, setting each 'a' property to a
-            // new, pseudorandom value
+            // Destroy particles, setting each 'a' property to
+        	// its default value
 
-            drf->a ^= nxt->r;
             drf->obj = drf->a;
+            drf->a = drf->off;
             lst->obj = lst->a;
-            target = drf->obj;  // copy for flash
-            drf->k = FERMION;      // separate fragments
+            lst->a = lst->off;
+            drf->k = ANNIHIL;
           }
           else if (nxt->k == FERMION && drf->k != FERMION)
           {
             // fermion- x boson (light-matter)
             // fermion+ x boson (light-matter)
 
-            drf->a ^= nxt->r;
             drf->obj = drf->a;
+            drf->a = drf->off;
             lst->obj = lst->a;
-            target = drf->obj;  // copy for flash
-            drf->k = FERMION;      // separate fragments
+            lst->a = lst->off;
+            drf->k = COLLAPSE;
           }
           else if (nxt->k != FERMION && drf->k == FERMION)
           {
@@ -875,7 +838,6 @@ void interact()
             lst->a ^= stb->r;
             drf->obj = drf->a;
             lst->obj = lst->a;
-            target = lst->obj;  // copy for flash
             lst->k = FERMION;      // separate fragments
           }
           else if (nxt->k == NEUTRINO && drf->k == FERMION)
@@ -893,7 +855,6 @@ void interact()
 
             drf->obj = drf->a;
             lst->obj = lst->a;
-            target = drf->obj; // copy for flash
           }
 
           // All options in this case reissue from cp
@@ -938,15 +899,12 @@ void interact()
       else if (drf->k == FERMION && nxt->k == SPHOTON)
     	  drf->emit = CONTACT;
     }
-
-    // Define collapse target
-
-    drf->obj = target;
   }
 
   // Automatically release a flash
 
   drf->f = true;
+  RSET(drf->fo);
 
   COPY: ;
 }

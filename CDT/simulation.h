@@ -23,12 +23,13 @@
 #define SIDE4    (SIDE*SIDE3)
 #define SIDE5    (SIDE*SIDE4)
 #define SIDE6    (SIDE*SIDE5)
+#define SIDE_2   (SIDE/2)
 #define MASK     (SIDE-1)
 #define DIAG     (2*MASK)
 #define LIGHT    (2*DIAG)
 #define LIGHT2   (LIGHT*LIGHT)
 
-// Particle symbols (ored in code)
+// Particle symbols
 
 #define EMPTY    0x0000
 #define FERMION  0x0001
@@ -45,7 +46,12 @@
 
 #define E_PART   0x0200
 #define E_LATT   0x0400
+
+// Other
+
 #define LATTICE  0x0800	// no empodion
+#define ANNIHIL  0x1000
+#define COLLAPSE 0x2000
 
 // Charge masks
 
@@ -53,6 +59,18 @@
 #define Q_MASK   0x08
 #define W0_MASK  0x10
 #define W1_MASK  0x20
+
+// Handedness
+
+#define RIGHT 0
+#define LEFT  1
+
+// Reemision point
+
+#define NONE      0
+#define IMMEDIATE 1
+#define CONTACT   2
+#define POLE      3
 
 // Macros (helps readability)
 
@@ -70,18 +88,6 @@
 #define MAT(u)       (C(u)>2&&C(u)!=4)
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>EMPTY&&c->k<E_PART)
-
-// Handedness
-
-#define RIGHT 0
-#define LEFT  1
-
-// Reemision point
-
-#define NONE      0
-#define IMMEDIATE 1
-#define CONTACT   2
-#define POLE      3
 
 // Cell structure
 
@@ -108,7 +114,7 @@ typedef struct Cell
 
   // Footprint
 
-  int pP[3];      // empodion
+  int pP[3];      // empodion momentum
   int m[3];       // sought for direction
 
   // Superluminal variables
@@ -125,7 +131,7 @@ typedef struct Cell
 
   // Interaction control
 
-  uint16_t k;       // calculated kind of fragment
+  unsigned k;       // calculated kind of fragment
   unsigned r;       // pseudo random seed
   uint8_t emit;     // reissue status
 
@@ -146,7 +152,9 @@ void initAutomaton();
 void initEspacito();
 void initScreen();
 void printCell(Cell *cell);
-boolean isAllowed(int dir, int org[3]);
+boolean tree1d(int dir, int org[3]);
+boolean tree2d(int dir, int org[3]);
+boolean tree3d(int dir, int org[3]);
 long OFFSET(int x, int y, int z);
 Tuple getPole(Vec3 v, Tuple cen, int r);
 
