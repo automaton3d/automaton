@@ -43,7 +43,7 @@ void simulation()
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		copy();
 
-	#define FLASH
+//	#define FLASH
 	#ifdef FLASH
 
     stb = latt0;
@@ -63,7 +63,9 @@ void simulation()
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		expand();
-    printf("n=%ld: np=%d\n", timer, countMomentum(latt1));
+    int n = countMomentum(latt1);
+    if(n == 0)
+    	printf(">>>n=%ld: np=%d\n", timer, n);
 
     #endif
 

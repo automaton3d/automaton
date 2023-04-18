@@ -11,12 +11,21 @@
 #define true	1
 #define false	0
 
-boolean tree1d(int dir, int org[3])
+boolean tree3d(int dir, int org[3])
 {
     // Wrapping test
 
-    if (abs(org[0]) == SIDE_2 + 1 || abs(org[1]) == SIDE_2 + 1 || abs(org[2]) ==SIDE_2 + 1)
+    if (abs(org[0]) == SIDE_2 + 1 || abs(org[1]) == SIDE_2 + 1 || abs(org[2]) == SIDE_2 + 1)
     	return false;
+
+    // Root allows all six directions
+    // Wrapping level too
+
+    int level = abs(org[0]) + abs(org[1]) + abs(org[2]);
+    if (level == 1 || level == 3 * SIDE_2)
+        return true;
+
+    // Axes
 
     if(abs(org[0]) == SIDE_2 && abs(org[1]) == SIDE_2)
     {
@@ -39,22 +48,23 @@ boolean tree1d(int dir, int org[3])
     	else
     		return dir == 0;
     }
-	return false;
-}
 
-boolean tree2d(int dir, int org[3])
-{
-    // Wrapping test
-
-    if (abs(org[0]) == SIDE_2 + 1 || abs(org[1]) == SIDE_2 + 1 || abs(org[2]) ==SIDE_2 + 1)
-    	return false;
-
-    int level = abs(org[0]) + abs(org[1]) + abs(org[2]);
-	int parity = (level % 2 == 0);
+    // Allowed directions
 
     int dx = (org[0] < 0) + 0;
     int dy = (org[1] < 0) + 2;
     int dz = (org[2] < 0) + 4;
+
+    if(!org[1] && !org[2])
+    	return dir == dx;
+    if(!org[0] && !org[2])
+    	return dir == dy;
+    if(!org[0] && !org[1])
+    	return dir == dz;
+
+    // Planes
+
+	int parity = (level % 2 == 0);
 
     if(abs(org[2]) == SIDE_2)
     {
@@ -104,38 +114,7 @@ boolean tree2d(int dir, int org[3])
     	else
     		return dir == dy;
     }
-    return false;
-}
 
-boolean tree3d(int dir, int org[3])
-{
-    // Wrapping test
-
-    if (abs(org[0]) == SIDE_2 + 1 || abs(org[1]) == SIDE_2 + 1 || abs(org[2]) ==SIDE_2 + 1)
-    	return false;
-
-    // Root allows all six directions
-
-    int level = abs(org[0]) + abs(org[1]) + abs(org[2]);
-    if (level == 1)
-        return true;
-
-    int dx = (org[0] < 0) + 0;
-    int dy = (org[1] < 0) + 2;
-    int dz = (org[2] < 0) + 4;
-
-    // Axes
-
-    if(!org[1] && !org[2])
-    	return dir == dx;
-    if(!org[0] && !org[2])
-    	return dir == dy;
-    if(!org[0] && !org[1])
-    	return dir == dz;
-
-    // Planes
-
-	int parity = (level % 2 == 0);
     if(!org[2])
     {
     	if(parity)
@@ -146,9 +125,9 @@ boolean tree3d(int dir, int org[3])
     if(!org[1])
     {
     	if(parity)
-    		return dir == dx;
-    	else
     		return dir == dz;
+    	else
+    		return dir == dx;
     }
     if(!org[0])
     {

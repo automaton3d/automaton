@@ -49,6 +49,7 @@ extern unsigned long begin;
 void initPlot();
 void *DisplayLoop();
 void addPoint(Vec3 p);
+void addCell(Cell *c);
 void voxelize();
 
 #endif /* PLOT3D_H_ */

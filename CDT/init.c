@@ -145,10 +145,9 @@ void singularity(Cell *grid)
 
         // Other properties
 
-        pointer->a    = i;
+        pointer->a    = i + 1;
         pointer->r    = i;
         pointer->k    = FERMION;
-        pointer->emit = IMMEDIATE;
         RSET(pointer->o);
         RSET(pointer->po);
         RSET(pointer->fo);
@@ -169,7 +168,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
       {
         pointer->ch    = 0;
         pointer->n     = 0;
-        pointer->a     = offset;	// affinity
+        pointer->a     = 0;	  // affinity
         pointer->syn   = 0;
         pointer->u     = 0;
         pointer->pmf   = 0;
@@ -181,11 +180,10 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
 
         pointer->r     = offset;	// random
         pointer->k     = EMPTY;
-        pointer->emit  = NONE;
         pointer->f     = false;		// flash
         pointer->obj   = SIDE3;		// target
-        RSET(pointer->o);
-        RSET(pointer->po);
+        SAT(pointer->o);
+        SAT(pointer->po);
         RSET(pointer->p);
         RSET(pointer->s);
         RSET(pointer->pP);
@@ -199,7 +197,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         pointer->pos[2] = z0;
 #endif
         // Wires
-
+/*
         Cell *ws[6];
         //////
         if(x0 == SIDE - 1)
@@ -271,6 +269,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         	ws[2] = lattice + OFFSET(0, 0, 0) + offset;
         	ws[4] = lattice + OFFSET(0, 0, 0) + offset;
         }
+*/
         /////////////////////////
         if(x0 == 0)
         {

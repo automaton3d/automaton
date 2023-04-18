@@ -25,7 +25,9 @@
 #define SIDE6    (SIDE*SIDE5)
 #define SIDE_2   (SIDE/2)
 #define MASK     (SIDE-1)
+//#define MASK2    (MASK*MASK)
 #define DIAG     (2*MASK)
+//#define MAXR     (3*MASK2)
 #define LIGHT    (2*DIAG)
 #define LIGHT2   (LIGHT*LIGHT)
 
@@ -42,17 +44,6 @@
 #define UP       0x0080
 #define DOWN     0x0100
 
-// Empodion types
-
-#define E_PART   0x0200
-#define E_LATT   0x0400
-
-// Other
-
-#define LATTICE  0x0800	// no empodion
-#define ANNIHIL  0x1000
-#define COLLAPSE 0x2000
-
 // Charge masks
 
 #define C_MASK   0x07
@@ -65,19 +56,14 @@
 #define RIGHT 0
 #define LEFT  1
 
-// Reemision point
-
-#define NONE      0
-#define IMMEDIATE 1
-#define CONTACT   2
-#define POLE      3
-
 // Macros (helps readability)
 
 #define ZERO(v)      (v[0]==0&&v[1]==0&&v[2]==0)
 #define EQ(v,u)      (v[0]==u[0]&&v[1]==u[1]&&v[2]==u[2])
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define NEG(v)       {v[0]=-v[0];v[1]=-v[1];v[2]=-v[2];}
+#define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
+#define ISSAT(v)     (v[0]==SIDE&&v[1]==SIDE&&v[2]==SIDE)
 #define C(u)         (u->ch&C_MASK)      // color
 #define _C(u)        ((~u->ch&C_MASK)&7) // anticolor
 #define W1(u)        ((u->ch&W1_MASK)==W1_MASK)
@@ -87,7 +73,7 @@
 #define CROSS(a,b,c) {a[0]=b[1]*c[2]-b[2]*c[1];a[1]=b[2]*c[0]-b[0]*c[2];a[2]=b[0]*c[1]-b[1]*c[0];}
 #define MAT(u)       (C(u)>2&&C(u)!=4)
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
-#define BUSY(c)      (c->k>EMPTY&&c->k<E_PART)
+#define BUSY(c)      (c->k>EMPTY)
 
 // Cell structure
 
@@ -120,7 +106,7 @@ typedef struct Cell
   // Superluminal variables
 
   boolean f;      // flash
-  int fo[3];      // no backward in flash
+  int fo[3];      // flash origin
   int po[3];      // pole
   unsigned obj;   // affinity collapsing
 
@@ -133,7 +119,8 @@ typedef struct Cell
 
   unsigned k;       // calculated kind of fragment
   unsigned r;       // pseudo random seed
-  uint8_t emit;     // reissue status
+
+  // Debug
 
   int pos[3]; //debug
 
@@ -152,8 +139,6 @@ void initAutomaton();
 void initEspacito();
 void initScreen();
 void printCell(Cell *cell);
-boolean tree1d(int dir, int org[3]);
-boolean tree2d(int dir, int org[3]);
 boolean tree3d(int dir, int org[3]);
 long OFFSET(int x, int y, int z);
 Tuple getPole(Vec3 v, Tuple cen, int r);

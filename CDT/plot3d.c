@@ -62,16 +62,19 @@ char X, Y, Z;
 
 // Markers
 
-Vec3 *marks;
+Cell *marks;
 int nmark;
 
 int yy[WIDTH];
 
 boolean rebuild = true;
 
+int driftx = 0;
+int drifty = 0;
+int driftz = 0;
+
 extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
-//extern int a;
 
 View view;
 
@@ -127,7 +130,7 @@ void initPlot()
     setBackground(BLK);
     gridcolor = NAVY;
     //
-	marks = malloc(TRACEBUF * sizeof(Vec3));
+	marks = malloc(TRACEBUF * sizeof(Cell));
     clearBuffer();
     char *s;
 	asprintf((char **)&s, "Wait, please...");
@@ -137,13 +140,10 @@ void initPlot()
 	BitBlt(hdc, 0, 0, WIDTH, HEIGHT, myCompatibleDC, 0, 0, SRCCOPY);
 }
 
-/*
- * Add a point to trajectory.
- */
-void addPoint(Vec3 p)
+void addCell(Cell *c)
 {
 	if(nmark < TRACEBUF)
-		marks[nmark++] = p;
+		marks[nmark++] = *c;
 }
 
 void addPoint2d(int x, int y)
@@ -185,8 +185,17 @@ void drawGroundPlane()
 	line3d(p1, p2, YELLOW);
 }
 
-void drawMark(Vec3 p)
+void drawMark(Cell cell)
 {
+	if(cell.off > 0)
+		return;
+	int x = cell.off % SIDE;
+	int z = cell.off / SIDE2;
+	int y = cell.off / SIDE - SIDE * z;
+	Vec3 p;
+	p.x = WIDE * (SIDE * (cell.pos[0] + driftx) + x - DRIFT);
+	p.y = WIDE * (SIDE * (cell.pos[1] + drifty) + y - DRIFT);
+	p.z = WIDE * (SIDE * (cell.pos[2] + driftz) + z - DRIFT);
 	Vec3 t1, t2;
 	t1 = p;
 	t2 = p;
@@ -205,9 +214,15 @@ void drawMark(Vec3 p)
 	line3d(t1, t2, ORANGE);
 }
 
-int driftx = 0;
-int drifty = 0;
-int driftz = 0;
+void drawMarks()
+{
+	Cell *ms = marks;
+	for(int i = 0; i < nmark; i++)
+	{
+		drawMark(*ms);
+		ms++;
+	}
+}
 
 #define BLOB
 #ifdef BLOB
@@ -278,7 +293,7 @@ void drawEspacito(Tuple *t0, Cell *esp)
 			{
 				if(ticks[MODE0])
 					drawCell(t0, &t, esp);
-				else if(ticks[MODE1] && esp->a == 0)//a)
+				else if(ticks[MODE1] && esp->off == 0)//a)
 					drawCell(t0, &t, esp);
 				else if(ticks[MODE2] && t.x < 2 && t.y < 2 && t.z < 2)
 					drawCell(t0, &t, esp);
@@ -314,6 +329,7 @@ void drawModel()
 	  }
 
 #endif
+  drawMarks();
 }
 
 void drawBox()
