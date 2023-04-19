@@ -56,12 +56,11 @@ void initScreen()
 	//
 	//ticks[FRONT]	  = false;
 	//ticks[MESSENGER]  = false;
-	ticks[SPIN] 	  = false;
+	ticks[TRACK] 	  = false;
 	ticks[MODE0] 	  = false;
 	ticks[MODE2] 	  = false;
 	ticks[PLANE] 	  = false;
 	ticks[CUBE] 	  = false;
-
 	//
 	begin = GetTickCount64();				// initial milliseconds
 	setvbuf(stdout, 0, _IOLBF, 0);
@@ -145,9 +144,9 @@ void singularity(Cell *grid)
 
         // Other properties
 
-        pointer->a    = i + 1;
-        pointer->r    = i;
-        pointer->k    = FERMION;
+        pointer->a  = i + 1;	// dodges zero
+        pointer->r  = i;
+        pointer->k  = FERMION;
         RSET(pointer->o);
         RSET(pointer->po);
         RSET(pointer->fo);

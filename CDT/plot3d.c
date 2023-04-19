@@ -329,7 +329,8 @@ void drawModel()
 	  }
 
 #endif
-  drawMarks();
+  if (ticks[TRACK])
+	  drawMarks();
 }
 
 void drawBox()
@@ -437,7 +438,7 @@ void update2d()
 {
 	showCheckbox(20,  80, "wavefront");
 	showCheckbox(20, 100, "messengers");
-	showCheckbox(20, 120, "spin");
+	showCheckbox(20, 120, "track");
 	showCheckbox(20, 140, "momentum");
 	showCheckbox(20, 160, "mode 0");
 	showCheckbox(20, 180, "mode 1");

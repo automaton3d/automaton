@@ -25,9 +25,7 @@
 #define SIDE6    (SIDE*SIDE5)
 #define SIDE_2   (SIDE/2)
 #define MASK     (SIDE-1)
-//#define MASK2    (MASK*MASK)
 #define DIAG     (2*MASK)
-//#define MAXR     (3*MASK2)
 #define LIGHT    (2*DIAG)
 #define LIGHT2   (LIGHT*LIGHT)
 
@@ -74,6 +72,10 @@
 #define MAT(u)       (C(u)>2&&C(u)!=4)
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>EMPTY)
+
+// Test tree
+
+//#define TEST_TREE
 
 // Cell structure
 

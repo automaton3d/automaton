@@ -10,7 +10,7 @@
 
 #define FRONT		0
 #define MESSENGER	1
-#define SPIN		2
+#define TRACK		2
 #define MOMENTUM	3
 #define MODE0		4
 #define MODE1		5

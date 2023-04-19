@@ -38,10 +38,14 @@ int a = 0;
  */
 void simulation()
 {
+	#define COPY
+	#ifdef COPY
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		copy();
+
+	#endif
 
 //	#define FLASH
 	#ifdef FLASH
@@ -89,7 +93,7 @@ void simulation()
 
 	#endif
 
-    delay(100);
+    // delay(100);
 }
 
 /*
