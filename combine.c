@@ -4,24 +4,20 @@
 #include <time.h>
 #include "combine.h"
 
-#define REPEAT    1.0
-
-int tryQuark();
-int tryElectron();
-int tryQuark_D();
-int tryElectron_D();
-
 int frags[N];
 int control[N];
 
 // Total
 
 long t_e_O, t_e_D;
+long t_e_O_bar, t_e_D_bar;
 long t_q_O, t_q_D;
+long t_q_O_bar, t_q_D_bar;
 long t_v_O, t_v_D;
 long t_nu_O;
 long t_gl_O;
 long t_up_O;
+long t_up_O_bar;
 long t_ph_O;
 long t_PH_O;
 long t_zb_O;
@@ -29,6 +25,7 @@ long t_wb_O;
 long t_nu_D;
 long t_gl_D;
 long t_up_D;
+long t_up_D_bar;
 long t_ph_D;
 long t_PH_D;
 long t_zb_D;
@@ -38,8 +35,12 @@ long t_wb_D;
 
 int n_e = 0;
 int n_e_D = 0;
+int n_e_bar = 0;
+int n_e_D_bar = 0;
 int n_q = 0;
 int n_q_D = 0;
+int n_q_bar = 0;
+int n_q_D_bar = 0;
 int n_v = 0;
 int n_v_D = 0;
 int n_nu = 0;
@@ -47,7 +48,9 @@ int n_nu_D = 0;
 int n_gl = 0;
 int n_gl_D = 0;
 int n_up = 0;
+int n_up_bar = 0;
 int n_up_D = 0;
+int n_up_D_bar = 0;
 int n_ph = 0;
 int n_ph_D = 0;
 int n_PH = 0;
@@ -175,7 +178,41 @@ int tryUp()
 			while(n_q < n_up / 4)
 				tryQuark();
 			while(n_e < n_up * 3 / 4)
-				tryElectron();
+				tryElec();
+			//
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryUp_bar()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		int c  = frag & C_MASK;
+		int w0 = (frag & W0_MASK)>>3;
+		int w1 = (frag & W1_MASK)>>4;
+		int q  = (frag & Q_MASK)>>5;
+		int m  = (c == 1 || c == 2 || c == 4);
+		if(w1 == 1 || w0 == 1 || q == 0 || c == 0 || c == 7 || !m)
+			continue;
+		for(int j = 0; j < N; j++)
+		{
+			int frag1 = frags[j];
+			if(i == j || control[j] || frag != frag1)
+				continue;
+			n_up_bar += 2;
+			control[i] = 1;
+			control[j] = 1;
+			//
+//			while(n_q < n_up / 4)
+//				tryQuark();
+//			while(n_e < n_up * 3 / 4)
+//				tryElec();
 			//
 			return 1;
 		}
@@ -208,7 +245,39 @@ int tryUp_D()
 			while(n_q_D < n_up_D / 4)
 				tryQuark_D();
 			while(n_e_D < n_up_D * 3 / 4)
-				tryElectron_D();
+				tryElec_D();
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryUp_D_bar()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		int c  = frag & C_MASK;
+		int w0 = (frag & W0_MASK)>>3;
+		int w1 = (frag & W1_MASK)>>4;
+		int q  = (frag & Q_MASK)>>5;
+		int m  = (c == 1 || c == 2 || c == 4);
+		if(w1 == 0 || w0 == 0 || q == 1 || c == 0 || c == 7 || m)
+			continue;
+		for(int j = 0; j < N; j++)
+		{
+			int frag1 = frags[j];
+			if(i == j || control[j] || frag != frag1)
+				continue;
+			n_up_D_bar += 2;
+			control[i] = 1;
+			control[j] = 1;
+//			while(n_q_D < n_up_D / 4)
+//				tryQuark_D();
+//			while(n_e_D < n_up_D * 3 / 4)
+//				tryElec_D();
 			return 1;
 		}
 	}
@@ -231,6 +300,29 @@ int tryQuark()
 			{
 				control[i] = 1;
 				n_q++;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryQuark_bar()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		for(int k = 0; k < 3; k++)
+		{
+			rgb0 <<= 1;
+			if(rgb0 == 4)
+				rgb0 = 1;
+			if(frag == (0x07 | rgb0))
+			{
+				control[i] = 1;
+				n_q_bar++;
 				return 1;
 			}
 		}
@@ -261,7 +353,30 @@ int tryQuark_D()
 	return 0;
 }
 
-int tryElectron()
+int tryQuark_D_bar()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		for(int k = 0; k < 3; k++)
+		{
+			rgb0 <<= 1;
+			if(rgb0 == 4)
+			rgb0 = 1;
+			if(frag == anti(0x07 | rgb0))
+			{
+				control[i] = 1;
+				n_q_D_bar++;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int tryElec()
 {
 	for(int i = 0; i < N; i++)
 	{
@@ -278,7 +393,24 @@ int tryElectron()
 	return 0;
 }
 
-int tryElectron_D()
+int tryElec_bar()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		if(frag == 0x07)
+		{
+			control[i] = 1;
+			n_e_bar++;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryElec_D()
 {
 	for(int i = 0; i < N; i++)
 	{
@@ -289,6 +421,23 @@ int tryElectron_D()
 		{
 			control[i] = 1;
 			n_e_D++;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int tryElec_D_bar()
+{
+	for(int i = 0; i < N; i++)
+	{
+		if(control[i])
+			continue;
+		int frag = frags[i];
+		if(frag == anti(0x07))
+		{
+			control[i] = 1;
+			n_e_D_bar++;
 			return 1;
 		}
 	}
@@ -695,8 +844,12 @@ void combine()
 	//
 	n_e = 0;
 	n_e_D = 0;
+	n_e_bar = 0;
+	n_e_D_bar = 0;
 	n_q = 0;
 	n_q_D = 0;
+	n_q_bar = 0;
+	n_q_D_bar = 0;
 	n_v = 0;
 	n_v_D = 0;
 	n_nu = 0;
@@ -705,6 +858,8 @@ void combine()
 	n_gl_D = 0;
 	n_up = 0;
 	n_up_D = 0;
+	n_up_bar = 0;
+	n_up_D_bar = 0;
 	n_ph = 0;
 	n_ph_D = 0;
 	n_PH = 0;
@@ -758,12 +913,23 @@ void combine()
 		tryWB_D();
 	}
 	putchar('.');
+	tryUp_bar();
+	putchar('.');
+	tryUp_D_bar();
+	putchar('.');
+	putchar('.');
+	tryElec_bar();
+	putchar('.');
+	tryElec_D_bar();
 	t_e_O += n_e;
+	t_e_O_bar += n_e_bar;
 	t_q_O += n_q;
+	t_q_O_bar += n_q_bar;
 	t_v_O += n_v;
 	t_nu_O += n_nu;
 	t_gl_O += n_gl;
 	t_up_O += n_up;
+	t_up_O_bar += n_up_bar;
 	t_ph_O += n_ph;
 	t_PH_O += n_PH;
 	t_zb_O += n_zb;
@@ -774,6 +940,7 @@ void combine()
 	t_nu_D += n_nu_D;
 	t_gl_D += n_gl_D;
 	t_up_D += n_up_D;
+	t_up_D_bar += n_up_D_bar;
 	t_ph_D += n_ph_D;
 	t_PH_D += n_PH_D;
 	t_zb_D += n_zb_D;
@@ -799,6 +966,8 @@ int optimize()
 {
 	t_e_O = 0;
 	t_e_D = 0;
+	t_e_O_bar = 0;
+	t_e_D_bar = 0;
 	t_q_O = 0;
 	t_q_D = 0;
 	t_v_O = 0;
@@ -832,12 +1001,15 @@ int optimize()
 	printf("up quark\tPair\t\t%.1f\t%.1f\n", t_up_O / REPEAT, t_up_D / REPEAT);
 	printf("quark\t\tSingle\t\t%.1f\t%.1f\n", t_q_O / REPEAT, t_q_D / REPEAT);
 	printf("virtual\t\tSingle\t\t%.1f\t%.1f\n", t_v_O / REPEAT, t_v_D / REPEAT);
-	printf("electron\tSingle\t\t%.1f\t%.1f\n", t_e_O / REPEAT, t_e_D / REPEAT);
+	printf("elec\t\tSingle\t\t%.1f\t%.1f\n", t_e_O / REPEAT, t_e_D / REPEAT);
 	printf("photon\t\tPair\t\t%.1f\t%.1f\n", t_ph_O / REPEAT, t_ph_D / REPEAT);
 	printf("PHoton\t\tPair\t\t%.1f\t%.1f\n", t_PH_O / REPEAT, t_PH_D / REPEAT);
 	printf("Z boson\t\tPair\t\t%.1f\t%.1f\n", t_zb_O / REPEAT, t_zb_D / REPEAT);
 	printf("W boson\t\tPair\t\t%.1f\t%.1f\n", t_wb_O / REPEAT, t_wb_D / REPEAT);
 	printf("neutrino\tPair\t\t%.1f\t%.1f\n", t_nu_O / REPEAT, t_nu_D / REPEAT);
+	printf("up_bar\t\tPair\t\t%.1f\t%.1f\n", t_up_O_bar / REPEAT, t_up_D_bar / REPEAT);
+	printf("elec_bar\tSingle\t\t%.1f\t%.1f\n", t_e_O_bar / REPEAT, t_e_D_bar / REPEAT);
+	printf("q_bar\t\tSingle\t\t%.1f\t%.1f\n", t_q_O_bar / REPEAT, t_q_D_bar / REPEAT);
 	printf("leftover\tSingle\t\t%.1f\t%.1f\t\t\n", tot_O / REPEAT, tot_D / REPEAT);
 	int totO = t_nu_O + t_gl_O + t_up_O + t_ph_O + t_PH_O + t_zb_O + t_wb_O + t_e_O + t_q_O + t_v_O;
 	int totD = t_nu_D + t_gl_D + t_up_D + t_ph_D + t_PH_D + t_zb_D + t_wb_D + t_e_D + t_q_D + t_v_D;
