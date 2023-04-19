@@ -22,8 +22,8 @@ void test_expand()
 	drf->o[0] = 7;
 	drf->o[1] = 7;
 	drf->o[2] = 7;
-	drf->f = 1;
-	drf->t = 325;
+	drf->k = FERMION;
+	drf->n = 325;
 	drf->syn = 115248;
 	stb = getAddress(latt0, 3, 3, 3);
 	stb->a = 0;

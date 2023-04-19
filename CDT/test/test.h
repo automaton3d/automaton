@@ -19,5 +19,7 @@ Cell *getAddress(Cell *latt, int x, int y, int z);
 void printCell(Cell *cell);
 Cell *isSingular(Cell *latt);
 Cell *huntFlash(Cell *latt);
+int countMomentum(Cell *latt);
+Cell *huntMomentum(Cell *latt);
 
 #endif /* TEST_TEST_H_ */
