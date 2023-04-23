@@ -10,6 +10,7 @@
 #ifndef SIMULATION_H_
 #define SIMULATION_H_
 
+#include <pthread.h>
 #include <stdint.h>
 #include "tuple.h"
 #include "vec3.h"
@@ -29,18 +30,19 @@
 #define LIGHT    (2*DIAG)
 #define LIGHT2   (LIGHT*LIGHT)
 
-// Particle symbols
+// Particle singles and pairs (used in k)
 
 #define EMPTY    0x0000
-#define FERMION  0x0001
-#define SPHOTON  0x0002	// super photon
-#define PHOTON   0x0004
-#define GLUON    0x0008
-#define NEUTRINO 0x0010
-#define ZB       0x0020
-#define WB       0x0040
-#define UP       0x0080
-#define DOWN     0x0100
+#define FOWL     0x0001
+#define FERMION  0x0002
+#define SPHOTON  0x0004	// super photon
+#define PHOTON   0x0008
+#define GLUON    0x0010
+#define NEUTRINO 0x0020
+#define ZB       0x0040
+#define WB       0x0080
+#define UP       0x0100
+#define DOWN     0x0200
 
 // Charge masks
 
@@ -72,10 +74,6 @@
 #define MAT(u)       (C(u)>2&&C(u)!=4)
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>EMPTY)
-
-// Test tree
-
-//#define TEST_TREE
 
 // Cell structure
 
@@ -124,6 +122,9 @@ typedef struct Cell
 
   // Debug
 
+  boolean v;        // visit control
+  pthread_mutex_t mutex;
+
   int pos[3]; //debug
 
 } Cell;
@@ -141,8 +142,8 @@ void initAutomaton();
 void initEspacito();
 void initScreen();
 void printCell(Cell *cell);
-boolean tree3d(int dir, int org[3]);
 long OFFSET(int x, int y, int z);
 Tuple getPole(Vec3 v, Tuple cen, int r);
+void *work(void * parm);
 
 #endif /* SIMULATION_H_ */

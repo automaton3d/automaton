@@ -31,7 +31,7 @@ extern Cell *latt0, *latt1;
 
 extern pthread_barrier_t barrier;
 
-int a = 0;
+int off = 0;
 
 /*
  * Executes one cycle of the evolution algorithm.
@@ -47,16 +47,13 @@ void simulation()
 
 	#endif
 
-//	#define FLASH
+	#define FLASH
 	#ifdef FLASH
 
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
  		flash();
-
-    //if(rand() % 40 == 0)
-    	//latt1->f = true;
 
     #endif
 
@@ -67,13 +64,10 @@ void simulation()
     drf = latt1;
     for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
    		expand();
-    int n = countMomentum(latt1);
-    if(n == 0)
-    	printf(">>>n=%ld: np=%d\n", timer, n);
 
     #endif
 
-	//#define UPDATE
+	#define UPDATE
 	#ifdef UPDATE
 
     stb = latt0;
@@ -83,7 +77,7 @@ void simulation()
 
 	#endif
 
-	//#define INTERACT
+	#define INTERACT
 	#ifdef INTERACT
 
     stb = latt0;
@@ -110,15 +104,16 @@ void *AutomatonLoop()
 	{
 		if(!stop)
 		{
-			#ifndef TEST_TREE
 			simulation();
-			#endif
 	    	pthread_mutex_lock(&mutex);
 			rebuild = true;
 		    pthread_mutex_unlock(&mutex);
 			timer++;
+
+			// Debug
+
 			if(timer % 256)
-				a = rand() % SIDE3;
+				off = rand() % SIDE3;
 		}
 		else
 		{

@@ -31,6 +31,7 @@ extern Cell *latt0, *latt1;
 extern Quaternion currQ, lastQ;
 
 extern View view;
+
 View *vu;
 
 long OFFSET(int x, int y, int z)
@@ -55,8 +56,8 @@ void initScreen()
 		ticks[i] = true;
 	//
 	//ticks[FRONT]	  = false;
-	//ticks[MESSENGER]  = false;
-	ticks[TRACK] 	  = false;
+	ticks[MESSENGER]  = false;
+	//ticks[TRACK] 	  = false;
 	ticks[MODE0] 	  = false;
 	ticks[MODE2] 	  = false;
 	ticks[PLANE] 	  = false;
@@ -181,6 +182,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         pointer->k     = EMPTY;
         pointer->f     = false;		// flash
         pointer->obj   = SIDE3;		// target
+        pointer->v     = false;
         SAT(pointer->o);
         SAT(pointer->po);
         RSET(pointer->p);
@@ -196,80 +198,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         pointer->pos[2] = z0;
 #endif
         // Wires
-/*
-        Cell *ws[6];
-        //////
-        if(x0 == SIDE - 1)
-        	ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        else
-        	ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        if(x0 == 0)
-        	ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
-        else
-        	ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
 
-        if(y0 == SIDE - 1)
-        	ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
-        else
-        	ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        if(y0 == 0)
-        	ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        else
-        	ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-
-        if(z0 == SIDE - 1)
-        	ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        else
-        	ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        if(z0 == 0)
-        	ws[5] = lattice + OFFSET(x0, y0, SIDE -1) + offset;
-        else
-        	ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-
-        if(x0 == 0 && y0 == 0 && z0 == 0)
-        {
-        	ws[1] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        	ws[3] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        	ws[5] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        }
-        else if(x0 == SIDE - 1 && y0 == SIDE - 1 && z0 == SIDE - 1)
-        {
-        	ws[0] = lattice + OFFSET(0, 0, 0) + offset;
-        	ws[2] = lattice + OFFSET(0, 0, 0) + offset;
-        	ws[4] = lattice + OFFSET(0, 0, 0) + offset;
-        }
-        else if(x0 == 0 && y0 == 0)
-        {
-        	ws[1] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        	ws[3] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        }
-        else if(x0 == 0 && z0 == 0)
-        {
-        	ws[1] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        	ws[5] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        }
-        else if(y0 == 0 && z0 == 0)
-        {
-        	ws[3] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        	ws[5] = lattice + OFFSET(SIDE - 1, SIDE - 1, SIDE - 1) + offset;
-        }
-        else if(x0 == SIDE - 1 && y0 == SIDE - 1)
-        {
-        	ws[0] = lattice + OFFSET(0, 0, 0) + offset;
-        	ws[2] = lattice + OFFSET(0, 0, 0) + offset;
-        }
-        else if(x0 == SIDE - 1 && z0 == SIDE - 1)
-        {
-        	ws[0] = lattice + OFFSET(0, 0, 0) + offset;
-        	ws[4] = lattice + OFFSET(0, 0, 0) + offset;
-        }
-        else if(y0 == SIDE - 1 && z0 == SIDE - 1)
-        {
-        	ws[2] = lattice + OFFSET(0, 0, 0) + offset;
-        	ws[4] = lattice + OFFSET(0, 0, 0) + offset;
-        }
-*/
-        /////////////////////////
         if(x0 == 0)
         {
         	if(y0 == 0)
@@ -552,14 +481,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         // Offset inside espacito
 
         pointer->off = offset;
-
-        /*
-        for(int i = 0; i < 6; i++)
-        {
-        	printf(">> %d\n", pointer->off);
-        	assert(ws[i] == pointer->ws[i]);
-        }
-         */
+        pthread_mutex_init(&pointer->mutex, NULL);
 
         // Next
 

@@ -105,7 +105,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wc.hCursor       = LoadCursor(0, IDC_ARROW);
 	//
  	char *title = NULL;
- 	asprintf(&title, "Mundo virtual");
+ 	asprintf(&title, "Toy universe");
  	//
 	RegisterClass(&wc);
 	hwnd = CreateWindow("MYWNDCLASSNAME", title,
