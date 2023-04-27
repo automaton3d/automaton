@@ -5,8 +5,6 @@
  *      Author: Alexandre
  */
 
-#define _GNU_SOURCE
-
 #ifndef SIMULATION_H_
 #define SIMULATION_H_
 
@@ -17,7 +15,7 @@
 
 // Lattice symbols
 
-#define ORDER    3  //166 (see Section 2.3)
+#define ORDER    3  //202 (see Section 2.3)
 #define SIDE     (1<<ORDER)
 #define SIDE2    (SIDE*SIDE)
 #define SIDE3    (SIDE*SIDE2)
@@ -33,7 +31,7 @@
 // Particle singles and pairs (used in k)
 
 #define EMPTY    0x0000
-#define FOWL     0x0001
+#define FOWL     0x0001 // Orbis x Dark Sector
 #define FERMION  0x0002
 #define SPHOTON  0x0004	// super photon
 #define PHOTON   0x0008
@@ -56,26 +54,34 @@
 #define RIGHT 0
 #define LEFT  1
 
+// Flash init
+
+#define FLASH 2
+
 // Macros (helps readability)
 
 #define ZERO(v)      (v[0]==0&&v[1]==0&&v[2]==0)
 #define EQ(v,u)      (v[0]==u[0]&&v[1]==u[1]&&v[2]==u[2])
-#define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
-#define NEG(v)       {v[0]=-v[0];v[1]=-v[1];v[2]=-v[2];}
-#define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
 #define ISSAT(v)     (v[0]==SIDE&&v[1]==SIDE&&v[2]==SIDE)
 #define C(u)         (u->ch&C_MASK)      // color
 #define _C(u)        ((~u->ch&C_MASK)&7) // anticolor
 #define W1(u)        ((u->ch&W1_MASK)==W1_MASK)
 #define W0(u)        ((u->ch&W0_MASK)==W0_MASK)
 #define Q(u)         ((u->ch&Q_MASK)==Q_MASK)
-#define SUB(v,v1,v2) {v[0]=v2[0]-v1[0];v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
-#define CROSS(a,b,c) {a[0]=b[1]*c[2]-b[2]*c[1];a[1]=b[2]*c[0]-b[0]*c[2];a[2]=b[0]*c[1]-b[1]*c[0];}
 #define MAT(u)       (C(u)>2&&C(u)!=4)
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
-#define BUSY(c)      (c->k>EMPTY)
+#define BUSY(c)      (c->k>FOWL)
 
-// Cell structure
+#define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
+#define NEG(v)       {v[0]=-v[0];v[1]=-v[1];v[2]=-v[2];}
+#define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
+#define SUB(v,v1,v2) {v[0]=v2[0]-v1[0];v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
+#define MILD(v)      {v[0]=SIDE_2;v[1]=SIDE_2;v[2]=SIDE_2;}
+#define CROSS(a,b,c) {a[0]=b[1]*c[2]-b[2]*c[1];a[1]=b[2]*c[0]-b[0]*c[2];a[2]=b[0]*c[1]-b[1]*c[0];}
+#define CP(u,v)      {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
+
+// Cell structure.
+// Uses practical types instead of conceptual ones.
 
 typedef struct Cell
 {
@@ -95,8 +101,7 @@ typedef struct Cell
 
   int u;          // Euler product formula
   int pmf;        // sine PMF
-  int pow;        // auxiliary
-  int den;        // auxiliary
+  int pow, den;   // auxiliary
 
   // Footprint
 
@@ -105,15 +110,14 @@ typedef struct Cell
 
   // Superluminal variables
 
-  boolean f;      // flash
-  int fo[3];      // flash origin
+  uint8_t f;      // flash
   int po[3];      // pole
   unsigned obj;   // affinity collapsing
 
   // Pointers
 
-  unsigned off;     // offset inside espacito (constant)
-  struct Cell *ws[6];  // wires to other cells (constant);
+  unsigned off;       // offset inside espacito (constant)
+  struct Cell *ws[6]; // wires to other cells (constant);
 
   // Interaction control
 

@@ -47,8 +47,8 @@ void simulation()
 
 	#endif
 
-	#define FLASH
-	#ifdef FLASH
+	#define FLASHLOOP
+	#ifdef FLASHLOOP
 
     stb = latt0;
     drf = latt1;

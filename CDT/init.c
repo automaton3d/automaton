@@ -96,6 +96,9 @@ int template[6][3] =
   {0, 0, -S},
 };
 
+/*
+ * Initial state.
+ */
 void singularity(Cell *grid)
 {
   Cell *pointer;
@@ -149,8 +152,10 @@ void singularity(Cell *grid)
         pointer->r  = i;
         pointer->k  = FERMION;
         RSET(pointer->o);
-        RSET(pointer->po);
-        RSET(pointer->fo);
+
+        // Patch 26/4
+
+        MILD(pointer->po);
 
         // Next
 
@@ -180,7 +185,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
 
         pointer->r     = offset;	// random
         pointer->k     = EMPTY;
-        pointer->f     = false;		// flash
+        pointer->f     = 0;	        // flash
         pointer->obj   = SIDE3;		// target
         pointer->v     = false;
         SAT(pointer->o);

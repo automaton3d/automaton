@@ -45,12 +45,12 @@ void copy()
   stb->pmf = drf->pmf;  // sine PMF
   stb->k   = drf->k;    // kind
   stb->r   = drf->r;    // random
+  stb->v   = drf->v;    // occupancy
   stb->obj = drf->obj;  // target
   CP(stb->p, drf->p);   // momentum
   CP(stb->s, drf->s);   // spin
   CP(stb->o, drf->o);   // bubble origin
   CP(stb->po, drf->po); // pole
-  CP(stb->fo, drf->fo); // flash origin
   CP(stb->pP, drf->pP); // decay
   CP(stb->m, drf->m);   // messenger
 
@@ -69,24 +69,25 @@ void flash()
 {
   // --- Operations inside separate space ---
 
-  // Flagged?
+  // Not flagged?
 
-  if (!stb->f)
-    goto EXPAND;
+  if (!stb->f) goto EXPAND;
 
-  // Clean flash
+  // Decay flash
 
-  drf->f = false;
+  drf->f--;
 
   // Test if pole was found.
-  // stb->po is the pole inherited from the beginning of the flash.
-  // Valid for the momentum carrying cell only.
+  // stb->po is inherited pole from beginning of flash.
+  // Valid for the momentum carrying cell only. [CODE 01]
 
   if (BUSY(stb) && ZERO(stb->po) && !ZERO(stb->p))
   {
-    // Pole found: create new seed
-
-    drf->f = true;
+    RSET(drf->o);  // will be used in [CODE 2]
+  }
+  else
+  {
+    RSET(drf->p);  // p will move
   }
 
   // Always erase searched pole
@@ -96,12 +97,6 @@ void flash()
   // Physical time
 
   int t = stb->n / LIGHT;
-
-  // First light step is special:
-  // all occupancy variables v will be reset
-
-  if (stb->n / LIGHT == 0 && t != 0)
-    drf->v = false;
 
   // --- End of ops. inside separate space ---
 
@@ -119,8 +114,10 @@ void flash()
   Cell *lst = drf - drf->off + off;
 
   // A collapse forces all affine bubbles to reissue
-  // nxt->a is the skewed cell affinity that the flash is exploring
-  // stb->obj is the affinity inherited from the beginning of the flash
+  // nxt->a is the skewed cell affinity that the flash
+  // is exploring.
+  // stb->obj is the affinity inherited from the
+  // beginning of flash.
   // It only matters non trivial p.
 
   if (nxt->a == stb->obj && !ZERO(nxt->p))
@@ -129,12 +126,12 @@ void flash()
     // Collapse happens at c.p.
 
     RSET(lst->po);     // reissue from c.p.
-    lst->obj = lst->a; // default
-    lst->f = true;     // patch 22/04
+    lst->obj = lst->a; // set default
+    RSET(lst->o);      // patch 25/4
   }
   else
   {
-    // Bump sine generator
+    // Bump sine generator.
     // (Euler formula for sine)
 
     int tn = stb->n / LIGHT;  // skewed time
@@ -146,7 +143,7 @@ void flash()
     // Update the sine signal pmf (Eqn. 4)
     // Only the skewed cell is affected
 
-    if (nxt->den < SIDE / 2) // eqv. infinity in the summation
+    if (nxt->den < SIDE / 2) // eqv. to infinity in summation
     {
       lst->pow *= nxt->pow * nxt->pow; // y^(2n)
       lst->den <<= 1;                  // 2^n
@@ -154,47 +151,41 @@ void flash()
     }
   }
 
+  // Pair homogenization
+
+  if (stb->k > FERMION && EQ(stb->o, nxt->o) && stb->a == nxt->a)
+  {
+    // Unilateral updates are extended to peer. TODO
+
+    puts("homogenization");
+  }
+
   // --- End of affine operations ---
 
   // Spread the flash:
   // explore von Neumann directions.
 
-  int org[3];
   Cell* nei;
   for (int dir = 0; dir < 6; dir ++)
   {
-    // Calculate new flash origin.
-
-    CP(org, stb->fo);
-    int i = dir >> 1;
-    org[i] += (dir % 2 == 0) ? +1 : -1;
-
-    // Backwards?
-
-    if (abs(org[i]) < abs(stb->fo[i]))
-      continue;
-
-    // No wrapping?
-
-    if (abs(org[0]) == SIDE_2 + 1 || abs(org[1]) == SIDE_2 + 1 || abs(org[2]) == SIDE_2 + 1)
-      continue;
-
     // Propagate information
 
     nei = drf->ws[dir];       // branch address
-    if(!nei->f)
+
+    // Collision avoidance
+
+    if (nei->f == 0)
     {
       // Not tainted by flash already, proceed
 
-      nei->f   = true;      // flash wavefront
+      nei->f   = FLASH;     // flash wavefront
       nei->obj = stb->obj;  // collapse targets
-      CP(nei->fo, org);     // update origin
       CP(nei->po, stb->po); // value before shrink
-      CP(nei->p, stb->p);   // bear momentum
+      CP(nei->p, drf->p);   // bear momentum drf->p (sic)
 
       // Do not touch pole if saturated.
 
-      if (ISSAT(stb->po))
+      if (ISSAT(nei->po))
         continue;
 
       // Shrink pole as flash approaches re-emission point.
@@ -202,37 +193,32 @@ void flash()
       switch(dir)
       {
         case 0:
-          if(nei->po[0] < 0)
+          if (nei->po[0] < 0)
             nei->po[0]++;
           break;
         case 1:
-          if(nei->po[0] > 0)
+          if (nei->po[0] > 0)
             nei->po[0]--;
           break;
         case 2:
-          if(nei->po[1] < 0)
+          if (nei->po[1] < 0)
             nei->po[1]++;
           break;
         case 3:
-          if(nei->po[1] > 0)
+          if (nei->po[1] > 0)
             nei->po[1]--;
           break;
         case 4:
-          if(nei->po[2] < 0)
+          if (nei->po[2] < 0)
             nei->po[2]++;
           break;
         case 5:
-          if(nei->po[2] > 0)
+          if (nei->po[2] > 0)
             nei->po[2]--;
           break;
       }
     }
   }
-
-  // No momentum track left.
-
-  if (!ZERO(stb->o))
-	RSET(drf->p);
 
   EXPAND: ;
 }
@@ -242,39 +228,15 @@ void flash()
  */
 void expand()
 {
-  // A flash was flagged in flash() itself
-
-  if (drf->f)
-    goto UPDATE;
-
   // Empty?
 
-  if (!BUSY(stb))
-    goto UPDATE;
-
-  // Wrapping?
-  // Bubble crossed the entire universe?
-
-  if(abs(stb->o[0]) == SIDE_2 && abs(stb->o[1]) == SIDE_2 && abs(stb->o[2]) == SIDE_2)
-  {
-    assert(!ZERO(stb->p));
-
-    // Reissue will be done from here
-
-    RSET(drf->po);
-    drf->f = true;
-
-    // Limit of expansion was hit so
-
-    goto UPDATE;
-  }
+  if (!BUSY(stb)) goto UPDATE;
 
   // Reissue?
   // Only the cell bearing momentum is a seed.
-  // Vector 'o' was reset by the flash.
-  // Reissue only occurs at the calculated pole.
+  // Vector 'o' was reset by the flash. [CODE 2]
 
-  if (!ZERO(drf->p) && ZERO(drf->o) && EQ(drf->po, drf->p))
+  if (!ZERO(drf->p) && ZERO(drf->o))
   {
     drf->n   = 1;     // synchronize clocks
     drf->syn = 0;     // ready for immediate expansion
@@ -283,7 +245,7 @@ void expand()
     // Reset sine wave
     // (Eq. 4)
 
-    drf->den = 1;     // 2^0	TODO: check if den always > 0
+    drf->den = 1;     // 2^0
     drf->pow = 1;     // y^0
 
     drf->u   = 0;     // always reset sine
@@ -291,11 +253,15 @@ void expand()
 
     RSET(drf->pP);    // not an empodium for now
     RSET(drf->m);     // not a messenger for now
-    SAT(drf->po);	  // saturate po (unreachable)
+    MILD(drf->po);	  // leave po wrappable
+
+    // Mark of new expansion
+
+    drf->v = !stb->v;
   }
 
   // Is wavefront synchronized?
-  // (see Ref. [15])
+  // (see Ref. [14])
 
   if (drf->n * drf->n <= stb->syn)
     goto UPDATE;
@@ -319,15 +285,20 @@ void expand()
     if (abs(org[i]) < abs(stb->o[i]))
       continue;
 
-    // Test wrapping
-    // At this position, only the cell carrying momentum is allowed
+    // Test wrapping.
+    // At this position, only the cell carrying
+    // momentum is allowed to enter.
 
-    if ((abs(org[0]) == SIDE_2 || abs(org[1]) == SIDE_2 || abs(org[2]) == SIDE_2) && ZERO(stb->p))
+    if ((abs(org[0]) == SIDE_2 ||
+         abs(org[1]) == SIDE_2 ||
+         abs(org[2]) == SIDE_2) && ZERO(stb->p))
       continue;
 
     // Wrapping violation?
 
-    if (abs(org[0]) == SIDE_2 + 1 || abs(org[1]) == SIDE_2 + 1 || abs(org[2]) == SIDE_2 + 1)
+    if (abs(org[0]) == SIDE_2 + 1 ||
+        abs(org[1]) == SIDE_2 + 1 ||
+        abs(org[2]) == SIDE_2 + 1)
       continue;
 
     // Calculated branch
@@ -349,11 +320,11 @@ void expand()
 
     // Test occupancy
 
-    if(!nei->v)
+    if (nei->v != drf->v)	// drf->v (sic)
     {
       // Flag as occupied
 
-      nei->v = true;
+      nei->v   = drf->v;
 
       // Propagate information
 
@@ -369,44 +340,47 @@ void expand()
       nei->den = stb->den;
 
       nei->k   = stb->k;
-      nei->obj = SIDE3; // patch 22/04
-      SAT(nei->po);		// patch 22/04
-      assert(!ISSAT(org));
+      nei->obj = SIDE3; // disable affinity search
+      MILD(nei->po);
       CP(nei->o, org);
       CP(nei->s, stb->s);
       CP(nei->pP, stb->pP);
       CP(nei->m, stb->m);
-      RSET(nei->p);
+      RSET(nei->p);     // default null value
 
       // Update noise
+      // (Sect. 3.3)
 
       nei->r = (nei->r << 3) ^ dir;
 
-      // Set timing for spherical pattern (Section 3)
+      // Set timing for spherical pattern (Sect. 3)
 
       nei->syn = LIGHT2 * MOD2(org);
     }
   }
-  if (!ZERO(stb->p))
+
+  // Cell does not have momentum?
+
+  if (ZERO(stb->p))
   {
-    assert(dst != NULL);
+    // No tracking information left
 
+    drf->a = 0;
+    SAT(drf->o);
+  }
+  else
+  {
     // Propagate momentum
-
-    assert(ZERO(dst->p));
 
     CP(dst->p, stb->p);
 
-    // Abandon the origin cell.
-    // Tracking information remains.
-
-    SAT(drf->o);  // cell is now LATTICE
+    // Tracking information remains (a, o).
   }
 
-  // Bubble left this cell
+  // Abandon this cell
 
   drf->k = EMPTY;
-  drf->a = 0;
+  RSET(drf->s);
 
   UPDATE: ;
 }
@@ -416,41 +390,35 @@ void expand()
  */
 void update()
 {
-  // A reissue decision was done by expand().
-
-  if (drf->f)
-    goto INTERACT;
-
   // Physical time
 
   int t = stb->n / LIGHT;
 
+  // Bubble track decay (Eqn. 6):
   // Is there a bubble in this cell?
   // Last tick?
 
-  if (BUSY(stb) && stb->n % LIGHT == 0)
+  if (BUSY(stb) && stb->n % LIGHT == 0 && !ZERO(drf->pP))
   {
-    // Bubble track decay (Eqn. 6)
+    // Vector p shrinks
 
-    if (!ZERO(drf->pP))
-    {
-      // Vector p shrinks
+    drf->pP[0] -= drf->pP[0] / (2 * drf->n);
+    drf->pP[1] -= drf->pP[1] / (2 * drf->n);
+    drf->pP[2] -= drf->pP[2] / (2 * drf->n);
 
-      drf->pP[0] -= drf->pP[0] / (2 * drf->n);
-      drf->pP[1] -= drf->pP[1] / (2 * drf->n);
-      drf->pP[2] -= drf->pP[2] / (2 * drf->n);
+    // Disconnect empodion?
+    // (Sec. 4.7.3)
 
-      // Disconnect empodion?
-      // (Sec. 4.7.3)
+    if (ZERO(drf->pP))
+      drf->a = stb->off + 1;  // default value
 
-      if (ZERO(drf->pP))
-        drf->a = stb->off + 1;  // default value
-    }
+    // TODO: check pair homogenization
   }
 
   // Update lattice decay
+  // A saturated o vector means lattice role
 
-  if (!ZERO(stb->pP) && t > 0)
+  else if (ISSAT(stb->o) && !ZERO(stb->pP) && t > 0)
   {
     // Lattice track decay (Eq. 6)
 
@@ -462,7 +430,8 @@ void update()
       // Disconnect empodion
       // (Sect. 4.7.3)
 
-      drf->a = stb->off + 1;
+      drf->a = stb->off + 1; // default
+      SAT(drf->o);	// lattice is now effectively empty
     }
   }
 
@@ -495,7 +464,7 @@ void update()
         drf->k = SPHOTON;
         lst->k = SPHOTON;
 
-        // Calculate the common value for a
+        // Compose the common value for affinity
         // (Sect. 4.2)
 
         drf->a |= (nxt->a << ORDER);
@@ -510,14 +479,16 @@ void update()
         CP(lst->po, nxt->p);
         drf->k = FOWL;
         lst->k = FOWL;
-        drf->f = true;
+        drf->f = FLASH;
       }
     }
 
     // Clump bubbles together to form particle pair fragments
     // (Sect. 4.2)
 
-    else if (stb->a != nxt->a && stb->k == FERMION && nxt->k == FERMION)
+    else if (stb->a != nxt->a &&
+             stb->k == FERMION &&
+	         nxt->k == FERMION)
     {
       if (MAT(stb) != MAT(nxt) && W0(stb) == !W0(nxt) &&
           Q(stb) == !Q(nxt))
@@ -537,15 +508,17 @@ void update()
         drf->k = PHOTON;
         lst->k = PHOTON;
       }
-      else if (C(stb) == C(nxt) && (C(stb) == 0 || C(stb) == 7) &&
-               Q(stb) != Q(nxt) && W0(stb) == W0(nxt) &&
-               W0(stb) != W1(stb))
+      else if (C(stb) == C(nxt) &&
+              (C(stb) == 0 || C(stb) == 7) &&
+              Q(stb) != Q(nxt) && W0(stb) == W0(nxt) &&
+              W0(stb) != W1(stb))
       {
         drf->k = NEUTRINO;
         lst->k = NEUTRINO;
       }
       else if (C(stb) == _C(nxt) &&
-               (W0(stb) != W1(stb) || W0(nxt) != W1(stb)) && Q(stb) == !Q(nxt))
+               (W0(stb) != W1(stb) || W0(nxt) != W1(stb)) &&
+	            Q(stb) == !Q(nxt))
       {
         drf->k = ZB;
         lst->k = ZB;
@@ -574,7 +547,8 @@ void update()
     else if (stb->k == nxt->k && stb->k > FERMION &&
              stb->a != nxt->a)
     {
-      drf->a = nxt->a;		// TODO: check mutiple case TODO: how to guarantee reciprocity?
+      drf->a = nxt->a; // TODO: check mutiple case
+                       // TODO: how to guarantee reciprocity?
       lst->a = drf->a;
     }
   }
@@ -587,20 +561,13 @@ void update()
  */
 void interact()
 {
-  // A reissue decision was taken before
-
-  if(drf->f)
-    goto REISSUE;
-
   // Not the last pass of wavefront?
 
-  if (stb->n % LIGHT != 0)
-    goto COPY;
+  if (stb->n % LIGHT != 0) goto COPY;
 
   // Symmetry breaking
 
-  if (drf->k == FOWL)
-    goto COPY;
+  if (drf->k == FOWL) goto COPY;
 
   // Find new addresses for interaction
   // (Sect. 4.2)
@@ -713,7 +680,8 @@ void interact()
 
           // Static forces
 
-          else if (BUSY(nxt) && drf->k == FERMION && !ZERO(nxt->p))
+          else if (BUSY(nxt) && drf->k == FERMION &&
+                   !ZERO(nxt->p))
           {
             if (stb->r % 2 == 0)
             {
@@ -871,15 +839,16 @@ void interact()
           // fermion+ x fermion- (annihilation) ?
           // fermion- x fermion+ (annihilation) ?
 
-          if (CMPL(nxt->ch, drf->ch) && nxt->k == FERMION && stb->k == FERMION)
+          if (CMPL(nxt->ch, drf->ch) && nxt->k == FERMION &&
+              stb->k == FERMION)
           {
             // Destroy particles, setting each 'a' property to
             // its default value
 
             drf->obj = drf->a;
-            drf->a = drf->off + 1;
+            drf->a   = drf->off + 1;
             lst->obj = lst->a;
-            lst->a = lst->off + 1;
+            lst->a   = lst->off + 1;
           }
           else if (nxt->k == FERMION && drf->k != FERMION)
           {
@@ -887,19 +856,19 @@ void interact()
             // fermion+ x boson (light-matter)
 
             drf->obj = drf->a;
-            drf->a = drf->off + 1;
+            drf->a   = drf->off + 1;
             lst->obj = lst->a;
-            lst->a = lst->off + 1;
+            lst->a   = lst->off + 1;
           }
           else if (nxt->k != FERMION && drf->k == FERMION)
           {
             // fermion- x boson (light-matter)
             // fermion+ x boson (light-matter)
 
-            lst->a = stb->a | (nxt->a << ORDER);
+            lst->a   = stb->a | (nxt->a << ORDER);
             drf->obj = drf->a;
             lst->obj = lst->a;
-            lst->k = FERMION;      // separate fragments
+            lst->k   = FERMION;      // separate fragments
           }
           else if (nxt->k == NEUTRINO && drf->k == FERMION)
           {
@@ -986,13 +955,10 @@ void interact()
 
   // Always emit flash from pole at each light pass
 
-  REISSUE:
-
-  if(!ZERO(stb->p) || drf->f)
+  if (!ZERO(stb->p))
   {
-    drf->f = true;
-    RSET(drf->fo);
-    if(!ZERO(drf->o))
+    drf->f = FLASH;
+    if (!ZERO(drf->o))
  	  RSET(drf->p);  // bump all affine cells
   }
 

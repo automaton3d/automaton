@@ -29,7 +29,6 @@ double rnd();
 void rndInt(int *array, int max);
 Vec3 gravxpreon(Vec3 p0, Vec3 p1, Vec3 cen, double r);
 int string_length(char *s);
-void CP(int *u, int *v);
 int DOT(int *u, int *v);
 int MOD2(int *v);
 
