@@ -77,7 +77,7 @@ void simulation()
 
 	#endif
 
-	#define INTERACT
+	//#define INTERACT
 	#ifdef INTERACT
 
     stb = latt0;
@@ -87,7 +87,7 @@ void simulation()
 
 	#endif
 
-    // delay(100);
+//    delay(200);
 }
 
 /*

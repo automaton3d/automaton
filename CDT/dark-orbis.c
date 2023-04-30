@@ -32,7 +32,7 @@ void copy()
 
   // Clock tick
 
-  drf->n++;
+  drf->n++;  // last draft update before copy itself
 
   // Lattice update
 
@@ -45,7 +45,7 @@ void copy()
   stb->pmf = drf->pmf;  // sine PMF
   stb->k   = drf->k;    // kind
   stb->r   = drf->r;    // random
-  stb->v   = drf->v;    // occupancy
+  stb->occ = drf->occ;  // occupancy
   stb->obj = drf->obj;  // target
   CP(stb->p, drf->p);   // momentum
   CP(stb->s, drf->s);   // spin
@@ -64,56 +64,64 @@ void copy()
 
 /*
  * Flash greedy expansion.
+ * Only flash() can reset vector o.
  */
 void flash()
 {
   // --- Operations inside separate space ---
 
-  // Not flagged?
+  // Decay bubble occupancy
 
-  if (!stb->f) goto EXPAND;
+  if(stb->occ > 0)
+    drf->occ--;
 
-  // Decay flash
+  // Decay flash occupancy
 
-  drf->f--;
+  if(stb->f > 0)
+    drf->f--;
+  if (stb->f != LIGHT)
+    goto EXPAND;
 
   // Test if pole was found.
   // stb->po is inherited pole from beginning of flash.
-  // Valid for the momentum carrying cell only. [CODE 01]
+  // Valid for the momentum carrying cell only.
 
+  boolean stop = false;
   if (BUSY(stb) && ZERO(stb->po) && !ZERO(stb->p))
   {
-    RSET(drf->o);  // will be used in [CODE 2]
+    RSET(drf->o);  // will be used in [CODE 1]
+    stop = true;
   }
   else
   {
-    RSET(drf->p);  // p will move
+    RSET(drf->p);  // p will move until po == 0
   }
 
-  // Always erase searched pole
+  // Always let searched pole unreachable.
+  // When effectively reissued, give proper value.
 
   SAT(drf->po);
 
-  // Physical time
+  // --- End of ops. inside separate space ---
+
+  // Calculate physical time.
 
   int t = stb->n / LIGHT;
 
-  // --- End of ops. inside separate space ---
-
   // --- Beginning of affine operations ---
 
-  // Find new skewed addresses for updates
+  // Find new skewed addresses for updates.
   // (Sect. 4.2)
 
   int off;
-  if (stb->off % 2 == 0)
-    off = (stb->off + (t + 1)) % SIDE3;
+  if (stb->offE % 2 == 0)
+    off = (stb->offE + (t + 1)) % SIDE3;
   else
-    off = (stb->off - (t + 1)) % SIDE3;
-  Cell *nxt = stb - stb->off + off;
-  Cell *lst = drf - drf->off + off;
+    off = (stb->offE - (t + 1)) % SIDE3;
+  Cell *nxt = stb - stb->offE + off;
+  Cell *lst = drf - drf->offE + off;
 
-  // A collapse forces all affine bubbles to reissue
+  // A collapse forces all affine bubbles to reissue.
   // nxt->a is the skewed cell affinity that the flash
   // is exploring.
   // stb->obj is the affinity inherited from the
@@ -127,7 +135,12 @@ void flash()
 
     RSET(lst->po);     // reissue from c.p.
     lst->obj = lst->a; // set default
-    RSET(lst->o);      // patch 25/4
+    RSET(lst->o);      // ok, inside flash()
+
+    // New new new!!
+
+    if (stb->k == COLLAPSE)
+      lst->k = FERMION;	// dissolve the particle
   }
   else
   {
@@ -140,8 +153,8 @@ void flash()
       lst->u = nxt->u * (tn * tn - MOD2(stb->o)) / (tn * tn);
     }
 
-    // Update the sine signal pmf (Eqn. 4)
-    // Only the skewed cell is affected
+    // Update the sine signal pmf (Eqn. 4).
+    // Only the skewed cell is affected.
 
     if (nxt->den < SIDE / 2) // eqv. to infinity in summation
     {
@@ -151,7 +164,7 @@ void flash()
     }
   }
 
-  // Pair homogenization
+  // Pair homogenization.
 
   if (stb->k > FERMION && EQ(stb->o, nxt->o) && stb->a == nxt->a)
   {
@@ -178,10 +191,22 @@ void flash()
     {
       // Not tainted by flash already, proceed
 
-      nei->f   = FLASH;     // flash wavefront
+      nei->f   = LIGHT;     // flash wavefront
       nei->obj = stb->obj;  // collapse targets
       CP(nei->po, stb->po); // value before shrink
-      CP(nei->p, drf->p);   // bear momentum drf->p (sic)
+
+      if(stop)
+      {
+        // Do not propagate anymore.
+
+        RSET(nei->p);
+      }
+      else
+      {
+        // Pole not found yet, propagate p.
+
+        CP(nei->p, drf->p);   // bear momentum drf->p (sic)
+      }
 
       // Do not touch pole if saturated.
 
@@ -234,36 +259,54 @@ void expand()
 
   // Reissue?
   // Only the cell bearing momentum is a seed.
-  // Vector 'o' was reset by the flash. [CODE 2]
+  // Vector 'o' was reset by the flash in the
+  // previous tick. [CODE 1]
 
-  if (!ZERO(drf->p) && ZERO(drf->o))
+  if (!ZERO(stb->p) && ZERO(stb->o))
   {
-    drf->n   = 1;     // synchronize clocks
-    drf->syn = 0;     // ready for immediate expansion
-    drf->obj = SIDE3; // unreachable
+    drf->syn = 0;       // ready for immediate expansion
+    drf->n   = 0;       // synchronize clocks
+    drf->obj = SIDE3;   // no target in view
 
-    // Reset sine wave
-    // (Eq. 4)
+    // Reset sine wave.
+    // Sect. 6.3 and (Eq. 2).
 
-    drf->den = 1;     // 2^0
-    drf->pow = 1;     // y^0
+    drf->u   = 0;       // always reset sine
+    drf->pmf = 0;       // and PMF
+    drf->den = 1;       // 2^0
+    drf->pow = 1;       // y^0
 
-    drf->u   = 0;     // always reset sine
-    drf->pmf = 0;     // and PMF
+    MILD(drf->po);      // leave po wrappable
+    RSET(drf->m);       // TODO: redundant?
+    if (stb->k == COLLAPSE)
+    {
+    	// Particle dissolution.
 
-    RSET(drf->pP);    // not an empodium for now
-    RSET(drf->m);     // not a messenger for now
-    MILD(drf->po);	  // leave po wrappable
+        drf->k = FERMION;
+        drf->a = drf->offE + 1;
+        RSET(drf->pP);
+    }
+  }
 
-    // Mark of new expansion
+  // End of expansion was hit?
 
-    drf->v = !stb->v;
+  if (ISMILD(stb->o))
+  {
+      // Is cell bearing momentum?
+
+	  if(!ZERO(stb->p))
+	  {
+        RSET(drf->po);  // reissue from here
+        drf->f = LIGHT;
+        drf->a = stb->offE + 1;
+	  }
+	  goto UPDATE;
   }
 
   // Is wavefront synchronized?
   // (see Ref. [14])
 
-  if (drf->n * drf->n <= stb->syn)
+  if (stb->n * stb->n <= stb->syn)
     goto UPDATE;
 
   // Explore von Neumann neighborhood
@@ -301,15 +344,15 @@ void expand()
         abs(org[2]) == SIDE_2 + 1)
       continue;
 
-    // Calculated branch
+    // Calculate branch.
 
     nei = drf->ws[dir];
 
-    // Calculate alignment with spin
+    // Calculate alignment with spin.
 
     int dot = abs(DOT(org, stb->s));
 
-    // Select momentum destination
+    // Select momentum destination.
     // (Sect. 3.1)
 
     if (dot >= dotMax)
@@ -318,13 +361,13 @@ void expand()
       dst = nei;
     }
 
-    // Test occupancy
+    // Test occupancy.
 
-    if (nei->v != drf->v)	// drf->v (sic)
+    if (nei->occ == 0)
     {
       // Flag as occupied
 
-      nei->v   = drf->v;
+      nei->occ   = LIGHT;
 
       // Propagate information
 
@@ -398,19 +441,21 @@ void update()
   // Is there a bubble in this cell?
   // Last tick?
 
-  if (BUSY(stb) && stb->n % LIGHT == 0 && !ZERO(drf->pP))
+  if (BUSY(stb) && stb->n % LIGHT == 0 && !ZERO(stb->pP))
   {
-    // Vector p shrinks
+    // Cell belongs to a particle empodion.
 
-    drf->pP[0] -= drf->pP[0] / (2 * drf->n);
-    drf->pP[1] -= drf->pP[1] / (2 * drf->n);
-    drf->pP[2] -= drf->pP[2] / (2 * drf->n);
+    // Vector p shrinks (Eq. 6).
+
+    drf->pP[0] -= drf->pP[0] / (2 * t);
+    drf->pP[1] -= drf->pP[1] / (2 * t);
+    drf->pP[2] -= drf->pP[2] / (2 * t);
 
     // Disconnect empodion?
     // (Sec. 4.7.3)
 
     if (ZERO(drf->pP))
-      drf->a = stb->off + 1;  // default value
+      drf->a = stb->offE + 1;  // default value
 
     // TODO: check pair homogenization
   }
@@ -420,35 +465,33 @@ void update()
 
   else if (ISSAT(stb->o) && !ZERO(stb->pP) && t > 0)
   {
-    // Lattice track decay (Eq. 6)
+    // Lattice track decay (Eq. 5).
 
     drf->pP[0] -= drf->pP[0] * drf->pP[0] / (t * t);
     drf->pP[1] -= drf->pP[1] * drf->pP[1] / (t * t);
     drf->pP[2] -= drf->pP[2] * drf->pP[2] / (t * t);
-    if (ZERO(drf->pP))
-    {
-      // Disconnect empodion
-      // (Sect. 4.7.3)
 
-      drf->a = stb->off + 1; // default
-      SAT(drf->o);	// lattice is now effectively empty
-    }
+    // Disconnect empodion?
+    // (Sect. 4.7.3)
+
+    if (ZERO(drf->pP))
+      drf->a = stb->offE + 1; // default
   }
 
   // Find new skewed addresses for updates
   // (Sect. 4.2)
 
   int off;
-  if (stb->off % 2 == 0)
-    off = (stb->off + (t + 1)) % SIDE3;
+  if (stb->offE % 2 == 0)
+    off = (stb->offE + (t + 1)) % SIDE3;
   else
-    off = (stb->off - (t + 1)) % SIDE3;
-  Cell *nxt = stb - stb->off + off;
-  Cell *lst = drf - drf->off + off;
+    off = (stb->offE - (t + 1)) % SIDE3;
+  Cell *nxt = stb - stb->offE + off;
+  Cell *lst = drf - drf->offE + off;
 
   // Superposing bubbles?
 
-  if (EQ(stb->o, nxt->o))
+  if (stb->offL == nxt->offL && ZERO(stb->o) && ZERO(nxt->o))
   {
     // Check if different sectors
     // (Sec. 4.7.7)
@@ -464,7 +507,7 @@ void update()
         drf->k = SPHOTON;
         lst->k = SPHOTON;
 
-        // Compose the common value for affinity
+        // Compose the common value for affinity.
         // (Sect. 4.2)
 
         drf->a |= (nxt->a << ORDER);
@@ -472,14 +515,13 @@ void update()
       }
       else
       {
-        // Symmetry breaking after singularity
+        // Symmetry breaking after singularity.
         // (Sect. 4.6.7)
 
         CP(drf->po, stb->p);
         CP(lst->po, nxt->p);
         drf->k = FOWL;
         lst->k = FOWL;
-        drf->f = FLASH;
       }
     }
 
@@ -488,7 +530,7 @@ void update()
 
     else if (stb->a != nxt->a &&
              stb->k == FERMION &&
-	         nxt->k == FERMION)
+	         nxt->k == FERMION && 0)
     {
       if (MAT(stb) != MAT(nxt) && W0(stb) == !W0(nxt) &&
           Q(stb) == !Q(nxt))
@@ -567,19 +609,19 @@ void interact()
 
   // Symmetry breaking
 
-  if (drf->k == FOWL) goto COPY;
+  if (stb->k == FOWL) goto REISSUE;
 
   // Find new addresses for interaction
   // (Sect. 4.2)
 
   int t = stb->n / LIGHT;	// Physical time
   int off;
-  if (stb->off % 2 == 0)
-    off = (stb->off + t) % SIDE3;
+  if (stb->offE % 2 == 0)
+    off = (stb->offE + t) % SIDE3;
   else
-    off = (stb->off - t) % SIDE3;
-  Cell *nxt = stb - stb->off + off;
-  Cell *lst = drf - drf->off + off;
+    off = (stb->offE - t) % SIDE3;
+  Cell *nxt = stb - stb->offE + off;
+  Cell *lst = drf - drf->offE + off;
 
   // Internal process?
 
@@ -689,7 +731,7 @@ void interact()
 
               if (Q(nxt) == Q(stb))
               {
-                // Repulsion
+                // Repulsion.
                 // drf is now a messenger
                 // (Sect. 5.6.1)
 
@@ -697,7 +739,7 @@ void interact()
               }
               else
               {
-                // Attraction
+                // Attraction.
                 // drf is now a messenger
                 // (Sect. 5.6.1)
 
@@ -706,7 +748,7 @@ void interact()
             }
             if (nxt->r % 2 == 0)
             {
-              // Magnetic lateral kick
+              // Magnetic lateral kick.
               // drf is now a messenger
               // (Sect. 5.6.2)
 
@@ -836,61 +878,14 @@ void interact()
 
         case 6:    // Collapse
 
-          // fermion+ x fermion- (annihilation) ?
-          // fermion- x fermion+ (annihilation) ?
+          // Covers annihilation , light-matter
+          // and scattering.
 
-          if (CMPL(nxt->ch, drf->ch) && nxt->k == FERMION &&
-              stb->k == FERMION)
-          {
-            // Destroy particles, setting each 'a' property to
-            // its default value
-
-            drf->obj = drf->a;
-            drf->a   = drf->off + 1;
-            lst->obj = lst->a;
-            lst->a   = lst->off + 1;
-          }
-          else if (nxt->k == FERMION && drf->k != FERMION)
-          {
-            // fermion- x boson (light-matter)
-            // fermion+ x boson (light-matter)
-
-            drf->obj = drf->a;
-            drf->a   = drf->off + 1;
-            lst->obj = lst->a;
-            lst->a   = lst->off + 1;
-          }
-          else if (nxt->k != FERMION && drf->k == FERMION)
-          {
-            // fermion- x boson (light-matter)
-            // fermion+ x boson (light-matter)
-
-            lst->a   = stb->a | (nxt->a << ORDER);
-            drf->obj = drf->a;
-            lst->obj = lst->a;
-            lst->k   = FERMION;      // separate fragments
-          }
-          else if (nxt->k == NEUTRINO && drf->k == FERMION)
-          {
-            CP(drf->po, nxt->o); // enough?!
-          }
-          else if (stb->k == NEUTRINO && lst->k == FERMION)
-          {
-            CP(lst->po, stb->o);
-          }
-          else
-          {
-            // fermion+ x fermion+ (scattering)
-            // fermion- x fermion- (scattering)
-
-            drf->obj = drf->a;
-            lst->obj = lst->a;
-          }
-
-          // All options in this case reissue from cp
-
+          drf->k = COLLAPSE;
+          lst->k = COLLAPSE;
           CP(drf->po, stb->p);
-          drf->obj = nxt->a;   // non trivial target
+          drf->obj = drf->a;
+          lst->obj = lst->a;
           break;
 
         case 7:    // Internal collision
@@ -955,9 +950,11 @@ void interact()
 
   // Always emit flash from pole at each light pass
 
+  REISSUE:
+
   if (!ZERO(stb->p))
   {
-    drf->f = FLASH;
+    drf->f = LIGHT;
     if (!ZERO(drf->o))
  	  RSET(drf->p);  // bump all affine cells
   }

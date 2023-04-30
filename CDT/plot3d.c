@@ -187,15 +187,19 @@ void drawGroundPlane()
 
 void drawMark(Cell cell)
 {
-	if(cell.off > 0)
+	if(cell.offE > 0)
 		return;
-	int x = cell.off % SIDE;
-	int z = cell.off / SIDE2;
-	int y = cell.off / SIDE - SIDE * z;
+	int x0 = cell.offL % SIDE;
+	int z0 = cell.offL / SIDE2;
+	int y0 = cell.offL / SIDE - SIDE * z0;
+
+	int x = cell.offE % SIDE;
+	int z = cell.offE / SIDE2;
+	int y = cell.offE / SIDE - SIDE * z;
 	Vec3 p;
-	p.x = WIDE * (SIDE * (cell.pos[0] + driftx) + x - DRIFT);
-	p.y = WIDE * (SIDE * (cell.pos[1] + drifty) + y - DRIFT);
-	p.z = WIDE * (SIDE * (cell.pos[2] + driftz) + z - DRIFT);
+	p.x = WIDE * (SIDE * (x0 + driftx) + x - DRIFT);
+	p.y = WIDE * (SIDE * (y0 + drifty) + y - DRIFT);
+	p.z = WIDE * (SIDE * (z0 + driftz) + z - DRIFT);
 	Vec3 t1, t2;
 	t1 = p;
 	t2 = p;
@@ -250,6 +254,10 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 	xyz.x = WIDE * (SIDE * (t0->x + driftx) + t->x - DRIFT);
 	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
 	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
+
+#define V
+#ifdef V
+
 	if(ticks[MESSENGER] && cell->f)
 		putBlob(xyz, RED);
 	else if(ticks[MOMENTUM] && !ZERO(cell->p) && BUSY(cell))
@@ -260,6 +268,14 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 		putBlob(xyz, PALE);
 	else
 		putBlob(xyz, BLK);
+
+#else
+
+	if(cell->offE == 0 && cell->v)
+		putBlob(xyz, RED);
+	else
+		putBlob(xyz, BLK);
+#endif
 }
 
 #else
@@ -293,7 +309,7 @@ void drawEspacito(Tuple *t0, Cell *esp)
 			{
 				if(ticks[MODE0])
 					drawCell(t0, &t, esp);
-				else if(ticks[MODE1] && esp->off == 0)//a)
+				else if(ticks[MODE1] && esp->offE == 0)//a)
 					drawCell(t0, &t, esp);
 				else if(ticks[MODE2] && t.x < 2 && t.y < 2 && t.z < 2)
 					drawCell(t0, &t, esp);

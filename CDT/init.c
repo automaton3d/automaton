@@ -84,16 +84,14 @@ void initScreen()
 
 // Template for momentum recursion
 
-#define S (SIDE/2)
-
 int template[6][3] =
 {
-  {+S, 0, 0},
-  {0, +S, 0},
-  {0, 0, +S},
-  {-S, 0, 0},
-  {0, -S, 0},
-  {0, 0, -S},
+  {+SIDE_2, 0, 0},
+  {0, +SIDE_2, 0},
+  {0, 0, +SIDE_2},
+  {-SIDE_2, 0, 0},
+  {0, -SIDE_2, 0},
+  {0, 0, -SIDE_2},
 };
 
 /*
@@ -173,7 +171,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
       {
         pointer->ch    = 0;
         pointer->n     = 0;
-        pointer->a     = 0;	  // affinity
+        pointer->a     = 0;	     // affinity
         pointer->syn   = 0;
         pointer->u     = 0;
         pointer->pmf   = 0;
@@ -183,25 +181,19 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         pointer->pow   = 1;
         pointer->den   = 1;
 
-        pointer->r     = offset;	// random
-        pointer->k     = EMPTY;
-        pointer->f     = 0;	        // flash
-        pointer->obj   = SIDE3;		// target
-        pointer->v     = false;
-        SAT(pointer->o);
-        SAT(pointer->po);
-        RSET(pointer->p);
-        RSET(pointer->s);
-        RSET(pointer->pP);
-        RSET(pointer->m);			// messenger
+        pointer->r     = offset; // random
+        pointer->k     = EMPTY;  // no role whatsoever
+        pointer->f     = 0;	     // flash inactive
+        pointer->obj   = SIDE3;	 // no target
+        pointer->occ     = 0;      // free to receive propag.
+        pointer->offL  = x0 + SIDE * y + SIDE2 * z;
+        SAT(pointer->o);         // invalid value
+        SAT(pointer->po);        // unreachable
+        RSET(pointer->p);        // null momentum
+        RSET(pointer->s);        // trivial spin
+        RSET(pointer->pP);       // no empodion
+        RSET(pointer->m);		 // messenger
 
-        // DEBUG
-#define DEBUG
-#ifdef DEBUG
-        pointer->pos[0] = x0;
-        pointer->pos[1] = y0;
-        pointer->pos[2] = z0;
-#endif
         // Wires
 
         if(x0 == 0)
@@ -485,7 +477,7 @@ void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
         }
         // Offset inside espacito
 
-        pointer->off = offset;
+        pointer->offE = offset;
         pthread_mutex_init(&pointer->mutex, NULL);
 
         // Next

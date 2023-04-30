@@ -32,15 +32,16 @@
 
 #define EMPTY    0x0000
 #define FOWL     0x0001 // Orbis x Dark Sector
-#define FERMION  0x0002
-#define SPHOTON  0x0004	// super photon
-#define PHOTON   0x0008
-#define GLUON    0x0010
-#define NEUTRINO 0x0020
-#define ZB       0x0040
-#define WB       0x0080
-#define UP       0x0100
-#define DOWN     0x0200
+#define COLLAPSE 0x0002
+#define FERMION  0x0004
+#define SPHOTON  0x0008	// super photon
+#define PHOTON   0x0010
+#define GLUON    0x0020
+#define NEUTRINO 0x0040
+#define ZB       0x0080
+#define WB       0x0100
+#define UP       0x0200
+#define DOWN     0x0400
 
 // Charge masks
 
@@ -54,15 +55,12 @@
 #define RIGHT 0
 #define LEFT  1
 
-// Flash init
-
-#define FLASH 2
-
 // Macros (helps readability)
 
 #define ZERO(v)      (v[0]==0&&v[1]==0&&v[2]==0)
 #define EQ(v,u)      (v[0]==u[0]&&v[1]==u[1]&&v[2]==u[2])
 #define ISSAT(v)     (v[0]==SIDE&&v[1]==SIDE&&v[2]==SIDE)
+#define ISMILD(v)    (abs(v[0])==SIDE_2&&abs(v[1])==SIDE_2&&abs(v[2])==SIDE_2)
 #define C(u)         (u->ch&C_MASK)      // color
 #define _C(u)        ((~u->ch&C_MASK)&7) // anticolor
 #define W1(u)        ((u->ch&W1_MASK)==W1_MASK)
@@ -85,6 +83,13 @@
 
 typedef struct Cell
 {
+  // Pointers
+
+  struct
+    Cell *ws[6];  // wires to other cells (const.);
+  unsigned offE;  // offset inside espacito (const.)
+  unsigned offL;  // offset of espacito in lattice (const.)
+
   // Physical properties
 
   uint8_t ch;     // charge
@@ -96,6 +101,7 @@ typedef struct Cell
   unsigned n;     // low level tick
   int o[3];       // origin
   unsigned syn;   // synchronism
+  boolean occ;    // occupancy control
 
   // Sine wave
 
@@ -114,22 +120,12 @@ typedef struct Cell
   int po[3];      // pole
   unsigned obj;   // affinity collapsing
 
-  // Pointers
-
-  unsigned off;       // offset inside espacito (constant)
-  struct Cell *ws[6]; // wires to other cells (constant);
-
   // Interaction control
 
-  unsigned k;       // calculated kind of fragment
-  unsigned r;       // pseudo random seed
+  unsigned k;     // calculated kind of fragment
+  unsigned r;     // pseudo random seed
 
-  // Debug
-
-  boolean v;        // visit control
   pthread_mutex_t mutex;
-
-  int pos[3]; //debug
 
 } Cell;
 
