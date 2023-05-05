@@ -38,56 +38,17 @@ int off = 0;
  */
 void simulation()
 {
-	#define COPY
-	#ifdef COPY
     stb = latt0;
     drf = latt1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
+    for(int i = 0; i < SIDE6; i++, stb++, drf++)
    		copy();
 
-	#endif
-
-	#define FLASHLOOP
-	#ifdef FLASHLOOP
-
     stb = latt0;
     drf = latt1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
- 		flash();
+    for(int i = 0; i < SIDE6; i++, stb++, drf++)
+    	model();
 
-    #endif
-
-	#define EXPAND
-	#ifdef EXPAND
-
-    stb = latt0;
-    drf = latt1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-   		expand();
-
-    #endif
-
-	#define UPDATE
-	#ifdef UPDATE
-
-    stb = latt0;
-    drf = latt1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    	update();
-
-	#endif
-
-	//#define INTERACT
-	#ifdef INTERACT
-
-    stb = latt0;
-    drf = latt1;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, stb++, drf++)
-    	interact();
-
-	#endif
-
-//    delay(200);
+    //delay(50);
 }
 
 /*

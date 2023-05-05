@@ -5,15 +5,8 @@
  *      Author: Alexandre
  */
 
-#define PTW32_STATIC_LIB
-
 #include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
 #include <math.h>
-#include <time.h>
-#include "common.h"
-#include "utils.h"
 #include "plot3d.h"
 #include "gadget.h"
 #include "simulation.h"
@@ -22,8 +15,6 @@
 #include "engine.h"
 #include "quaternion.h"
 #include "trackball.h"
-
-#define PAIR
 
 extern boolean ticks[NTICKS];
 extern Voxel *imgbuf[2], *buff, *clean;
@@ -36,50 +27,50 @@ View *vu;
 
 long OFFSET(int x, int y, int z)
 {
-	return (x*SIDE3+y*SIDE4+z*SIDE5);
+  return (x*SIDE3+y*SIDE4+z*SIDE5);
 }
 
 void initScreen()
 {
-	// Alocate memory for voxel buffers
-	//
-	imgbuf[0] = malloc(IMGBUFFER*sizeof(Voxel));
-	imgbuf[1] = malloc(IMGBUFFER*sizeof(Voxel));
-	buff = imgbuf[0];
-	clean = imgbuf[1];
-	buff->color = -1;
-	clean->color = -1;
-	//
-	// Initialize gadgets
-	//
-	for(int i = 0; i < NTICKS; i++)
-		ticks[i] = true;
-	//
-	//ticks[FRONT]	  = false;
-	ticks[MESSENGER]  = false;
-	//ticks[TRACK] 	  = false;
-	ticks[MODE0] 	  = false;
-	ticks[MODE2] 	  = false;
-	ticks[PLANE] 	  = false;
-	ticks[CUBE] 	  = false;
-	//
-	begin = GetTickCount64();				// initial milliseconds
-	setvbuf(stdout, 0, _IOLBF, 0);
+  // Alocate memory for voxel buffers
 
-	// Initialize trackball
+  imgbuf[0] = malloc(IMGBUFFER*sizeof(Voxel));
+  imgbuf[1] = malloc(IMGBUFFER*sizeof(Voxel));
+  buff = imgbuf[0];
+  clean = imgbuf[1];
+  buff->color = -1;
+  clean->color = -1;
 
-	identityQ(&lastQ);
-	identityQ(&currQ);
+  // Initialize gadgets
 
-	// TRACKBALL
+  for(int i = 0; i < NTICKS; i++)
+    ticks[i] = true;
 
-	vu = &view;
-	vu->width = WIDTH;
-	vu->height = HEIGHT;
-	trackball (vu->quat , 0.0, 0.0, 0.0, 0.0);
-	vset(vu->rot_axis, 0., 0., 1.);
-	//
-	Sleep(4);
+  //ticks[FRONT]	  = false;
+  ticks[MESSENGER]  = false;
+  //ticks[TRACK] 	  = false;
+  ticks[MODE0] 	  = false;
+  ticks[MODE2] 	  = false;
+  ticks[PLANE] 	  = false;
+  ticks[CUBE] 	  = false;
+
+  begin = GetTickCount64();      // initial milliseconds
+  setvbuf(stdout, 0, _IOLBF, 0);
+
+  // Initialize trackball
+
+  identityQ(&lastQ);
+  identityQ(&currQ);
+
+  // TRACKBALL
+
+  vu = &view;
+  vu->width = WIDTH;
+  vu->height = HEIGHT;
+  trackball (vu->quat , 0.0, 0.0, 0.0, 0.0);
+  vset(vu->rot_axis, 0., 0., 1.);
+
+  Sleep(4);
 }
 
 // Template for momentum recursion
@@ -94,396 +85,96 @@ int template[6][3] =
   {0, 0, -SIDE_2},
 };
 
+void init()
+{
+  int oE = 0;
+  Cell *stb = latt0;
+  Cell *drf = latt1;
+  for(int i = 0; i < SIDE6; i++, stb++, drf++)
+  {
+    int n = i / SIDE3;
+    int x0 = n % SIDE;
+    int y0 = (n / SIDE) % SIDE;
+    int z0 = n / SIDE2;
+    stb->occ = 0;
+    drf->occ = 0;
+    RSET(stb->p);
+    RSET(drf->p);
+    if(i < SIDE3)
+    {
+      stb->p[0] = 1;
+      drf->p[0] = 1;
+    }
+    wires(stb, x0, y0, z0, latt0, oE);
+    wires(drf, x0, y0, z0, latt1, oE);
+  }
+}
+
 /*
  * Initial state.
  */
 void singularity(Cell *grid)
 {
-  Cell *pointer;
-
-  pointer = grid;
+  Cell *ptr = grid;
   int i = 0;
 
   // Create a sheet
 
   for(int y = 0; y < SIDE; y++)
-    for(int x = 0; x < SIDE; x++)
-    {
-      CP(pointer->s, template[i % 6]);
-      pointer++; i++;
-    }
+    for(int x = 0; x < SIDE; x++, ptr++, i++)
+      CP(ptr->s, template[i % 6]);
   i = 0;
-  pointer = grid;
+  ptr = grid;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++)
+      for(int x = 0; x < SIDE; x++, ptr++, i++)
       {
-        pointer->ch = 0;
-
-        // dualitat
-
-        pointer->ch |= ((i >> 1) << 5);
-
-        // weak
-
-        pointer->ch |= ((i % 2) << 4);
-
-        // electrical
-
-        pointer->ch |= ((((i % 2)^(i >> 1))  & 1) << 3);
-
-        // color
-
-        pointer->ch |= (i % 8);
-
-        // momentum
-
-        CP(pointer->p, template[i % 6]);
-
-        // spin
-
-        CP(pointer->s, grid[i % SIDE2].s);
-
-        // Other properties
-
-        pointer->a  = i + 1;	// dodges zero
-        pointer->r  = i;
-        pointer->k  = FERMION;
-        RSET(pointer->o);
-
-        // Patch 26/4
-
-        MILD(pointer->po);
-
-        // Next
-
-        pointer++; i++;
+        ptr->ch = 0;
+        ptr->ch |= ((i >> 1) << 5);  // dualitat
+        ptr->ch |= ((i % 2) << 4);   // weak
+        ptr->ch |= ((((i % 2)^(i >> 1))  & 1) << 3); // electrical
+        ptr->ch |= (i % 8);  // color
+        CP(ptr->p, template[i % 6]);  // momentum
+        CP(ptr->s, grid[i % SIDE2].s);  // spin
+        ptr->a  = i + 1;	// dodges zero
+        ptr->k  = FERMION;
+        RSET(ptr->o);
+        MILD(ptr->po);
       }
 }
 
-void initEspacito(Cell *lattice, Cell *espacito, int x0, int y0, int z0)
+void initEspacito(Cell *latt, Cell *espacito, int x0, int y0, int z0)
 {
-  Cell *pointer = espacito;
-  unsigned offset = 0;
+  Cell *ptr = espacito;
+  unsigned oE = 0;
+  unsigned oL = x0 + SIDE * y0 + SIDE2 * z0;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++)
+      for(int x = 0; x < SIDE; x++, ptr++, oE++)
       {
-        pointer->ch    = 0;
-        pointer->n     = 0;
-        pointer->a     = 0;	     // affinity
-        pointer->syn   = 0;
-        pointer->u     = 0;
-        pointer->pmf   = 0;
-
-        // Eq. 4
-
-        pointer->pow   = 1;
-        pointer->den   = 1;
-
-        pointer->r     = offset; // random
-        pointer->k     = EMPTY;  // no role whatsoever
-        pointer->f     = 0;	     // flash inactive
-        pointer->obj   = SIDE3;	 // no target
-        pointer->occ     = 0;      // free to receive propag.
-        pointer->offL  = x0 + SIDE * y + SIDE2 * z;
-        SAT(pointer->o);         // invalid value
-        SAT(pointer->po);        // unreachable
-        RSET(pointer->p);        // null momentum
-        RSET(pointer->s);        // trivial spin
-        RSET(pointer->pP);       // no empodion
-        RSET(pointer->m);		 // messenger
-
-        // Wires
-
-        if(x0 == 0)
-        {
-        	if(y0 == 0)
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, 0, 0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, 0, 0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, 1, 0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, SIDE - 1, 0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, 0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, 0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, 0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, 0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, 0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, 0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, 0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, 0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, 0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, 0, z0 - 1) + offset;
-        		}
-        	}
-        	else if (y0 == SIDE - 1)
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, y0, 0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, 0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, 0, 0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, y0 - 1, 0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, y0, z0 - 1) + offset;
-        		}
-        	}
-        	else
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(SIDE - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(0, y0, z0 - 1) + offset;
-        		}
-        	}
-        }
-        else if (x0 == SIDE - 1)
-        {
-        	if(y0 == 0)
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0 , y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        	}
-        	else if (y0 == SIDE - 1)
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        	}
-        	else
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(0, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        	}
-        }
-        else
-        {
-        	if(y0 == 0)
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, SIDE - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        	}
-        	else if (y0 == SIDE - 1)
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, 0, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        	}
-        	else
-        	{
-        		if(z0 == 0)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, SIDE - 1) + offset;
-        		}
-        		else if (z0 == SIDE - 1)
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, 0) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        		else
-        		{
-        	        	pointer->ws[0] = lattice + OFFSET(x0 + 1, y0, z0) + offset;
-        	        	pointer->ws[1] = lattice + OFFSET(x0 - 1, y0, z0) + offset;
-        	        	pointer->ws[2] = lattice + OFFSET(x0, y0 + 1, z0) + offset;
-        	        	pointer->ws[3] = lattice + OFFSET(x0, y0 - 1, z0) + offset;
-        	        	pointer->ws[4] = lattice + OFFSET(x0, y0, z0 + 1) + offset;
-        	        	pointer->ws[5] = lattice + OFFSET(x0, y0, z0 - 1) + offset;
-        		}
-        	}
-        }
-        // Offset inside espacito
-
-        pointer->offE = offset;
-        pthread_mutex_init(&pointer->mutex, NULL);
-
-        // Next
-
-        pointer++;
-        offset++;
+        ptr->ch    = 0;   // charges
+        ptr->n     = 0;   // tick
+        ptr->a     = 0;	  // affinity
+        ptr->syn   = 0;
+        ptr->u     = 0;
+        ptr->pmf   = 0;
+        ptr->pow   = 1;   // Eq.4
+        ptr->den   = 1;   // Eq. 4
+        ptr->k   = EMPTY; // no role whatsoever
+        ptr->f   = 0;	  // flash inactive
+        ptr->obj = SIDE3; // no target
+        ptr->occ = 0;     // free to receive propag.
+        ptr->oL  = oL;    // offset in the grid
+        ptr->oE  = oE;    // offset inside espacito
+        ptr->r   = 0;     // lcg algorithm
+        SAT(ptr->o);      // invalid value
+        SAT(ptr->po);     // unreachable
+        RSET(ptr->p);     // null momentum
+        RSET(ptr->s);     // trivial spin
+        RSET(ptr->pP);    // no empodion
+        RSET(ptr->m);     // messenger
+    	wires(ptr, x0, y0, z0, latt, oE);      // wires
+        pthread_mutex_init(&ptr->mutex, NULL);
       }
 }
 

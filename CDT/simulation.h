@@ -31,17 +31,17 @@
 // Particle singles and pairs (used in k)
 
 #define EMPTY    0x0000
-#define FOWL     0x0001 // Orbis x Dark Sector
-#define COLLAPSE 0x0002
-#define FERMION  0x0004
-#define SPHOTON  0x0008	// super photon
-#define PHOTON   0x0010
-#define GLUON    0x0020
-#define NEUTRINO 0x0040
-#define ZB       0x0080
-#define WB       0x0100
-#define UP       0x0200
-#define DOWN     0x0400
+#define COLLAPSE 0x0001
+#define FERMION  0x0002
+#define SPHOTON  0x0004	// super photon
+#define PHOTON   0x0008
+#define GLUON    0x0010
+#define NEUTRINO 0x0020
+#define ZB       0x0040
+#define WB       0x0080
+#define UP       0x0100
+#define DOWN     0x0200
+#define FOWLS    0x0400 // Orbis x Dark Sector
 
 // Charge masks
 
@@ -68,7 +68,7 @@
 #define Q(u)         ((u->ch&Q_MASK)==Q_MASK)
 #define MAT(u)       (C(u)>2&&C(u)!=4)
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
-#define BUSY(c)      (c->k>FOWL)
+#define BUSY(c)      (c->k>COLLAPSE)
 
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define NEG(v)       {v[0]=-v[0];v[1]=-v[1];v[2]=-v[2];}
@@ -87,8 +87,8 @@ typedef struct Cell
 
   struct
     Cell *ws[6];  // wires to other cells (const.);
-  unsigned offE;  // offset inside espacito (const.)
-  unsigned offL;  // offset of espacito in lattice (const.)
+  unsigned oE;  // offset inside espacito (const.)
+  unsigned oL;  // offset of espacito in lattice (const.)
 
   // Physical properties
 
@@ -145,5 +145,10 @@ void printCell(Cell *cell);
 long OFFSET(int x, int y, int z);
 Tuple getPole(Vec3 v, Tuple cen, int r);
 void *work(void * parm);
+void model();
+void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
+void pairFormation(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
+void wires(Cell *ptr, int x0, int y0, int z0, Cell *latt, int oE);
+
 
 #endif /* SIMULATION_H_ */
