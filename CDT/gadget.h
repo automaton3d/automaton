@@ -9,16 +9,15 @@
 #define GADGET_H_
 
 #define FRONT		0
-#define MESSENGER	1
-#define TRACK		2
-#define MOMENTUM	3
-#define MODE0		4
-#define MODE1		5
-#define MODE2		6
-#define PLANE		7
-#define CUBE		8
+#define TRACK		1
+#define MOMENTUM	2
+#define MODE0		3
+#define MODE1		4
+#define MODE2		5
+#define PLANE		6
+#define CUBE		7
 
-#define NTICKS		9
+#define NTICKS		8
 
 // Functions
 

@@ -13,13 +13,28 @@
  */
 void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 {
-  int pole[3];
-  int code = (nxt->a == drf->a) | (!ZERO(nxt->p) << 1) |
-	           (!ZERO(drf->p) << 2);
+  // Empty cells not allowed.
+
+  if (!BUSY(stb) || !BUSY(nxt))
+    goto TICK;
+
+  // Calculate the general type of interaction.
+
+  int code = (nxt->a1 == drf->a1) | (!ZERO(nxt->p) << 1) |
+             (!ZERO(drf->p) << 2);
+
+
+//  CP(drf->po, stb->p);
+//  CP(lst->po, nxt->p);
+if(!ZERO(stb->po))
+{
+	// TODO tem que fazer algo?????
+}
+
 
   // Internal process?
 
-  if (stb->a == nxt->a && !ZERO(stb->p) && !ZERO(nxt->p))
+  if (stb->a1 == nxt->a1 && !ZERO(stb->p) && !ZERO(nxt->p))
   {
     // Self interference (Sect. 5.6.3).
     // (Sciarretta)
@@ -72,7 +87,7 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 
   else if (stb->r < drf->pmf && code > 1)
   {
-    // Default values
+    // Default reissue at c.p.
 
     RSET(drf->po);
     RSET(lst->po);
@@ -85,9 +100,9 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 
       switch(code)
       {
-        case 2:    // Rendez vous (different particles)
-        case 4:    // Rendez vous (different particles)
+        case 2:case 4:    // Weak interaction
 
+          // Particles are different.
           // Virtual photon capture.
           // Part of electrical, magnetic or
           // interference interactions.
@@ -96,21 +111,20 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
           {
             // Recruit it. Draft is now a propeller.
 
-            drf->a = nxt->a;
+            drf->a1 = nxt->a1;
             RSET(lst->m);
           }
           else if (lst->k == PHOTON && DOT(nxt->m, stb->p) == 1)
           {
             // Recruit it. Last is now a propeller.
 
-            lst->a = stb->a;
+            lst->a1 = stb->a1;
             RSET(drf->m);
           }
 
           // Static forces.
 
-          else if (BUSY(nxt) && drf->k == FERMION &&
-                   !ZERO(nxt->p))
+          else if (drf->k == FERMION && !ZERO(nxt->p))
           {
             if (stb->r % 2 == 0)
             {
@@ -163,18 +177,21 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
           }
           break;
 
-        case 3:    // Inertia
+        case 3:     // Inertia
 
           // Calculate parallel transported pole.
+          // bubbles have the same a.
+          // nxt is the master, stb is the slave.
 
-          SUB(drf->po, nxt->o, drf->o);
+          SUB(drf->po, nxt->o, stb->o);
           break;
 
         case 5:    // Inertia
 
-          // Counterpart in inertia is trivial.
+          // Counterpart.
+          // stb is the master, nxt is the slave.
 
-          CP(drf->po, stb->p);
+          SUB(lst->po, stb->o, nxt->o);
           break;
 
         case 6:    // Collapse
@@ -184,8 +201,8 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 
           drf->k = COLLAPSE;
           lst->k = COLLAPSE;
-          drf->obj = drf->a;
-          lst->obj = lst->a;
+          drf->obj = drf->a1;
+          lst->obj = lst->a1;
           break;
 
         case 7:    // Internal collision
@@ -195,27 +212,16 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 
           if (stb->k == FERMION && nxt->k == FERMION)
           {
-            // Pole is the negation of p.
-
-            CP(pole, drf->p);
-            NEG(pole);
-            CP(drf->po, pole);
-            //
-            CP(pole, lst->p);
-            NEG(pole);
-            CP(lst->po, pole);
+            CPNEG(drf->po, drf->p);
+            CPNEG(lst->po, lst->p);
           }
           else if (stb->k == WB && nxt->k == WB)
           {
-            CP(pole, lst->p);
-            NEG(pole);
-            CP(lst->po, pole);
+            CPNEG(lst->po, lst->p);
           }
           else if (stb->k == ZB && nxt->k == ZB)
           {
-            CP(pole, lst->p);
-            NEG(pole);
-            CP(lst->po, pole);
+            CPNEG(lst->po, lst->p);
           }
           break;
       }
@@ -230,19 +236,14 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 
       if (nxt->k == FERMION && drf->k == SPHOTON)
       {
-        CP(pole, drf->p);
-        NEG(pole);
-        CP(drf->po, pole);
+        CPNEG(drf->po, drf->p);
       }
       else if (drf->k == FERMION && nxt->k == SPHOTON)
       {
-        CP(pole, lst->p);
-        NEG(pole);
-        CP(lst->po, pole);
+        CPNEG(lst->po, lst->p);
       }
     }
   }
 
   TICK: ;
 }
-

@@ -5,40 +5,67 @@
  *      Author: Alexandre
  */
 
-#include <assert.h>
 #include "simulation.h"
 
 /**
- * Detects new pair and multipair.
+ * Detects multipair or new pair.
  */
-void pairFormation(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
+void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
 {
-  // Pair already formed?
+  // Bubbles not superposing?
 
-  if (stb->k > FERMION || nxt->k > FERMION)
+  if (!(stb->oL == nxt->oL &&
+      ZERO(stb->o) && ZERO(nxt->o) &&
+      !ZERO(stb->p) && !ZERO(nxt->p)))
   {
-    // Not symmetry breaking?
-
-    if (stb->k != FOWLS && nxt->k != FOWLS)
-    {
-      // Combine pairs to form multi-pairs.
-      // (Sect. 5.2)
-
-      if (stb->k == nxt->k && stb->k > FERMION &&
-          stb->a != nxt->a)
-      {
-        drf->a = nxt->a;
-        lst->a = drf->a;
-      }
-    }
-    return;
+    goto PAIR;
   }
 
-  // Superposing bubbles?
+  // Combine pairs to form multi-pairs.
+  // (Sect. 5.2)
 
-  if (stb->oL == nxt->oL &&
-      ZERO(stb->o) && ZERO(nxt->o) &&
-      ZERO(stb->p) && ZERO(nxt->p))
+  if (stb->k > FERMION && stb->k == nxt->k)
+  {
+    if (stb->a1 != nxt->a1)
+    {
+      // Shift a1 to a2.
+
+      drf->a2 = stb->a1;
+      lst->a2 = nxt->a1;
+
+      // Both a1 receive the same new value.
+
+      drf->a1 = stb->a1 ^ nxt->a1;
+      lst->a1 = drf->a1;
+    }
+
+    // Pair homogenization.
+
+    else
+    {
+      if (stb->a1 != nxt->a1)
+      {
+        unsigned temp = 0;
+        if (stb->a1 == nxt->a2)
+        {
+          // Swap.
+
+          temp = nxt->a1;
+          nxt->a1 = nxt->a2;
+          nxt->a2 = temp;
+        }
+        if (stb->a2 == nxt->a1)
+        {
+          // Swap.
+
+          temp = stb->a1;
+          stb->a1 = stb->a2;
+          stb->a2 = temp;
+        }
+      }
+    }
+  }
+  else
   {
     // Check if different sectors.
     // (Sec. 4.7.7)
@@ -57,8 +84,8 @@ void pairFormation(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
         // Compose the common value for affinity.
         // (Sect. 4.2)
 
-        drf->a |= (nxt->a << ORDER);
-        lst->a |= (stb->a << ORDER);
+        drf->a1 |= (nxt->a1 << ORDER);
+        lst->a1 |= (stb->a1 << ORDER);
       }
       else
       {
@@ -67,15 +94,13 @@ void pairFormation(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
 
         CP(drf->po, stb->p);
         CP(lst->po, nxt->p);
-        drf->k = FOWLS;
-        lst->k = FOWLS;
       }
     }
 
     // Clump bubbles together to form particle pair fragments.
     // (Sect. 4.2)
 
-    else if (stb->a != nxt->a &&
+    else if (stb->a1 != nxt->a1 &&
              stb->k == FERMION &&
 	         nxt->k == FERMION && 0)
     {
@@ -120,15 +145,16 @@ void pairFormation(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
       }
       else
       {
-    	return;
+    	goto PAIR;
       }
 
       // Calculate the common value for affinity.
       // (Sect. 4.2)
 
-      drf->a = stb->a | (nxt->a << ORDER);
-      lst->a = drf->a;
+      drf->a1 = stb->a1 | (nxt->a1 << ORDER);
+      lst->a1 = drf->a1;
     }
   }
-}
 
+  PAIR:;
+}

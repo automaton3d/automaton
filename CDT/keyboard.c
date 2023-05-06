@@ -49,12 +49,6 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			input_changed = true;
 	    	pthread_mutex_unlock(&mutex);
 			break;
-		case 'N':
-			ticks[MESSENGER] = !ticks[MESSENGER];
-	    	pthread_mutex_lock(&mutex);
-			input_changed = true;
-	    	pthread_mutex_unlock(&mutex);
-			break;
 		case 'X':
 			ticks[CUBE] = !ticks[CUBE];
 	    	pthread_mutex_lock(&mutex);

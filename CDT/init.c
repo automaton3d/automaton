@@ -47,7 +47,6 @@ void initScreen()
     ticks[i] = true;
 
   //ticks[FRONT]	  = false;
-  ticks[MESSENGER]  = false;
   //ticks[TRACK] 	  = false;
   ticks[MODE0] 	  = false;
   ticks[MODE2] 	  = false;
@@ -136,7 +135,8 @@ void singularity(Cell *grid)
         ptr->ch |= (i % 8);  // color
         CP(ptr->p, template[i % 6]);  // momentum
         CP(ptr->s, grid[i % SIDE2].s);  // spin
-        ptr->a  = i + 1;	// dodges zero
+        ptr->a1  = i + 1;	// dodges zero
+        ptr->a2  = 0;
         ptr->k  = FERMION;
         RSET(ptr->o);
         MILD(ptr->po);
@@ -154,14 +154,14 @@ void initEspacito(Cell *latt, Cell *espacito, int x0, int y0, int z0)
       {
         ptr->ch    = 0;   // charges
         ptr->n     = 0;   // tick
-        ptr->a     = 0;	  // affinity
+        ptr->a1    = 0;	  // affinity
+        ptr->a2    = 0;	  // affinity
         ptr->syn   = 0;
         ptr->u     = 0;
         ptr->pmf   = 0;
         ptr->pow   = 1;   // Eq.4
         ptr->den   = 1;   // Eq. 4
         ptr->k   = EMPTY; // no role whatsoever
-        ptr->f   = 0;	  // flash inactive
         ptr->obj = SIDE3; // no target
         ptr->occ = 0;     // free to receive propag.
         ptr->oL  = oL;    // offset in the grid

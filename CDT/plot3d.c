@@ -258,9 +258,7 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 #define V
 #ifdef V
 
-	if(ticks[MESSENGER] && cell->f)
-		putBlob(xyz, RED);
-	else if(ticks[MOMENTUM] && !ZERO(cell->p) && BUSY(cell))
+	if(ticks[MOMENTUM] && !ZERO(cell->p) && BUSY(cell))
 		putBlob(xyz, CYAN);
 	else if(ticks[FRONT] && BUSY(cell) && cell->oE==0)
 		putBlob(xyz, YELLOW);

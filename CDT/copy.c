@@ -22,15 +22,13 @@ void copy()
 
   // Lattice update
 
-  stb->f   = drf->f;    // flash
   stb->ch  = drf->ch;   // charges
-  stb->a   = drf->a;    // affinity
+  stb->a1   = drf->a1;    // affinity
   stb->n   = drf->n;    // ticks
   stb->syn = drf->syn;  // wf synch
   stb->u   = drf->u;    // sine
   stb->pmf = drf->pmf;  // sine PMF
   stb->k   = drf->k;    // kind
-  stb->r   = drf->r;    // random
   stb->occ = drf->occ;  // occupancy
   stb->obj = drf->obj;  // target
   CP(stb->p, drf->p);   // momentum
