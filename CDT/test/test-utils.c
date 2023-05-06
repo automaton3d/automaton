@@ -35,16 +35,6 @@ Cell *isSingular(Cell *latt)
     return last;
 }
 
-Cell *huntFlash(Cell *latt)
-{
-    for(int i = 0; i < SIDE3 * SIDE3; i++, latt++)
-    {
-    	if(latt->a == 0 && latt->f)
-    		return latt;
-    }
-    return NULL;
-}
-
 int countMomentum(Cell *latt)
 {
 	int n = 0;

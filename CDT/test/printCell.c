@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include "test.h"
 
+#define true  1
+#define false 0
+
 boolean first = true;
 
 extern Cell* latt1;
@@ -26,7 +29,7 @@ void printCell(Cell *cell)
 	printf("0x%02x\t", cell->ch);
 	printf("%d\t", cell->oL);
 	printf("%d\t", cell->oE);
-	printf("%d\t", cell->a);
+	printf("%d\t", cell->a1);
 	printf("%d\t", cell->k);
 	printf("%d\t", cell->syn);
 	printf("%d\t", cell->r);
