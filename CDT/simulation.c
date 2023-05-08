@@ -29,7 +29,10 @@ boolean verbose = false;
 extern Cell *stb, *drf;
 extern Cell *latt0, *latt1;
 
+extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
+
+extern unsigned long timer;
 
 int off = 0;
 

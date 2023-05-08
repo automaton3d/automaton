@@ -15,7 +15,7 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 {
   // Empty cells not allowed.
 
-  if (!BUSY(stb) || !BUSY(nxt))
+  if (!BUSY(stb) || !BUSY(nxt) || 1)
     goto TICK;
 
   // Calculate the general type of interaction.
@@ -32,19 +32,16 @@ if(!ZERO(stb->po))
 }
 
 
-  // Internal process?
+  // Self interference (Sect. 5.6.3)?
+  // (Sciarretta)
 
   if (stb->a1 == nxt->a1 && !ZERO(stb->p) && !ZERO(nxt->p))
   {
-    // Self interference (Sect. 5.6.3).
-    // (Sciarretta)
-
-    int dif[3];
-    SUB(dif, stb->o, nxt->o);
-
     // From the same region?
     // (Eq. 7, Eq. 8)
 
+    int dif[3];
+    SUB(dif, stb->o, nxt->o);
     if (DOT(nxt->o, stb->o) == 1 && MOD2(dif) == 0)
     {
       // Induce empodion (Sect. 5.6.3).
@@ -91,6 +88,8 @@ if(!ZERO(stb->po))
 
     RSET(drf->po);
     RSET(lst->po);
+    drf->obj = SIDE3;
+    lst->obj = SIDE3;
 
     // Test for same or different sectors.
 
@@ -114,7 +113,8 @@ if(!ZERO(stb->po))
             drf->a1 = nxt->a1;
             RSET(lst->m);
           }
-          else if (lst->k == PHOTON && DOT(nxt->m, stb->p) == 1)
+          else if (lst->k == PHOTON &&
+                   DOT(nxt->m, stb->p) == 1)
           {
             // Recruit it. Last is now a propeller.
 

@@ -33,23 +33,19 @@
 #define LIMITX		0.7
 #define LIMITY		0.7
 
-// Exported variables
+// Checkboxes
 
-extern Vec3 position;	      	// view reference point
-extern Vec3 direction; 			// camera axis
-extern Vec3 attitude;  			// view-up direction
-extern boolean showAxes, showGrid;
-extern pthread_mutex_t mutex;
-extern char gridcolor;
-extern unsigned long timer;
-extern unsigned long begin;
+#define FRONT		0
+#define TRACK		1
+#define MOMENTUM	2
+#define PLANE		3
+#define CUBE		4
+#define MODE0		5
+#define MODE1		6
+#define MODE2		7
 
 /// Functions ///
 
-void initPlot();
 void *DisplayLoop();
-void addPoint(Vec3 p);
-void addCell(Cell *c);
-void voxelize();
 
 #endif /* PLOT3D_H_ */

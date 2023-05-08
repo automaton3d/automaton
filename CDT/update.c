@@ -14,7 +14,7 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
 {
   // Bubbles not superposing?
 
-  if (!(stb->oL == nxt->oL &&
+  if (1 || !(stb->oL == nxt->oL &&
       ZERO(stb->o) && ZERO(nxt->o) &&
       !ZERO(stb->p) && !ZERO(nxt->p)))
   {
@@ -65,7 +65,7 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
       }
     }
   }
-  else
+  else if (stb->k == FERMION && nxt->k == FERMION)
   {
     // Check if different sectors.
     // (Sec. 4.7.7)
@@ -100,9 +100,7 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
     // Clump bubbles together to form particle pair fragments.
     // (Sect. 4.2)
 
-    else if (stb->a1 != nxt->a1 &&
-             stb->k == FERMION &&
-	         nxt->k == FERMION && 0)
+    else if (stb->a1 != nxt->a1)
     {
       if (MAT(stb) != MAT(nxt) && W0(stb) == !W0(nxt) &&
           Q(stb) == !Q(nxt))
@@ -110,7 +108,8 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
         drf->k = GLUON;
         lst->k = GLUON;
       }
-      else if (C(stb) == C(nxt) && C(stb) != 0 && C(stb) != 7 &&
+      else if (C(stb) == C(nxt) &&
+               C(stb) != 0 && C(stb) != 7 &&
                Q(stb) == Q(nxt) && Q(stb) == W1(stb))
       {
         drf->k = UP;

@@ -7,8 +7,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include "plot3d.h"
-#include "gadget.h"
 #include "simulation.h"
 #include "mouse.h"
 #include "assert.h"
@@ -16,12 +14,12 @@
 #include "quaternion.h"
 #include "trackball.h"
 
-extern boolean ticks[NTICKS];
 extern Voxel *imgbuf[2], *buff, *clean;
 extern Cell *latt0, *latt1;
 extern Quaternion currQ, lastQ;
 
 extern View view;
+extern unsigned long begin;
 
 View *vu;
 
@@ -43,15 +41,14 @@ void initScreen()
 
   // Initialize gadgets
 
-  for(int i = 0; i < NTICKS; i++)
-    ticks[i] = true;
-
+  /*
   //ticks[FRONT]	  = false;
   //ticks[TRACK] 	  = false;
   ticks[MODE0] 	  = false;
   ticks[MODE2] 	  = false;
   ticks[PLANE] 	  = false;
   ticks[CUBE] 	  = false;
+  */
 
   begin = GetTickCount64();      // initial milliseconds
   setvbuf(stdout, 0, _IOLBF, 0);

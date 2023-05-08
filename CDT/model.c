@@ -5,8 +5,6 @@
  *      Author: Alexandre
  */
 
-#include <windows.h>
-#include <stdio.h>
 #include <assert.h>
 
 #include "simulation.h"
@@ -44,12 +42,17 @@ void model()
   Cell *nxt = stb - stb->oE + off;
   Cell *lst = drf - drf->oE + off;
 
+  // Synchronize code.
+
+  //join();
+
   // A collapse forces all affine bubbles to reissue.
-  // nxt->a is the skewed cell affinity that the flash
-  // is exploring.
+  // nxt->a1 is skewed affinity being explored.
   // stb->obj is the affinity inherited from interaction.
   // Only non trivial p matters.
   // Annihilation makes all affinities different.
+
+  boolean collapse = false;
 
   if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
       !ZERO(nxt->p) && stb->k == COLLAPSE)
@@ -57,6 +60,8 @@ void model()
     // Target found.
     // Reissue this particular bubble.
     // Collapse happens at c.p.
+
+    collapse = true;
 
     RSET(lst->po);    // reissue from c.p.
     RSET(lst->o);     // radius 0
@@ -108,6 +113,10 @@ void model()
   }
 
   // --- End of affine operations ---
+
+  // Synchronize code.
+
+  //join();
 
   // Last pass of wavefront?
 
@@ -183,8 +192,10 @@ void model()
 
     nei = drf->ws[dir];
 
+    // Proceed only if destiny cell is free.
+
     if (nei->occ == 0)
-      nei->occ = LIGHT;
+      nei->occ = LIGHT;		// crest
     else
       continue;
 
@@ -195,8 +206,24 @@ void model()
     // Transmit superluminal info
 
     nei->obj = stb->obj;  // target
+    nei->ch  = stb->ch;   // charges
+    nei->a1   = stb->a1;  // affinity LO
+    nei->a2   = stb->a2;  // affinity HO
+    nei->n   = stb->n;    // ticks
+    nei->oE  = stb->oE;   // espacito offset
+    nei->k   = stb->k;    // kind
+    CP(drf->m, stb->m);   // messenger
 
     // --- Spherical propagation ---
+
+    // Spherical test.
+
+    if (collapse)
+    {
+      // Draft is already configured for a new expansion.
+
+      continue;
+    }
 
     // Spherical synchronism.
 
@@ -221,18 +248,13 @@ void model()
       RSET(nei->p);
     }
 
-    // Propagate other info.
+    // Propagate exclusive spherical info.
 
-    nei->ch  = stb->ch;   // charges
-    nei->a1   = stb->a1;    // affinity
-    nei->n   = stb->n;    // ticks
     nei->u   = stb->u;    // sine
     nei->pmf = stb->pmf;  // sine PMF
-    nei->k   = stb->k;    // kind
     CP(drf->s, stb->s);   // spin
     CP(drf->o, stb->o);   // bubble origin
     CP(drf->pP, stb->pP); // decay
-    CP(drf->m, stb->m);   // messenger
 
     // Calculate alignment with spin.
 

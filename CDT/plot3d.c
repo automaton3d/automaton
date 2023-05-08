@@ -13,22 +13,13 @@
 #define PTW32_STATIC_LIB
 
 #include <windows.h>
-#include <stdio.h>
-#include <math.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <stdint.h>
 #include <assert.h>
 
 #include "engine.h"
-#include "common.h"
-#include "vec3.h"
 #include "plot3d.h"
 #include "mouse.h"
 #include "text.h"
 #include "main3d.h"
-#include "gadget.h"
-#include "simulation.h"
 #include "bresenham.h"
 #include "utils.h"
 #include "test/test.h"
@@ -46,8 +37,10 @@ extern HDC hdc;
 #define PERSPECTIVE 1
 
 extern boolean input_changed;
-extern boolean ticks[NTICKS];
 extern Cell *latt0;
+extern HWND g_hBitmap;
+extern HDC hdc;
+extern HWND mode0_rad, mode1_rad, mode2_rad;
 
 boolean showAxes  = true;
 boolean showModel = true;
@@ -73,8 +66,11 @@ int driftx = 0;
 int drifty = 0;
 int driftz = 0;
 
+boolean momentum = true, wavefront = true, mode0, mode1, mode2, track, cube, plane;
+
 extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
+extern HWND front_chk, track_chk, p_chk, plane_chk, cube_chk;
 
 View view;
 
@@ -138,6 +134,7 @@ void initPlot()
     //
 	SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
 	BitBlt(hdc, 0, 0, WIDTH, HEIGHT, myCompatibleDC, 0, 0, SRCCOPY);
+    SendMessage(g_hBitmap, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)myBitmap);
 }
 
 void addCell(Cell *c)
@@ -154,7 +151,8 @@ void addPoint2d(int x, int y)
 
 void drawGroundPlane()
 {
-	if(!ticks[PLANE])
+	LRESULT result = SendMessage(WindowFromDC(hdc), BM_GETCHECK, PLANE, 0);
+	if (result == BST_UNCHECKED)
 		return;
 	Vec3 p1, p2;
 	p1.x = -1000;
@@ -228,24 +226,28 @@ void drawMarks()
 	}
 }
 
-#define BLOB
-#ifdef BLOB
-
 void putBlob(Vec3 xyz, int color)
 {
+	#define BLOB
+	#ifdef BLOB
 	putVoxel(xyz, color);
 	xyz.x++;
 	putVoxel(xyz, color);
-	xyz.y++;
-	putVoxel(xyz, color);
-	xyz.z++;
-	putVoxel(xyz, color);
 	xyz.x -= 2;
+	putVoxel(xyz, color);
+	xyz.x++;
+	xyz.y++;
 	putVoxel(xyz, color);
 	xyz.y -= 2;
 	putVoxel(xyz, color);
+	xyz.y++;
+	xyz.z++;
+	putVoxel(xyz, color);
 	xyz.z -= 2;
 	putVoxel(xyz, color);
+	#else
+	putVoxel(xyz, color);
+	#endif
 }
 
 void drawCell(Tuple *t0, Tuple *t, Cell *cell)
@@ -255,48 +257,15 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
 	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
 
-#define V
-#ifdef V
-
-	if(ticks[MOMENTUM] && !ZERO(cell->p) && BUSY(cell))
+	if(momentum && !ZERO(cell->p) && BUSY(cell))
 		putBlob(xyz, CYAN);
-	else if(ticks[FRONT] && BUSY(cell) && cell->oE==0)
+	else if(wavefront && BUSY(cell) && cell->oE==0)
 		putBlob(xyz, YELLOW);
 	else if(showGrid)
 		putBlob(xyz, PALE);
 	else
 		putBlob(xyz, BLK);
-
-#else
-
-	if(cell->oE == 0 && cell->v)
-		putBlob(xyz, RED);
-	else
-		putBlob(xyz, BLK);
-#endif
 }
-
-#else
-
-void drawCell(Tuple *t0, Tuple *t, Cell *cell)
-{
-	Vec3 xyz;
-	xyz.x = WIDE * (SIDE * (t0->x + driftx) + t->x - DRIFT);
-	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
-	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
-	if(ticks[MESSENGER] && cell->f)
-		putVoxel(xyz, RED);
-	else if(ticks[MOMENTUM] && !ZERO(cell->p))
-		putVoxel(xyz, CYAN);
-	else if(ticks[FRONT] && BUSY(cell))
-		putVoxel(xyz, YELLOW);
-	else if(showGrid)
-		putVoxel(xyz, PALE);
-	else
-		putVoxel(xyz, BLK);
-}
-
-#endif
 
 void drawEspacito(Tuple *t0, Cell *esp)
 {
@@ -305,11 +274,11 @@ void drawEspacito(Tuple *t0, Cell *esp)
 		for(t.y = 0; t.y < SIDE; t.y++)
 			for(t.x = 0; t.x < SIDE; t.x++)
 			{
-				if(ticks[MODE0])
+				if(mode0)
 					drawCell(t0, &t, esp);
-				else if(ticks[MODE1] && esp->oE == 0)//a)
+				else if(mode1 && esp->oE == 0)//a)
 					drawCell(t0, &t, esp);
-				else if(ticks[MODE2] && t.x < 2 && t.y < 2 && t.z < 2)
+				else if(mode2 && t.x < 2 && t.y < 2 && t.z < 2)
 					drawCell(t0, &t, esp);
 				esp++;
 			}
@@ -332,6 +301,15 @@ void drawModel()
 
 #else
 
+  wavefront = SendMessage(front_chk, BM_GETCHECK, FRONT, 0);
+  track     = SendMessage(track_chk, BM_GETCHECK, TRACK, 0);
+  momentum  = SendMessage(p_chk,     BM_GETCHECK, MOMENTUM, 0);
+  plane     = SendMessage(plane_chk, BM_GETCHECK, PLANE, 0);
+  cube      = SendMessage(cube_chk,  BM_GETCHECK, CUBE, 0);
+  mode0     = SendMessage(mode0_rad, BM_GETCHECK, MODE0, 0);
+  mode1     = SendMessage(mode1_rad, BM_GETCHECK, MODE1, 0);
+  mode2     = SendMessage(mode2_rad, BM_GETCHECK, MODE2, 0);
+
   Tuple t;
   Cell *espacito = latt0;
   for(t.z = 0; t.z < SIDE; t.z++)
@@ -343,13 +321,13 @@ void drawModel()
 	  }
 
 #endif
-  if (ticks[TRACK])
+  if (track)
 	  drawMarks();
 }
 
 void drawBox()
 {
-	if(ticks[CUBE])
+	if(cube)
 		for(int i = 0; i < 12; i++)
 			line3d(t1[i], t2[i], BOX);
 }
@@ -450,16 +428,6 @@ void voxelize()
 
 void update2d()
 {
-	showCheckbox(20,  80, "wavefront");
-	showCheckbox(20, 100, "messengers");
-	showCheckbox(20, 120, "track");
-	showCheckbox(20, 140, "momentum");
-	showCheckbox(20, 160, "mode 0");
-	showCheckbox(20, 180, "mode 1");
-	showCheckbox(20, 200, "mode 2");
-	showCheckbox(20, 220, "plane");
-	showCheckbox(20, 240, "box");
-	//
  	char *s = NULL;
     //
  	asprintf(&s, "Automaton %d", SIDE);
@@ -547,6 +515,7 @@ void *DisplayLoop()
     		input_changed = false;
     		rebuild = false;
         	pthread_mutex_unlock(&mutex);
+            SendMessage(g_hBitmap, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)myBitmap);	// PATCH
     	}
     	else
     	{
@@ -556,12 +525,10 @@ void *DisplayLoop()
     	//
     	// Update elapsed time display
     	//
-     	char *s = NULL;
-     	unsigned long millis = GetTickCount64() - begin;
-     	asprintf(&s, "Elapsed %.1fs ", millis / 1000.0);
-        vprints(20, 40, s);
-    	SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
-    	BitBlt(hdc, 20, 35, 160, 20, myCompatibleDC, 20, 35, SRCCOPY);
+    	HWND hwnd = WindowFromDC(hdc);
+    	RECT rect;
+        GetClientRect(hwnd, &rect);
+        InvalidateRect(hwnd, &rect, TRUE);
     }
 }
 

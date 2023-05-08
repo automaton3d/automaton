@@ -145,5 +145,4 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
 void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
 void wires(Cell *ptr, int x0, int y0, int z0, Cell *latt, int oE);
 
-
 #endif /* SIMULATION_H_ */
