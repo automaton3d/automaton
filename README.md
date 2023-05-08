@@ -1,7 +1,7 @@
 # It from bit — a concrete attempt
 Hi all,
 
-I'm developing a toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://zenodo.org/record/7579718#.Y-p7LMfMK00">pdf</A> file.
+I'm developing a toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://doi.org/10.5281/zenodo.3818302">pdf</A> file.
 
 Here I present my efforts to implement a tiny version (in computational terms only because the rules are independent of the memory size of the model) of the universal automaton described in the aforementioned document. A program is being developed in the C programming language using CDT. The most important file is model.c, that contains the automaton algorithm.
 
