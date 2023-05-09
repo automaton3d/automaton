@@ -32,7 +32,6 @@ void printCell(Cell *cell)
 	printf("%d\t", cell->a1);
 	printf("%d\t", cell->k);
 	printf("%d\t", cell->syn);
-	printf("%d\t", cell->r);
 	printf("%d,%d,%d\t", cell->o[0], cell->o[1], cell->o[2]);
 	printf("%d,%d,%d\t", cell->p[0], cell->p[1], cell->p[2]);
 	printf("%d,%d,%d\n", cell->po[0], cell->po[1], cell->po[2]);
