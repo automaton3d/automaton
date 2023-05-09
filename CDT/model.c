@@ -12,159 +12,150 @@
 
 Cell *latt0, *latt1, *stb, *drf;
 
-void model()
+void model(int phase)
 {
-  // Occupancy vanish.
-
-  if(stb->occ)
-    drf->occ--;
-
-  // Momentum is always
-  // on the crest of the waves.
-
-  if(!ZERO(stb->p))
-    drf->occ = LIGHT;
-
-  // --- Beginning of affine operations ---
-
-  // Calculate physical time.
-
-  int t = stb->n / LIGHT;
-
-  // Find new skewed addresses inside espacito
-  // for updates. (Sect. 4.2)
-
-  int off;
-  if (stb->oE % 2 == 0)
-    off = (stb->oE + (t + 1)) % SIDE3;
-  else
-    off = (stb->oE - (t + 1)) % SIDE3;
-  Cell *nxt = stb - stb->oE + off;
-  Cell *lst = drf - drf->oE + off;
-
-  // Synchronize code.
-
-  //join();
-
-  // A collapse forces all affine bubbles to reissue.
-  // nxt->a1 is skewed affinity being explored.
-  // stb->obj is the affinity inherited from interaction.
-  // Only non trivial p matters.
-  // Annihilation makes all affinities different.
-
   boolean collapse = false;
-
-  if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
-      !ZERO(nxt->p) && stb->k == COLLAPSE)
+  if (phase == 0)
   {
-    // Target found.
-    // Reissue this particular bubble.
-    // Collapse happens at c.p.
+    // Occupancy vanish.
 
-    collapse = true;
+	if(stb->occ)
+	  drf->occ--;
 
-    RSET(lst->po);    // reissue from c.p.
-    RSET(lst->o);     // radius 0
-    lst->syn = 0;     // ready for immediate expansion
-    lst->n   = 0;     // synchronize clocks
-    lst->obj = SIDE3; // no target in view
+	// Momentum is always
+	// on the crest of the waves.
 
-    // Reset sine wave.
-    // Sect. 6.3 and (Eq. 2).
+	if(!ZERO(stb->p))
+	  drf->occ = LIGHT;
 
-    lst->u   = 0;     // always reset sine
-    lst->pmf = 0;     // and PMF
-    lst->den = 1;     // 2^0
-    lst->pow = 1;     // y^0
-    RSET(lst->m);     // not a messenger
+	// --- Beginning of affine operations ---
 
-    // Dissolution?
+	// Calculate physical time.
 
-    if (ANNIHIL(stb, nxt))
-    {
-    	// Free from particle
+	int t = stb->n / LIGHT;
 
-    	lst->a1 = nxt->oE + 1;
-    }
-  }
+	// Find new skewed addresses inside espacito
+	// for updates. (Sect. 4.2)
 
-  // All related bubbles are bumped.
+	int off;
+	if (stb->oE % 2 == 0)
+	  off = (stb->oE + (t + 1)) % SIDE3;
+	else
+	  off = (stb->oE - (t + 1)) % SIDE3;
+	Cell *nxt = stb - stb->oE + off;
+	Cell *lst = drf - drf->oE + off;
 
-  else if (nxt->a1 == stb->obj)
-  {
-    // Bump sine generator.
-    // (Euler formula for sine)
+	// Synchronize code.
 
-    int tn = nxt->n / LIGHT;  // skewed time
-    if (tn > 0)
-    {
-      lst->u = nxt->u * (tn * tn - MOD2(nxt->o)) / (tn * tn);
-    }
+	//join();
 
-    // Update the sine signal PMF (Eqn. 4).
-    // Only the skewed cell is affected.
+	// A collapse forces all affine bubbles to reissue.
+	// nxt->a1 is skewed affinity being explored.
+	// stb->obj is the affinity inherited from interaction.
+	// Only non trivial p matters.
+	// Annihilation makes all affinities different.
 
-    if (nxt->den < SIDE_2)  // equiv. to infinity in summation
-    {
-      lst->pow *= nxt->pow * nxt->pow;  // y^(2n)
-      lst->den <<= 1;                   // 2^n
-      lst->pmf += (2 * tn + 1) * lst->pow / lst->den;
-    }
-  }
+	if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
+	    !ZERO(nxt->p) && stb->k == COLLAPSE)
+	{
+	  // Target found.
+	  // Reissue this particular bubble.
+	  // Collapse happens at c.p.
 
-  // --- End of affine operations ---
+	  collapse = true;
 
-  // Synchronize code.
+	  RSET(lst->po);    // reissue from c.p.
+	  RSET(lst->o);     // radius 0
+	  lst->syn = 0;     // ready for immediate expansion
+	  lst->n   = 0;     // synchronize clocks
+	  lst->obj = SIDE3; // no target in view
 
-  //join();
+	  // Reset sine wave.
+	  // Sect. 6.3 and (Eq. 2).
 
-  // Last pass of wavefront?
+	  lst->u   = 0;     // always reset sine
+	  RSET(lst->m);     // not a messenger
 
-  if (stb->n % LIGHT == 0)
-  {
-    // --- Beginning of Sciarreta operations ---
+	  // Dissolution?
 
-    // Particle empodion decay (Eqn. 6)?
+	  if (ANNIHIL(stb, nxt))
+	  {
+	  	// Free from particle
 
-    if (!ZERO(stb->pP))
-    {
-      // Cell belongs to a particle empodion.
-      // Vector p shrinks (Eq. 6) to 0, when then
-      // empodion disconnects Sec. 4.7.3).
+	   	lst->a1 = nxt->oE + 1;
+	  }
+	}
 
-      drf->pP[0] -= drf->pP[0] / (2 * t);
-      drf->pP[1] -= drf->pP[1] / (2 * t);
-      drf->pP[2] -= drf->pP[2] / (2 * t);
-      if (ZERO(drf->pP))
-        drf->a1 = stb->oE + 1;  // default value
+    // All related bubbles are bumped.
 
-      // Update lattice decay.
-      // A saturated o vector means lattice role.
+	else if (nxt->a1 == stb->obj)
+	{
+	  // Bump sine generator.
+	  // (Euler formula for sine)
 
-      if (ISSAT(stb->o) && t > 0)
-      {
-        // Lattice track decay (Eq. 5).
-        // When pP=0, empodion disconects. (Sect. 4.7.3)
-
-        drf->pP[0] -= drf->pP[0] * drf->pP[0] / (t * t);
-        drf->pP[1] -= drf->pP[1] * drf->pP[1] / (t * t);
-        drf->pP[2] -= drf->pP[2] * drf->pP[2] / (t * t);
-        if (ZERO(drf->pP))
-          drf->a1 = stb->oE + 1; // default vale
-      }
+	  int tn = nxt->n / LIGHT;  // skewed time
+	  if (tn > 0)
+	  {
+	    lst->u = nxt->u * (tn * tn - MOD2(nxt->o)) / (tn * tn);
+	  }
     }
 
-    // --- End of Sciarreta operations ---
+	// Last pass of wavefront?
 
-    // A light pass was completed, detect interactions.
+	if (stb->n % LIGHT == 0)
+	{
+	  // --- Beginning of Sciarreta operations ---
 
-    interact(stb, drf, nxt, lst);
-  }
-  else
-  {
-    // Pair management.
+	  // Particle empodion decay (Eqn. 6)?
 
-    managePairs(t, stb, drf, nxt, lst);
+	  if (!ZERO(stb->pP))
+	  {
+	    // Cell belongs to a particle empodion.
+	    // Vector p shrinks (Eq. 6) to 0, when then
+	    // empodion disconnects Sec. 4.7.3).
+
+	    drf->pP[0] -= drf->pP[0] / (2 * t);
+	    drf->pP[1] -= drf->pP[1] / (2 * t);
+	    drf->pP[2] -= drf->pP[2] / (2 * t);
+	    if (ZERO(drf->pP))
+	      drf->a1 = stb->oE + 1;  // default value
+
+	    // Update lattice decay.
+	    // A saturated o vector means lattice role.
+
+	    if (ISSAT(stb->o) && t > 0)
+	    {
+	      // Lattice track decay (Eq. 5).
+	      // When pP=0, empodion disconects. (Sect. 4.7.3)
+
+	      drf->pP[0] -= drf->pP[0] * drf->pP[0] / (t * t);
+	      drf->pP[1] -= drf->pP[1] * drf->pP[1] / (t * t);
+	      drf->pP[2] -= drf->pP[2] * drf->pP[2] / (t * t);
+	      if (ZERO(drf->pP))
+	        drf->a1 = stb->oE + 1; // default vale
+	    }
+	  }
+
+	  // --- End of Sciarreta operations ---
+
+	  // A light pass was completed, detect interactions.
+
+	  interact(stb, drf, nxt, lst);
+	}
+	else
+	{
+	  // Pair management.
+
+	  managePairs(t, stb, drf, nxt, lst);
+	}
+
+	// --- End of affine operations ---
+
+	// Synchronize code.
+
+	//join();
+
+	return;
   }
 
   // Expansion
@@ -251,7 +242,6 @@ void model()
     // Propagate exclusive spherical info.
 
     nei->u   = stb->u;    // sine
-    nei->pmf = stb->pmf;  // sine PMF
     CP(drf->s, stb->s);   // spin
     CP(drf->o, stb->o);   // bubble origin
     CP(drf->pP, stb->pP); // decay

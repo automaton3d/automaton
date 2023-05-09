@@ -60,7 +60,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	            RECT rect;
 	            rect.left = clirect.right / 2 - 200;
 	            rect.right = clirect.right / 2 + 200;
-	            rect.bottom = 40;
+	            rect.bottom = 60;
 	            rect.top = 10;
 
 	            // Create a LOGFONT structure and set its properties
@@ -85,7 +85,8 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	            HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
 
 	            DrawText(hdc, "The universe in an automaton", -1, &rect, DT_CENTER | DT_TOP | DT_SINGLELINE);
-
+	         	char *s = NULL;
+	            //
 	            // Select the original font object back into the device context
 
 	            SelectObject(hdc, hOldFont);
@@ -94,11 +95,17 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 	            DeleteObject(hFont);
 
-	            rect.left = 300;
-	            rect.right = 450;
+	            asprintf(&s, "(SIDE = %d)", SIDE);
+	            DrawText(hdc, s, -1, &rect, DT_CENTER | DT_BOTTOM | DT_SINGLELINE);
+
+	            rect.left   = 300;
+	            rect.right  = 450;
 	            rect.bottom = 90;
-	            rect.top = 72;
-	            char *s = NULL;
+	            rect.top    = 72;
+
+	            HBRUSH hBrush = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+	            FillRect(hdc, &rect, hBrush);
+
 	         	unsigned long millis = GetTickCount64() - begin;
 	         	asprintf(&s, "Elapsed %.1fs ", millis / 1000.0);
 	            DrawText(hdc, s, -1, &rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
@@ -106,6 +113,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	            break;
 	        }
 	    case WM_CREATE:
+	    	{
     		hdc = GetDC(hwnd);
     		pixels = (DWORD*) malloc(WIDTH * HEIGHT * sizeof(DWORD));
 			ZeroMemory(&bmInfo, sizeof(BITMAPINFO));
@@ -121,7 +129,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			mode0_rad = CreateWindow(
                 "BUTTON", "Mode 0",
                 WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP,
-                50, 300, 100, 20,
+                50, 350, 100, 20,
                 hwnd, (HMENU)MODE0,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 
@@ -130,7 +138,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			mode1_rad = CreateWindow(
                 "BUTTON", "Mode 1",
                 WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-                50, 350, 100, 20,
+                50, 400, 100, 20,
                 hwnd, (HMENU)MODE1,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 
@@ -139,7 +147,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             mode2_rad = CreateWindow(
                 "BUTTON", "Mode 2",
                 WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-                50, 400, 100, 20,
+                50, 450, 100, 20,
                 hwnd, (HMENU)MODE2,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 
@@ -147,6 +155,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
             SendMessage(mode0_rad, BM_SETCHECK, BST_CHECKED, 0);
 			break;
+	    	}
 
     	case WM_ERASEBKGND:
     		return 1;

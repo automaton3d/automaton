@@ -27,7 +27,6 @@ void copy()
   stb->n   = drf->n;    // ticks
   stb->syn = drf->syn;  // wf synch
   stb->u   = drf->u;    // sine
-  stb->pmf = drf->pmf;  // sine PMF
   stb->k   = drf->k;    // kind
   stb->occ = drf->occ;  // occupancy
   stb->obj = drf->obj;  // target
@@ -37,11 +36,6 @@ void copy()
   CP(stb->po, drf->po); // pole
   CP(stb->pP, drf->pP); // decay
   CP(stb->m, drf->m);   // messenger
-
-  // Eq. 4
-
-  stb->pow = drf->pow;
-  stb->den = drf->den;
 
   pthread_mutex_unlock(&mutex);
 }

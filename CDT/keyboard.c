@@ -41,18 +41,6 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 				gridcolor = NAVY;
 			}
 			break;
-		case 'G':
-			//ticks[PLANE] = !ticks[PLANE];
-	    	pthread_mutex_lock(&mutex);
-			input_changed = true;
-	    	pthread_mutex_unlock(&mutex);
-			break;
-		case 'X':
-			//ticks[CUBE] = !ticks[CUBE];
-	    	pthread_mutex_lock(&mutex);
-			input_changed = true;
-	    	pthread_mutex_unlock(&mutex);
-			break;
 		case 'P':
 			flipMode();
 	    	pthread_mutex_lock(&mutex);

@@ -34,8 +34,6 @@ extern pthread_barrier_t barrier;
 
 extern unsigned long timer;
 
-int off = 0;
-
 /*
  * Executes one cycle of the evolution algorithm.
  */
@@ -49,7 +47,12 @@ void simulation()
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
-    	model();
+    	model(0);
+
+    stb = latt0;
+    drf = latt1;
+    for(int i = 0; i < SIDE6; i++, stb++, drf++)
+    	model(1);
 
     //delay(50);
 }
@@ -73,11 +76,6 @@ void *AutomatonLoop()
 			rebuild = true;
 		    pthread_mutex_unlock(&mutex);
 			timer++;
-
-			// Debug
-
-			if(timer % 256)
-				off = rand() % SIDE3;
 		}
 		else
 		{

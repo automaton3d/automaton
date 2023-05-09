@@ -66,7 +66,7 @@ int driftx = 0;
 int drifty = 0;
 int driftz = 0;
 
-boolean momentum = true, wavefront = true, mode0, mode1, mode2, track, cube, plane;
+boolean momentum = true, wavefront, mode0, mode1, mode2, track, cube, plane;
 
 extern pthread_mutex_t mutex;
 extern pthread_barrier_t barrier;
@@ -151,7 +151,7 @@ void addPoint2d(int x, int y)
 
 void drawGroundPlane()
 {
-	LRESULT result = SendMessage(WindowFromDC(hdc), BM_GETCHECK, PLANE, 0);
+	LRESULT result = SendMessage(plane_chk, BM_GETCHECK, PLANE, 0);
 	if (result == BST_UNCHECKED)
 		return;
 	Vec3 p1, p2;
@@ -430,21 +430,12 @@ void update2d()
 {
  	char *s = NULL;
     //
- 	asprintf(&s, "Automaton %d", SIDE);
-    vprints(20, 20, s);
-    //
     asprintf(&s, "light: %lu tick: %lu", timer / LIGHT, timer);
-	vprints(20, 60, s);
+	vprints(20, 20, s);
     //
 	asprintf(&s, "S: pause/resume");
-    vprints(650, 700, s);
-    //
-    asprintf(&s, "G: grid on-off");
-    vprints(650, 720, s);
-    //
-    asprintf(&s, "X: box on-off");
     vprints(650, 740, s);
-	//
+    //
     setTextColor(ORANGE);
     if(isParallel())
     	asprintf(&s, "PARALLEL");

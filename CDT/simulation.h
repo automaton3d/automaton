@@ -105,8 +105,6 @@ typedef struct Cell
   // Sine wave.
 
   int u;          // Euler product formula
-  int pmf;        // sine PMF
-  int pow, den;   // auxiliary
 
   // Footprint.
 
@@ -121,7 +119,6 @@ typedef struct Cell
   // Interaction control.
 
   unsigned k;     // calculated kind of fragment
-  unsigned r;     // pseudo random seed
 
   pthread_mutex_t mutex;
 
@@ -140,7 +137,7 @@ void initScreen();
 void printCell(Cell *cell);
 long OFFSET(int x, int y, int z);
 void *work(void * parm);
-void model();
+void model(int phase);
 void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
 void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
 void wires(Cell *ptr, int x0, int y0, int z0, Cell *latt, int oE);

@@ -80,9 +80,9 @@ if(!ZERO(stb->po))
     }
   }
 
-  // Play pseudo dice to decide bubble mixing.
+  // Detect interaction.
 
-  else if (stb->r < drf->pmf && code > 1)
+  else if (stb->n < stb->u)
   {
     // Default reissue at c.p.
 
@@ -126,11 +126,11 @@ if(!ZERO(stb->po))
 
           else if (drf->k == FERMION && !ZERO(nxt->p))
           {
-            if (stb->r % 2 == 0)
-            {
-              // Electric radial force.
+            // Electric radial force.
 
-              if (Q(nxt) == Q(stb))
+            if (Q(nxt) == Q(stb))
+            {
+              if (stb->n % SIDE_2 == 0)
               {
                 // Repulsion.
                 // drf is now a messenger.
@@ -140,20 +140,31 @@ if(!ZERO(stb->po))
               }
               else
               {
+                // Magnetic lateral kick.
+                // drf is now a messenger.
+                // (Sect. 5.6.2)
+
+                CROSS(lst->m, lst->m, nxt->s);
+              }
+            }
+            else
+            {
+              if (stb->n % SIDE_2 == 0)
+              {
                 // Attraction.
                 // drf is now a messenger.
                 // (Sect. 5.6.1)
 
                 SUB(lst->m, nxt->o, drf->o);
               }
-            }
-            if (nxt->r % 2 == 0)
-            {
-              // Magnetic lateral kick.
-              // drf is now a messenger.
-              // (Sect. 5.6.2)
+              else
+              {
+                // Magnetic lateral kick.
+                // drf is now a messenger.
+                // (Sect. 5.6.2)
 
-              CROSS(lst->m, lst->m, nxt->s);
+                CROSS(lst->m, lst->m, nxt->s);
+              }
             }
           }
 

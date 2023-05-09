@@ -39,17 +39,6 @@ void initScreen()
   buff->color = -1;
   clean->color = -1;
 
-  // Initialize gadgets
-
-  /*
-  //ticks[FRONT]	  = false;
-  //ticks[TRACK] 	  = false;
-  ticks[MODE0] 	  = false;
-  ticks[MODE2] 	  = false;
-  ticks[PLANE] 	  = false;
-  ticks[CUBE] 	  = false;
-  */
-
   begin = GetTickCount64();      // initial milliseconds
   setvbuf(stdout, 0, _IOLBF, 0);
 
@@ -155,15 +144,11 @@ void initEspacito(Cell *latt, Cell *espacito, int x0, int y0, int z0)
         ptr->a2    = 0;	  // affinity
         ptr->syn   = 0;
         ptr->u     = 0;
-        ptr->pmf   = 0;
-        ptr->pow   = 1;   // Eq.4
-        ptr->den   = 1;   // Eq. 4
         ptr->k   = EMPTY; // no role whatsoever
         ptr->obj = SIDE3; // no target
         ptr->occ = 0;     // free to receive propag.
         ptr->oL  = oL;    // offset in the grid
         ptr->oE  = oE;    // offset inside espacito
-        ptr->r   = 0;     // lcg algorithm
         SAT(ptr->o);      // invalid value
         SAT(ptr->po);     // unreachable
         RSET(ptr->p);     // null momentum
