@@ -5,12 +5,7 @@
  *      Author: Alexandre
  */
 
-#include <math.h>
-#include <pthread.h>
-#include "common.h"
-#include "engine.h"
 #include "keyboard.h"
-#include "plot3d.h"
 
 extern boolean showAxes;
 extern boolean showModel;
@@ -18,6 +13,7 @@ extern boolean verbose;
 extern boolean input_changed;
 extern char gridcolor;
 extern pthread_mutex_t mutex;
+extern HWND cube_chk;
 
 boolean stop;
 double depth = 2.5;
@@ -53,6 +49,15 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			input_changed = true;
 	    	pthread_mutex_unlock(&mutex);
 			break;
+
+		case 'X':
+	    	pthread_mutex_lock(&mutex);
+			UINT currentState = SendMessage(cube_chk, BM_GETCHECK, 0, 0);
+		    UINT newState = (currentState == BST_CHECKED) ? BST_UNCHECKED : BST_CHECKED;
+		    SendMessage(cube_chk, BM_SETCHECK, newState, 0);
+	    	pthread_mutex_unlock(&mutex);
+		 	break;
+
 		case 'S':
 			stop = !stop;
 	    	pthread_mutex_lock(&mutex);

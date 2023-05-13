@@ -6,7 +6,6 @@
  */
 
 #include "simulation.h"
-#include "utils.h"
 
 /**
  * Detects interactions.
@@ -15,7 +14,7 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 {
   // Empty cells not allowed.
 
-  if (!BUSY(stb) || !BUSY(nxt) || 1)
+  if (!BUSY(stb) || !BUSY(nxt))
     goto TICK;
 
   // Calculate the general type of interaction.
@@ -23,14 +22,12 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
   int code = (nxt->a1 == drf->a1) | (!ZERO(nxt->p) << 1) |
              (!ZERO(drf->p) << 2);
 
+  // Not settled?
 
-//  CP(drf->po, stb->p);
-//  CP(lst->po, nxt->p);
-if(!ZERO(stb->po))
-{
-	// TODO tem que fazer algo?????
-}
+  if (!ZERO(stb->po) || !ZERO(nxt->po))
+    goto TICK;
 
+  int t = stb->n / LIGHT;
 
   // Self interference (Sect. 5.6.3)?
   // (Sciarretta)
@@ -45,51 +42,45 @@ if(!ZERO(stb->po))
     if (DOT(nxt->o, stb->o) == 1 && MOD2(dif) == 0)
     {
       // Induce empodion (Sect. 5.6.3).
+      // With reciprocity.
 
       if (nxt->k == FERMION && ISSAT(stb->o))
       {
         CP(lst->m, drf->pP);
-        goto TICK;
       }
-
-      // Reciprocity.
-
       else if (ISSAT(nxt->o) && stb->k == FERMION)
       {
         CP(drf->m, nxt->pP);
-        goto TICK;
       }
     }
     else
     {
       // Exchange particle x lattice (Sect. 4.6.3).
+      // With reciprocity.
 
       if (nxt->k == FERMION && ISSAT(stb->o))
       {
         CP(lst->o, drf->o);
-        goto TICK;
       }
-
-      // Reciprocity.
-
       else if (ISSAT(nxt->o) && stb->k == FERMION)
       {
         CP(drf->o, nxt->o);
-        goto TICK;
       }
     }
   }
 
   // Detect interaction.
 
-  else if (stb->n < stb->u)
+  else if (stb->n < stb->u * t)
   {
     // Default reissue at c.p.
 
-    RSET(drf->po);
-    RSET(lst->po);
     drf->obj = SIDE3;
     lst->obj = SIDE3;
+    RSET(drf->po);
+    RSET(lst->po);
+    RSET(drf->m);
+    RSET(lst->m);
 
     // Test for same or different sectors.
 
@@ -106,20 +97,18 @@ if(!ZERO(stb->po))
           // Part of electrical, magnetic or
           // interference interactions.
 
-          if (drf->k == PHOTON && DOT(nxt->m, stb->p) == 1)
+          if (stb->k == PHOTON && DOT(nxt->m, stb->p) == 1)
           {
             // Recruit it. Draft is now a propeller.
 
             drf->a1 = nxt->a1;
-            RSET(lst->m);
           }
-          else if (lst->k == PHOTON &&
+          else if (nxt->k == PHOTON &&
                    DOT(nxt->m, stb->p) == 1)
           {
             // Recruit it. Last is now a propeller.
 
             lst->a1 = stb->a1;
-            RSET(drf->m);
           }
 
           // Static forces.
@@ -130,13 +119,15 @@ if(!ZERO(stb->po))
 
             if (Q(nxt) == Q(stb))
             {
+              // Use tick parity to distinguish E or M case.
+
               if (stb->n % SIDE_2 == 0)
               {
                 // Repulsion.
                 // drf is now a messenger.
                 // (Sect. 5.6.1)
 
-                SUB(lst->m, drf->o, nxt->o);
+                SUB(lst->m, stb->o, nxt->o);
               }
               else
               {
@@ -149,6 +140,8 @@ if(!ZERO(stb->po))
             }
             else
             {
+              // Use tick parity to distinguish E or M case.
+
               if (stb->n % SIDE_2 == 0)
               {
                 // Attraction.
@@ -170,28 +163,28 @@ if(!ZERO(stb->po))
 
           // boson x boson.
 
-          else if (lst->k > FERMION && drf->k > FERMION)
+          else if (nxt->k > FERMION && stb->k > FERMION)
           {
             // Exchange charges and spins.
 
-            CP(drf->s, nxt->s);
             drf->ch &= (C_MASK | W0_MASK);
             drf->ch |= (nxt->ch & (C_MASK | W0_MASK));
+            CP(drf->s, nxt->s);
             CP(drf->po, stb->p);
 
             // Reciprocity.
 
-            CP(lst->po, nxt->p);
-            CP(lst->s, stb->s);
             lst->ch &= (C_MASK | W0_MASK);
             lst->ch |= (stb->ch & (C_MASK | W0_MASK));
+            CP(lst->po, nxt->p);
+            CP(lst->s, stb->s);
           }
           break;
 
         case 3:     // Inertia
 
           // Calculate parallel transported pole.
-          // bubbles have the same a.
+          // bubbles have the same a1 value.
           // nxt is the master, stb is the slave.
 
           SUB(drf->po, nxt->o, stb->o);
@@ -245,11 +238,11 @@ if(!ZERO(stb->po))
     {
       // Super photon x fermion.
 
-      if (nxt->k == FERMION && drf->k == SPHOTON)
+      if (nxt->k == FERMION && stb->k == SPHOTON)
       {
         CPNEG(drf->po, drf->p);
       }
-      else if (drf->k == FERMION && nxt->k == SPHOTON)
+      else if (stb->k == FERMION && nxt->k == SPHOTON)
       {
         CPNEG(lst->po, lst->p);
       }

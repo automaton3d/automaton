@@ -5,7 +5,6 @@
  *      Author: Alexandre
  */
 
-#include "tuple.h"
 #include "engine.h"
 
 static void drawCircle(int xc, int yc, int x, int y, char color)

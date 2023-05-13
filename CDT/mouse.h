@@ -9,6 +9,7 @@
 #define MOUSE_H_
 
 #include <windows.h>
+#include "plot3d.h"
 
 typedef struct
 {

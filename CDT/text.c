@@ -6,11 +6,6 @@
  */
 
 #include "text.h"
-#include <stdio.h>
-#include "common.h"
-#include "plot3d.h"
-#include "main3d.h"
-#include "engine.h"
 
 extern DWORD* colors;
 extern DWORD* pixels;

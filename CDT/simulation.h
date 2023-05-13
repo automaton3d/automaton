@@ -1,5 +1,5 @@
 /*
- * automaton.h
+ * simulation.h
  *
  *  Created on: 01/09/2016
  *      Author: Alexandre
@@ -11,6 +11,15 @@
 #include <windows.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <math.h>
+#include "mouse.h"
+#include "assert.h"
+#include "engine.h"
+#include "quaternion.h"
+#include "trackball.h"
+#include "keyboard.h"
+#include "vec3.h"
 
 // Lattice symbols
 
@@ -26,6 +35,7 @@
 #define DIAG     (2*MASK)
 #define LIGHT    (2*DIAG)
 #define LIGHT2   (LIGHT*LIGHT)
+#define NDIR     6    // von Neumman directions
 
 // Particle singles and pairs (used in k)
 
@@ -85,40 +95,39 @@ typedef struct Cell
   // Pointers.
 
   struct
-    Cell *ws[6];  // wires to other cells (const.);
-  unsigned oE;    // offset inside espacito (const.)
-  unsigned oL;    // offset of espacito in lattice (const.)
+    Cell *ws[NDIR]; // wires to other cells (const.);
+  unsigned off;     // offset (const.)
 
   // Physical properties.
 
-  uint8_t ch;      // charge
-  int p[3], s[3];  // momentum, spin
-  unsigned a1, a2; // affinity
+  uint8_t ch;       // charge
+  int p[3], s[3];   // momentum, spin
+  unsigned a1, a2;  // affinity
 
   // Wavefront.
 
-  unsigned n;     // low level tick
-  int o[3];       // origin
-  unsigned syn;   // synchronism
-  boolean occ;    // occupancy control
+  unsigned n;       // low level tick
+  int o[3];         // origin
+  unsigned syn;     // synchronism
+  uint8_t dir;      // direction
 
   // Sine wave.
 
-  int u;          // Euler product formula
+  int u;            // Euler product formula
 
   // Footprint.
 
-  int pP[3];      // empodion momentum
-  int m[3];       // sought for direction
+  int pP[3];        // empodion momentum
+  int m[3];         // sought for direction
 
   // Superluminal variables.
 
-  int po[3];      // pole
-  unsigned obj;   // affinity collapsing
+  int po[3];        // pole
+  unsigned obj;     // affinity collapsing
 
   // Interaction control.
 
-  unsigned k;     // calculated kind of fragment
+  unsigned k;       // calculated kind of fragment
 
   pthread_mutex_t mutex;
 
@@ -130,16 +139,13 @@ void *AutomatonLoop();
 void DeleteAutomaton();
 void copy();
 void update();
-void interact();
 void initAutomaton();
-void initEspacito();
 void initScreen();
 void printCell(Cell *cell);
-long OFFSET(int x, int y, int z);
 void *work(void * parm);
 void model(int phase);
 void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
 void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
-void wires(Cell *ptr, int x0, int y0, int z0, Cell *latt, int oE);
+Cell *wires(int i, Cell *ptr, int dir, Cell *latt);
 
 #endif /* SIMULATION_H_ */

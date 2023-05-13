@@ -1,7 +1,6 @@
 /*
  * quaternion.c
  */
-#include <math.h>
 #include "quaternion.h"
 
 void normalise(Quaternion *q0)

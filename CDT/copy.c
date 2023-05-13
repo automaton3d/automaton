@@ -10,7 +10,6 @@
 // Current pointers
 
 extern Cell *stb, *drf;
-
 extern pthread_mutex_t mutex;
 
 /**
@@ -20,15 +19,18 @@ void copy()
 {
   pthread_mutex_lock(&mutex);
 
+  // Clock tick.
+
+  drf->n++;
+
   // Lattice update
 
   stb->ch  = drf->ch;   // charges
-  stb->a1   = drf->a1;    // affinity
+  stb->a1   = drf->a1;  // affinity
   stb->n   = drf->n;    // ticks
   stb->syn = drf->syn;  // wf synch
   stb->u   = drf->u;    // sine
   stb->k   = drf->k;    // kind
-  stb->occ = drf->occ;  // occupancy
   stb->obj = drf->obj;  // target
   CP(stb->p, drf->p);   // momentum
   CP(stb->s, drf->s);   // spin

@@ -9,6 +9,7 @@
 #define KEYBOARD_H_
 
 #include <windows.h>
+#include "plot3d.h"
 
 void keyboard(UINT msg, WPARAM wparam, LPARAM lparam);
 

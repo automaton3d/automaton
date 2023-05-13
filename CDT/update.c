@@ -14,7 +14,7 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
 {
   // Bubbles not superposing?
 
-  if (1 || !(stb->oL == nxt->oL &&
+  if (!((stb->off / SIDE3) == (nxt->off / SIDE3) &&
       ZERO(stb->o) && ZERO(nxt->o) &&
       !ZERO(stb->p) && !ZERO(nxt->p)))
   {

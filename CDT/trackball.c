@@ -14,7 +14,6 @@
  * Much mucking with by:
  * Gavin Bell
  */
-#include <math.h>
 #include "trackball.h"
 
 /*

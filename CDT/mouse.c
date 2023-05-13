@@ -2,14 +2,7 @@
  * mouse.c
  */
 
-#include <assert.h>
-#include <math.h>
-
 #include "mouse.h"
-#include "engine.h"
-#include "plot3d.h"
-#include "quaternion.h"
-#include "trackball.h"
 
 boolean fDraw = false;
 boolean input_changed = true;

@@ -4,23 +4,7 @@
  */
 
 #include "simulation.h"
-
-#include <windows.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
-#include <assert.h>
-
-#include "common.h"
-#include "tuple.h"
-#include "utils.h"
-#include "plot3d.h"
-#include "text.h"
-#include "main3d.h"
-#include "engine.h"
 #include "test/test.h"
-#include "vec3.h"
 
 extern boolean rebuild;
 

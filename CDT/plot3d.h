@@ -10,12 +10,9 @@
 #ifndef PLOT3D_H_
 #define PLOT3D_H_
 
-#include <windows.h>
-#include <pthread.h>
-#include "common.h"
-#include "tuple.h"
 #include "simulation.h"
-#include "vec3.h"
+#include "main3d.h"
+#include "bresenham.h"
 
 #define WHITEBG  0x00ffffff
 #define BLACKBG  0x00000000

@@ -5,19 +5,11 @@
  *      Author: Alexandre
  */
 
-#include <stdio.h>
-#include <math.h>
 #include "simulation.h"
-#include "mouse.h"
-#include "assert.h"
-#include "engine.h"
-#include "quaternion.h"
-#include "trackball.h"
 
 extern Voxel *imgbuf[2], *buff, *clean;
 extern Cell *latt0, *latt1;
 extern Quaternion currQ, lastQ;
-
 extern View view;
 extern unsigned long begin;
 
@@ -70,31 +62,6 @@ int template[6][3] =
   {0, 0, -SIDE_2},
 };
 
-void init()
-{
-  int oE = 0;
-  Cell *stb = latt0;
-  Cell *drf = latt1;
-  for(int i = 0; i < SIDE6; i++, stb++, drf++)
-  {
-    int n = i / SIDE3;
-    int x0 = n % SIDE;
-    int y0 = (n / SIDE) % SIDE;
-    int z0 = n / SIDE2;
-    stb->occ = 0;
-    drf->occ = 0;
-    RSET(stb->p);
-    RSET(drf->p);
-    if(i < SIDE3)
-    {
-      stb->p[0] = 1;
-      drf->p[0] = 1;
-    }
-    wires(stb, x0, y0, z0, latt0, oE);
-    wires(drf, x0, y0, z0, latt1, oE);
-  }
-}
-
 /*
  * Initial state.
  */
@@ -123,41 +90,34 @@ void singularity(Cell *grid)
         CP(ptr->s, grid[i % SIDE2].s);  // spin
         ptr->a1  = i + 1;	// dodges zero
         ptr->a2  = 0;
-        ptr->k  = FERMION;
-        RSET(ptr->o);
-        MILD(ptr->po);
+        ptr->k   = FERMION;
+        RSET(ptr->o);	// ready for immediate expansion
+        RSET(ptr->po);  // already at the reissue cell
       }
 }
 
-void initEspacito(Cell *latt, Cell *espacito, int x0, int y0, int z0)
+void initEspacito(Cell *latt, Cell *espacito)
 {
   Cell *ptr = espacito;
-  unsigned oE = 0;
-  unsigned oL = x0 + SIDE * y0 + SIDE2 * z0;
-  for(int z = 0; z < SIDE; z++)
-    for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++, ptr++, oE++)
-      {
-        ptr->ch    = 0;   // charges
-        ptr->n     = 0;   // tick
-        ptr->a1    = 0;	  // affinity
-        ptr->a2    = 0;	  // affinity
-        ptr->syn   = 0;
-        ptr->u     = 0;
-        ptr->k   = EMPTY; // no role whatsoever
-        ptr->obj = SIDE3; // no target
-        ptr->occ = 0;     // free to receive propag.
-        ptr->oL  = oL;    // offset in the grid
-        ptr->oE  = oE;    // offset inside espacito
-        SAT(ptr->o);      // invalid value
-        SAT(ptr->po);     // unreachable
-        RSET(ptr->p);     // null momentum
-        RSET(ptr->s);     // trivial spin
-        RSET(ptr->pP);    // no empodion
-        RSET(ptr->m);     // messenger
-    	wires(ptr, x0, y0, z0, latt, oE);      // wires
-        pthread_mutex_init(&ptr->mutex, NULL);
-      }
+  for(int i = 0; i < SIDE3; i++)
+  {
+    ptr->ch    = 0;   // charges
+    ptr->n     = 0;   // tick
+    ptr->a1    = 0;	  // affinity
+    ptr->a2    = 0;	  // affinity
+    ptr->syn   = 0;   // spherical timing
+    ptr->u     = 0;   // sine
+    ptr->k   = EMPTY; // no role whatsoever
+    ptr->obj = SIDE3; // no target
+    ptr->dir = 0;
+    SAT(ptr->o);      // invalid value
+    SAT(ptr->po);     // unreachable
+    RSET(ptr->p);     // null momentum
+    RSET(ptr->s);     // trivial spin
+    RSET(ptr->pP);    // no empodion
+    RSET(ptr->m);     // messenger
+    pthread_mutex_init(&ptr->mutex, NULL);
+  }
 }
 
 void initAutomaton()
@@ -165,39 +125,30 @@ void initAutomaton()
   printf("DIAG=%d DIAG=%d SIDE=%d\n", DIAG, (int)(sqrt(3)*SIDE + 0.5), SIDE);
 
   latt0 = malloc(SIDE6 * sizeof(Cell));
-  assert(latt0 != NULL);
   latt1 = malloc(SIDE6 * sizeof(Cell));
-  assert(latt1 != NULL);
 
-  Cell *espacito;
+  // Create the lattice graph.
 
-  // Create draft lattice
+  Cell *stb = latt0;
+  Cell *drf = latt1;
+  for(int i = 0; i < SIDE6; i++, stb++, drf++)
+  {
+    for (int dir = 0; dir < NDIR; dir++)
+      stb->ws[dir] = wires(i, stb, dir, latt0);
+    for (int dir = 0; dir < NDIR; dir++)
+      drf->ws[dir] = wires(i, drf, dir, latt1);
+  }
 
-  Cell *sing = NULL;
-  espacito = latt1;
-  for(int z = 0; z < SIDE; z++)
-    for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++)
-      {
-    	  if(x == SIDE/2 && y == SIDE/2 && z == SIDE/2)
-    		  sing = espacito;
-    	  initEspacito(latt1, espacito, x, y, z);
-    	  espacito += SIDE3;
-      }
+  // Introduce data.
 
-  // Create stable lattice
-
-  espacito = latt0;
-  for(int z = 0; z < SIDE; z++)
-    for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++)
-      {
-    	  initEspacito(latt0, espacito, x, y, z);
-    	  espacito += SIDE3;
-      }
-
-  // Create singularity
-
-  singularity(sing);
+  stb = latt0;
+  drf = latt1;
+  for(int i = 0; i < SIDE6; i += SIDE3, stb += SIDE3, drf += SIDE3)
+  {
+    initEspacito(latt0, stb);
+    initEspacito(latt1, drf);
+  }
+  singularity(latt0);
+  singularity(latt1);
 }
 

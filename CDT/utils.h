@@ -8,26 +8,46 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-#include <windows.h>
-#include "tuple.h"
+#include "plot3d.h"
 #include "vec3.h"
+
+#define true 	1
+#define false 	0
+
+#define ESC		27
+
+#define PI		3.14159265358979323846
+
+// Colors
+
+#define BLK		0
+#define NAVY	1
+#define BLUE	2
+#define MAROON	3
+#define PURPLE	4
+#define RED 	5
+#define MAGENTA	6
+#define GREEN	7
+#define TEAL	8
+#define OLIVE	9
+#define GRAY	10
+#define LIME	11
+#define ORANGE	12
+#define CYAN	13
+#define YELLOW	14
+#define WHT 	15
+#define SILVER	16
+#define PALE    17
+#define VANILLA 18
+#define BOX		PURPLE
+
+#define NCOLORS	19
+
+typedef struct { int x, y, z; } Tuple;
 
 /// Functions ///
 
 void delay(unsigned int mseconds);
-double distance3d(Vec3 v, Vec3 b);
-int opposite(int dir);
-int rndSign();
-int signum(int a);
-double sign(double d);
-boolean pwm(int n);
-unsigned sqr(unsigned long n);
-Tuple toTuple(Vec3 v);
-Vec3 rndVector();
-Vec3 toVec(Tuple t);
-double rnd();
-void rndInt(int *array, int max);
-Vec3 gravxpreon(Vec3 p0, Vec3 p1, Vec3 cen, double r);
 int string_length(char *s);
 int DOT(int *u, int *v);
 int MOD2(int *v);

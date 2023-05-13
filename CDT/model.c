@@ -5,166 +5,168 @@
  *      Author: Alexandre
  */
 
-#include <assert.h>
-
 #include "simulation.h"
-#include "utils.h"
 
 Cell *latt0, *latt1, *stb, *drf;
 
 void model(int phase)
 {
-  boolean collapse = false;
   if (phase == 0)
   {
-    // Occupancy vanish.
+     // --- Beginning of affine operations ---
 
-	if(stb->occ)
-	  drf->occ--;
+    int t = stb->n / LIGHT;  // Calculate physical time
 
-	// Momentum is always
-	// on the crest of the waves.
+    // Find new skewed addresses inside espacito
+    // for updates. (Sect. 4.2)
 
-	if(!ZERO(stb->p))
-	  drf->occ = LIGHT;
+    int oE = stb->off % SIDE3;
+    int off;
+    if (oE % 2 == 0)
+      off = (oE + (t + 1)) % SIDE3;
+    else
+      off = (oE - (t + 1)) % SIDE3;
+    Cell *nxt = stb - oE + off;
+    Cell *lst = drf - oE + off;
 
-	// --- Beginning of affine operations ---
+    // Synchronize code.
 
-	// Calculate physical time.
+    //join();
 
-	int t = stb->n / LIGHT;
+    // A collapse forces all affine bubbles to reissue.
+    // nxt->a1 is the skewed affinity being explored.
+    // stb->obj is the affinity inherited from interaction.
+    // Only non trivial p matters.
+    // Annihilation makes all affinities different.
 
-	// Find new skewed addresses inside espacito
-	// for updates. (Sect. 4.2)
+    if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
+        !ZERO(nxt->p) && stb->k == COLLAPSE)
+    {
+      // Target found.
+      // Reissue this particular bubble.
+      // Collapse happens at c.p.
 
-	int off;
-	if (stb->oE % 2 == 0)
-	  off = (stb->oE + (t + 1)) % SIDE3;
-	else
-	  off = (stb->oE - (t + 1)) % SIDE3;
-	Cell *nxt = stb - stb->oE + off;
-	Cell *lst = drf - drf->oE + off;
+      RSET(lst->po);    // reissue from c.p.
+      RSET(lst->o);     // radius 0
+      lst->syn = 0;     // ready for immediate expansion
+      lst->n   = 0;     // synchronize clocks
+      lst->obj = SIDE3; // no target in view
 
-	// Synchronize code.
+      // Reset sine wave.
+      // Sect. 6.3 and (Eq. 2).
 
-	//join();
+      lst->u   = 0;     // always reset sine
+      RSET(lst->m);     // not a messenger
 
-	// A collapse forces all affine bubbles to reissue.
-	// nxt->a1 is skewed affinity being explored.
-	// stb->obj is the affinity inherited from interaction.
-	// Only non trivial p matters.
-	// Annihilation makes all affinities different.
+      // Dissolution?
 
-	if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
-	    !ZERO(nxt->p) && stb->k == COLLAPSE)
-	{
-	  // Target found.
-	  // Reissue this particular bubble.
-	  // Collapse happens at c.p.
+      if (ANNIHIL(stb, nxt))
+      {
+        // Free from particle
 
-	  collapse = true;
-
-	  RSET(lst->po);    // reissue from c.p.
-	  RSET(lst->o);     // radius 0
-	  lst->syn = 0;     // ready for immediate expansion
-	  lst->n   = 0;     // synchronize clocks
-	  lst->obj = SIDE3; // no target in view
-
-	  // Reset sine wave.
-	  // Sect. 6.3 and (Eq. 2).
-
-	  lst->u   = 0;     // always reset sine
-	  RSET(lst->m);     // not a messenger
-
-	  // Dissolution?
-
-	  if (ANNIHIL(stb, nxt))
-	  {
-	  	// Free from particle
-
-	   	lst->a1 = nxt->oE + 1;
-	  }
-	}
+        lst->a1 = (nxt->off % SIDE3) + 1;
+      }
+    }
 
     // All related bubbles are bumped.
 
-	else if (nxt->a1 == stb->obj)
-	{
-	  // Bump sine generator.
-	  // (Euler formula for sine)
+    else if (nxt->a1 == stb->obj)
+    {
+      // Bump sine generator.
+      // (Euler formula for sine)
 
-	  int tn = nxt->n / LIGHT;  // skewed time
-	  if (tn > 0)
-	  {
-	    lst->u = nxt->u * (tn * tn - MOD2(nxt->o)) / (tn * tn);
-	  }
+      int tn = nxt->n / LIGHT;  // skewed time
+      if (tn > 0)
+      {
+        lst->u = nxt->u * (tn * tn - MOD2(nxt->o)) / (tn * tn);
+      }
     }
 
-	// Last pass of wavefront?
+    // Last pass of wavefront?
 
-	if (stb->n % LIGHT == 0)
-	{
-	  // --- Beginning of Sciarreta operations ---
+    if (stb->n % LIGHT == 0)
+    {
+      // Particle empodion decay (Eqn. 6)?
 
-	  // Particle empodion decay (Eqn. 6)?
+      if (!ZERO(stb->pP))
+      {
+        // Cell belongs to a particle empodion.
+        // Vector p shrinks (Eq. 6) to 0, when then
+        // empodion disconnects Sec. 4.7.3).
 
-	  if (!ZERO(stb->pP))
-	  {
-	    // Cell belongs to a particle empodion.
-	    // Vector p shrinks (Eq. 6) to 0, when then
-	    // empodion disconnects Sec. 4.7.3).
-
-	    drf->pP[0] -= drf->pP[0] / (2 * t);
-	    drf->pP[1] -= drf->pP[1] / (2 * t);
-	    drf->pP[2] -= drf->pP[2] / (2 * t);
-	    if (ZERO(drf->pP))
-	      drf->a1 = stb->oE + 1;  // default value
+        drf->pP[0] -= drf->pP[0] / (2 * t);
+        drf->pP[1] -= drf->pP[1] / (2 * t);
+        drf->pP[2] -= drf->pP[2] / (2 * t);
+        if (ZERO(drf->pP))
+          drf->a1 = (stb->off % SIDE3) + 1;  // default value
 
 	    // Update lattice decay.
 	    // A saturated o vector means lattice role.
 
-	    if (ISSAT(stb->o) && t > 0)
-	    {
-	      // Lattice track decay (Eq. 5).
-	      // When pP=0, empodion disconects. (Sect. 4.7.3)
+        if (ISSAT(stb->o) && t > 0)
+        {
+          // Lattice track decay (Eq. 5).
+          // When pP=0, empodion disconects. (Sect. 4.7.3)
 
-	      drf->pP[0] -= drf->pP[0] * drf->pP[0] / (t * t);
-	      drf->pP[1] -= drf->pP[1] * drf->pP[1] / (t * t);
-	      drf->pP[2] -= drf->pP[2] * drf->pP[2] / (t * t);
-	      if (ZERO(drf->pP))
-	        drf->a1 = stb->oE + 1; // default vale
-	    }
-	  }
+          drf->pP[0] -= drf->pP[0] * drf->pP[0] / (t * t);
+          drf->pP[1] -= drf->pP[1] * drf->pP[1] / (t * t);
+          drf->pP[2] -= drf->pP[2] * drf->pP[2] / (t * t);
+          if (ZERO(drf->pP))
+            drf->a1 = (stb->off % SIDE3) + 1; // default vale
+        }
+      }
 
-	  // --- End of Sciarreta operations ---
+      // A light pass was completed, detect interactions.
 
-	  // A light pass was completed, detect interactions.
+      interact(stb, drf, nxt, lst);
+    }
+    else
+    {
+      // Pair management.
 
-	  interact(stb, drf, nxt, lst);
-	}
-	else
-	{
-	  // Pair management.
+      managePairs(t, stb, drf, nxt, lst);
+    }
 
-	  managePairs(t, stb, drf, nxt, lst);
-	}
+    // --- End of affine operations ---
 
-	// --- End of affine operations ---
+    // Synchronize code.
 
-	// Synchronize code.
+    //join();
 
-	//join();
-
-	return;
+    goto TICK;
   }
 
-  // Expansion
+  // Expansion.
 
-  Cell *tx = NULL;
-  int dotMax = 0;
-  Cell* nei;
-  for(int dir = 0; dir < 6; dir++)
+  for(int dir = 0; dir < NDIR; dir++)
   {
+    Cell* nei = drf->ws[dir];
+
+    // Calculate forbidden direction.
+
+    int d = (stb->dir + dir) % NDIR;
+    if (d == 0) d = 1;
+    else if (d == 1) d = 0;
+    else if (d == 2) d = 3;
+    else if (d == 3) d = 2;
+    else if (d == 4) d = 5;
+    else if (d == 5) d = 4;
+
+    // Do not return to previous cell.
+    // Do not touch wavefront either.
+
+    if (dir != d && !BUSY(nei))
+    {
+      // Transmit superluminal info
+
+      nei->n   = stb->n;    // used to calculate skew
+      nei->obj = stb->obj;  // used for collapse
+      nei->dir = dir;       // direction
+      CP(nei->p, stb->p);	// used to find pole
+    }
+
+    // RSET(drf->p);
+
     int org[3];
     CP(org, stb->o);
     int i = dir >> 1;
@@ -172,57 +174,31 @@ void model(int phase)
     if (abs(org[i]) < abs(stb->o[i]))
       continue;
 
-    assert(!(abs(org[0]) == SIDE_2 + 1 ||
-	        abs(org[1]) == SIDE_2 + 1 ||
-	        abs(org[2]) == SIDE_2 + 1));
-
     // Wrapped?
+    // This serves both for luminal and superluminal.
 
     if(ISMILD(org))
       continue;
 
-    nei = drf->ws[dir];
-
-    // Proceed only if destiny cell is free.
-
-    if (nei->occ == 0)
-      nei->occ = LIGHT;		// crest
-    else
-      continue;
-
-    // Momentum propagates by default.
-
-    CP(nei->p, stb->p);
-
     // Transmit superluminal info
 
+    nei->n   = stb->n;    // ticks
     nei->obj = stb->obj;  // target
     nei->ch  = stb->ch;   // charges
-    nei->a1   = stb->a1;  // affinity LO
-    nei->a2   = stb->a2;  // affinity HO
-    nei->n   = stb->n;    // ticks
-    nei->oE  = stb->oE;   // espacito offset
-    nei->k   = stb->k;    // kind
-    CP(drf->m, stb->m);   // messenger
+    nei->a1  = stb->a1;   // affinity LO
+    nei->a2  = stb->a2;   // affinity HO
+    nei->k   = stb->k;    // content
+    nei->dir = dir;       // direction
+    CP(nei->m, stb->m);   // messenger status
 
-    // --- Spherical propagation ---
+    // Propagate exclusive spherical info.
 
-    // Spherical test.
-
-    if (collapse)
-    {
-      // Draft is already configured for a new expansion.
-
-      continue;
-    }
+    nei->u = stb->u;      // sine
+    CP(nei->s, stb->s);   // spin
+    CP(nei->o, stb->o);   // bubble origin
+    CP(nei->pP, stb->pP); // decay
 
     // Spherical synchronism.
-
-    if (stb->n * stb->n < stb->syn)
-      continue;                     // immature
-
-    // Transmit spherical info.
-    // Set timing for spherical pattern (Sect. 3).
 
     nei->syn = LIGHT2 * MOD2(org);  // mature
 
@@ -230,48 +206,26 @@ void model(int phase)
 
     MILD(nei->po);
 
-    // Momentum already at reissue cell.
+    // Select momentum destination (Sect. 3.1).
+    // Uses calculated alignment with spin.
 
-    if(EQ(stb->o, stb->po))
+    if (DOT(org, stb->s) == 1)
     {
-      // Cease momentum spreading.
-
+      CP(nei->p, stb->p);   // propagate momentum
+      CP(nei->po, stb->po); // propagate pole
+    }
+    else
+    {
       RSET(nei->p);
     }
-
-    // Propagate exclusive spherical info.
-
-    nei->u   = stb->u;    // sine
-    CP(drf->s, stb->s);   // spin
-    CP(drf->o, stb->o);   // bubble origin
-    CP(drf->pP, stb->pP); // decay
-
-    // Calculate alignment with spin.
-
-    int dot = abs(DOT(org, stb->s));
-
-    // Select momentum destination (Sect. 3.1).
-
-    if (dot >= dotMax)
-    {
-      dotMax = dot;
-      tx = nei;
-    }
   }
 
-  // A target cell for momentum was found?
+  // This marks cell as empty (no wavefront), but
+  // trail info remains.
 
-  if(tx != NULL)
-  {
-    // If pole not found yet, release po.
-
-    if(!EQ(stb->o, stb->po))
-      CP(tx->po, stb->po);   // propagate pole
-  }
+  SAT(drf->po);
 
   // Obs.: momentum was left in cell as a trail.
 
-  // Clock tick.
-
-  drf->n++;
+  TICK: ;
 }

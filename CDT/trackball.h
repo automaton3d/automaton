@@ -8,6 +8,8 @@
 #ifndef TRACKBALL_H_
 #define TRACKBALL_H_
 
+#include <math.h>
+
 /*
  * trackball.h
  * A virtual trackball implementation

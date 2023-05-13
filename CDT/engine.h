@@ -8,8 +8,10 @@
 #ifndef ENGINE_H_
 #define ENGINE_H_
 
-#include <windows.h>
-
+#include <assert.h>
+#include <math.h>
+#include "utils.h"
+#include "text.h"
 #include "vec3.h"
 
 #define WINDOW 100
@@ -26,13 +28,6 @@ typedef struct
 	double distance;
 
 } Plane;
-
-typedef struct
-{
-	Vec3 p1, p2;
-	char color;
-
-} Line;
 
 typedef struct
 {
@@ -73,14 +68,13 @@ void panV(int offset);
 void putPixel(int x, int y, int color);
 void update3d();
 void flipBuffers();
+void point2d(int x, int y, int color);
+void shrinkWindow();
+void expandWindow();
+boolean isParallel();
 boolean isParallel();
 char getBackground();
 Vec3 arcball(Vec3 points, Vec3 axis, double angle);
-void point2d(int x, int y, int color);
 Vec3 getPerspective();
-boolean isParallel();
-void shrinkWindow();
-void expandWindow();
-
 
 #endif /* ENGINE_H_ */

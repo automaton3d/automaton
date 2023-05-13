@@ -8,6 +8,9 @@
 #ifndef TEXT_H_
 #define TEXT_H_
 
+#include "plot3d.h"
+#include "engine.h"
+
 /// Functions ///
 
 void vprints(int x, int y, char *str);

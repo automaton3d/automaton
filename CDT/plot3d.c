@@ -10,19 +10,8 @@
  */
 
 #define _GNU_SOURCE
-#define PTW32_STATIC_LIB
 
-#include <windows.h>
-#include <assert.h>
-
-#include "engine.h"
 #include "plot3d.h"
-#include "mouse.h"
-#include "text.h"
-#include "main3d.h"
-#include "bresenham.h"
-#include "utils.h"
-#include "test/test.h"
 
 // Global variables
 
@@ -137,18 +126,6 @@ void initPlot()
     SendMessage(g_hBitmap, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)myBitmap);
 }
 
-void addCell(Cell *c)
-{
-	if(nmark < TRACEBUF)
-		marks[nmark++] = *c;
-}
-
-void addPoint2d(int x, int y)
-{
-	assert(y > 0);
-	yy[x] = y;
-}
-
 void drawGroundPlane()
 {
 	LRESULT result = SendMessage(plane_chk, BM_GETCHECK, PLANE, 0);
@@ -184,7 +161,7 @@ void drawGroundPlane()
 }
 
 void drawMark(Cell cell)
-{
+{/*
 	if(cell.oE > 0)
 		return;
 	int x0 = cell.oL % SIDE;
@@ -214,6 +191,7 @@ void drawMark(Cell cell)
 	t1.z += DEV;
 	t2.z -= DEV;
 	line3d(t1, t2, ORANGE);
+	*/
 }
 
 void drawMarks()
@@ -257,14 +235,14 @@ void drawCell(Tuple *t0, Tuple *t, Cell *cell)
 	xyz.y = WIDE * (SIDE * (t0->y + drifty) + t->y - DRIFT);
 	xyz.z = WIDE * (SIDE * (t0->z + driftz) + t->z - DRIFT);
 
-	if(momentum && !ZERO(cell->p) && BUSY(cell))
+	if(momentum && !ZERO(cell->p) && !ISSAT(cell->po))
 		putBlob(xyz, CYAN);
-	else if(wavefront && BUSY(cell) && cell->oE==0)
+	else if(wavefront && !ISSAT(cell->po) && BUSY(cell))
 		putBlob(xyz, YELLOW);
 	else if(showGrid)
 		putBlob(xyz, PALE);
 	else
-		putBlob(xyz, BLK);
+		putBlob(xyz, GRAY);
 }
 
 void drawEspacito(Tuple *t0, Cell *esp)
@@ -274,12 +252,9 @@ void drawEspacito(Tuple *t0, Cell *esp)
 		for(t.y = 0; t.y < SIDE; t.y++)
 			for(t.x = 0; t.x < SIDE; t.x++)
 			{
-				if(mode0)
-					drawCell(t0, &t, esp);
-				else if(mode1 && esp->oE == 0)//a)
-					drawCell(t0, &t, esp);
-				else if(mode2 && t.x < 2 && t.y < 2 && t.z < 2)
-					drawCell(t0, &t, esp);
+				if(!(mode2 && t.x < 2 && t.y < 2 && t.z < 2))
+				  continue;
+				drawCell(t0, &t, esp);
 				esp++;
 			}
 }
@@ -420,12 +395,6 @@ void drawVectors()
 	setCamera(position, direction, attitude);
 }
 
-void voxelize()
-{
-	if(showModel)
-		drawModel();
-}
-
 void update2d()
 {
  	char *s = NULL;
@@ -514,7 +483,7 @@ void *DisplayLoop()
             Sleep(80);
     	}
     	//
-    	// Update elapsed time display
+    	// Update elapsed time display.
     	//
     	HWND hwnd = WindowFromDC(hdc);
     	RECT rect;

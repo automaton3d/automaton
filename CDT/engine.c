@@ -5,14 +5,7 @@
  *      Author: Alexandre
  */
 
-#include <windows.h>
-#include <stdio.h>
-#include <math.h>
-#include <assert.h>
-#include "common.h"
 #include "engine.h"
-#include "text.h"
-#include "main3d.h"
 
 // Transformation matrix
 //
@@ -23,13 +16,13 @@ static double m30, m31, m32;
 //
 // 3d fields
 //
-static Vec3 center;	      	// center of projection
-static Vec3 pc;         	// transformed center of projection
-static Vec3 pen;        	// plotting pen
+static Vec3 center;	      	  // center of projection
+static Vec3 pc;         	  // transformed center of projection
+static Vec3 pen;        	  // plotting pen
 
-static double distance;        	// view distance
-static double frontDistance;	// clipping plane
-static double backDistance;		// clipping plane
+static double distance;       // view distance
+static double frontDistance;  // clipping plane
+static double backDistance;	  // clipping plane
 //
 // Window
 //
@@ -39,9 +32,9 @@ static double vxl, vyl;
 static double vxh, vyh;
 static double wsx, wsy;
 //
-static Vec3 position;      	// view reference point
-static Vec3 direction;		// camera axis
-static Vec3 attitude;   	// view-up direction
+static Vec3 position;      	  // view reference point
+static Vec3 direction;		  // camera axis
+static Vec3 attitude;   	  // view-up direction
 //
 static boolean parallel = false;
 static boolean clipping = true;
@@ -58,25 +51,25 @@ Voxel *imgbuf[2], *buff, *clean;
  */
 void initPalette()
 {
-    colors[0]  = 0x00000000;		// BLK
-	colors[1]  = 0x00000080;		// NAVY
-    colors[2]  = 0x000000ff;		// BLUE
-    colors[3]  = 0x00800000;		// MAROON
-	colors[4]  = 0x00800080;		// PURPLE
-    colors[5]  = 0x00ff0000;		// RED
-	colors[6]  = 0x00ff00ff;		// MAGENTA
-	colors[7]  = 0x00008000;		// GREEN
-	colors[8]  = 0x00008080;		// TEAL
-	colors[9]  = 0x00808000;		// OLIVE
-    colors[10] = 0x00808080;		// GRAY
-    colors[11] = 0x0000ff00;		// LIME
-	colors[12] = 0x00ffa500;		// ORANGE
-    colors[13] = 0x0000ffff;		// CYAN
-    colors[14] = 0x00ffff00;		// YELLOW
-    colors[15] = 0x00ffffff;		// WHT
-	colors[16] = 0x00c0c0c0;		// SILVER
-    colors[17] = 0x00111100;		// PALE
-    colors[18] = 0x00800080;		// PURPLE
+    colors[0]  = 0x00000000; // BLK
+	colors[1]  = 0x00000080; // NAVY
+    colors[2]  = 0x000000ff; // BLUE
+    colors[3]  = 0x00800000; // MAROON
+	colors[4]  = 0x00800080; // PURPLE
+    colors[5]  = 0x00ff0000; // RED
+	colors[6]  = 0x00ff00ff; // MAGENTA
+	colors[7]  = 0x00008000; // GREEN
+	colors[8]  = 0x00008080; // TEAL
+	colors[9]  = 0x00808000; // OLIVE
+    colors[10] = 0x00404040; // GRAY
+    colors[11] = 0x0000ff00; // LIME
+	colors[12] = 0x00ffa500; // ORANGE
+    colors[13] = 0x0000ffff; // CYAN
+    colors[14] = 0x00ffff00; // YELLOW
+    colors[15] = 0x00ffffff; // WHT
+	colors[16] = 0x00c0c0c0; // SILVER
+    colors[17] = 0x00111100; // PALE
+    colors[18] = 0x00800080; // PURPLE
 }
 
 // Scale is the value you multiply x and y with before you divide
@@ -271,7 +264,7 @@ static void makeViewPlaneTransformation()
 	// Translate so that view plane center is new origin
 	//
 	translate(-(position.x + direction.x * distance),
-				  -(position.y + direction.y * distance),
+			  -(position.y + direction.y * distance),
 			  -(position.z + direction.z * distance));
 	//
 	// Rotate so that view plane normal is z axis
@@ -444,7 +437,10 @@ static void enter(int color)
 		//
 		int pos = WIDTH - xi + (HEIGHT - yi - 1) * WIDTH;
 		if(pos > 0 && pos < WIDTH * HEIGHT)
-			pixels[pos] = colors[color];
+		{
+			if(color != GRAY || pixels[pos] == 0)
+				pixels[pos] = colors[color];
+		}
 	}
 }
 
@@ -464,7 +460,6 @@ void plot(Vec3 v, char color)
 
 /**
  * Projects all voxels on the screen.
- * Origin: clean buffer.
  */
 void update3d()
 {
@@ -498,14 +493,6 @@ void putPixel(int x, int y, int color)
 	if(x > 0 && x < WIDTH && y > 0 && y < HEIGHT)
 		*(pixels + x + y*WIDTH) = colors[color];
 }
-
-/*
-static void setParallel(Vector3d d)
-{
-	if((fabs(d.x) + fabs(d.y) + fabs(d.z)) < ROUNDOFF)
-		perror("No direction of projection");
-}
-*/
 
 /**
  * Called by the main3d.c Windows interface.
@@ -751,56 +738,4 @@ void line2d(int x0, int y0, int x1, int y1, int color)
     		pixels[x0 + y0*WIDTH] = colors[color];
     	}
     }
-}
-
-static boolean clip(Line *line, Plane plane)
-{
-	double dist1 = dot3d(line->p1, plane.normal);
-	double dist2 = dot3d(line->p2, plane.normal);
-	if(dist1 < 0 && dist2 < 0)
-		return false;
-	else if(!(dist1 > 0 && dist2 > 0))
-	{
-		double s = dist1 / (dist1 - dist2);
-		Vec3 intersect;
-		intersect.x = line->p1.x + s*(line->p2.x - line->p1.x);
-		intersect.y = line->p1.y + s*(line->p2.y - line->p1.y);
-		intersect.z = line->p1.z + s*(line->p2.z - line->p1.z);
-		if(dist1 < 0)
-			line->p1 = intersect;
-		else
-			line->p2 = intersect;
-	}
-	return true;
-}
-
-Plane buildPlane(Vec3 a, Vec3 b, Vec3 c)
-{
-	Plane p;
-	//
-	// Build normal vector
-	//
-	Vec3 q, v;
-	q.x = b.x - a.x;    v.x = b.x - c.x;
-	q.y = b.y - a.y;    v.x = b.y - c.y;
-	q.z = b.y - a.y;    v.x = b.z - c.z;
-	cross3d(q, v, &p.normal);
-	normalize(&p.normal);
-	//
-	// Calculate distance to origin
-	//
-	p.distance = dot3d(p.normal, a);  // you could also use b or c
-	return p;
-}
-
-void clipFrustum(Line line)
-{
-	int n = 0;
-	Frustum f;
-	for(int i = 0; i < 4 && n < 2; i++)
-	{
-		if(clip(&line, f.sides[0]))
-			n++;
-	}
-	clip(&line, f.znear);
 }

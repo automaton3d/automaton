@@ -8,6 +8,7 @@
 #ifndef QUATERNION_H_
 #define QUATERNION_H_
 
+#include <math.h>
 #include "vec3.h"
 
 typedef struct

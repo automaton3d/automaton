@@ -9,19 +9,8 @@
 
 #define PTW32_STATIC_LIB
 
-#include <windows.h>
 #include "main3d.h"
-#include <GL/GL.h>
-#include <stdio.h>
-#include <math.h>
-#include <assert.h>
-#include "utils.h"
-#include "engine.h"
-#include "plot3d.h"
 #include "simulation.h"
-#include "tuple.h"
-#include "keyboard.h"
-#include "mouse.h"
 
 extern unsigned long begin;
 
@@ -35,17 +24,10 @@ pthread_t loop, display;
 pthread_barrier_t barrier;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrierattr_t attr;
-#define FRONT		0
-#define TRACK		1
-#define MOMENTUM	2
-#define PLANE		3
-#define CUBE		4
-#define MODE0		5
-#define MODE1		6
-#define MODE2		7
 
 HWND front_chk, track_chk, p_chk, plane_chk, cube_chk;
 HWND mode0_rad, mode1_rad, mode2_rad;
+HWND g_hBitmap;
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -197,9 +179,6 @@ void CreateLabel(HWND hwndParent, int x, int y, int width, int height, LPCWSTR t
     CreateWindow ("STATIC", (LPCSTR)text, WS_VISIBLE | WS_CHILD | SS_LEFT, x, y, width, height, hwndParent, NULL, NULL, NULL);
 }
 
-HWND g_hBitmap;
-
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	CreateEvent(NULL, FALSE, FALSE, "Launching...");
@@ -230,7 +209,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	RegisterClass(&wc);
 	hwnd = CreateWindow("MYWNDCLASSNAME", title,
 		WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-		20, 20, screenWidth - 40, screenHeight -80, NULL, NULL, hInstance, NULL);
+		20, 20, screenWidth - 500, screenHeight -100, NULL, NULL, hInstance, NULL);
  	free(title);
 
     // Create checkboxes
