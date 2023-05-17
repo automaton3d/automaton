@@ -8,34 +8,36 @@
 #include <stdio.h>
 #include "test.h"
 
-#define true  1
-#define false 0
 
-boolean first = true;
+int jump = 0;
 
 extern Cell* latt1;
 
 void printCell(Cell *cell)
 {
-  //if (!ZERO(cell->p))
-  if(cell->oE == 0)
+  char *cmpl = "";
+
+  if(cell->off == 0)
   {
-    if(first)
+    if(jump % 64 == 0)
     {
-	  puts("\nn\tch\toL\toE\ta\tk\tsyn\tnoise\to\tp\tpo");
-	  puts("---------------------------------------------------------------------------------");
+	  puts("\nn\tch\toff\ta1\ta2\tk\tsyn\to\tp\tpo");
+	  puts("---------------------------------------------------------------------------------------");
 	}
 	printf("%d\t", cell->n);
 	printf("0x%02x\t", cell->ch);
-	printf("%d\t", cell->oL);
-	printf("%d\t", cell->oE);
+	printf("%d\t", cell->off);
 	printf("%d\t", cell->a1);
+	printf("%d\t", cell->a2);
 	printf("%d\t", cell->k);
 	printf("%d\t", cell->syn);
 	printf("%d,%d,%d\t", cell->o[0], cell->o[1], cell->o[2]);
 	printf("%d,%d,%d\t", cell->p[0], cell->p[1], cell->p[2]);
-	printf("%d,%d,%d\n", cell->po[0], cell->po[1], cell->po[2]);
-	first = false;
+	printf("%d,%d,%d\t", cell->po[0], cell->po[1], cell->po[2]);
+	if(!ISMILD(cell->po))
+		cmpl = "C";
+	printf("%s\n", cmpl);
+	jump++;
   }
 }
 
@@ -43,15 +45,7 @@ void printLattice(Cell *latt)
 {
     for(int i = 0; i < SIDE6; i++, latt++)
     {
-    	if(0&&!ZERO(latt->p))
-    	{
-    		puts("-----------");
-    	}
-    	if(latt->occ > 0)
-    	{
-    		printCell(latt);
-    	}
-   		//delay(100);
+   		printCell(latt);
     }
 }
 
