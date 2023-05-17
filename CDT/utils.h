@@ -9,7 +9,8 @@
 #define UTILS_H_
 
 #include "plot3d.h"
-#include "vec3.h"
+#include "quaternion.h"
+#include "utils.h"
 
 #define true 	1
 #define false 	0
@@ -51,5 +52,11 @@ void delay(unsigned int mseconds);
 int string_length(char *s);
 int DOT(int *u, int *v);
 int MOD2(int *v);
+void scale3d(float *t, int s);
+void cross3d(float v1[3], float v2[3], float *v3);
+void normalize(float *v);
+void reset3d(float *v);
+void add3d(float *a, float b[3]);
+void sub3d(float *a, float b[3]);
 
 #endif /* UTILS_H_ */

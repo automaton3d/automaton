@@ -30,15 +30,15 @@ void mul(Quaternion *q0, Quaternion q1, Quaternion q2)
 /**
  * Calculates the quaternion to rotate one vector onto another
  */
-void fromBetweenVectors(Quaternion *q, Vec3 u, Vec3 v)
+void fromBetweenVectors(Quaternion *q, float *u, float *v)
 {
-  float ux = u.x;
-  float uy = u.y;
-  float uz = u.z;
+  float ux = u[0];
+  float uy = u[1];
+  float uz = u[2];
   //
-  float vx = v.x;
-  float vy = v.y;
-  float vz = v.z;
+  float vx = v[0];
+  float vy = v[1];
+  float vz = v[2];
   //
   float dot = ux * vx + uy * vy + uz * vz;
   float wx = uy * vz - uz * vy;
@@ -84,16 +84,16 @@ void mulQ(Quaternion *r, Quaternion a, Quaternion b)
  * @param {Array} v The vector to be rotated
  * @returns {Array}
  */
-void rotateVector(Vec3 *r, Quaternion q, Vec3 v)
+void rotateVector(float *r, Quaternion q, float v[3])
 {
   float qw = q.w;
   float qx = q.x;
   float qy = q.y;
   float qz = q.z;
 
-  float vx = v.x;
-  float vy = v.y;
-  float vz = v.z;
+  float vx = v[0];
+  float vy = v[1];
+  float vz = v[2];
 
   // t = 2q x v
   float tx = 2 * (qy * vz - qz * vy);
@@ -102,9 +102,9 @@ void rotateVector(Vec3 *r, Quaternion q, Vec3 v)
 
   // v + w t + q x t
 
-  r->x = vx + qw * tx + qy * tz - qz * ty;
-  r->y = vy + qw * ty + qz * tx - qx * tz;
-  r->z = vz + qw * tz + qx * ty - qy * tx;
+  r[0] = vx + qw * tx + qy * tz - qz * ty;
+  r[1] = vy + qw * ty + qz * tx - qx * tz;
+  r[2] = vz + qw * tz + qx * ty - qy * tx;
 }
 
 void identityQ(Quaternion *q)

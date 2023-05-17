@@ -10,6 +10,7 @@
 
 #include <windows.h>
 #include "plot3d.h"
+#include "utils.h"
 
 void keyboard(UINT msg, WPARAM wparam, LPARAM lparam);
 

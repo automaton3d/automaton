@@ -12,7 +12,6 @@
 #include <math.h>
 #include "utils.h"
 #include "text.h"
-#include "vec3.h"
 
 #define WINDOW 100
 #define ROUNDOFF  	1e-15
@@ -24,7 +23,7 @@
 
 typedef struct
 {
-	Vec3 normal;
+	float normal[3];
 	double distance;
 
 } Plane;
@@ -38,7 +37,7 @@ typedef struct
 
 typedef struct
 {
-	Vec3 pos;
+	float pos[3];
 	char color;
 
 } Voxel;
@@ -56,12 +55,12 @@ void newView2();
 void newView3();
 void newProjection();
 void clearBuffer();
-void plot(Vec3 v, char color);
-void putVoxel(Vec3 v, char color);
+void plot(float v[3], char color);
+void putVoxel(float v[3], char color);
 void line2d(int x0, int y0, int x1, int y1, int color);
 void drawChar(double x, double y, double z, char color, char ch);
-void setCamera(Vec3 position, Vec3 direction, Vec3 attitude);
-void getCamera(Vec3 *position, Vec3 *direction, Vec3 *attitude);
+void setCamera(float position[3], float direction[3], float attitude[3]);
+void getCamera(float *p, float *d, float *a);
 void zoom(int delta);
 void panH(int offset);
 void panV(int offset);
@@ -74,7 +73,6 @@ void expandWindow();
 boolean isParallel();
 boolean isParallel();
 char getBackground();
-Vec3 arcball(Vec3 points, Vec3 axis, double angle);
-Vec3 getPerspective();
+float *getPerspective();
 
 #endif /* ENGINE_H_ */

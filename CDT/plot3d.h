@@ -13,9 +13,15 @@
 #include "simulation.h"
 #include "main3d.h"
 #include "bresenham.h"
+#include "utils.h"
 
-#define WHITEBG  0x00ffffff
-#define BLACKBG  0x00000000
+#define WHITEBG 0x00ffffff
+#define BLACKBG 0x00000000
+
+// Offset of 3d bitmap
+
+#define BMAPX   300
+#define BMAPY   100
 
 #define WIDE        (1024/SIDE2)
 #define DRIFT       ((SIDE2+SIDE)/2)
@@ -37,12 +43,14 @@
 #define MOMENTUM	2
 #define PLANE		3
 #define CUBE		4
-#define MODE0		5
-#define MODE1		6
-#define MODE2		7
+#define LATTICE		5
+#define MODE0		6
+#define MODE1		7
+#define MODE2		8
 
 /// Functions ///
 
 void *DisplayLoop();
+void mouse(UINT msg, WPARAM wparam, LPARAM lparam);
 
 #endif /* PLOT3D_H_ */

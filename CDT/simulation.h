@@ -13,15 +13,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
-#include "mouse.h"
 #include "assert.h"
 #include "engine.h"
 #include "quaternion.h"
-#include "trackball.h"
 #include "keyboard.h"
-#include "vec3.h"
 
-// Lattice symbols
+// Lattice symbols.
 
 #define ORDER    3  //202 (see Section 2.3)
 #define SIDE     (1<<ORDER)
@@ -37,9 +34,18 @@
 #define LIGHT2   (LIGHT*LIGHT)
 #define NDIR     6    // von Neumman directions
 
-// Particle singles and pairs (used in k)
+// Roles.
 
-#define EMPTY    0x0000
+#define EMPTY     0
+#define SEED      1
+#define WAVE      2
+#define GRID      3
+#define TRAIL     4
+#define TRAVELLER 5
+
+// Particle singles and pairs (used in k).
+
+#define NONE     0x0000
 #define COLLAPSE 0x0001
 #define FERMION  0x0002
 #define SPHOTON  0x0004	// super photon
@@ -51,19 +57,19 @@
 #define UP       0x0100
 #define DOWN     0x0200
 
-// Charge masks
+// Charge masks.
 
 #define C_MASK   0x07
 #define Q_MASK   0x08
 #define W0_MASK  0x10
 #define W1_MASK  0x20
 
-// Handedness
+// Handedness.
 
 #define RIGHT 0
 #define LEFT  1
 
-// Macros (helps readability)
+// Macros (helps readability).
 
 #define ZERO(v)      (v[0]==0&&v[1]==0&&v[2]==0)
 #define EQ(v,u)      (v[0]==u[0]&&v[1]==u[1]&&v[2]==u[2])
@@ -78,7 +84,6 @@
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>COLLAPSE)
 #define ANNIHIL(u,v) (C(u)==_C(v))
-
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
 #define SUB(v,v1,v2) {v[0]=v2[0]-v1[0];v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
@@ -100,7 +105,7 @@ typedef struct Cell
 
   // Physical properties.
 
-  uint8_t ch;       // charge
+  char ch;          // charge
   int p[3], s[3];   // momentum, spin
   unsigned a1, a2;  // affinity
 
@@ -109,7 +114,8 @@ typedef struct Cell
   unsigned n;       // low level tick
   int o[3];         // origin
   unsigned syn;     // synchronism
-  uint8_t dir;      // direction
+
+  unsigned occ;     // occupancy
 
   // Sine wave.
 
@@ -147,5 +153,6 @@ void model(int phase);
 void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
 void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
 Cell *wires(int i, Cell *ptr, int dir, Cell *latt);
+int getRole(Cell *c);
 
 #endif /* SIMULATION_H_ */

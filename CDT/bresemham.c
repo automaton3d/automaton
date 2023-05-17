@@ -38,13 +38,16 @@ void circle2d(int xc, int yc, int r, char color)
     }
 }
 
-void line3d(Vec3 t1, Vec3 t2, char color)
+void line3d(float t1[3], float t2[3], char color)
 {
     int i, err_1, err_2, dx2, dy2, dz2;
-    Vec3 point = t1;
-    int dx = (int)(t2.x - t1.x);
-    int dy = (int)(t2.y - t1.y);
-    int dz = (int)(t2.z - t1.z);
+    float point[3];
+    point[0] = t1[0];
+    point[1] = t1[1];
+    point[2] = t1[2];
+    int dx = (int)(t2[0] - t1[0]);
+    int dy = (int)(t2[1] - t1[1]);
+    int dz = (int)(t2[2] - t1[2]);
     int x_inc = (dx < 0) ? -1 : 1;
     int l = abs(dx);
     int y_inc = (dy < 0) ? -1 : 1;
@@ -63,16 +66,16 @@ void line3d(Vec3 t1, Vec3 t2, char color)
         {
             putVoxel(point, color);
             if (err_1 > 0) {
-                point.y += y_inc;
+                point[1] += y_inc;
                 err_1 -= dx2;
             }
             if (err_2 > 0) {
-                point.z += z_inc;
+                point[2] += z_inc;
                 err_2 -= dx2;
             }
             err_1 += dy2;
             err_2 += dz2;
-            point.x += x_inc;
+            point[0] += x_inc;
         }
     }
     else if ((m >= l) && (m >= n))
@@ -84,17 +87,17 @@ void line3d(Vec3 t1, Vec3 t2, char color)
             putVoxel(point, color);
             if (err_1 > 0)
             {
-                point.x += x_inc;
+                point[0] += x_inc;
                 err_1 -= dy2;
             }
             if (err_2 > 0)
             {
-                point.z += z_inc;
+                point[2] += z_inc;
                 err_2 -= dy2;
             }
             err_1 += dx2;
             err_2 += dz2;
-            point.y += y_inc;
+            point[1] += y_inc;
         }
     }
     else
@@ -106,17 +109,17 @@ void line3d(Vec3 t1, Vec3 t2, char color)
             putVoxel(point, color);
             if (err_1 > 0)
             {
-                point.y += y_inc;
+                point[1] += y_inc;
                 err_1 -= dz2;
             }
             if (err_2 > 0)
             {
-                point.x += x_inc;
+                point[0] += x_inc;
                 err_2 -= dz2;
             }
             err_1 += dy2;
             err_2 += dx2;
-            point.z += z_inc;
+            point[2] += z_inc;
         }
     }
     putVoxel(point, color);

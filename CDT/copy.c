@@ -1,7 +1,7 @@
 ////////////////////////////////////
 //                                //
 // -- Software of the universe -- //
-//              v0.1              //
+//              v0.2              //
 //                                //
 ////////////////////////////////////
 
@@ -22,6 +22,11 @@ void copy()
   // Clock tick.
 
   drf->n++;
+
+  // Update occupation status.
+
+  if (drf->occ > 0)
+    drf->occ--;
 
   // Lattice update
 

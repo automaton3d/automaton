@@ -34,8 +34,9 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
       lst->a2 = nxt->a1;
 
       // Both a1 receive the same new value.
+      // Care must be taken to avoid collision of values.
 
-      drf->a1 = stb->a1 ^ nxt->a1;
+      drf->a1 = stb->a1 | (nxt->a1 << ORDER);
       lst->a1 = drf->a1;
     }
 
@@ -130,8 +131,8 @@ void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
         lst->k = NEUTRINO;
       }
       else if (C(stb) == _C(nxt) &&
-               (W0(stb) != W1(stb) || W0(nxt) != W1(stb)) &&
-	            Q(stb) == !Q(nxt))
+              (W0(stb) != W1(stb) || W0(nxt) != W1(stb)) &&
+              Q(stb) == !Q(nxt))
       {
         drf->k = ZB;
         lst->k = ZB;

@@ -1,19 +1,42 @@
 /*
  * model.c
- *
- *  Created on: 2 de mai. de 2023
- *      Author: Alexandre
  */
 
 #include "simulation.h"
 
 Cell *latt0, *latt1, *stb, *drf;
 
+int getRole(Cell *c)
+{
+	int role;
+	if (c->a1 == 0)
+		role = EMPTY;
+	else if (!ZERO(c->p))
+		role = SEED;
+	else if (!ZERO(c->s))
+		role = WAVE;
+	else if (ISSAT(c->o))
+		role = GRID;
+	else if (!ZERO(c->pP))
+		role = TRAIL;
+	else
+		role = TRAVELLER;
+	return role;
+}
+
 void model(int phase)
 {
+  // If cell is empty, does nothing.
+
+  if (getRole(stb) == EMPTY)
+    goto TICK;
+
   if (phase == 0)
   {
-     // --- Beginning of affine operations ---
+    // --- Beginning of affine operations ---
+
+    // This sequence is asynchronous, that is, happens
+    // many times in a light step.
 
     int t = stb->n / LIGHT;  // Calculate physical time
 
@@ -38,6 +61,8 @@ void model(int phase)
     // stb->obj is the affinity inherited from interaction.
     // Only non trivial p matters.
     // Annihilation makes all affinities different.
+    // Secondary match is attempted using a2, so that
+    // composite particles are considered.
 
     if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
         !ZERO(nxt->p) && stb->k == COLLAPSE)
@@ -62,13 +87,16 @@ void model(int phase)
 
       if (ANNIHIL(stb, nxt))
       {
-        // Free from particle
+        // Free from particle restoring
+        // default value.
 
         lst->a1 = (nxt->off % SIDE3) + 1;
       }
     }
 
-    // All related bubbles are bumped.
+    // No reissue ocurred so the net effect
+    // is a high frequency sine, that is,
+    // all related bubbles are bumped.
 
     else if (nxt->a1 == stb->obj)
     {
@@ -98,10 +126,9 @@ void model(int phase)
         drf->pP[1] -= drf->pP[1] / (2 * t);
         drf->pP[2] -= drf->pP[2] / (2 * t);
         if (ZERO(drf->pP))
-          drf->a1 = (stb->off % SIDE3) + 1;  // default value
+          drf->a1 = (stb->off % SIDE3) + 1; // default vale
 
-	    // Update lattice decay.
-	    // A saturated o vector means lattice role.
+        // Update lattice decay.
 
         if (ISSAT(stb->o) && t > 0)
         {
@@ -133,39 +160,34 @@ void model(int phase)
 
     //join();
 
+    // The cell has been modified, do not expand now.
+
     goto TICK;
   }
 
-  // Expansion.
+  // Spherical expansion.
 
   for(int dir = 0; dir < NDIR; dir++)
   {
+    // The first part of this block propagates info
+    // asynchronously.
+
     Cell* nei = drf->ws[dir];
 
-    // Calculate forbidden direction.
+    // Do not touch wavefront.
 
-    int d = (stb->dir + dir) % NDIR;
-    if (d == 0) d = 1;
-    else if (d == 1) d = 0;
-    else if (d == 2) d = 3;
-    else if (d == 3) d = 2;
-    else if (d == 4) d = 5;
-    else if (d == 5) d = 4;
-
-    // Do not return to previous cell.
-    // Do not touch wavefront either.
-
-    if (dir != d && !BUSY(nei))
+    if (nei->occ == 0 && !BUSY(nei) && getRole(stb) == TRAVELLER)
     {
       // Transmit superluminal info
 
+      nei->occ = stb->occ;
       nei->n   = stb->n;    // used to calculate skew
       nei->obj = stb->obj;  // used for collapse
-      nei->dir = dir;       // direction
       CP(nei->p, stb->p);	// used to find pole
     }
 
-    // RSET(drf->p);
+    // The second part of the block deals with
+    // spherical synchronization.
 
     int org[3];
     CP(org, stb->o);
@@ -188,7 +210,7 @@ void model(int phase)
     nei->a1  = stb->a1;   // affinity LO
     nei->a2  = stb->a2;   // affinity HO
     nei->k   = stb->k;    // content
-    nei->dir = dir;       // direction
+    nei->occ = stb->occ;  // occupation status
     CP(nei->m, stb->m);   // messenger status
 
     // Propagate exclusive spherical info.
@@ -213,6 +235,7 @@ void model(int phase)
     {
       CP(nei->p, stb->p);   // propagate momentum
       CP(nei->po, stb->po); // propagate pole
+      nei->occ = SIDE_2 - 1;
     }
     else
     {

@@ -6,6 +6,8 @@
  */
 
 #include "engine.h"
+#include "arcball.h"
+#include "view.h"
 
 // Transformation matrix
 //
@@ -16,9 +18,9 @@ static double m30, m31, m32;
 //
 // 3d fields
 //
-static Vec3 center;	      	  // center of projection
-static Vec3 pc;         	  // transformed center of projection
-static Vec3 pen;        	  // plotting pen
+static float center[3];	      	  // center of projection
+static float pc[3];         	  // transformed center of projection
+static float pen[3];        	  // plotting pen
 
 static double distance;       // view distance
 static double frontDistance;  // clipping plane
@@ -32,9 +34,9 @@ static double vxl, vyl;
 static double vxh, vyh;
 static double wsx, wsy;
 //
-static Vec3 position;      	  // view reference point
-static Vec3 direction;		  // camera axis
-static Vec3 attitude;   	  // view-up direction
+static float position[3];      	  // view reference point
+static float direction[3];		  // camera axis
+static float attitude[3];   	  // view-up direction
 //
 static boolean parallel = false;
 static boolean clipping = true;
@@ -86,37 +88,37 @@ void initFrustum(Frustum *f)
 	//
 	// left
 	//
-	f->sides[0].normal.x = ch;
-	f->sides[0].normal.y = 0;
-	f->sides[0].normal.z = sh;
+	f->sides[0].normal[0] = ch;
+	f->sides[0].normal[1] = 0;
+	f->sides[0].normal[2] = sh;
 	f->sides[0].distance = 0;
 	//
 	// right
 	//
-	f->sides[1].normal.x = -ch;
-	f->sides[1].normal.y = 0;
-	f->sides[1].normal.z = sh;
+	f->sides[1].normal[0] = -ch;
+	f->sides[1].normal[1] = 0;
+	f->sides[1].normal[2] = sh;
 	f->sides[1].distance = 0;
 	//
 	// top
 	//
-	f->sides[2].normal.x = 0;
-	f->sides[2].normal.y = cv;
-	f->sides[2].normal.z = sv;
+	f->sides[2].normal[0] = 0;
+	f->sides[2].normal[1] = cv;
+	f->sides[2].normal[2] = sv;
 	f->sides[2].distance = 0;
 	//
 	// bottom
 	//
-	f->sides[3].normal.x = 0;
-	f->sides[3].normal.y = -cv;
-	f->sides[3].normal.z = sv;
+	f->sides[3].normal[0] = 0;
+	f->sides[3].normal[1] = -cv;
+	f->sides[3].normal[2] = sv;
 	f->sides[3].distance = 0;
 	//
 	// z-near clipping plane
 	//
-	f->znear.normal.x = 0;
-	f->znear.normal.y = 0;
-	f->znear.normal.z = 1;
+	f->znear.normal[0] = 0;
+	f->znear.normal[1] = 0;
+	f->znear.normal[2] = 1;
 	f->znear.distance = -10;
 }
 
@@ -135,18 +137,30 @@ void setBackground(char color)
 	background = color;
 }
 
-void setCamera(Vec3 p, Vec3 d, Vec3 a)
+void setCamera(float p[3], float d[3], float a[3])
 {
-	position  = p;
-	direction = d;
-	attitude  = a;
+	position[0]  = p[0];
+	position[1]  = p[1];
+	position[2]  = p[2];
+	direction[0] = d[0];
+	direction[1] = d[1];
+	direction[2] = d[2];
+	attitude[0]  = a[0];
+	attitude[1]  = a[1];
+	attitude[2]  = a[2];
 }
 
-void getCamera(Vec3 *p, Vec3 *d, Vec3 *a)
+void getCamera(float *p, float *d, float *a)
 {
-	*p = position;
-	*d = direction;
-	*a = attitude;
+	p[0] = position[0];
+	p[1] = position[1];
+	p[2] = position[2];
+	d[0] = direction[0];
+	d[1] = direction[1];
+	d[2] = direction[2];
+	a[0] = attitude[0];
+	a[1] = attitude[1];
+	a[2] = attitude[2];
 }
 
 static void newTransform3()
@@ -235,23 +249,23 @@ static void rotateZ(double s, double c)
 	m30 = t;
 }
 
-static void viewPlaneTransform(Vec3 *p)
+static void viewPlaneTransform(float *p)
 {
-	double x = p->x * m00 + p->y * m10 + p->z * m20 + m30;
-	double y = p->x * m01 + p->y * m11 + p->z * m21 + m31;
-	double z = p->x * m02 + p->y * m12 + p->z * m22 + m32;
-	p->x = x;
-	p->y = y;
-	p->z = z;
+	double x = p[0] * m00 + p[1] * m10 + p[2] * m20 + m30;
+	double y = p[0] * m01 + p[1] * m11 + p[2] * m21 + m31;
+	double z = p[0] * m02 + p[1] * m12 + p[2] * m22 + m32;
+	p[0] = x;
+	p[1] = y;
+	p[2] = z;
 }
 
 static void makePerspectiveTransformation()
 {
-	pc.x = center.x;
-	pc.y = center.y;
-	pc.z = center.z;
-	viewPlaneTransform(&pc);
-	if(pc.z < 0)
+	pc[0] = center[0];
+	pc[1] = center[1];
+	pc[2] = center[2];
+	viewPlaneTransform(pc);
+	if(pc[2] < 0)
 		perror("Center of Projection behind View Plane.");
 }
 
@@ -263,21 +277,21 @@ static void makeViewPlaneTransformation()
 	//
 	// Translate so that view plane center is new origin
 	//
-	translate(-(position.x + direction.x * distance),
-			  -(position.y + direction.y * distance),
-			  -(position.z + direction.z * distance));
+	translate(-(position[0] + direction[0] * distance),
+			  -(position[1] + direction[1] * distance),
+			  -(position[2] + direction[2] * distance));
 	//
 	// Rotate so that view plane normal is z axis
 	//
-	double v = sqrt(direction.y * direction.y + direction.z * direction.z);
+	double v = sqrt(direction[1] * direction[1] + direction[2] * direction[2]);
 	if(v > ROUNDOFF)
-		rotateX(-direction.y / v, -direction.z / v);
-	rotateY(direction.x, v);
+		rotateX(-direction[1] / v, -direction[2] / v);
+	rotateY(direction[0], v);
 	//
 	// Determine the view-up direction in these new coordinates
 	//
-	double xup_vp = attitude.x * m00 + attitude.y * m10 + attitude.z * m20;
-	double yup_vp = attitude.x * m01 + attitude.y * m11 + attitude.z * m21;
+	double xup_vp = attitude[0] * m00 + attitude[1] * m10 + attitude[2] * m20;
+	double yup_vp = attitude[0] * m01 + attitude[1] * m11 + attitude[2] * m21;
 	//
 	// Determine rotation needed to make view-up vertical
 	//
@@ -361,12 +375,12 @@ void setViewDistance(double _distance)
 
 void setPerspective(double x, double y, double z)
 {
-	center.x = x;
-	center.y = y;
-	center.z = z;
+	center[0] = x;
+	center[1] = y;
+	center[2] = z;
 }
 
-Vec3 getPerspective()
+float *getPerspective()
 {
 	return center;
 }
@@ -380,27 +394,27 @@ void clearBuffer()
 		*ptr++ = color;
 }
 
-static void parallelTransform(Vec3 *p)
+static void parallelTransform(float *p)
 {
-	p->x -= pc.x;
-	p->y -= pc.y;
-	p->z = 0;
+	p[0] -= pc[0];
+	p[1] -= pc[1];
+	p[2] = 0;
 }
 
-static void perspectiveTransform(Vec3 *p)
+static void perspectiveTransform(float *p)
 {
-	double d = pc.z - p->z;
+	double d = pc[2] - p[2];
 	if(fabs(d) < ROUNDOFF)
 	{
-		p->x = (p->x - pc.x) * VERYLARGE;
-		p->y = (p->y - pc.y) * VERYLARGE;
-		p->z = VERYLARGE;
+		p[0] = (p[0] - pc[0]) * VERYLARGE;
+		p[1] = (p[1] - pc[1]) * VERYLARGE;
+		p[2] = VERYLARGE;
 	}
 	else
 	{
-		p->x = (p->x * pc.z - pc.x * p->z) / d;
-		p->y = (p->y * pc.z - pc.y * p->z) / d;
-		p->z /= d;
+		p[0] = (p[0] * pc[2] - pc[0] * p[2]) / d;
+		p[1] = (p[1] * pc[2] - pc[1] * p[2]) / d;
+		p[2] /= d;
 	}
 }
 
@@ -408,30 +422,30 @@ static void enter(int color)
 {
 	// Transform the point to camera space
 	//
-	viewPlaneTransform(&pen);
+	viewPlaneTransform(pen);
 	//
 	// Clipping against clipping planes
 	//
-	if(clipping && (pen.z > -frontDistance || pen.z < -backDistance))
+	if(clipping && (pen[2] > -frontDistance || pen[2] < -backDistance))
 		return;
 	//
 	if(parallel)
 	{
-		parallelTransform(&pen);
-		pen.x *= 0.06;	// patch
-		pen.y *= 0.06;
+		parallelTransform(pen);
+		pen[0] *= 0.06;	// patch
+		pen[1] *= 0.06;
 	}
 	else
-		perspectiveTransform(&pen);
+		perspectiveTransform(pen);
 	//
 	// Clipping against frustum sides
 	//
-	if(pen.x >= wxl && pen.x <= wxh && pen.y >= wyl && pen.y <= wyh)
+	if(pen[0] >= wxl && pen[0] <= wxh && pen[1] >= wyl && pen[1] <= wyh)
 	{
 		// Convert to screen coordinates
 		//
-		int xi = (int) (((pen.x - wxl) * wsx + vxl) * WIDTH + .5);
-		int yi = (int) (((pen.y - wyl) * wsy + vyl) * HEIGHT + .5);
+		int xi = (int) (((pen[0] - wxl) * wsx + vxl) * WIDTH + .5);
+		int yi = (int) (((pen[1] - wyl) * wsy + vyl) * HEIGHT + .5);
 		//
 		// Save point in output buffer
 		//
@@ -444,17 +458,21 @@ static void enter(int color)
 	}
 }
 
-void putVoxel(Vec3 v, char color)
+void putVoxel(float v[3], char color)
 {
-	curr->pos = v;
+	curr->pos[0] = v[0];
+	curr->pos[1] = v[1];
+	curr->pos[2] = v[2];
 	curr->color = color;
 	curr++;
 	curr->color = -1;	// end of file
 }
 
-void plot(Vec3 v, char color)
+void plot(float v[3], char color)
 {
-	pen = v;
+	pen[0] = v[0];
+	pen[1] = v[1];
+	pen[2] = v[2];
 	enter(color);
 }
 
@@ -466,7 +484,10 @@ void update3d()
 	Voxel *ptr = clean;
 	for(int i = 0; ptr->color >= 0; i++, ptr++)
 	{
-		pen = ptr->pos;
+		pen[0] = ptr->pos[0]*3;
+		pen[1] = ptr->pos[1]*3;
+		pen[2] = ptr->pos[2]*3;
+		//rotateVectorX(view.rotation, ptr->pos, pen);
 		enter(ptr->color);
 	}
 }
@@ -504,22 +525,22 @@ void initEngine(double zoom)
 	initPalette();
 	initFrustum(&f);
 	//
-	position.x = 3*zoom;
-	position.y = 2*zoom;
-	position.z = 2.5*zoom;
+	position[0] = 2500;//3*zoom;
+	position[1] = 2500;//2*zoom;
+	position[2] = 2500;//2.5*zoom;
 	//
-	direction.x = -position.x;		// camera axis
-	direction.y = -position.y;
-	direction.z = -position.z;
-	normalize(&direction);
+	direction[0] = -position[0];		// camera axis
+	direction[1] = -position[1];
+	direction[2] = -position[2];
+	normalize(direction);
 	//
-	attitude.x = 0; 				// view-up direction
-	attitude.y = 0;
-	attitude.z = -1;
-	Vec3 tmp;
-	cross3d(attitude, direction, &tmp);
-	normalize(&tmp);
-	cross3d(direction, tmp, &attitude);
+	attitude[0] = 0; 				// view-up direction
+	attitude[1] = 0;
+	attitude[2] = -1;
+	float tmp[3];
+	cross3d(attitude, direction, tmp);
+	normalize(tmp);
+	cross3d(direction, tmp, attitude);
 	//
 	setViewPort(0.0, 1.0, 0.0, 1.0);
 	setWindow(-WINDOW, WINDOW, -WINDOW, WINDOW);
@@ -527,9 +548,9 @@ void initEngine(double zoom)
 	setViewDistance(0);
 	if(!parallel)
 	{
-		double xc = position.x - direction.x * scale;
-		double yc = position.y - direction.y * scale;
-		double zc = position.z - direction.z * scale;
+		double xc = position[0] - direction[0] * scale;
+		double yc = position[1] - direction[1] * scale;
+		double zc = position[2] - direction[2] * scale;
 		setPerspective(xc, yc, zc);
 	}
 	newView3();
@@ -542,32 +563,32 @@ void initEngine(double zoom)
  */
 void drawChar(double x, double y, double z, char color, char ch)
 {
-	pen.x = x;
-	pen.y = y;
-	pen.z = z;
+	pen[0] = x;
+	pen[1] = y;
+	pen[2] = z;
 
 	// Transform the point to camera space
 	//
-	viewPlaneTransform(&pen);
+	viewPlaneTransform(pen);
 	//
 	// Clipping against clipping planes
 	//
-	if(clipping && (pen.z > -frontDistance || pen.z < -backDistance))
+	if(clipping && (pen[2] > -frontDistance || pen[2] < -backDistance))
 		return;
 	//
 	if(parallel)
-		parallelTransform(&pen);
+		parallelTransform(pen);
 	else
-		perspectiveTransform(&pen);
+		perspectiveTransform(pen);
 	//
 	// Clipping against frustum sides
 	//
-	if(pen.x >= wxl && pen.x <= wxh && pen.y >= wyl && pen.y <= wyh)
+	if(pen[0] >= wxl && pen[0] <= wxh && pen[1] >= wyl && pen[1] <= wyh)
 	{
 		// Convert to screen coordinates
 		//
-		int xi = (int) (((pen.x - wxl) * wsx + vxl) * WIDTH + .5);
-		int yi = (int) (((pen.y - wyl) * wsy + vyl) * HEIGHT + .5);
+		int xi = (int) (((pen[0] - wxl) * wsx + vxl) * WIDTH + .5);
+		int yi = (int) (((pen[1] - wyl) * wsy + vyl) * HEIGHT + .5);
 		vprint(WIDTH - xi, yi, ch);
 	}
 }
@@ -576,9 +597,9 @@ void newProjection()
 {
 	if(!parallel)
 	{
-		double xc = position.x - direction.x * scale;
-		double yc = position.y - direction.y * scale;
-		double zc = position.z - direction.z * scale;
+		double xc = position[0] - direction[0] * scale;
+		double yc = position[1] - direction[1] * scale;
+		double zc = position[2] - direction[2] * scale;
 		setPerspective(xc, yc, zc);
 	}
 }
@@ -595,85 +616,24 @@ void zoom(int delta)
 		scale = 260;
 }
 
-static float rotationMatrix[4][4];
-static float inputMatrix[4][1]  = {{0.0}, {0.0}, {0.0}, {0.0}};
-static float outputMatrix[4][1] = {{0.0}, {0.0}, {0.0}, {0.0}};
-
-static void multiplyMatrix()
-{
-    for(int i = 0; i < 4; i++)
-    {
-        for(int j = 0; j < 1; j++)
-        {
-            outputMatrix[i][j] = 0;
-            for(int k = 0; k < 4; k++)
-                outputMatrix[i][j] += rotationMatrix[i][k] * inputMatrix[k][j];
-        }
-    }
-}
-
-static void setUpRotationMatrix(float angle, float u, float v, float w)
-{
-    float L = (u*u + v * v + w * w);
-    angle = angle * PI / 180.0; //converting to radian value
-    float u2 = u * u;
-    float v2 = v * v;
-    float w2 = w * w;
-
-    rotationMatrix[0][0] = (u2 + (v2 + w2) * cos(angle)) / L;
-    rotationMatrix[0][1] = (u * v * (1 - cos(angle)) - w * sqrt(L) * sin(angle)) / L;
-    rotationMatrix[0][2] = (u * w * (1 - cos(angle)) + v * sqrt(L) * sin(angle)) / L;
-    rotationMatrix[0][3] = 0.0;
-
-    rotationMatrix[1][0] = (u * v * (1 - cos(angle)) + w * sqrt(L) * sin(angle)) / L;
-    rotationMatrix[1][1] = (v2 + (u2 + w2) * cos(angle)) / L;
-    rotationMatrix[1][2] = (v * w * (1 - cos(angle)) - u * sqrt(L) * sin(angle)) / L;
-    rotationMatrix[1][3] = 0.0;
-
-    rotationMatrix[2][0] = (u * w * (1 - cos(angle)) - v * sqrt(L) * sin(angle)) / L;
-    rotationMatrix[2][1] = (v * w * (1 - cos(angle)) + u * sqrt(L) * sin(angle)) / L;
-    rotationMatrix[2][2] = (w2 + (u2 + v2) * cos(angle)) / L;
-    rotationMatrix[2][3] = 0.0;
-
-    rotationMatrix[3][0] = 0.0;
-    rotationMatrix[3][1] = 0.0;
-    rotationMatrix[3][2] = 0.0;
-    rotationMatrix[3][3] = 1.0;
-}
-
-/**
- * Arc ball.
- */
-Vec3 arcball(Vec3 points, Vec3 axis, double angle)
-{
-    inputMatrix[0][0] = points.x;
-    inputMatrix[1][0] = points.y;
-    inputMatrix[2][0] = points.z;
-    inputMatrix[3][0] = 1.0;
-    setUpRotationMatrix(angle, axis.x, axis.y, axis.z);
-    multiplyMatrix();
-    Vec3 result;
-    result.x = outputMatrix[0][0];
-    result.y = outputMatrix[1][0];
-    result.z = outputMatrix[2][0];
-    return result;
-}
-
 void panH(int offset)
 {
-	Vec3 xaxis;
-	cross3d(attitude, direction, &xaxis);
-	normalize(&xaxis);
-	scale3d(&xaxis, offset);
-	add3d(&position, xaxis);
+	float xaxis[3];
+	cross3d(attitude, direction, xaxis);
+	normalize(xaxis);
+	scale3d(xaxis, offset);
+	add3d(position, xaxis);
 }
 
 void panV(int offset)
 {
-	Vec3 yaxis = attitude;
-	normalize(&yaxis);
-	scale3d(&yaxis, offset);
-	add3d(&position, yaxis);
+	float yaxis[3];
+	yaxis[0] = attitude[0];
+	yaxis[1] = attitude[1];
+	yaxis[2] = attitude[2];
+	normalize(yaxis);
+	scale3d(yaxis, offset);
+	add3d(position, yaxis);
 }
 
 void point2d(int x, int y, int color)

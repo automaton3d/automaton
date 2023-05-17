@@ -25,7 +25,7 @@ pthread_barrier_t barrier;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrierattr_t attr;
 
-HWND front_chk, track_chk, p_chk, plane_chk, cube_chk;
+HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk;
 HWND mode0_rad, mode1_rad, mode2_rad;
 HWND g_hBitmap;
 
@@ -209,19 +209,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	RegisterClass(&wc);
 	hwnd = CreateWindow("MYWNDCLASSNAME", title,
 		WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-		20, 20, screenWidth - 500, screenHeight -100, NULL, NULL, hInstance, NULL);
+		20, 20, screenWidth - 500, screenHeight - 100, NULL, NULL, hInstance, NULL);
  	free(title);
 
     // Create checkboxes
 
  	front_chk = CreateCheckBox(hwnd, 50, 50, 150, 30, FRONT, (LPCWSTR)"Wavefront");
- 	track_chk = CreateCheckBox(hwnd, 50, 100, 150, 30, TRACK, (LPCWSTR)"Track");
- 	p_chk     = CreateCheckBox(hwnd, 50, 150, 150, 30, MOMENTUM, (LPCWSTR)"Momentum");
- 	plane_chk = CreateCheckBox(hwnd, 50, 200, 150, 30, PLANE, (LPCWSTR)"Plane");
- 	cube_chk  = CreateCheckBox(hwnd, 50, 250, 150, 30, CUBE, (LPCWSTR)"Cube");
+ 	track_chk = CreateCheckBox(hwnd, 50, 90, 150, 30, TRACK, (LPCWSTR)"Track");
+ 	p_chk     = CreateCheckBox(hwnd, 50, 130, 150, 30, MOMENTUM, (LPCWSTR)"Momentum");
+ 	plane_chk = CreateCheckBox(hwnd, 50, 170, 150, 30, PLANE, (LPCWSTR)"Plane");
+ 	cube_chk  = CreateCheckBox(hwnd, 50, 210, 150, 30, CUBE, (LPCWSTR)"Cube");
+ 	latt_chk  = CreateCheckBox(hwnd, 50, 250, 150, 30, LATTICE, (LPCWSTR)"Lattice");
 
  	SendMessage(front_chk, BM_SETCHECK, BST_CHECKED, 0);
  	SendMessage(p_chk, BM_SETCHECK, BST_CHECKED, 0);
+ 	SendMessage(latt_chk, BM_SETCHECK, BST_CHECKED, 0);
 
     // Create label
 
@@ -237,7 +239,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HDC hdc = GetDC(hwnd);
 	myBitmap = CreateCompatibleBitmap(hdc, WIDTH, HEIGHT);
 
-    g_hBitmap = CreateWindow("STATIC", NULL, WS_CHILD | WS_VISIBLE | SS_BITMAP, 300, 100, 0, 0, hwnd, NULL, hInstance, NULL);
+    g_hBitmap = CreateWindow("STATIC", NULL, WS_CHILD | WS_VISIBLE | SS_BITMAP, BMAPX, BMAPY, 0, 0, hwnd, NULL, hInstance, NULL);
 
     SendMessage(g_hBitmap, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)myBitmap);
     ReleaseDC(hwnd, hdc);

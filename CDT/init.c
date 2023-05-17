@@ -6,10 +6,11 @@
  */
 
 #include "simulation.h"
+#include "arcball.h"
+#include "view.h"
 
 extern Voxel *imgbuf[2], *buff, *clean;
 extern Cell *latt0, *latt1;
-extern Quaternion currQ, lastQ;
 extern View view;
 extern unsigned long begin;
 
@@ -36,16 +37,22 @@ void initScreen()
 
   // Initialize trackball
 
-  identityQ(&lastQ);
-  identityQ(&currQ);
-
-  // TRACKBALL
-
   vu = &view;
   vu->width = WIDTH;
   vu->height = HEIGHT;
-  trackball (vu->quat , 0.0, 0.0, 0.0, 0.0);
-  vset(vu->rot_axis, 0., 0., 1.);
+  vu->currQ[0] = 1;
+  vu->currQ[1] = 0;
+  vu->currQ[2] = 0;
+  vu->currQ[3] = 0;
+  vu->lastQ[0] = 1;
+  vu->lastQ[1] = 0;
+  vu->lastQ[2] = 0;
+  vu->lastQ[3] = 0;
+  vu->rotation[0] = 1;
+  vu->rotation[1] = 0;
+  vu->rotation[2] = 0;
+  vu->rotation[3] = 0;
+  vu->dragged = false;
 
   Sleep(4);
 }
@@ -85,14 +92,15 @@ void singularity(Cell *grid)
         ptr->ch |= ((i >> 1) << 5);  // dualitat
         ptr->ch |= ((i % 2) << 4);   // weak
         ptr->ch |= ((((i % 2)^(i >> 1))  & 1) << 3); // electrical
-        ptr->ch |= (i % 8);  // color
-        CP(ptr->p, template[i % 6]);  // momentum
-        CP(ptr->s, grid[i % SIDE2].s);  // spin
-        ptr->a1  = i + 1;	// dodges zero
-        ptr->a2  = 0;
-        ptr->k   = FERMION;
-        RSET(ptr->o);	// ready for immediate expansion
-        RSET(ptr->po);  // already at the reissue cell
+        ptr->ch |= (i % 8);    // color
+        ptr->a1  = i + 1;	   // dodges zero
+        ptr->a2  = 0;          // no chaining
+        ptr->k   = FERMION;    // intially just singles
+        ptr->occ = SIDE_2 - 1; // crest cell
+        CP(ptr->p, template[i % 6]);   // momentum
+        CP(ptr->s, grid[i % SIDE2].s); // spin
+        RSET(ptr->o);	       // ready for immediate expansion
+        RSET(ptr->po);         // already at the reissue cell
       }
 }
 
@@ -101,15 +109,15 @@ void initEspacito(Cell *latt, Cell *espacito)
   Cell *ptr = espacito;
   for(int i = 0; i < SIDE3; i++)
   {
-    ptr->ch    = 0;   // charges
-    ptr->n     = 0;   // tick
-    ptr->a1    = 0;	  // affinity
-    ptr->a2    = 0;	  // affinity
-    ptr->syn   = 0;   // spherical timing
-    ptr->u     = 0;   // sine
-    ptr->k   = EMPTY; // no role whatsoever
+    ptr->ch  = 0;     // charges
+    ptr->n   = 0;     // tick
+    ptr->a1  = 0;     // affinity
+    ptr->a2  = 0;     // affinity
+    ptr->syn = 0;     // spherical timing
+    ptr->u   = 0;     // sine
+    ptr->k   = NONE;  // no role whatsoever
     ptr->obj = SIDE3; // no target
-    ptr->dir = 0;
+    ptr->occ = 0;     // free cell
     SAT(ptr->o);      // invalid value
     SAT(ptr->po);     // unreachable
     RSET(ptr->p);     // null momentum
@@ -139,7 +147,7 @@ void initAutomaton()
       drf->ws[dir] = wires(i, drf, dir, latt1);
   }
 
-  // Introduce data.
+  // Enter data.
 
   stb = latt0;
   drf = latt1;

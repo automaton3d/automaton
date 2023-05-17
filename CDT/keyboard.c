@@ -8,9 +8,7 @@
 #include "keyboard.h"
 
 extern boolean showAxes;
-extern boolean showModel;
 extern boolean verbose;
-extern boolean input_changed;
 extern char gridcolor;
 extern pthread_mutex_t mutex;
 extern HWND cube_chk;
@@ -39,15 +37,6 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			break;
 		case 'P':
 			flipMode();
-	    	pthread_mutex_lock(&mutex);
-			input_changed = true;
-	    	pthread_mutex_unlock(&mutex);
-			break;
-		case 'M':
-			showModel = !showModel;
-	    	pthread_mutex_lock(&mutex);
-			input_changed = true;
-	    	pthread_mutex_unlock(&mutex);
 			break;
 
 		case 'X':
@@ -60,9 +49,6 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case 'S':
 			stop = !stop;
-	    	pthread_mutex_lock(&mutex);
-			input_changed = true;
-	    	pthread_mutex_unlock(&mutex);
 			break;
 		case 'V':
 			verbose = !verbose;
@@ -70,128 +56,121 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 		case '0':
 			{
 	        	pthread_mutex_lock(&mutex);
-				Vec3 p, d, a, xaxis;
-				getCamera(&p, &d, &a);
-				cross3d(d, a, &xaxis);
-				p.x = sqrt(3);
-				p.y = sqrt(3);
-				p.z = sqrt(3);
-				normalize(&p);
-				d = p;
-				scale3d(&p, 44);
-				scale3d(&d, -1);
-				cross3d(xaxis, d, &a);
+				float p[3], d[3], a[3], xaxis[3];
+				getCamera(p, d, a);
+				cross3d(d, a, xaxis);
+				p[0] = sqrt(3);
+				p[1] = sqrt(3);
+				p[2] = sqrt(3);
+				normalize(p);
+				d[0] = p[0];
+				d[1] = p[1];
+				d[2] = p[2];
+				scale3d(p, 44);
+				scale3d(d, -1);
+				cross3d(xaxis, d, a);
 				setCamera(p, d, a);
-				input_changed = true;
 	        	pthread_mutex_unlock(&mutex);
 			}
 			break;
 
 		case '1':
 			{
-				Vec3 p, d, a;
-				p.x = 44;
-				p.y = 0;
-				p.z = 0;
+				float p[3], d[3], a[3];
+				p[0] = 44;
+				p[1] = 0;
+				p[2] = 0;
 				//
-				d.x = -1;
-				d.y = 0;
-				d.z = 0;
+				d[0] = -1;
+				d[1] = 0;
+				d[2] = 0;
 				//
-				a.x = 0;
-				a.y = 0;
-				a.z = -1;
+				a[0] = 0;
+				a[1] = 0;
+				a[2] = -1;
 	        	pthread_mutex_lock(&mutex);
 				setCamera(p, d, a);
-				input_changed = true;
 	        	pthread_mutex_unlock(&mutex);
 			}
 			break;
 		case '2':
 			{
-				Vec3 p, d, a;
-				p.x = 0;
-				p.y = 44;
-				p.z = 0;
+				float p[3], d[3], a[3];
+				p[0] = 0;
+				p[1] = 44;
+				p[2] = 0;
 				//
-				d.x = 0;
-				d.y = -1;
-				d.z = 0;
-				a.x = 0;
+				d[0] = 0;
+				d[1] = -1;
+				d[2] = 0;
+				a[0] = 0;
 				//
-				a.y = 0;
-				a.z = 1;
+				a[1] = 0;
+				a[2] = 1;
 	        	pthread_mutex_lock(&mutex);
 				setCamera(p, d, a);
-				input_changed = true;
 	        	pthread_mutex_unlock(&mutex);
 			}
 			break;
 		case '3':
 			{
-				Vec3 p, d, a;
-				p.x = 0;
-				p.y = 0;
-				p.z = 44;
+				float p[3], d[3], a[3];
+				p[0] = 0;
+				p[1] = 0;
+				p[2] = 44;
 				//
-				d.x = 0;
-				d.y = 0;
-				d.z = -1;
+				d[0] = 0;
+				d[1] = 0;
+				d[2] = -1;
 				//
-				a.x = 1;
-				a.y = 0;
-				a.z = 0;
+				a[0] = 1;
+				a[1] = 0;
+				a[2] = 0;
 	        	pthread_mutex_lock(&mutex);
 				setCamera(p, d, a);
-				input_changed = true;
 	        	pthread_mutex_unlock(&mutex);
 			}
 			break;
 		case 38:	// ^
         	pthread_mutex_lock(&mutex);
 			panV(-8);
-			input_changed = true;
         	pthread_mutex_unlock(&mutex);
 			break;
 		case 40:	// v
         	pthread_mutex_lock(&mutex);
 			panV(8);
-			input_changed = true;
         	pthread_mutex_unlock(&mutex);
 			break;
 		case 37:	// >>
         	pthread_mutex_lock(&mutex);
 			panH(-8);
-			input_changed = true;
         	pthread_mutex_unlock(&mutex);
 			break;
 		case 39:	// <<
         	pthread_mutex_lock(&mutex);
 			panH(8);
-			input_changed = true;
         	pthread_mutex_unlock(&mutex);
 			break;
 		case 33:	// PgUp
 			if(isParallel())
 			{
 				expandWindow();
-				pthread_mutex_lock(&mutex);
-				input_changed = true;
-				pthread_mutex_unlock(&mutex);
 			}
 			else
 			{
-				Vec3 position, direction, attitude;
+				float position[3], direction[3], attitude[3];
 				pthread_mutex_lock(&mutex);
-				getCamera(&position, &direction, &attitude);
-				Vec3 z = direction;
-				scale3d(&z, 60*(exp(depth)-exp(depth-0.1)));
-				add3d(&position, z);
+				getCamera(position, direction, attitude);
+				float z[3];
+				z[0] = direction[0];
+				z[1] = direction[1];
+				z[2] = direction[2];
+				scale3d(z, 60*(exp(depth)-exp(depth-0.1)));
+				add3d(position, z);
 				setCamera(position, direction, attitude);
 				if(depth > 0.1)
 				{
 					depth -= 0.1;
-					input_changed = true;
 				}
 				pthread_mutex_unlock(&mutex);
 			}
@@ -200,26 +179,26 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			if(isParallel())
 			{
 				shrinkWindow();
-				input_changed = true;
 			}
 			else
 			{
-				Vec3 position, direction, attitude;
+				float position[3], direction[3], attitude[3];
 				pthread_mutex_lock(&mutex);
-				getCamera(&position, &direction, &attitude);
-				Vec3 z = direction;
-				scale3d(&z, 60*(exp(depth+0.1)-exp(depth)));
-				sub3d(&position, z);
+				getCamera(position, direction, attitude);
+				float z[3];
+				z[0] = direction[0];
+				z[1] = direction[1];
+				z[2] = direction[2];
+				scale3d(z, 60*(exp(depth+0.1)-exp(depth)));
+				sub3d(position, z);
 				setCamera(position, direction, attitude);
 				depth += 0.1;
-				input_changed = true;
 				pthread_mutex_unlock(&mutex);
 			}
 			break;
 		case ESC:
         	pthread_mutex_lock(&mutex);
 			initEngine(DISTANCE);
-			input_changed = true;
         	pthread_mutex_unlock(&mutex);
 			break;
 	}
