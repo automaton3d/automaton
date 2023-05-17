@@ -15,7 +15,6 @@
 #include <math.h>
 #include "assert.h"
 #include "engine.h"
-#include "quaternion.h"
 #include "keyboard.h"
 
 // Lattice symbols.

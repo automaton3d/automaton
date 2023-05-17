@@ -12,7 +12,6 @@
 
 #include <windows.h>
 #include <pthread.h>
-#include "quaternion.h"
 
 // Exported variables
 

@@ -9,7 +9,6 @@
 #define UTILS_H_
 
 #include "plot3d.h"
-#include "quaternion.h"
 #include "utils.h"
 
 #define true 	1
