@@ -7,12 +7,15 @@
 
 #define _GNU_SOURCE
 
-#define PTW32_STATIC_LIB
-
-#include "main3d.h"
+#include <windowsx.h>
+#include "plot3d.h"
 #include "simulation.h"
+#include "mouse.h"
 
 extern unsigned long begin;
+extern DWORD *pixels;
+
+boolean stop;
 
 // Global variables
 
@@ -25,12 +28,25 @@ pthread_barrier_t barrier;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrierattr_t attr;
 
-HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk;
-HWND mode0_rad, mode1_rad, mode2_rad;
 HWND g_hBitmap;
+HWND hwnd;
+
+Trackball trackball;
+Trackball *tb = &trackball;
+
+float modelTransformationMatrix[16] =
+{
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 1.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 1.0f
+};
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    int x = GET_X_LPARAM(lparam);
+    int y = GET_Y_LPARAM(lparam);
+    Trackball* tb = &trackball;
 	switch(msg)
 	{
     	case WM_PAINT:
@@ -45,48 +61,12 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	            rect.bottom = 60;
 	            rect.top = 10;
 
-	            // Create a LOGFONT structure and set its properties
-
-	            LOGFONT lf;
-	            ZeroMemory(&lf, sizeof(LOGFONT));
-	            lf.lfHeight = 32;  // set the font height to 20 pixels
-	            lf.lfWeight = FW_NORMAL;
-	            lf.lfCharSet = DEFAULT_CHARSET;
-	            lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
-	            lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-	            lf.lfQuality = DEFAULT_QUALITY;
-	            lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
-	            lstrcpy(lf.lfFaceName, "Arial");  // set the font face name
-
-	            // Create a font object based on the LOGFONT structure
-
-	            HFONT hFont = CreateFontIndirect(&lf);
-
-	            // Select the font object into the device context
-
-	            HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-	            DrawText(hdc, "The universe in an automaton", -1, &rect, DT_CENTER | DT_TOP | DT_SINGLELINE);
+	            DrawText(hdc, "Simulation", -1, &rect, DT_CENTER | DT_TOP | DT_SINGLELINE);
 	         	char *s = NULL;
-	            //
-	            // Select the original font object back into the device context
-
-	            SelectObject(hdc, hOldFont);
-
-	            // Delete the font object
-
-	            DeleteObject(hFont);
-
-	            asprintf(&s, "(SIDE = %d)", SIDE);
-	            DrawText(hdc, s, -1, &rect, DT_CENTER | DT_BOTTOM | DT_SINGLELINE);
-
 	            rect.left   = 300;
 	            rect.right  = 450;
 	            rect.bottom = 90;
 	            rect.top    = 72;
-
-	            HBRUSH hBrush = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
-	            FillRect(hdc, &rect, hBrush);
 
 	         	unsigned long millis = GetTickCount64() - begin;
 	         	asprintf(&s, "Elapsed %.1fs ", millis / 1000.0);
@@ -106,36 +86,39 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			bmInfo.bmiHeader.biWidth       = WIDTH;
 			bmInfo.bmiHeader.biCompression = BI_RGB;
 
-            // Create the first radio button
+            UINT_PTR nIDEvent = 1; // Timer identifier
+            UINT uElapse = 100; // 1 second interval
 
-			mode0_rad = CreateWindow(
-                "BUTTON", "Mode 0",
-                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP,
-                50, 350, 100, 20,
-                hwnd, (HMENU)MODE0,
-				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+            tb->p[0] = 1;
+            tb->p[1] = 0;
+            tb->p[2] = 0;
+            tb->p[3] = 0;
+            tb->q[0] = 1;
+            tb->q[1] = 0;
+            tb->q[2] = 0;
+            tb->q[3] = 0;
+            tb->drag_startVector = NULL;
+            tb->box.left = 0;
+            tb->box.top = 0;
+            tb->box.right = WIDTH;
+            tb->box.bottom = HEIGHT;
+            tb->slideID = 0;
+            tb->dragged = 0;
+            tb->smooth = 0;
+            tb->limitAxis = NULL;
+            tb->angleChange = 0;
+            tb->axis = NULL;
+            tb->angle = 0;
+            tb->oldTime = 0;
+            tb->curTime = 0;
+            SetTimer(hwnd, nIDEvent, uElapse, NULL);//TimerProc);
 
-            // Create the second radio button
+            // JC
 
-			mode1_rad = CreateWindow(
-                "BUTTON", "Mode 1",
-                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-                50, 400, 100, 20,
-                hwnd, (HMENU)MODE1,
-				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+            initPlot();
+            flipBuffers();  // forces init of curr
+            begin = GetTickCount64();
 
-            // Create the third radio button
-
-            mode2_rad = CreateWindow(
-                "BUTTON", "Mode 2",
-                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-                50, 450, 100, 20,
-                hwnd, (HMENU)MODE2,
-				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-
-            // Check the first radio button by default
-
-            SendMessage(mode0_rad, BM_SETCHECK, BST_CHECKED, 0);
 			break;
 	    	}
 
@@ -143,6 +126,8 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     		return 1;
 
 		case WM_DESTROY:
+            // Release the capture and exit the application
+            ReleaseCapture();	// JS
 			DeleteAutomaton();
     		DeleteObject(myBitmap) ;
     	    DeleteDC(myCompatibleDC);
@@ -154,29 +139,37 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
 		case WM_MOUSEMOVE:
-		case WM_RBUTTONDOWN:
-		case WM_MOUSEWHEEL:
-			mouse(msg, wparam, lparam);
-			break;
+		{
+            mouse(msg, x, y);
+            break;
+		}
 
 		case WM_KEYDOWN:
 			keyboard(msg, wparam, lparam);
 			break;
 
+		case WM_TIMER:
+			drawModel();
+	        flipBuffers();
+	        clearBuffer();
+	        setWindow(-WINDOW, WINDOW, -WINDOW, WINDOW);
+	        newView2();
+	        newProjection();
+	        newView3();
+	        update3d();
+	        SetDIBits(myCompatibleDC, myBitmap, 0, HEIGHT, pixels, &bmInfo, 0);
+	        BitBlt(hdc, 0, 0, WIDTH, HEIGHT, myCompatibleDC, 0, 0, SRCCOPY);
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+
+        case WM_SIZE:
+            GetClientRect(hwnd, &(tb->box));
+            return 0;
+
 		default:
 			return DefWindowProc(hwnd, msg, wparam, lparam);
 	}
 	return lparam;
-}
-
-HWND CreateCheckBox(HWND hwndParent, int x, int y, int width, int height, int id, LPCWSTR text)
-{
-	return CreateWindowA("BUTTON", (char *)text, WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX, x, y, width, height, hwndParent, NULL, NULL, NULL);
-}
-
-void CreateLabel(HWND hwndParent, int x, int y, int width, int height, LPCWSTR text)
-{
-    CreateWindow ("STATIC", (LPCSTR)text, WS_VISIBLE | WS_CHILD | SS_LEFT, x, y, width, height, hwndParent, NULL, NULL, NULL);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
@@ -188,7 +181,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	    return FALSE;
 	}
 	WNDCLASS wc;
-	HWND hwnd;
 	MSG msg;
 	//
 	ZeroMemory(&wc, sizeof(WNDCLASS));
@@ -198,6 +190,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wc.lpszClassName = "MYWNDCLASSNAME";
 	wc.hbrBackground = NULL;
 	wc.hCursor       = LoadCursor(0, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	//
  	char *title = NULL;
  	asprintf(&title, "Toy universe");
@@ -205,29 +198,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
  	// Get the dimensions of the screen
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    // Start the rendering loop
+    SetTimer(hwnd, 1, 16, NULL); // 16 ms interval for approximately 60 FPS
     //
 	RegisterClass(&wc);
 	hwnd = CreateWindow("MYWNDCLASSNAME", title,
 		WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 		20, 20, screenWidth - 500, screenHeight - 100, NULL, NULL, hInstance, NULL);
  	free(title);
-
-    // Create checkboxes
-
- 	front_chk = CreateCheckBox(hwnd, 50, 50, 150, 30, FRONT, (LPCWSTR)"Wavefront");
- 	track_chk = CreateCheckBox(hwnd, 50, 90, 150, 30, TRACK, (LPCWSTR)"Track");
- 	p_chk     = CreateCheckBox(hwnd, 50, 130, 150, 30, MOMENTUM, (LPCWSTR)"Momentum");
- 	plane_chk = CreateCheckBox(hwnd, 50, 170, 150, 30, PLANE, (LPCWSTR)"Plane");
- 	cube_chk  = CreateCheckBox(hwnd, 50, 210, 150, 30, CUBE, (LPCWSTR)"Cube");
- 	latt_chk  = CreateCheckBox(hwnd, 50, 250, 150, 30, LATTICE, (LPCWSTR)"Lattice");
-
- 	SendMessage(front_chk, BM_SETCHECK, BST_CHECKED, 0);
- 	SendMessage(p_chk, BM_SETCHECK, BST_CHECKED, 0);
- 	SendMessage(latt_chk, BM_SETCHECK, BST_CHECKED, 0);
-
-    // Create label
-
-    //CreateLabel (hwnd, 50, 150, 150, 30, (LPCWSTR)"Label");
 
     // Show window
 
@@ -246,16 +225,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
  	setvbuf(stdout, NULL, _IONBF, 0);
  	//
- 	pthread_barrier_init(&barrier, &attr, 2);
- 	pthread_create(&display, NULL, &DisplayLoop, NULL);
- 	Sleep(2);
- 	pthread_create(&loop, NULL, &AutomatonLoop, NULL);
+ 	pthread_create(&loop, NULL, &SimulationLoop, NULL);
  	Sleep(2);
 	srand(time(NULL));
  	//
+	Beep(1000, 100);
 	while(GetMessage(&msg, hwnd, 0,0))
+	{
+		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-	return 0;
+	}
+    return msg.wParam;
 }
 
 /*
@@ -264,4 +244,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 void DeleteAutomaton()
 {
 	puts("done.");
+}
+
+void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	switch(wparam) { case 'S': stop = !stop; }
 }

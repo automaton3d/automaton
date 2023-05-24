@@ -8,14 +8,11 @@
 #ifndef SIMULATION_H_
 #define SIMULATION_H_
 
+#include <stdio.h>
+#include "plot3d.h"
 #include <windows.h>
 #include <pthread.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <math.h>
-#include "assert.h"
-#include "engine.h"
-#include "keyboard.h"
 
 // Lattice symbols.
 
@@ -35,12 +32,11 @@
 
 // Roles.
 
-#define EMPTY     0
-#define SEED      1
-#define WAVE      2
-#define GRID      3
-#define TRAIL     4
-#define TRAVELLER 5
+#define EMPTY     0x00
+#define SEED      0x01
+#define WAVE      0x02
+#define GRID      0x04
+#define TRAVELLER 0x08
 
 // Particle singles and pairs (used in k).
 
@@ -83,6 +79,9 @@
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>COLLAPSE)
 #define ANNIHIL(u,v) (C(u)==_C(v))
+#define GET_ROLE(c)  ((c)->a1 == 0 ? EMPTY : (!ZERO((c)->s) ? (ZERO((c)->p) ? WAVE : SEED) : (ISSAT((c)->po) ? GRID : TRAVELLER)))
+#define DOT(u, v)    ((u)[0] * (v)[0] + (u)[1] * (v)[1] + (u)[2] * (v)[2])
+#define MOD2(v)      ((v)[0] * (v)[0] + (v)[1] * (v)[1] + (v)[2] * (v)[2])
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
 #define SUB(v,v1,v2) {v[0]=v2[0]-v1[0];v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
@@ -96,10 +95,6 @@
 
 typedef struct Cell
 {
-  // Pointers.
-
-  struct
-    Cell *ws[NDIR]; // wires to other cells (const.);
   unsigned off;     // offset (const.)
 
   // Physical properties.
@@ -134,24 +129,26 @@ typedef struct Cell
 
   unsigned k;       // calculated kind of fragment
 
-  pthread_mutex_t mutex;
-
 } Cell;
 
 /// Functions ///
 
-void *AutomatonLoop();
+void *SimulationLoop();
 void DeleteAutomaton();
 void copy();
 void update();
-void initAutomaton();
+void initSimulation();
 void initScreen();
-void printCell(Cell *cell);
 void *work(void * parm);
 void model(int phase);
+Cell *neighbor(Cell *ptr, int dir);
+void phase1();
+void phase2();
+void phase3();
+void phase4();
 void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
 void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
-Cell *wires(int i, Cell *ptr, int dir, Cell *latt);
-int getRole(Cell *c);
+void sanityCheck();
+void printCell(Cell *cell);
 
 #endif /* SIMULATION_H_ */

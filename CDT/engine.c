@@ -6,8 +6,11 @@
  */
 
 #include "engine.h"
-#include "arcball.h"
-#include "view.h"
+
+extern Trackball view;
+extern unsigned long begin;
+
+Trackball *vu;
 
 // Transformation matrix
 //
@@ -34,9 +37,9 @@ static double vxl, vyl;
 static double vxh, vyh;
 static double wsx, wsy;
 //
-static float position[3];      	  // view reference point
-static float direction[3];		  // camera axis
-static float attitude[3];   	  // view-up direction
+float position[3];      	  // view reference point
+float direction[3];		  // camera axis
+float attitude[3];   	  // view-up direction
 //
 static boolean parallel = false;
 static boolean clipping = true;
@@ -48,30 +51,57 @@ static Voxel *curr;
 DWORD *pixels, *colors;
 Voxel *imgbuf[2], *buff, *clean;
 
+void initScreen()
+{
+  // Alocate memory for voxel buffers
+
+  imgbuf[0] = malloc(IMGBUFFER*sizeof(Voxel));
+  imgbuf[1] = malloc(IMGBUFFER*sizeof(Voxel));
+  buff = imgbuf[0];
+  clean = imgbuf[1];
+  buff->color = -1;
+  clean->color = -1;
+
+  begin = GetTickCount64();      // initial milliseconds
+  setvbuf(stdout, 0, _IOLBF, 0);
+
+  // Initialize trackball
+
+  vu = &view;
+  vu->box.left = 0;
+  vu->box.top = 0;
+  vu->box.right = WIDTH;
+  vu->box.bottom = HEIGHT;
+  vu->p[0] = 1;
+  vu->p[1] = 0;
+  vu->p[2] = 0;
+  vu->p[3] = 0;
+  vu->q[0] = 1;
+  vu->q[1] = 0;
+  vu->q[2] = 0;
+  vu->q[3] = 0;
+  vu->rotation[0] = 1;
+  vu->rotation[1] = 0;
+  vu->rotation[2] = 0;
+  vu->rotation[3] = 0;
+  vu->dragged = false;
+  vu->rotH = false;
+  vu->rotV = false;
+
+  Sleep(4);
+}
+
 /*
  * Define colors.
  */
 void initPalette()
 {
     colors[0]  = 0x00000000; // BLK
-	colors[1]  = 0x00000080; // NAVY
-    colors[2]  = 0x000000ff; // BLUE
-    colors[3]  = 0x00800000; // MAROON
-	colors[4]  = 0x00800080; // PURPLE
-    colors[5]  = 0x00ff0000; // RED
-	colors[6]  = 0x00ff00ff; // MAGENTA
-	colors[7]  = 0x00008000; // GREEN
-	colors[8]  = 0x00008080; // TEAL
-	colors[9]  = 0x00808000; // OLIVE
-    colors[10] = 0x00404040; // GRAY
-    colors[11] = 0x0000ff00; // LIME
-	colors[12] = 0x00ffa500; // ORANGE
-    colors[13] = 0x0000ffff; // CYAN
-    colors[14] = 0x00ffff00; // YELLOW
-    colors[15] = 0x00ffffff; // WHT
-	colors[16] = 0x00c0c0c0; // SILVER
-    colors[17] = 0x00111100; // PALE
-    colors[18] = 0x00800080; // PURPLE
+    colors[1] = 0x00404040; // GRAY
+    colors[2]  = 0x00ff0000; // RED
+	colors[3]  = 0x00008000; // GREEN
+    colors[4]  = 0x000000ff; // BLUE
+	colors[5]  = 0x00000080; // NAVY
 }
 
 // Scale is the value you multiply x and y with before you divide
@@ -316,22 +346,6 @@ void setWindow(double _wxl, double _wxh, double _wyl, double _wyh)
 	wyh = _wyh;
 }
 
-void shrinkWindow()
-{
-	wxl *= 0.85;
-	wxh *= 0.85;
-	wyl *= 0.95;
-	wyh *= 0.85;
-}
-
-void expandWindow()
-{
-	wxl *= 1.15;
-	wxh *= 1.15;
-	wyl *= 1.15;
-	wyh *= 1.15;
-}
-
 void setViewDepth(double _frontDistance, double _backDistance)
 {
 	if(frontDistance > backDistance)
@@ -349,11 +363,6 @@ void setViewPort(double _vxl, double _vxh, double _vyl, double _vyh)
 	vxh = _vxh;
 	vyl = _vyl;
 	vyh = _vyh;
-}
-
-void flipMode()
-{
-	parallel = !parallel;
 }
 
 void newView2()
@@ -378,11 +387,6 @@ void setPerspective(double x, double y, double z)
 	center[0] = x;
 	center[1] = y;
 	center[2] = z;
-}
-
-float *getPerspective()
-{
-	return center;
 }
 
 void clearBuffer()
@@ -468,14 +472,6 @@ void putVoxel(float v[3], char color)
 	curr->color = -1;	// end of file
 }
 
-void plot(float v[3], char color)
-{
-	pen[0] = v[0];
-	pen[1] = v[1];
-	pen[2] = v[2];
-	enter(color);
-}
-
 /**
  * Projects all voxels on the screen.
  */
@@ -484,10 +480,9 @@ void update3d()
 	Voxel *ptr = clean;
 	for(int i = 0; ptr->color >= 0; i++, ptr++)
 	{
-		pen[0] = ptr->pos[0]*3;
-		pen[1] = ptr->pos[1]*3;
-		pen[2] = ptr->pos[2]*3;
-		//rotateVectorX(view.rotation, ptr->pos, pen);
+		pen[0] = ptr->pos[0];
+		pen[1] = ptr->pos[1];
+		pen[2] = ptr->pos[2];
 		enter(ptr->color);
 	}
 }
@@ -525,9 +520,9 @@ void initEngine(double zoom)
 	initPalette();
 	initFrustum(&f);
 	//
-	position[0] = 2500;//3*zoom;
-	position[1] = 2500;//2*zoom;
-	position[2] = 2500;//2.5*zoom;
+	position[0] = 2500;
+	position[1] = 2500;
+	position[2] = 2500;
 	//
 	direction[0] = -position[0];		// camera axis
 	direction[1] = -position[1];
@@ -558,41 +553,6 @@ void initEngine(double zoom)
 	clearBuffer();
 }
 
-/*
- * Print a character in 3d space.
- */
-void drawChar(double x, double y, double z, char color, char ch)
-{
-	pen[0] = x;
-	pen[1] = y;
-	pen[2] = z;
-
-	// Transform the point to camera space
-	//
-	viewPlaneTransform(pen);
-	//
-	// Clipping against clipping planes
-	//
-	if(clipping && (pen[2] > -frontDistance || pen[2] < -backDistance))
-		return;
-	//
-	if(parallel)
-		parallelTransform(pen);
-	else
-		perspectiveTransform(pen);
-	//
-	// Clipping against frustum sides
-	//
-	if(pen[0] >= wxl && pen[0] <= wxh && pen[1] >= wyl && pen[1] <= wyh)
-	{
-		// Convert to screen coordinates
-		//
-		int xi = (int) (((pen[0] - wxl) * wsx + vxl) * WIDTH + .5);
-		int yi = (int) (((pen[1] - wyl) * wsy + vyl) * HEIGHT + .5);
-		vprint(WIDTH - xi, yi, ch);
-	}
-}
-
 void newProjection()
 {
 	if(!parallel)
@@ -604,98 +564,3 @@ void newProjection()
 	}
 }
 
-/*
- * Acts on camera focus.
- */
-void zoom(int delta)
-{
-	scale += delta/20;
-	if(scale < 70)
-		scale = 70;
-	if(scale > 260)
-		scale = 260;
-}
-
-void panH(int offset)
-{
-	float xaxis[3];
-	cross3d(attitude, direction, xaxis);
-	normalize(xaxis);
-	scale3d(xaxis, offset);
-	add3d(position, xaxis);
-}
-
-void panV(int offset)
-{
-	float yaxis[3];
-	yaxis[0] = attitude[0];
-	yaxis[1] = attitude[1];
-	yaxis[2] = attitude[2];
-	normalize(yaxis);
-	scale3d(yaxis, offset);
-	add3d(position, yaxis);
-}
-
-void point2d(int x, int y, int color)
-{
-	pixels[x + y*WIDTH] = colors[color];
-}
-
-/**
- * Draws a 2d line.
- */
-void line2d(int x0, int y0, int x1, int y1, int color)
-{
-	int dy = y1 - y0;
-    int dx = x1 - x0;
-    int stepx, stepy;
-    if(dy < 0)
-    {
-    	dy = -dy;  stepy = -1;
-    }
-    else
-    {
-    	stepy = 1;
-    }
-    if(dx < 0)
-    {
-    	dx = -dx;  stepx = -1;
-    }
-    else
-    {
-    	stepx = 1;
-    }
-    dy <<= 1;                                         // dy is now 2*dy
-    dx <<= 1;                                         // dx is now 2*dx
-    pixels[x0 + y0*WIDTH] = color;
-    if(dx > dy)
-    {
-    	int fraction = dy - (dx >> 1);                  // same as 2*dy - dx
-    	while (x0 != x1)
-    	{
-    		if(fraction >= 0)
-    		{
-    			y0 += stepy;
-    			fraction -= dx;                             // same as fraction -= 2*dx
-    		}
-    		x0 += stepx;
-    		fraction += dy;                               // same as fraction -= 2*dy
-    		pixels[x0 + y0*WIDTH] = colors[color];
-    	}
-    }
-    else
-    {
-    	int fraction = dx - (dy >> 1);
-    	while(y0 != y1)
-    	{
-    		if(fraction >= 0)
-    		{
-    			x0 += stepx;
-    			fraction -= dy;
-    		}
-    		y0 += stepy;
-    		fraction += dx;
-    		pixels[x0 + y0*WIDTH] = colors[color];
-    	}
-    }
-}

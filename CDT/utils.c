@@ -7,87 +7,6 @@
 
 #include "utils.h"
 
-/*
- * Simple delay for testing purposes.
- */
-void delay(unsigned int mseconds)
-{
-    clock_t goal = mseconds + clock();
-    while (goal > clock());
-}
-
-/*
- * Calculates the signum function.
- */
-int signum(int a)
-{
-	if(a > 0)
-		return 1;
-	if(a < 0)
-		return -1;
-	return 0;
-}
-
-/*
- * Calculates the length of string.
- */
-int string_length(char *s)
-{
-	int c = 0;
-	while(s[c] != '\0')
-		c++;
-	return c;
-}
-
-/*
- * Dot product.
- */
-int DOT(int *u, int *v)
-{
-	return u[0]*v[0]+u[1]*v[1]+u[2]*v[2];
-}
-
-/*
- * Module squared.
- */
-int MOD2(int *v)
-{
-	return v[0]*v[0]+v[1]*v[1]+v[2]*v[2];
-}
-
-/*
- * Calculates conections between cells.
- */
-Cell *wires(int i, Cell *ptr, int dir, Cell *latt)
-{
-  int x = ((i / SIDE) % SIDE) % SIDE;
-  int y = (((i / SIDE) % SIDE) / SIDE) % SIDE;
-  int z = ((i / SIDE) % SIDE) / (SIDE2);
-
-  switch (dir)
-  {
-    case 0:
-      x = (x + 1) % SIDE;
-      break;
-    case 1:
-      x = (x - 1 + SIDE) % SIDE;
-      break;
-    case 2:
-      y = (y + 1) % SIDE;
-      break;
-    case 3:
-      y = (y - 1 + SIDE) % SIDE;
-      break;
-    case 4:
-      z = (z + 1) % SIDE;
-      break;
-    case 5:
-      z = (z - 1 + SIDE) % SIDE;
-      break;
-  }
-  return latt + (z * SIDE * SIDE + y * SIDE + x) * SIDE3 + (ptr->off % SIDE3);
-}
-
 void scale3d(float *t, int s)
 {
 	t[0] *= s;
@@ -133,9 +52,89 @@ void sub3d(float *a, float b[3])
 	a[2] -= b[2];
 }
 
-void reset3d(float *v)
+void line3d(float t1[3], float t2[3], char color)
 {
-	v[0] = 0;
-	v[1] = 0;
-	v[2] = 0;
+    int i, err_1, err_2, dx2, dy2, dz2;
+    float point[3];
+    point[0] = t1[0];
+    point[1] = t1[1];
+    point[2] = t1[2];
+    int dx = (int)(t2[0] - t1[0]);
+    int dy = (int)(t2[1] - t1[1]);
+    int dz = (int)(t2[2] - t1[2]);
+    int x_inc = (dx < 0) ? -1 : 1;
+    int l = abs(dx);
+    int y_inc = (dy < 0) ? -1 : 1;
+    int m = abs(dy);
+    int z_inc = (dz < 0) ? -1 : 1;
+    int n = abs(dz);
+    dx2 = l << 1;
+    dy2 = m << 1;
+    dz2 = n << 1;
+    //
+    if((l >= m) && (l >= n))
+    {
+        err_1 = dy2 - l;
+        err_2 = dz2 - l;
+        for (i = 0; i < l; i++)
+        {
+            putVoxel(point, color);
+            if (err_1 > 0) {
+                point[1] += y_inc;
+                err_1 -= dx2;
+            }
+            if (err_2 > 0) {
+                point[2] += z_inc;
+                err_2 -= dx2;
+            }
+            err_1 += dy2;
+            err_2 += dz2;
+            point[0] += x_inc;
+        }
+    }
+    else if ((m >= l) && (m >= n))
+    {
+        err_1 = dx2 - m;
+        err_2 = dz2 - m;
+        for (i = 0; i < m; i++)
+        {
+            putVoxel(point, color);
+            if (err_1 > 0)
+            {
+                point[0] += x_inc;
+                err_1 -= dy2;
+            }
+            if (err_2 > 0)
+            {
+                point[2] += z_inc;
+                err_2 -= dy2;
+            }
+            err_1 += dx2;
+            err_2 += dz2;
+            point[1] += y_inc;
+        }
+    }
+    else
+    {
+        err_1 = dy2 - n;
+        err_2 = dx2 - n;
+        for (i = 0; i < n; i++)
+        {
+            putVoxel(point, color);
+            if (err_1 > 0)
+            {
+                point[1] += y_inc;
+                err_1 -= dz2;
+            }
+            if (err_2 > 0)
+            {
+                point[0] += x_inc;
+                err_2 -= dz2;
+            }
+            err_1 += dy2;
+            err_2 += dx2;
+            point[2] += z_inc;
+        }
+    }
+    putVoxel(point, color);
 }

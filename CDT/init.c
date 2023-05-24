@@ -1,61 +1,13 @@
 /*
  * init.c
  *
- *  Created on: 3 de abr de 2017
+ *  Created on: 23 de mai. de 2023
  *      Author: Alexandre
  */
 
 #include "simulation.h"
-#include "arcball.h"
-#include "view.h"
 
-extern Voxel *imgbuf[2], *buff, *clean;
 extern Cell *latt0, *latt1;
-extern View view;
-extern unsigned long begin;
-
-View *vu;
-
-long OFFSET(int x, int y, int z)
-{
-  return (x*SIDE3+y*SIDE4+z*SIDE5);
-}
-
-void initScreen()
-{
-  // Alocate memory for voxel buffers
-
-  imgbuf[0] = malloc(IMGBUFFER*sizeof(Voxel));
-  imgbuf[1] = malloc(IMGBUFFER*sizeof(Voxel));
-  buff = imgbuf[0];
-  clean = imgbuf[1];
-  buff->color = -1;
-  clean->color = -1;
-
-  begin = GetTickCount64();      // initial milliseconds
-  setvbuf(stdout, 0, _IOLBF, 0);
-
-  // Initialize trackball
-
-  vu = &view;
-  vu->width = WIDTH;
-  vu->height = HEIGHT;
-  vu->currQ[0] = 1;
-  vu->currQ[1] = 0;
-  vu->currQ[2] = 0;
-  vu->currQ[3] = 0;
-  vu->lastQ[0] = 1;
-  vu->lastQ[1] = 0;
-  vu->lastQ[2] = 0;
-  vu->lastQ[3] = 0;
-  vu->rotation[0] = 1;
-  vu->rotation[1] = 0;
-  vu->rotation[2] = 0;
-  vu->rotation[3] = 0;
-  vu->dragged = false;
-
-  Sleep(4);
-}
 
 // Template for momentum recursion
 
@@ -75,32 +27,36 @@ int template[6][3] =
 void singularity(Cell *grid)
 {
   Cell *ptr = grid;
+
+  // Create a sheet.
+
   int i = 0;
-
-  // Create a sheet
-
   for(int y = 0; y < SIDE; y++)
     for(int x = 0; x < SIDE; x++, ptr++, i++)
       CP(ptr->s, template[i % 6]);
+
+  // Create bulk.
+
   i = 0;
   ptr = grid;
   for(int z = 0; z < SIDE; z++)
     for(int y = 0; y < SIDE; y++)
-      for(int x = 0; x < SIDE; x++, ptr++, i++)
+      for(int x = 0; x < SIDE; x++)
       {
-        ptr->ch = 0;
-        ptr->ch |= ((i >> 1) << 5);  // dualitat
-        ptr->ch |= ((i % 2) << 4);   // weak
-        ptr->ch |= ((((i % 2)^(i >> 1))  & 1) << 3); // electrical
-        ptr->ch |= (i % 8);    // color
-        ptr->a1  = i + 1;	   // dodges zero
-        ptr->a2  = 0;          // no chaining
-        ptr->k   = FERMION;    // intially just singles
-        ptr->occ = SIDE_2 - 1; // crest cell
+    	char w0 = i % 2;
+    	char w1 = (i >> 1) % 2;
+    	char q  = w0 ^ w1;
+        ptr->ch = (i % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+        ptr->a1  = i + 1;	           // dodges zero
+        ptr->a2  = 0;                  // no chaining
+        ptr->k   = FERMION;            // intially just singles
+        ptr->occ = SIDE_2 - 1;         // crest cell
         CP(ptr->p, template[i % 6]);   // momentum
         CP(ptr->s, grid[i % SIDE2].s); // spin
-        RSET(ptr->o);	       // ready for immediate expansion
-        RSET(ptr->po);         // already at the reissue cell
+        RSET(ptr->o);	               // ready for immediate expansion
+        RSET(ptr->po);                 // already at the reissue cell
+        ptr++;
+        i++;
       }
 }
 
@@ -124,39 +80,56 @@ void initEspacito(Cell *latt, Cell *espacito)
     RSET(ptr->s);     // trivial spin
     RSET(ptr->pP);    // no empodion
     RSET(ptr->m);     // messenger
-    pthread_mutex_init(&ptr->mutex, NULL);
+    ptr++;
   }
 }
 
-void initAutomaton()
+void sanityCheck()
+{
+  int n = 0, m =0;
+  Cell *stb = latt0;
+  Cell *drf = latt1;
+  for(int i = 0; i < SIDE6; i++, stb++, drf++)
+  {
+	  if(!ZERO(stb->p))
+	  {
+		  n++;
+		  assert(!ZERO(stb->s));
+	  }
+	  if(!ZERO(stb->s))
+	  {
+		  m++;
+	  }
+  }
+  assert(n == SIDE3);
+  assert(m == SIDE3);
+  puts("Sanity ok.");
+}
+
+void initSimulation()
 {
   printf("DIAG=%d DIAG=%d SIDE=%d\n", DIAG, (int)(sqrt(3)*SIDE + 0.5), SIDE);
 
   latt0 = malloc(SIDE6 * sizeof(Cell));
   latt1 = malloc(SIDE6 * sizeof(Cell));
 
-  // Create the lattice graph.
-
   Cell *stb = latt0;
   Cell *drf = latt1;
-  for(int i = 0; i < SIDE6; i++, stb++, drf++)
-  {
-    for (int dir = 0; dir < NDIR; dir++)
-      stb->ws[dir] = wires(i, stb, dir, latt0);
-    for (int dir = 0; dir < NDIR; dir++)
-      drf->ws[dir] = wires(i, drf, dir, latt1);
-  }
 
-  // Enter data.
-
-  stb = latt0;
-  drf = latt1;
-  for(int i = 0; i < SIDE6; i += SIDE3, stb += SIDE3, drf += SIDE3)
+  for(int i = 0; i < SIDE3; i++, stb += SIDE3, drf += SIDE3)
   {
     initEspacito(latt0, stb);
     initEspacito(latt1, drf);
   }
+  stb = latt0;
+  drf = latt1;
+  for(int i = 0; i < SIDE6; i++, stb++, drf++)
+  {
+	  stb->off = i;
+	  drf->off = i;
+  }
   singularity(latt0);
   singularity(latt1);
+  //
+  sanityCheck();
 }
-

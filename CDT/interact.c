@@ -58,11 +58,11 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
       // Exchange particle x lattice (Sect. 4.6.3).
       // With reciprocity.
 
-      if (nxt->k == FERMION && getRole(stb) == GRID)
+      if (nxt->k == FERMION && GET_ROLE(stb) == GRID)
       {
         CP(lst->o, drf->o);
       }
-      else if (stb->k == FERMION && getRole(nxt) == GRID)
+      else if (stb->k == FERMION && GET_ROLE(nxt) == GRID)
       {
         CP(drf->o, nxt->o);
       }
