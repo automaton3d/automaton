@@ -17,8 +17,6 @@ extern Cell *stb, *drf;
  */
 void phase1()
 {
-  //pthread_mutex_lock(&mutex);
-
   // Clock tick.
 
   drf->n++;
@@ -27,6 +25,8 @@ void phase1()
 
   if (drf->occ > 0)
     drf->occ--;
+
+  // Massive copy.
 
   stb->ch  = drf->ch;   // charges
   stb->a1   = drf->a1;  // affinity
@@ -43,6 +43,4 @@ void phase1()
   CP(stb->po, drf->po); // pole
   CP(stb->pP, drf->pP); // decay
   CP(stb->m, drf->m);   // messenger
-
-//  pthread_mutex_unlock(&mutex);
 }

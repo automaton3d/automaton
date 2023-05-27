@@ -21,7 +21,7 @@ void phase2()
 
   // Calculate physical time
 
-  int t = stb->n / LIGHT;
+  //int t = stb->n / LIGHT;
 
   // Affine operations?
 

@@ -1,14 +1,13 @@
 #include "simulation.h"
 
 extern boolean rebuild;
-extern pthread_mutex_t mutex;
-extern pthread_barrier_t barrier;
 extern unsigned long timer;
 extern boolean stop;
-extern char voxels[SIDE6];
 
 Cell *latt0, *latt1;
 Cell *stb, *drf;
+
+boolean rebuild = true;
 
 Cell *neighbor(Cell *ptr, int dir)
 {
@@ -52,26 +51,10 @@ void simulation()
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
     	phase4();
 
-    /////////////////////
-//    modified = true;
-
     // Update video buffer.
 
-    Cell *stb = latt0;
-    for(int i = 0; i < SIDE6; i++, stb++)
-    {
-        if(!ZERO(stb->p))
-        	voxels[i] = RED;
-        else if(!ZERO(stb->s))
-        	voxels[i] = GREEN;
-       	else
-       		voxels[i] = BLK;
-    }
-//    modified = false;
-//    ready = true;
+    updateBuffer();
 }
-
-
 
 /*
  * The automaton thread.
@@ -80,16 +63,13 @@ void *SimulationLoop()
 {
     pthread_detach(pthread_self());
 	initSimulation();
-    pthread_barrier_wait(&barrier);
 	//
 	while(true)
 	{
 		if(!stop)
 		{
 			simulation();
-	    	pthread_mutex_lock(&mutex);
 			rebuild = true;
-		    pthread_mutex_unlock(&mutex);
 			timer++;
 		}
 		else

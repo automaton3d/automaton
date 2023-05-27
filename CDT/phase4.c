@@ -6,10 +6,39 @@
 
 extern Cell *stb, *drf;
 
+void phase4()
+{
+  if(ZERO(stb->p))
+	  return;
+
+  for(int dir = 0; dir < NDIR; dir++)
+  {
+    Cell* nei = neighbor(drf, dir);
+    int org[3];
+    CP(org, stb->o);
+    int i = dir >> 1;
+    org[i] += (dir % 2 == 0) ? +1 : -1;
+    if (abs(org[i]) < abs(stb->o[i]))
+      continue;
+    if (stb->n * stb->n < stb->syn)
+      continue;
+    if (!ZERO(nei->s))
+    	continue;
+    nei->n    = stb->n;
+    nei->p[0] = 1;
+    nei->s[0] = 1;
+    CP(nei->o, org);
+    nei->syn = LIGHT2 * MOD2(org);
+  }
+  RSET(drf->p);
+  RSET(drf->s);
+  //delay(10);
+}
+
 /*
  * Wavefront expansion.
  */
-void phase4()
+void phase4zz()
 {
   // If cell is empty, does nothing.
 
@@ -66,8 +95,6 @@ void phase4()
 
     if (stb->n * stb->n < stb->syn)
       continue;
-
-	printf("\tWave %d\n", stb->n);
 
     // Check if destiny cell has not been occupied.
 

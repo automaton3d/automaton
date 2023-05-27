@@ -8,15 +8,16 @@
 #ifndef SIMULATION_H_
 #define SIMULATION_H_
 
-#include <stdio.h>
-#include "plot3d.h"
 #include <windows.h>
-#include <pthread.h>
 #include <stdio.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "main3d.h"
 
 // Lattice symbols.
 
-#define ORDER    3  //202 (see Section 2.3)
+#define ORDER    4  //202 (see Section 2.3)
 #define SIDE     (1<<ORDER)
 #define SIDE2    (SIDE*SIDE)
 #define SIDE3    (SIDE*SIDE2)
@@ -139,7 +140,6 @@ void copy();
 void update();
 void initSimulation();
 void initScreen();
-void *work(void * parm);
 void model(int phase);
 Cell *neighbor(Cell *ptr, int dir);
 void phase1();
@@ -150,5 +150,7 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
 void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
 void sanityCheck();
 void printCell(Cell *cell);
+void drawModel(HDC hdc);
+void fromAxisAngle(const float axis[3], float angleRadians, float *result);
 
 #endif /* SIMULATION_H_ */
