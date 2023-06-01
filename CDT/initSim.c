@@ -32,15 +32,25 @@ void singularity(Cell *grid)
 
   int i = 0;
   for(int y = 0; y < SIDE; y++)
-    for(int x = 0; x < SIDE; x++, ptr++, i++)
+  {
+    for(int x = 0; x < SIDE; x++, i++)
+    {
       CP(ptr->s, template[i % 6]);
+      ptr++;
+    }
+    ptr += SIDE2 - SIDE;
+  }
 
   // Create bulk.
 
+  Cell *ref;
   i = 0;
   ptr = grid;
   for(int z = 0; z < SIDE; z++)
+  {
+	ref = ptr;
     for(int y = 0; y < SIDE; y++)
+    {
       for(int x = 0; x < SIDE; x++)
       {
     	char w0 = i % 2;
@@ -52,18 +62,22 @@ void singularity(Cell *grid)
         ptr->k   = FERMION;            // intially just singles
         ptr->occ = SIDE_2 - 1;         // crest cell
         CP(ptr->p, template[i % 6]);   // momentum
-        CP(ptr->s, grid[i % SIDE2].s); // spin
+        CP(ptr->s,(grid + (ptr - ref))->s); // spin
         RSET(ptr->o);	               // ready for immediate expansion
         RSET(ptr->po);                 // already at the reissue cell
-        ptr++;
         i++;
+        ptr++;
       }
+      ptr += SIDE2 - SIDE;
+    }
+    ptr += SIDE4 - SIDE3;
+  }
 }
 
-void initEspacito(Cell *latt, Cell *espacito)
+void initGrid(Cell *grid)
 {
-  Cell *ptr = espacito;
-  for(int i = 0; i < SIDE3; i++)
+  Cell *ptr = grid;
+  for(int i = 0; i < SIDE6; i++)
   {
     ptr->ch  = 0;     // charges
     ptr->n   = 0;     // tick
@@ -74,38 +88,25 @@ void initEspacito(Cell *latt, Cell *espacito)
     ptr->k   = NONE;  // no role whatsoever
     ptr->obj = SIDE3; // no target
     ptr->occ = 0;     // free cell
+	ptr->off = i;     // offset
     SAT(ptr->o);      // invalid value
     SAT(ptr->po);     // unreachable
+    SAT(ptr->m);      // messenger
     RSET(ptr->p);     // null momentum
     RSET(ptr->s);     // trivial spin
     RSET(ptr->pP);    // no empodion
-    RSET(ptr->m);     // messenger
     ptr++;
   }
 }
 
 void initSimulation()
 {
-  printf("DIAG=%d DIAG=%d SIDE=%d\n", DIAG, (int)(sqrt(3)*SIDE + 0.5), SIDE);
+  printf("SIDE=%d DIAG=%d\n", SIDE, DIAG);
 
   latt0 = malloc(SIDE6 * sizeof(Cell));
   latt1 = malloc(SIDE6 * sizeof(Cell));
-
-  Cell *stb = latt0;
-  Cell *drf = latt1;
-
-  for(int i = 0; i < SIDE3; i++, stb += SIDE3, drf += SIDE3)
-  {
-    initEspacito(latt0, stb);
-    initEspacito(latt1, drf);
-  }
-  stb = latt0;
-  drf = latt1;
-  for(int i = 0; i < SIDE6; i++, stb++, drf++)
-  {
-	  stb->off = i;
-	  drf->off = i;
-  }
+  initGrid(latt0);
+  initGrid(latt1);
   singularity(latt0);
   singularity(latt1);
 }

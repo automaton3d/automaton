@@ -36,7 +36,6 @@ void printCell(Cell *cell)
 	printf("%d,%d,%d%s\t", cell->po[0], cell->po[1], cell->po[2], ch);
 	printf("%d,%d,%d\t", cell->pP[0], cell->pP[1], cell->pP[2]);
 	printf("%d,%d,%d\n\n", cell->m[0], cell->m[1], cell->m[2]);
-//	printf("%d\n\n", getRole(cell));
 	jump++;
   }
 }

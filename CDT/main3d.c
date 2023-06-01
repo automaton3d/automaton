@@ -24,17 +24,20 @@ HPEN xPen, yPen, zPen, boxPen;
 // Trackball
 
 boolean drag;
-float r;
 float lastQ[4];
 float currQ[4];
 int startx, starty;
+float rotation[4];
+float scale = 1.5;
 
 // Simulation
 
-pthread_t loop;
+DWORD WINAPI SimulateThread(LPVOID lpParam);
+
 unsigned long begin;
 boolean stop;
 unsigned long timer = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -95,9 +98,11 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	FillRect(hdcMem, &rect, hbrBkGnd);
         	DeleteObject(hbrBkGnd);
         	SetBkMode(hdcMem, TRANSPARENT);
+	        pthread_mutex_lock(&mutex);
         	drawModel(hdcMem);
 	        update2d(hdcMem);
         	BitBlt(hdc, BMAPX, BMAPY, WIDTH, HEIGHT, hdcMem, 0, 0, SRCCOPY);
+            pthread_mutex_unlock(&mutex);
         	DeleteDC(hdcMem);
         	EndPaint(hwnd, &ps);
         	break;
@@ -146,13 +151,22 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	lastQ[2] = rand() / (double)INT_MAX;
         	lastQ[3] = rand() / (double)INT_MAX;
         	normalize_quat(lastQ);
+            scaleQuat(lastQ);
+//        	lastQ[0] = 1;
+//        	lastQ[1] = 0;
+//        	lastQ[2] = 0;
+//        	lastQ[3] = 0;
         	// Identity
         	currQ[0] = 1;
         	currQ[1] = 0;
         	currQ[2] = 0;
         	currQ[3] = 0;
+            scaleQuat(currQ);
         	drag = false;
-            r = min(WIDTH, HEIGHT) / 3.0;
+	        // Start the simulate thread
+	        DWORD dwThreadId;
+	        HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, NULL, 0, &dwThreadId);
+	        CloseHandle(hSimulateThread);
             SetTimer(hwnd, 1, 32, NULL);
             background = RGB(255,255,255);
             begin = GetTickCount64();
@@ -180,20 +194,24 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			break;
 
 		case WM_LBUTTONDOWN:
-			startx = x;
-			starty = y;
-			drag = true;
-			break;
+		    startx = x;
+		    starty = y;
+		    drag = true;
+		    return 0;
 
 		case WM_LBUTTONUP:
 			if (!drag)
 				break;
+            normalize_quat(currQ);
+            normalize_quat(lastQ);
 			mul(lastQ, currQ, lastQ);
 		    currQ[0] = 1;
 		    currQ[1] = 0;
 		    currQ[2] = 0;
 		    currQ[3] = 0;
-		    drag = false;
+            scaleQuat(currQ);
+            scaleQuat(lastQ);
+			drag = false;
 			break;
 
 		case WM_MOUSEMOVE:
@@ -207,8 +225,23 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 				 (2.0*x - WIDTH) / WIDTH,
 				 (HEIGHT - 2.0*y) / HEIGHT);
 			add_quats (lastQ, dquat, currQ);
+            normalize_quat(currQ);
+            normalize_quat(lastQ);
+            scaleQuat(currQ);
+            scaleQuat(lastQ);
             break;
 		}
+        case WM_MOUSEWHEEL:
+        {
+        	float wheelDelta = GET_WHEEL_DELTA_WPARAM(wparam);
+            scale *= wheelDelta > 0 ? 1.1f : 0.9f;  // Increase or decrease scale based on wheel delta
+            normalize_quat(currQ);
+            normalize_quat(lastQ);
+            scaleQuat(currQ);
+            scaleQuat(lastQ);
+            InvalidateRect(hwnd, NULL, TRUE);
+            break;
+        }
 		case WM_KEYDOWN:
 			keyboard(msg, wparam, lparam);
 			break;
@@ -228,8 +261,8 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{ 	setvbuf(stdout, NULL, _IONBF, 0);
-
+{
+ 	setvbuf(stdout, NULL, _IONBF, 0);
 	CreateEvent(NULL, FALSE, FALSE, "Launching...");
 	if(GetLastError() == ERROR_ALREADY_EXISTS)
 	{
@@ -256,7 +289,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
     // Start the rendering loop
-    SetTimer(hwnd, 1, 16, NULL); // 16 ms interval for approximately 60 FPS
+    SetTimer(hwnd, 1, 32, NULL); // 16 ms interval for approximately 60 FPS
     //
 	RegisterClass(&wc);
 	hwnd = CreateWindow("MYWNDCLASSNAME", title,
@@ -277,8 +310,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SendMessage(g_hBitmap, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)myBitmap);
     ReleaseDC(hwnd, hdc);
  	//
- 	pthread_create(&loop, NULL, &SimulationLoop, NULL);
- 	Sleep(2);
 	srand(time(NULL));
     InvalidateRect(hwnd, NULL, TRUE);
  	//

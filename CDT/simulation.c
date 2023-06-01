@@ -1,43 +1,33 @@
 #include "simulation.h"
 
-extern boolean rebuild;
 extern unsigned long timer;
 extern boolean stop;
 
 Cell *latt0, *latt1;
 Cell *stb, *drf;
 
-boolean rebuild = true;
-
 Cell *neighbor(Cell *ptr, int dir)
 {
-  int off = ptr - latt1;
-  int m = off % SIDE3;
-  int x0 = (off / SIDE3) % SIDE;
-  int y0 = (off / SIDE4) % SIDE;
-  int z0 = off / SIDE5;
-  switch (dir)
-  {
-    case 0:
-      x0 = (x0 + 1) % SIDE;
-      break;
-    case 1:
-      x0 = (x0 - 1 + SIDE) % SIDE;
-      break;
-    case 2:
-      y0 = (y0 + 1) % SIDE;
-      break;
-    case 3:
-      y0 = (y0 - 1 + SIDE) % SIDE;
-      break;
-    case 4:
-      z0 = (z0 + 1) % SIDE;
-      break;
-    case 5:
-      z0 = (z0 - 1 + SIDE) % SIDE;
-      break;
-  }
-  return latt1 + x0 * SIDE3 + y0 * SIDE4 + z0 * SIDE5 + m;
+	int i = ptr - latt1;
+    int x = i % SIDE2;
+    int y = (i / SIDE2) % SIDE2;
+    int z = (i / SIDE4) % SIDE2;
+    switch(dir)
+    {
+        case 0:
+            return latt1 + ((x + SIDE) % SIDE2) + SIDE2*y + SIDE4*z;
+        case 1:
+            return latt1 + ((x - SIDE + SIDE2) % SIDE2) + SIDE2*y + SIDE4*z;
+        case 2:
+            return latt1 + x + SIDE2*((y + SIDE) % SIDE2) + SIDE4*z;
+        case 3:
+            return latt1 + x + SIDE2*((y - SIDE + SIDE2) % SIDE2) + SIDE4*z;
+        case 4:
+            return latt1 + x + SIDE2*y + SIDE4*((z + SIDE) % SIDE2);
+        case 5:
+            return latt1 + x + SIDE2*y + SIDE4*((z - SIDE + SIDE2) % SIDE2);
+    }
+    return NULL;
 }
 
 void simulation()
@@ -50,32 +40,23 @@ void simulation()
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
     	phase4();
-
-    // Update video buffer.
-
-    updateBuffer();
 }
 
-/*
- * The automaton thread.
- */
-void *SimulationLoop()
+DWORD WINAPI SimulateThread(LPVOID lpParam)
 {
-    pthread_detach(pthread_self());
 	initSimulation();
-	//
-	while(true)
-	{
+    while (true)
+    {
 		if(!stop)
 		{
 			simulation();
-			rebuild = true;
+			updateBuffer();
 			timer++;
 		}
 		else
 		{
 	        Sleep(80);
 		}
-	}
-	return NULL;
+    }
+    return 0;
 }

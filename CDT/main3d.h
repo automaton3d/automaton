@@ -21,9 +21,6 @@
 #define WIDTH   800
 #define HEIGHT  800
 
-#define WIDE 8192
-#define SEP  (WIDE/SIDE2)
-
 // Checkboxes and radios.
 
 #define FRONT		0

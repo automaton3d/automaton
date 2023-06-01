@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <math.h>
 
-#define TRACKBALLSIZE  (0.5f)
-
 extern HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
 extern HWND single_rad, partial_rad, full_rad;
 extern boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes;
@@ -18,9 +16,9 @@ extern unsigned long timer;
 extern boolean stop;
 extern HWND hwnd;
 extern Cell *latt0;
-
-static float tb_project_to_sphere(float, float, float);
-void normalize_quat(float [4]);
+extern pthread_mutex_t mutex;
+extern float rotation[4];
+extern float scale;
 
 COLORREF voxels[SIDE6];
 
@@ -100,16 +98,7 @@ void axis_to_quat(float a[3], float phi, float q[4])
 }
 
 /*
- * Ok, simulate a track-ball.  Project the points onto the virtual
- * trackball, then figure out the axis of rotation, which is the cross
- * product of P1 P2 and O P1 (O is the center of the ball, 0,0,0)
- * Note:  This is a deformed trackball-- is a trackball in the center,
- * but is deformed into a hyperbolic sheet of rotation away from the
- * center.  This particular function was chosen after trying out
- * several variations.
- *
- * It is assumed that the arguments to this routine are in the range
- * (-1.0 ... 1.0)
+ * Arguments to this routine are in the range (-1.0 ... 1.0).
  */
 void trackball(float q[4], float p1x, float p1y, float p2x, float p2y)
 {
@@ -117,72 +106,46 @@ void trackball(float q[4], float p1x, float p1y, float p2x, float p2y)
     float phi;  /* how much to rotate about axis */
     float p1[3], p2[3], d[3];
     float t;
-
-    if (p1x == p2x && p1y == p2y) {
-        /* Zero rotation */
+    if (p1x == p2x && p1y == p2y)
+    {
         vzero(q);
-        q[3] = 1.0;
+        q[3] = SIDE2;
         return;
     }
-
-    /*
-     * First, figure out z-coordinates for projection of P1 and P2 to
-     * deformed sphere
-     */
     vset(p1,p1x,p1y,tb_project_to_sphere(TRACKBALLSIZE,p1x,p1y));
     vset(p2,p2x,p2y,tb_project_to_sphere(TRACKBALLSIZE,p2x,p2y));
-
-    /*
-     *  Now, we want the cross product of P1 and P2
-     */
     vcross(p2,p1,a);
-
-    /*
-     *  Figure out how much to rotate around that axis.
-     */
     vsub(p1,p2,d);
     t = vlength(d) / (2.0*TRACKBALLSIZE);
-
-    /*
-     * Avoid problems with out-of-control values...
-     */
-    if (t > 1.0) t = 1.0;
-    if (t < -1.0) t = -1.0;
+    if (t > 1.0) t = SIDE2;
+    if (t < -1.0) t = -SIDE2;
     phi = 2.0 * asin(t);
-
-    axis_to_quat(a,phi,q);
+    axis_to_quat(a, phi, q);
 }
 
 /*
  * Project an x,y pair onto a sphere of radius r OR a hyperbolic sheet
  * if we are away from the center of the sphere.
  */
-static float tb_project_to_sphere(float r, float x, float y)
+float tb_project_to_sphere(float r, float x, float y)
 {
     float d, t, z;
 
-    d = sqrt(x*x + y*y);
-    if (d < r * 0.70710678118654752440) {    /* Inside sphere */
-        z = sqrt(r*r - d*d);
-    } else {           /* On hyperbola */
+    d = sqrt(x * x + y * y);
+    r = r * 0.7;
+    if (d < r)
+    {
+        // Inside sphere
+        z = sqrt(r * r - d * d);
+    }
+    else
+    {
+        // On hyperbola
         t = r / 1.41421356237309504880;
-        z = t*t / d;
+        z = (t * t) / d;
     }
     return z;
 }
-
-/*
- * Given two rotations, e1 and e2, expressed as quaternion rotations,
- * figure out the equivalent single rotation and stuff it into dest.
- *
- * This routine also normalizes the result every RENORMCOUNT times it is
- * called, to keep error from creeping in.
- *
- * NOTE: This routine is written so that q1 or q2 may be the same
- * as dest (or each other).
- */
-
-#define RENORMCOUNT 97
 
 void add_quats(float q1[4], float q2[4], float dest[4])
 {
@@ -217,6 +180,15 @@ void normalize_quat(float q[4])
     for (i = 0; i < 4; i++) q[i] /= mag;
 }
 
+void scaleQuat(float quat[4])
+{
+    int i;
+    for (i = 0; i < 4; i++)
+    {
+        quat[i] *= scale;
+    }
+}
+
 void build_rotmatrix(float m[4][4], float q[4])
 {
     m[0][0] = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]);
@@ -237,7 +209,7 @@ void build_rotmatrix(float m[4][4], float q[4])
     m[3][0] = 0.0;
     m[3][1] = 0.0;
     m[3][2] = 0.0;
-    m[3][3] = 1.0;
+    m[3][3] = SIDE2;
 }
 
 void mul(float *r, float *a, float *b)
@@ -286,17 +258,39 @@ void fromAxisAngle(const float axis[3], float angleRadians, float *result)
 
 void projLine(HDC hdc, float point1[3], float point2[3])
 {
-	float rotation[4];
-	mul(rotation, currQ, lastQ);
 	float rotated[3];
 	rotateVector(rotated, rotation, point1);
-	rotated[0] /= SIDE2/2;
-	rotated[1] /= SIDE2/2;
-    MoveToEx(hdc, WIDTH/2 + rotated[0], HEIGHT/2 + rotated[1], NULL);
+
+    MoveToEx(hdc, WIDTH/2 + rotated[0]/2, HEIGHT/2 + rotated[1]/2, NULL);
 	rotateVector(rotated, rotation, point2);
-	rotated[0] /= SIDE2/2;
-	rotated[1] /= SIDE2/2;
-	LineTo(hdc, WIDTH/2 + rotated[0], HEIGHT/2 + rotated[1]);
+	LineTo(hdc, WIDTH/2 + rotated[0]/2, HEIGHT/2 + rotated[1]/2);
+}
+
+boolean isCentralPoint(int i)
+{
+	int x = i % SIDE2 - SIDE_2;
+	int y = (i / SIDE2) % SIDE2 - SIDE_2;
+	int z = (i / SIDE4) % SIDE2 - SIDE_2;
+	if(x < 0 || y < 0 || z < 0)
+		return false;
+	return x % SIDE == 0 && y % SIDE == 0 && z % SIDE == 0;
+}
+
+boolean isPartial(int i)
+{
+	int x = i % SIDE2 - SIDE_2;
+	int y = (i / SIDE2) % SIDE2 - SIDE_2;
+	int z = (i / SIDE4) % SIDE2 - SIDE_2;
+	for (int j = -1; j < 2; j++)
+		for (int k = -1; k < 2; k++)
+			for (int l = -1; l < 2; l++)
+			{
+				if(x + j < 0 || y + k < 0 || z + l < 0)
+					return false;
+				if((x + j) % SIDE == 0 && (y + k) % SIDE == 0 && (z + l) % SIDE == 0)
+					return true;
+			}
+	return false;
 }
 
 void drawModel(HDC hdc)
@@ -311,182 +305,174 @@ void drawModel(HDC hdc)
   mode0     = SendMessage(single_rad, BM_GETCHECK, MODE0, 0);
   mode1     = SendMessage(partial_rad, BM_GETCHECK, MODE1, 0);
   mode2     = SendMessage(full_rad, BM_GETCHECK, MODE2, 0);
-
+  mul(rotation, currQ, lastQ);
   float p[3];
   for(int i = 0; i < SIDE6; i++)
   {
 	  COLORREF color = voxels[i];
 	  if (color != RGB(0,0,0))
 	  {
-		  int n = i / SIDE3;
-		  int x0 = n % SIDE;
-		  int y0 = (n / SIDE) % SIDE;
-		  int z0 = (n / SIDE2) % SIDE;
-
-		  int m = (i % SIDE3);
-		  int x = m % SIDE;
-		  int y = (m / SIDE) % SIDE;
-		  int z = (m / SIDE2) % SIDE;
-		  p[0] = (x + SIDE * x0 - SIDE2/2) * SEP;
-		  p[1] = (y + SIDE * y0 - SIDE2/2) * SEP;
-		  p[2] = (z + SIDE * z0 - SIDE2/2) * SEP;
+		  int x = i % SIDE2;
+		  int y = (i / SIDE2) % SIDE2;
+		  int z = (i / SIDE4) % SIDE2;
+		  p[0] = (x - SIDE2/2);
+		  p[1] = (y - SIDE2/2);
+		  p[2] = (z - SIDE2/2);
 		  putVoxel(p, color, hdc);
 	  }
   }
-
   float t1[3], t2[3];
   if (axes)
   {
 	  SelectObject(hdc, xPen);
 	  float p1[3] = { 0, 0, 0 };
-	  float p2[3] = { WIDE, 0, 0 };
+	  float p2[3] = { SIDE2, 0, 0 };
 	  projLine(hdc, p1, p2);
 	  SelectObject(hdc, yPen);
-	  float p3[3] = { 0, WIDE, 0 };
+	  float p3[3] = { 0, SIDE2, 0 };
 	  projLine(hdc, p1, p3);
 	  SelectObject(hdc, zPen);
-	  float p4[3] = { 0, 0, WIDE };
+	  float p4[3] = { 0, 0, SIDE2 };
 	  projLine(hdc, p1, p4);
   }
   if (cube)
   {
 	  SelectObject(hdc, boxPen);
-	  t1[0] = +(WIDE)/2;
-	  t1[1] = -(WIDE)/2;
-	  t1[2] = -(WIDE)/2;
-	  t2[0] = -(WIDE)/2;
-	  t2[1] = -(WIDE)/2;
-	  t2[2] = -(WIDE)/2;
+	  t1[0] = +SIDE2;
+	  t1[1] = -SIDE2;
+	  t1[2] = -SIDE2;
+	  t2[0] = -SIDE2;
+	  t2[1] = -SIDE2;
+	  t2[2] = -SIDE2;
 	  projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = +(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = -(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = +SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = -SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = -(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = -SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = -(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = -(WIDE)/2;
+		t1[0] = -SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = -SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = -(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = -(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = -SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = -SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = -(WIDE)/2;
-		t1[1] = +(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = -SIDE2;
+		t1[1] = +SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = -(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = -(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = -SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = -SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = -(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = -SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = +(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = -(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = +SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = -SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = +(WIDE)/2;
-		t1[2] = +(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = +SIDE2;
+		t1[2] = +SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = +(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = +SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = -(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = +(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = -SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = +SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = +(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = +SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = -(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = -SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = -(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = -(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = -SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = -SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = -(WIDE)/2;
-		t1[1] = +(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = -(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = -SIDE2;
+		t1[1] = +SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = -SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
 
-		t1[0] = +(WIDE)/2;
-		t1[1] = +(WIDE)/2;
-		t1[2] = -(WIDE)/2;
-		t2[0] = +(WIDE)/2;
-		t2[1] = +(WIDE)/2;
-		t2[2] = +(WIDE)/2;
+		t1[0] = +SIDE2;
+		t1[1] = +SIDE2;
+		t1[2] = -SIDE2;
+		t2[0] = +SIDE2;
+		t2[1] = +SIDE2;
+		t2[2] = +SIDE2;
 		projLine(hdc, t1, t2);
-
   }
 }
 
@@ -508,12 +494,8 @@ void update2d(HDC hdc)
 
 void putVoxel(float v[3], COLORREF color, HDC hdc)
 {
-	float rotation[4];
-    mul(rotation, currQ, lastQ);
     float rotated[3];
     rotateVector(rotated, rotation, v);
-    rotated[0] /= SIDE2/2;
-    rotated[1] /= SIDE2/2;
     SetPixel(hdc, WIDTH/2 + rotated[0], HEIGHT/2 + rotated[1], color);
 }
 
@@ -527,28 +509,21 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 	switch(wparam) { case 'S': stop = !stop; InvalidateRect(hwnd, NULL, TRUE); }
 }
 
-/*
- * Simple delay for testing purposes.
- */
-void delay(unsigned int mseconds)
-{
-    clock_t goal = mseconds + clock();
-    while (goal > clock());
-}
-
 void updateBuffer()
 {
+	pthread_mutex_lock(&mutex);
 	Cell *stb = latt0;
 	for(int i = 0; i < SIDE6; i++, stb++)
 	{
-		boolean ok = mode2 || (mode1 && stb->off < 100) || (mode0 && stb->off == SIDE3/2+10);
-	    if(!ZERO(stb->p) && ok)
+		boolean ok = mode2 || (mode1 && isPartial(i)) || (mode0 && isCentralPoint(i));
+	    if(!ZERO(stb->p) && momentum && ok)
 	      voxels[i] = RGB(255,0,0);
-	    else if(!ZERO(stb->s) && ok)
+	    else if(!ZERO(stb->s) && wavefront && ok)
 	      voxels[i] = RGB(0, 255,0);
-	    else if (lattice && i % SIDE3 == 0)
+	    else if (lattice && isCentralPoint(i))
 	      voxels[i] = RGB(150,150,150);
 	    else
 	      voxels[i] = RGB(0,0,0);
 	}
+	pthread_mutex_unlock(&mutex);
 }

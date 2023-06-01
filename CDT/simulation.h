@@ -17,7 +17,7 @@
 
 // Lattice symbols.
 
-#define ORDER    4  //202 (see Section 2.3)
+#define ORDER    3
 #define SIDE     (1<<ORDER)
 #define SIDE2    (SIDE*SIDE)
 #define SIDE3    (SIDE*SIDE2)
@@ -80,7 +80,7 @@
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>COLLAPSE)
 #define ANNIHIL(u,v) (C(u)==_C(v))
-#define GET_ROLE(c)  ((c)->a1 == 0 ? EMPTY : (!ZERO((c)->s) ? (ZERO((c)->p) ? WAVE : SEED) : (ISSAT((c)->po) ? GRID : TRAVELLER)))
+#define GET_ROLE(c)  (!ZERO((c)->p) ? SEED : (!ZERO((c)->s) ? WAVE : ((!ISSAT((c)->o) && (c)->a1>0)  ? GRID : (((c)->obj < SIDE3 || (!ZERO((c)->po) && !ISSAT((c)->po))) ? TRAVELLER : EMPTY))))
 #define DOT(u, v)    ((u)[0] * (v)[0] + (u)[1] * (v)[1] + (u)[2] * (v)[2])
 #define MOD2(v)      ((v)[0] * (v)[0] + (v)[1] * (v)[1] + (v)[2] * (v)[2])
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
@@ -152,5 +152,6 @@ void sanityCheck();
 void printCell(Cell *cell);
 void drawModel(HDC hdc);
 void fromAxisAngle(const float axis[3], float angleRadians, float *result);
+void printCell(Cell *cell);
 
 #endif /* SIMULATION_H_ */
