@@ -16,10 +16,11 @@ HDC myCompatibleDC;
 HBITMAP myBitmap;
 HWND hwnd;
 HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
-HWND single_rad, partial_rad, full_rad;
-COLORREF background;
-boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes;
+HWND single_rad, partial_rad, full_rad, rand_rad;
+HWND xy_rad, yz_rad, zx_rad, iso_rad;
+boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
 HPEN xPen, yPen, zPen, boxPen;
+HWND g_hButton;
 
 // Trackball
 
@@ -28,7 +29,7 @@ float lastQ[4];
 float currQ[4];
 int startx, starty;
 float rotation[4];
-float scale = 1.5;
+float scale = 4.0 / ORDER;
 
 // Simulation
 
@@ -75,7 +76,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	SelectObject(hdc, hOldFont);
         	DeleteObject(hFont);
 
-        	// Real time display
+        	// Real time display.
 
         	unsigned long millis = GetTickCount64() - begin;
         	char *s = NULL;
@@ -86,7 +87,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	rect.top    = 72;
         	DrawText(hdc, s, -1, &rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
-        	// Draw the 3d bitmap
+        	// Draw the 3d bitmap.
 
         	HDC hdcMem = CreateCompatibleDC(hdc);
         	SelectObject(hdcMem, myBitmap);
@@ -99,8 +100,8 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	DeleteObject(hbrBkGnd);
         	SetBkMode(hdcMem, TRANSPARENT);
 	        pthread_mutex_lock(&mutex);
+	        drawGUI(hdcMem);
         	drawModel(hdcMem);
-	        update2d(hdcMem);
         	BitBlt(hdc, BMAPX, BMAPY, WIDTH, HEIGHT, hdcMem, 0, 0, SRCCOPY);
             pthread_mutex_unlock(&mutex);
         	DeleteDC(hdcMem);
@@ -116,46 +117,90 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			bmInfo.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
 			bmInfo.bmiHeader.biWidth       = WIDTH;
 			bmInfo.bmiHeader.biCompression = BI_RGB;
+
+            full_rad = CreateWindow(
+                "BUTTON", "Full",
+                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP,
+                50, 400, 100, 20,
+                hwnd, (HMENU)MODE2,
+				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 			single_rad = CreateWindow(
                 "BUTTON", "Single",
-                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP,
-                50, 350, 100, 20,
+                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
+                50, 420, 100, 20,
                 hwnd, (HMENU)MODE0,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 			partial_rad = CreateWindow(
                 "BUTTON", "Partial",
                 WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-                50, 400, 100, 20,
+                50, 440, 100, 20,
                 hwnd, (HMENU)MODE1,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-            full_rad = CreateWindow(
-                "BUTTON", "Full",
+            rand_rad = CreateWindow(
+                "BUTTON", "Random",
                 WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-                50, 450, 100, 20,
-                hwnd, (HMENU)MODE2,
+                50, 460, 100, 20,
+                hwnd, (HMENU)RAND,
+				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+            //
+            iso_rad = CreateWindow(
+                "BUTTON", "ISO view",
+                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP,
+                50, 540, 100, 20,
+                hwnd, (HMENU)ISO_VIEW,
+				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+            xy_rad = CreateWindow(
+                "BUTTON", "XY view",
+                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
+                50, 560, 100, 20,
+                hwnd, (HMENU)XY_VIEW,
+				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+            yz_rad = CreateWindow(
+                "BUTTON", "YZ view",
+                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
+                50, 580, 100, 20,
+                hwnd, (HMENU)YZ_VIEW,
+				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+            zx_rad = CreateWindow(
+                "BUTTON", "ZX view",
+                WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
+                50, 600, 100, 20,
+                hwnd, (HMENU)ZX_VIEW,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
             SendMessage(full_rad, BM_SETCHECK, BST_CHECKED, 0);
-         	front_chk = CreateCheckBox(hwnd, 50, 50, 150, 30, FRONT, (LPCWSTR)"Wavefront");
-         	track_chk = CreateCheckBox(hwnd, 50, 90, 150, 30, TRACK, (LPCWSTR)"Track");
-         	p_chk     = CreateCheckBox(hwnd, 50, 130, 150, 30, MOMENTUM, (LPCWSTR)"Momentum");
-         	plane_chk = CreateCheckBox(hwnd, 50, 170, 150, 30, PLANE, (LPCWSTR)"Plane");
-         	cube_chk  = CreateCheckBox(hwnd, 50, 210, 150, 30, CUBE, (LPCWSTR)"Cube");
-         	latt_chk  = CreateCheckBox(hwnd, 50, 250, 150, 30, LATTICE, (LPCWSTR)"Lattice");
-         	axes_chk  = CreateCheckBox(hwnd, 50, 290, 150, 30, AXES, (LPCWSTR)"Axes");
+            SendMessage(iso_rad, BM_SETCHECK, BST_CHECKED, 0);
+            //
+         	front_chk = CreateCheckBox(hwnd, 50, 120, 150, 30, FRONT, (LPCWSTR)"Wavefront");
+         	track_chk = CreateCheckBox(hwnd, 50, 150, 150, 30, TRACK, (LPCWSTR)"Track");
+         	p_chk     = CreateCheckBox(hwnd, 50, 180, 150, 30, MOMENTUM, (LPCWSTR)"Momentum");
+         	plane_chk = CreateCheckBox(hwnd, 50, 210, 150, 30, PLANE, (LPCWSTR)"Plane");
+         	cube_chk  = CreateCheckBox(hwnd, 50, 240, 150, 30, CUBE, (LPCWSTR)"Cube");
+         	latt_chk  = CreateCheckBox(hwnd, 50, 270, 150, 30, LATTICE, (LPCWSTR)"Lattice");
+         	axes_chk  = CreateCheckBox(hwnd, 50, 300, 150, 30, AXES, (LPCWSTR)"Axes");
+         	SendMessage(cube_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(front_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(p_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(axes_chk, BM_SETCHECK, BST_CHECKED, 0);
+         	//
+            // Create the stop button
+        	RECT clirect;
+        	GetClientRect(hwnd, &clirect);
+            g_hButton = CreateWindow(
+                TEXT("BUTTON"),
+                TEXT("Stop"),
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                clirect.right - 200,
+				clirect.top + BMAPY,
+                100,
+                30,
+                hwnd,
+                NULL,
+                ((LPCREATESTRUCT)lparam)->hInstance,
+                NULL
+            );
             // Initial orientation
-        	lastQ[0] = rand() / (double)INT_MAX;
-        	lastQ[1] = rand() / (double)INT_MAX;
-        	lastQ[2] = rand() / (double)INT_MAX;
-        	lastQ[3] = rand() / (double)INT_MAX;
-        	normalize_quat(lastQ);
+            setView(ISO_VIEW, lastQ);
             scaleQuat(lastQ);
-//        	lastQ[0] = 1;
-//        	lastQ[1] = 0;
-//        	lastQ[2] = 0;
-//        	lastQ[3] = 0;
         	// Identity
         	currQ[0] = 1;
         	currQ[1] = 0;
@@ -167,8 +212,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	        DWORD dwThreadId;
 	        HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, NULL, 0, &dwThreadId);
 	        CloseHandle(hSimulateThread);
-            SetTimer(hwnd, 1, 32, NULL);
-            background = RGB(255,255,255);
+            SetTimer(hwnd, 1, 50, NULL);
             begin = GetTickCount64();
         	xPen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
         	yPen = CreatePen(PS_SOLID, 1, RGB(0, 255, 0));
@@ -194,41 +238,71 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			break;
 
 		case WM_LBUTTONDOWN:
+		{
 		    startx = x;
 		    starty = y;
 		    drag = true;
-		    return 0;
-
+		    SetCapture(hwnd);
+		    SendMessage(xy_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+		    SendMessage(yz_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+		    SendMessage(zx_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+		    SendMessage(iso_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+		    break;
+		}
 		case WM_LBUTTONUP:
-			if (!drag)
-				break;
-            normalize_quat(currQ);
-            normalize_quat(lastQ);
-			mul(lastQ, currQ, lastQ);
-		    currQ[0] = 1;
-		    currQ[1] = 0;
-		    currQ[2] = 0;
-		    currQ[3] = 0;
-            scaleQuat(currQ);
-            scaleQuat(lastQ);
-			drag = false;
+			if (drag)
+			{
+				/*
+	            normalize_quat(currQ);
+	            normalize_quat(lastQ);
+				mul(lastQ, currQ, lastQ);
+			    currQ[0] = 1;
+			    currQ[1] = 0;
+			    currQ[2] = 0;
+			    currQ[3] = 0;
+	            scaleQuat(currQ);
+	            scaleQuat(lastQ);
+	            */
+				mul(lastQ, currQ, lastQ);
+			    currQ[0] = 1;
+			    currQ[1] = 0;
+			    currQ[2] = 0;
+			    currQ[3] = 0;
+
+				drag = false;
+				ReleaseCapture();
+			}
 			break;
 
 		case WM_MOUSEMOVE:
 		{
-			if (!drag)
-				break;
-			float dquat[4];
-			trackball (dquat,
-				 (2.0*startx - WIDTH) / WIDTH,
-				 (HEIGHT - 2.0*starty) / HEIGHT,
-				 (2.0*x - WIDTH) / WIDTH,
-				 (HEIGHT - 2.0*y) / HEIGHT);
-			add_quats (lastQ, dquat, currQ);
-            normalize_quat(currQ);
-            normalize_quat(lastQ);
-            scaleQuat(currQ);
-            scaleQuat(lastQ);
+			if (drag)
+			{
+		        trackball(currQ, (2.0*startx - WIDTH) / WIDTH,
+				         (HEIGHT - 2.0*starty) / HEIGHT,
+				         (2.0*x - WIDTH) / WIDTH,
+				         (HEIGHT - 2.0*y) / HEIGHT);
+		        float tempQuat[4];
+		        mul(tempQuat, currQ, lastQ);
+		        normalize_quat(tempQuat);
+		        vcopy(tempQuat, lastQ);
+		    	startx = x;
+		    	starty = y;
+
+				/*
+				float dquat[4];
+				trackball (dquat,
+					 (2.0*startx - WIDTH) / WIDTH,
+					 (HEIGHT - 2.0*starty) / HEIGHT,
+					 (2.0*x - WIDTH) / WIDTH,
+					 (H EIGHT - 2.0*y) / HEIGHT);
+				add_quats (lastQ, dquat, currQ);
+	            normalize_quat(currQ);
+	            normalize_quat(lastQ);
+	            scaleQuat(currQ);
+	            scaleQuat(lastQ);
+	            */
+			}
             break;
 		}
         case WM_MOUSEWHEEL:
@@ -252,12 +326,29 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
         case WM_SIZE:
             //GetClientRect(hwnd, &(tb->box));
-            return 0;
+        	break;
+
+        case WM_COMMAND:
+            if (lparam == (LPARAM)g_hButton)
+            {
+            	stop = !stop;
+            	if(stop)
+            		SetWindowText(g_hButton, TEXT("Continue"));
+            	else
+            		SetWindowText(g_hButton, TEXT("Stop"));
+            	InvalidateRect(hwnd, NULL, TRUE);
+            }
+            else if (HIWORD(wparam) == BN_CLICKED)
+            {
+            	int controlID = LOWORD(wparam);
+            	setView(controlID, lastQ);
+            }
+        	break;
 
 		default:
 			return DefWindowProc(hwnd, msg, wparam, lparam);
 	}
-	return lparam;
+	return 0;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
@@ -280,22 +371,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wc.hbrBackground = NULL;
 	wc.hCursor       = LoadCursor(0, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	//
- 	char *title = NULL;
- 	asprintf(&title, "Toy universe");
- 	//
+
  	// Get the dimensions of the screen
+
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-    // Start the rendering loop
-    SetTimer(hwnd, 1, 32, NULL); // 16 ms interval for approximately 60 FPS
-    //
 	RegisterClass(&wc);
-	hwnd = CreateWindow("MYWNDCLASSNAME", title,
+	hwnd = CreateWindow("MYWNDCLASSNAME", "Toy universe",
 		WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 		20, 20, screenWidth - 500, screenHeight - 100, NULL, NULL, hInstance, NULL);
- 	free(title);
 
     // Show window
 
@@ -308,13 +392,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	myBitmap = CreateCompatibleBitmap(hdc, WIDTH, HEIGHT);
 	HWND g_hBitmap = CreateWindow("STATIC", NULL, WS_CHILD | WS_VISIBLE | SS_BITMAP, BMAPX, BMAPY, 0, 0, hwnd, NULL, hInstance, NULL);
     SendMessage(g_hBitmap, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)myBitmap);
+	DrawLabel(hdc, 50, BMAPY, "Screen");
+	DrawLabel(hdc, 50, 380, "Data selection");
+	DrawLabel(hdc, 50, 520, "Views");
     ReleaseDC(hwnd, hdc);
  	//
 	srand(time(NULL));
     InvalidateRect(hwnd, NULL, TRUE);
  	//
 	Beep(1000, 100);
-	while(GetMessage(&msg, hwnd, 0,0))
+	while(GetMessage(&msg, NULL, 0,0))
 	{
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);

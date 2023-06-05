@@ -14,6 +14,7 @@
 #define RENORMCOUNT 97
 
 HWND CreateCheckBox(HWND hwndParent, int x, int y, int width, int height, int id, LPCWSTR text);
+void DrawLabel(HDC hdc, int x, int y, const TCHAR* labelText);
 void trackball(float q[4], float p1x, float p1y, float p2x, float p2y);
 void mul(float *r, float *a, float *b);
 void normalize_quat(float q[4]);
@@ -23,5 +24,7 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam);
 void updateBuffer();
 float tb_project_to_sphere(float, float, float);
 void scaleQuat(float quat[4]);
+void setView(int view, float *quat);
+void vcopy(const float *v1, float *v2);
 
 #endif /* GRAPHICS_H_ */

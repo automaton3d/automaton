@@ -33,11 +33,16 @@
 #define MODE0		7
 #define MODE1		8
 #define MODE2		9
+#define RAND        10
+#define XY_VIEW     11
+#define YZ_VIEW     12
+#define ZX_VIEW     13
+#define ISO_VIEW    14
 
 #define BMAPX   300
 #define BMAPY   100
 
-void update2d();
+void drawGUI();
 void putVoxel(float v[3], COLORREF color, HDC hdc);
 void DeleteAutomaton();
 void projLine(HDC hdc, float point1[3], float point2[3]);
