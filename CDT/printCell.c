@@ -82,7 +82,7 @@ void printLattice(Cell *latt)
     }
 }
 
-int main___()
+int main__()
 {
  	setvbuf(stdout, NULL, _IONBF, 0);
 	initSimulation();

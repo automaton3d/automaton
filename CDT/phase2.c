@@ -25,7 +25,7 @@ void phase2()
 
   // Affine operations?
 
-  if (GET_ROLE(stb) == TRAVELLER)
+  if (GET_ROLE(stb) == TRVLLR)
   {
     // This sequence is asynchronous, that is, happens
     // many times in a light step.

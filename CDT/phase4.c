@@ -7,6 +7,61 @@
 extern Cell *stb, *drf;
 extern Cell *latt0, *latt1;//DEBUG
 
+boolean isEmpty(Cell *c)
+{
+  return (c->a1==0 &&
+      c->a2==0 &&
+      c->syn==0 &&
+      c->u==0 &&
+      c->k==0 &&
+      c->obj==SIDE3 &&
+      c->occ==0 &&
+      ZERO(c->p) &&
+      ZERO(c->s) &&
+      ISSAT(c->o) &&
+      ISSAT(c->po) &&
+      ZERO(c->pP) &&
+      ISSAT(c->m));
+}
+
+
+void empty(Cell *c)
+{
+    RSET(drf->p);
+    RSET(drf->s);
+    drf->a1 = 0;
+    drf->a2 = 0;
+    SAT(drf->o);
+    drf->syn = 0;
+    drf->occ = 0;
+    drf->u = 0;
+    RSET(drf->pP);
+    SAT(drf->m);
+    SAT(drf->po);
+    drf->obj = SIDE3;
+    drf->k = NONE;
+}
+
+int getrole(Cell *c)
+{
+	if (!ZERO(c->p) && ZERO(c->po))
+  		return SEED;
+
+	if (!ZERO(c->s) && ZERO(c->po))
+  		return WAVE;
+
+	if (!ISSAT(c->o) && ISSAT(c->po))
+  		return GRID;
+
+	if ((!ZERO(c->po) && !ISSAT(c->po)) || (c)->obj<SIDE3)
+  		return TRVLLR;
+
+	if (ISSAT(c->o) && ISSAT(c->po) && c->obj==SIDE3)
+  		return EMPTY;
+	assert(0);
+	return -1;
+}
+
 /*
  * Information spreading.
  */
@@ -14,48 +69,101 @@ void phase4()
 {
   // If cell is empty, does nothing.
 
-  int role = GET_ROLE(stb);
+  int role = getrole(stb);//GET_ROLE(stb);
   if(role == EMPTY || role == GRID)
     return;
 
-//  puts("SEED, WAVE, TRAVELLER");
+  int code = 0;
+  if (ZERO(stb->po))
+    code |= POZ;
+  else
+    code |= PONZ;
+
+  if (ZERO(stb->s))
+    code |= SZ;
+  else
+    code |= SNZ;
+
+  if (ZERO(stb->p))
+    code |= PZ;
+  else
+    code |= PNZ;
+
+  if (stb->n * stb->n < stb->syn)
+    code |= RAW;
+  else
+    code |= READY;
+
   // Spread information.
   // Roles possible: SEED, WAVE, TRAVELLER.
 
-  Cell *resort = NULL;
-  boolean tx = false;
   for(int dir = 0; dir < NDIR; dir++)
   {
+	if(stb->off == 0)
+	  printf("dir=%d\n", dir);
+
     // Calculate the address of the next neighbor.
 
     Cell* nei = neighbor(drf, dir);
 
-//    printf("\n\tdir: %d\n", dir);
+    // Do not touch wavefront.
+
+    if (BUSY(nei))
+    {
+      code |= BUSY_OUT;
+      continue;
+    }
 
     // The first part of this block propagates info
     // asynchronously (TRAVELLER processing).
 
-/*
-    // Do not touch wavefront.
-
-    if (nei->occ == 0 && !BUSY(nei) && getRole(stb) == TRAVELLER)
+    if (role == TRVLLR)
     {
-      // Transmit superluminal info
+      // Destiny already visited?
 
-      nei->occ = stb->occ;
-      nei->n   = stb->n;    // used to calculate skew
-      nei->obj = stb->obj;  // used for collapse
-      if (!ZERO(stb->po))
-        CP(nei->p, stb->p); // used to find pole
+      if (nei->occ > 0)
+      {
+        code |= VISIT_OUT;
+      }
+      else
+      {
+        // Transmit superluminal info
+
+        nei->occ = stb->occ;
+        nei->n   = stb->n;    // used to calculate skew
+        nei->obj = stb->obj;  // used for collapse
+
+        code |= TRAV_OUT;
+        if (code & PONZ)
+        {
+          // The seed is transported superluminaly.
+
+          nei->ch  = stb->ch;   // charges
+          nei->a1   = stb->a1;  // affinity
+          nei->a2   = stb->a2;  // affinity
+          nei->syn = stb->syn;  // wf synch
+          nei->u   = stb->u;    // sine
+          nei->k   = stb->k;    // kind
+          CP(nei->p, stb->p);   // used to find pole
+          CP(nei->s, stb->s);   // spin
+          CP(nei->o, stb->o);   // bubble origin
+          CP(nei->po, stb->po); // pole
+          CP(nei->pP, stb->pP); // decay
+          CP(nei->m, stb->m);   // messenger
+
+          code |= POLE_OUT;
+        }
+      }
+      continue;
     }
-*/
     // The second part of this block deals with
     // spherical synchronization (SEED and WAVE processing).
 
-    if (ZERO(stb->s))
-    	continue;
-
-//    puts("\ts != 0");
+    if (code & SZ)
+    {
+      code |= NWAVE_OUT;
+      continue;
+    }
 
     // Calculate new origin vector.
     // Roles possible: SEED or WAVE.
@@ -68,44 +176,45 @@ void phase4()
     // Propagate forward only.
 
     if (abs(org[i]) < abs(stb->o[i]))
-      continue;
-
-//    puts("\tforward");
-
-    // Wrapped?
-
-    if (ISMILD(org))
     {
-    	if (ZERO(stb->p))
-    	      continue;
-   		puts("\tFODALHAÇO");
+      code |= BACK_OUT;
+      continue;
+    }
+    int mag3 = org[0] * org[0] + org[1] * org[1] + org[2] * org[2];
+    if (mag3 > SIDE2/4)
+    {
+      code |= BACK_OUT;	// provisional
+      continue;
     }
 
     // Is wavefront synchronized?
     // (see Ref. [14])
 
-    if (stb->n * stb->n < stb->syn)
+    if (code & RAW)
+    {
+      code |= RAW_OUT;
       continue;
-
-//    puts("\tmaduro");
-
-    // Check if destiny cell has not been occupied.
-
-    if (ZERO(stb->p))
-    {
-        if (!ZERO(nei->s))
-          continue;
     }
-    else
+    if (mag3 == SIDE2/4)
     {
-        if (GET_ROLE(nei) == SEED)
+      if (ISMILD(org))
+      {
+        if (code & PZ)
         {
-          tx = true;
+          code |= WRAP_OUT;
           continue;
         }
+        else
+        {
+          code |= UNI_OUT;
+        }
+      }
+      else
+      {
+        code |= CLASH_OUT;
+        continue;
+      }
     }
-
-//    puts("\tdestino vazio");
 
     // Transmit superluminal info
 
@@ -130,175 +239,104 @@ void phase4()
 
     nei->syn = LIGHT2 * MOD2(org);
 
-    // Let neighbor wrappable by default.
+    // Let neighbor wrappable by default?????
 
-    MILD(nei->po);
+    RSET(nei->po);
 
     // From now on consider momentum itself.
 
     if (role != SEED)
     {
+      code |= WF_OUT;
       continue;
     }
-
- //   puts("\tseed");
-
-	resort = nei;
 
     // Select momentum destination (Sect. 3.1).
 
     int dot = org[0] * stb->s[0] + org[1] * stb->s[1] + org[2] * stb->s[2];
     int mag1 = org[0] * org[0] + org[1] * org[1] + org[2] * org[2];
     int mag2 = stb->s[0] * stb->s[0] + stb->s[1] * stb->s[1] + stb->s[2] * stb->s[2];
-    if (!tx && dot * dot == mag1 * mag2)
+    if ((code & TX_OUT) == 0 && dot * dot == mag1 * mag2)
     {
       CP(nei->p, stb->p);    // propagate momentum
-      CP(nei->po, stb->po);  // propagate pole
       nei->occ = SIDE_2 - 1; // cell is crest now
-      tx = true;
- //     puts("\ttx");
+      code |= TX_OUT;
     }
   }
 
-  // Separate roles.
+  //////////////// End of for loop ///////////////
 
-  if (!ZERO(stb->s))
+  if (code & POLE_OUT)
   {
-//	    puts("wave");
-
-    // Mature?
-
-    if (stb->n * stb->n >= stb->syn)
-    {
-      // WAVE and SEED processing.
-      // Test momentum transfer.
- //       puts("maduro");
-
-      // Clean common unused variables.
-
-      RSET(drf->p);     // no seed
-      RSET(drf->s);     // no wavefront
-      SAT(drf->m);      // no messenger
-      SAT(drf->po);     // no traveller (1)
-      drf->obj = SIDE3; // no traveller (2)
-
-      if (tx)
-      {
-  //  	    puts("tx");
-
-        // SEED processing:
-        // change abandoned cell role to become a
-        // GRID, but trail info remains (o,  a1 etc.).
-        // Per definition of GRID:
-
-        SAT(drf->pP);
-        drf->obj = SIDE3;
-        drf->k = NONE;
-      }
-
-      // WAVE processing?
-
-      else
-      {
-  //  	    puts("not tx");
-
-        // Momentum has not bee transmmited,
-        // use last resort.
-
-        if (!ZERO(stb->p))
-        {
-//            puts("p != 0");
-
-          // Don't let momentum escape.
-
-          printCell(stb);
-//          printConfig(stb);
-  //        printf("OFFSET %ld, %ld\n", (long)(stb-latt0), (long)(drf-latt1));
-          //assert(resort != NULL);
-          CP(resort->p, stb->p);
-        }
-      }
-    }
+    puts("POLE_OUT");  // transported p
+    empty(drf);
   }
+  else if (code & TX_OUT)
+  {
+    puts("TX_OUT");
 
-  // Role is TRAVELLER.
+    // Per definition of GRID:
 
+    RSET(drf->p);     // no seed
+    RSET(drf->s);     // no wavefront
+    SAT(drf->m);      // no messenger
+    SAT(drf->po);     // no traveller (1)
+    drf->obj = SIDE3; // no traveller (2)
+    drf->k = NONE;
+    RSET(drf->pP);
+  }
+  else if (code & WF_OUT)
+  {
+    puts("WF_OUT");   // WAVE
+    empty(drf);
+  }
+  else if (code & NWAVE_OUT)// neither SEED nor WAVE
+  {
+    puts("NWAVE_OUT");
+    empty(drf);
+  }
+  else if (code & TRAV_OUT)
+  {
+    puts("TRAV_OUT");  // hunting
+    empty(drf);
+  }
+  else if (code & CLASH_OUT)
+  {
+    puts("CLASH_OUT");
+    empty(drf);
+  }
+  else if (code & RAW_OUT)
+  {
+    //puts("RAW_OUT (does nothing!!)");
+  }
+  else if (code & VISIT_OUT)
+  {
+    puts("VISIT_OUT (not expected)");
+    assert(0);
+  }
+  else if (code & UNI_OUT)
+  {
+    puts("UNI_OUT");
+	empty(drf);
+  }
+  else if (code & WRAP_OUT)
+  {
+    puts("WRAP_OUT (not expected)");
+    assert(0);
+  }
+  else if (code & BUSY_OUT)
+  {
+    puts("BUSY_OUT (not expected)");
+    assert(0);
+  }
+  else if (code & BACK_OUT)
+  {
+    puts("BACK_OUT (not expected)");
+    assert(0);
+  }
   else
   {
-//	    puts("traveller");
-    // Cell must be completely emptied.
-
-    RSET(drf->p);
-    RSET(drf->s);
-    drf->a1 = 0;
-    drf->a2 = 0;
-    SAT(drf->o);
-    drf->syn = 0;
-    drf->occ = 0;
-    drf->u = 0;
-    RSET(drf->pP);
-    SAT(drf->m);
-    SAT(drf->po);
-    drf->obj = SIDE3;
-    drf->k = NONE;
+    puts("** ELSE ** (catastrophic)");
+    assert(0);
   }
 }
-
-
-/////////////// REBOT
-
-
-/*
-void phase4()
-{
-	if(ZERO(stb->s))
-		return;
-    Cell* nei = neighbor(drf, rand() % 6);
-    if (ZERO(nei->s))
-    {
-        nei->s[0] = 1;
-        nei->p[0] = 1;
-    }
-    RSET(drf->s);
-}
-
-void phase4z()
-{
-  int role = GET_ROLE(stb);				// OK
-  if(role == EMPTY || role == GRID)		// OK
-	  return;							// OK
-  //printCell(stb);
-  boolean test = false;
-  for(int dir = 0; dir < NDIR; dir++)	// OK
-  {
-    Cell* nei = neighbor(drf, dir);		// OK
-    int org[3];							// OK
-    CP(org, stb->o);					// OK
-    int i = dir >> 1;					// OK
-    org[i] += (dir % 2 == 0) ? +1 : -1;	// OK
-    if (abs(org[i]) < abs(stb->o[i]))	// OK
-      continue;							// OK
-    if(ISMILD(org))
-      continue;
-    if (stb->n * stb->n < stb->syn)		// OK
-      continue;							// OK
-    if (!ZERO(nei->s))					// OK
-    	continue;						// OK
-    nei->n    = stb->n;					// OK
-    nei->p[0] = 1;						// OK
-    nei->s[0] = 1;						// OK
-    CP(nei->o, org);					// OK
-    nei->syn = LIGHT2 * MOD2(org);		// OK
-    test = true;
-  }
-  if(!test)
-	  return;
-  RSET(drf->p);
-  RSET(drf->s);
-  SAT(drf->m);
-  SAT(drf->po);
-//  empty(drf);	// DEBUG
-  //assert(GET_ROLE(drf) == EMPTY);
-}
-
-*/

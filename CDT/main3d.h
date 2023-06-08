@@ -46,5 +46,6 @@ void drawGUI();
 void putVoxel(float v[3], COLORREF color, HDC hdc);
 void DeleteAutomaton();
 void projLine(HDC hdc, float point1[3], float point2[3]);
+DWORD WINAPI SimulateThread(LPVOID lpParam);
 
 #endif /* MAIN3D_H_ */

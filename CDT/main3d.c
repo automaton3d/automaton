@@ -20,7 +20,7 @@ HWND single_rad, partial_rad, full_rad, rand_rad;
 HWND xy_rad, yz_rad, zx_rad, iso_rad;
 boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
 HPEN xPen, yPen, zPen, boxPen;
-HWND g_hButton;
+HWND g_hButton, suspendButton;
 
 // Trackball
 
@@ -33,12 +33,16 @@ float scale = 4.0 / ORDER;
 
 // Simulation
 
-DWORD WINAPI SimulateThread(LPVOID lpParam);
-
 unsigned long begin;
 boolean stop;
 unsigned long timer = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+boolean active = true;
+
+VOID CALLBACK TimerCallback(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+{
+	InvalidateRect(hwnd, NULL, TRUE);
+}
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -198,6 +202,19 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                 ((LPCREATESTRUCT)lparam)->hInstance,
                 NULL
             );
+            suspendButton = CreateWindow(
+                TEXT("BUTTON"),
+                TEXT("Fore"),
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                clirect.right - 200,
+				clirect.top + BMAPY + 40,
+                100,
+                30,
+                hwnd,
+                NULL,
+                ((LPCREATESTRUCT)lparam)->hInstance,
+                NULL
+            );
             // Initial orientation
             setView(ISO_VIEW, lastQ);
             scaleQuat(lastQ);
@@ -212,7 +229,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	        DWORD dwThreadId;
 	        HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, NULL, 0, &dwThreadId);
 	        CloseHandle(hSimulateThread);
-            SetTimer(hwnd, 1, 50, NULL);
+            SetTimer(hwnd, 1, 50, TimerCallback);
             begin = GetTickCount64();
         	xPen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
         	yPen = CreatePen(PS_SOLID, 1, RGB(0, 255, 0));
@@ -320,16 +337,12 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			keyboard(msg, wparam, lparam);
 			break;
 
-		case WM_TIMER:
-            InvalidateRect(hwnd, NULL, TRUE);
-            break;
-
         case WM_SIZE:
             //GetClientRect(hwnd, &(tb->box));
         	break;
 
         case WM_COMMAND:
-            if (lparam == (LPARAM)g_hButton)
+            if (lparam == (LPARAM)g_hButton && active)
             {
             	stop = !stop;
             	if(stop)
@@ -337,6 +350,27 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             	else
             		SetWindowText(g_hButton, TEXT("Stop"));
             	InvalidateRect(hwnd, NULL, TRUE);
+            }
+            else if (lparam == (LPARAM)suspendButton && !stop)
+            {
+            	active = !active;
+            	if(active)
+            	{
+        	        SetTimer(NULL, 1, 50, TimerCallback);
+            		SetWindowText(suspendButton, TEXT("Fore"));
+            	}
+            	else
+            	{
+                    KillTimer(NULL, 1);
+            		SetWindowText(suspendButton, TEXT("Back"));
+            		//sound(); TODO
+            	}
+            	InvalidateRect(hwnd, NULL, TRUE);
+            }
+            else if (!active)
+            {
+                SetTimer(NULL, 1, 50, TimerCallback);
+                active = TRUE;
             }
             else if (HIWORD(wparam) == BN_CLICKED)
             {

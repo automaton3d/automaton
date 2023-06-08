@@ -33,11 +33,36 @@
 
 // Roles.
 
-#define EMPTY     0x00
-#define SEED      0x01
-#define WAVE      0x02
-#define GRID      0x04
-#define TRAVELLER 0x08
+#define EMPTY    0x00
+#define SEED     0x01
+#define WAVE     0x02
+#define GRID     0x04
+#define TRVLLR   0x08
+#define POLE     0x10
+
+// Expansion codes
+
+#define PONZ      0x000001
+#define POZ       0x000002
+#define SZ        0x000004
+#define SNZ       0x000008
+#define PZ        0x000010
+#define PNZ       0x000020
+#define RAW       0x000040
+#define READY    0x000080
+#define NOTWV     0x000100
+#define WRAP_OUT  0x000200
+#define BACK_OUT  0x000400
+#define TRAV_OUT  0x000800
+#define NWAVE_OUT 0x001000
+#define CLASH_OUT 0x002000
+#define RAW_OUT   0x004000
+#define WF_OUT    0x008000
+#define TX_OUT    0x010000
+#define BUSY_OUT  0x020000
+#define VISIT_OUT 0x040000
+#define POLE_OUT  0x080000
+#define UNI_OUT   0x100000
 
 // Particle singles and pairs (used in k).
 
@@ -80,7 +105,13 @@
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>COLLAPSE)
 #define ANNIHIL(u,v) (C(u)==_C(v))
-#define GET_ROLE(c)  (!ZERO((c)->p)&&!ZERO((c)->s)?SEED:(!ZERO((c)->s)?WAVE:((!ISSAT((c)->o)&&(c)->a1>0)?GRID:(((c)->obj<SIDE3||(!ZERO((c)->po)&&!ISSAT((c)->po)))?TRAVELLER:EMPTY))))
+
+#define GET_ROLE(c) \
+	((!ZERO((c)->p) && ZERO((c)->po)) ? SEED : \
+	(!ZERO((c)->s) && ZERO((c)->po)) ? WAVE : \
+	(!ISSAT((c)->o) && ISSAT((c)->po)) ? GRID : \
+	((!ZERO((c)->po) && !ISSAT((c)->po)) || (c)->obj < SIDE3) ? TRVLLR : \
+	(ISSAT((c)->o) && ISSAT((c)->po) && (c)->obj == SIDE3) ? EMPTY : NONE)
 #define DOT(u, v)    ((u)[0] * (v)[0] + (u)[1] * (v)[1] + (u)[2] * (v)[2])
 #define MOD2(v)      ((v)[0] * (v)[0] + (v)[1] * (v)[1] + (v)[2] * (v)[2])
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
@@ -154,5 +185,6 @@ void drawModel(HDC hdc);
 void fromAxisAngle(const float axis[3], float angleRadians, float *result);
 void printCell(Cell *cell);
 void printConfig(Cell *cell);
+void sound();
 
 #endif /* SIMULATION_H_ */

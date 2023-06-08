@@ -19,6 +19,7 @@ extern boolean stop;
 extern Cell *latt0;
 extern float rotation[4];
 extern float scale;
+extern boolean active;
 
 COLORREF voxels[SIDE6];
 
@@ -358,6 +359,8 @@ void setView(int view, float *quat)
 
 void updateBuffer()
 {
+	if (!active)
+		return;
 	pthread_mutex_lock(&mutex);
 	Cell *stb = latt0;
 	for(int i = 0; i < SIDE6; i++, stb++)
@@ -406,10 +409,17 @@ void drawGUI(HDC hdc)
         asprintf(&s, "[PAUSED]");
         TextOut(hdc, 370, 395, s, strlen(s));
     }
+    if (!active)
+    {
+        asprintf(&s, "[BACKGROUND]");
+        TextOut(hdc, 370, 395, s, strlen(s));
+    }
 }
 
 void drawModel(HDC hdc)
 {
+  if (!active)
+	  return;
   mul(rotation, currQ, lastQ);
   float p[3];
   for (int i = 0; i < SIDE6; i++)
