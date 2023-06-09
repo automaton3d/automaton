@@ -18,30 +18,31 @@ HWND hwnd;
 HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
 HWND single_rad, partial_rad, full_rad, rand_rad;
 HWND xy_rad, yz_rad, zx_rad, iso_rad;
-boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
 HPEN xPen, yPen, zPen, boxPen;
 HWND g_hButton, suspendButton;
+boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
 
 // Trackball
 
 boolean drag;
-float lastQ[4];
-float currQ[4];
-int startx, starty;
-float rotation[4];
-float scale = 4.0 / ORDER;
+Quaternion currQ, lastQ;
+Quaternion rotation;
+float radius;
+float width, height;
+Vector start;
 
 // Simulation
 
-unsigned long begin;
 boolean stop;
+boolean active = true;
+unsigned long begin;
 unsigned long timer = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-boolean active = true;
+RECT bitrect = { BMAPX, BMAPY, BMAPX + WIDTH, BMAPY + HEIGHT };
 
 VOID CALLBACK TimerCallback(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
-	InvalidateRect(hwnd, NULL, TRUE);
+	InvalidateRect(hwnd, &bitrect, TRUE);
 }
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -55,9 +56,6 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	PAINTSTRUCT ps;
         	HDC hdc = BeginPaint(hwnd, &ps);
         	RECT clirect;
-
-        	// Draw title.
-
         	GetClientRect(hwnd, &clirect);
         	RECT rect;
         	rect.left = clirect.right / 2 - 200;
@@ -90,15 +88,15 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	rect.bottom = 90;
         	rect.top    = 72;
         	DrawText(hdc, s, -1, &rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        	rect.left   = 0;
+        	rect.right  = WIDTH;
+        	rect.bottom = 0;
+        	rect.top    = HEIGHT;
 
         	// Draw the 3d bitmap.
 
         	HDC hdcMem = CreateCompatibleDC(hdc);
         	SelectObject(hdcMem, myBitmap);
-        	rect.left = 0;
-        	rect.bottom = 0;
-        	rect.right = WIDTH;
-        	rect.top = HEIGHT;
         	HBRUSH hbrBkGnd = CreateSolidBrush(RGB(0, 0, 0));
         	FillRect(hdcMem, &rect, hbrBkGnd);
         	DeleteObject(hbrBkGnd);
@@ -204,7 +202,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             );
             suspendButton = CreateWindow(
                 TEXT("BUTTON"),
-                TEXT("Fore"),
+                TEXT("Background"),
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                 clirect.right - 200,
 				clirect.top + BMAPY + 40,
@@ -215,17 +213,22 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                 ((LPCREATESTRUCT)lparam)->hInstance,
                 NULL
             );
+
             // Initial orientation
-            setView(ISO_VIEW, lastQ);
-            scaleQuat(lastQ);
+
+            setView(ISO_VIEW, &lastQ);
         	// Identity
-        	currQ[0] = 1;
-        	currQ[1] = 0;
-        	currQ[2] = 0;
-        	currQ[3] = 0;
-            scaleQuat(currQ);
+            radius = 1.0;
+            currQ.w = 1.0;
+            currQ.x = 0.0;
+            currQ.y = 0.0;
+            currQ.z = 0.0;
+            start.x = 0.0;
+            start.y = 0.0;
         	drag = false;
+
 	        // Start the simulate thread
+
 	        DWORD dwThreadId;
 	        HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, NULL, 0, &dwThreadId);
 	        CloseHandle(hSimulateThread);
@@ -256,8 +259,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case WM_LBUTTONDOWN:
 		{
-		    startx = x;
-		    starty = y;
+			mousedown(x, y);
 		    drag = true;
 		    SetCapture(hwnd);
 		    SendMessage(xy_rad, BM_SETCHECK, BST_UNCHECKED, 0);
@@ -269,23 +271,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		case WM_LBUTTONUP:
 			if (drag)
 			{
-				/*
-	            normalize_quat(currQ);
-	            normalize_quat(lastQ);
-				mul(lastQ, currQ, lastQ);
-			    currQ[0] = 1;
-			    currQ[1] = 0;
-			    currQ[2] = 0;
-			    currQ[3] = 0;
-	            scaleQuat(currQ);
-	            scaleQuat(lastQ);
-	            */
-				mul(lastQ, currQ, lastQ);
-			    currQ[0] = 1;
-			    currQ[1] = 0;
-			    currQ[2] = 0;
-			    currQ[3] = 0;
-
+				mouseup(x, y);
 				drag = false;
 				ReleaseCapture();
 			}
@@ -295,42 +281,16 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		{
 			if (drag)
 			{
-		        trackball(currQ, (2.0*startx - WIDTH) / WIDTH,
-				         (HEIGHT - 2.0*starty) / HEIGHT,
-				         (2.0*x - WIDTH) / WIDTH,
-				         (HEIGHT - 2.0*y) / HEIGHT);
-		        float tempQuat[4];
-		        mul(tempQuat, currQ, lastQ);
-		        normalize_quat(tempQuat);
-		        vcopy(tempQuat, lastQ);
-		    	startx = x;
-		    	starty = y;
-
-				/*
-				float dquat[4];
-				trackball (dquat,
-					 (2.0*startx - WIDTH) / WIDTH,
-					 (HEIGHT - 2.0*starty) / HEIGHT,
-					 (2.0*x - WIDTH) / WIDTH,
-					 (H EIGHT - 2.0*y) / HEIGHT);
-				add_quats (lastQ, dquat, currQ);
-	            normalize_quat(currQ);
-	            normalize_quat(lastQ);
-	            scaleQuat(currQ);
-	            scaleQuat(lastQ);
-	            */
+				mousemove(x, y);
+	            InvalidateRect(hwnd, &bitrect, TRUE);
 			}
             break;
 		}
         case WM_MOUSEWHEEL:
         {
         	float wheelDelta = GET_WHEEL_DELTA_WPARAM(wparam);
-            scale *= wheelDelta > 0 ? 1.1f : 0.9f;  // Increase or decrease scale based on wheel delta
-            normalize_quat(currQ);
-            normalize_quat(lastQ);
-            scaleQuat(currQ);
-            scaleQuat(lastQ);
-            InvalidateRect(hwnd, NULL, TRUE);
+        	zoom(wheelDelta, &currQ, &lastQ);
+            InvalidateRect(hwnd, &bitrect, TRUE);
             break;
         }
 		case WM_KEYDOWN:
@@ -357,12 +317,12 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             	if(active)
             	{
         	        SetTimer(NULL, 1, 50, TimerCallback);
-            		SetWindowText(suspendButton, TEXT("Fore"));
+            		SetWindowText(suspendButton, TEXT("Background"));
             	}
             	else
             	{
                     KillTimer(NULL, 1);
-            		SetWindowText(suspendButton, TEXT("Back"));
+            		SetWindowText(suspendButton, TEXT("Foreground"));
             		//sound(); TODO
             	}
             	InvalidateRect(hwnd, NULL, TRUE);
@@ -375,7 +335,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             else if (HIWORD(wparam) == BN_CLICKED)
             {
             	int controlID = LOWORD(wparam);
-            	setView(controlID, lastQ);
+            	setView(controlID, &lastQ);
             }
         	break;
 

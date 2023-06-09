@@ -9,96 +9,76 @@
 
 extern Cell *stb, *drf;
 
-/*
+/**
  * Superluminal updates.
  */
-void phase2()
+void traveller()
 {
-  // If cell is empty, does nothing.
+  // If cell is empty or lattice, does nothing.
 
-  if (GET_ROLE(stb) == EMPTY)
+  if (GET_ROLE(stb) != TRVLLR)
     return;
 
-  // Calculate physical time
-
-  //int t = stb->n / LIGHT;
-
   // Affine operations?
+  // This sequence is asynchronous, that is, happens
+  // many times in a light step.
+  // Find new skewed addresses inside espacito
+  // for updates. (Sect. 4.2)
 
-  if (GET_ROLE(stb) == TRVLLR)
+  Cell *nxt = stb + (stb->n * SIDE) % SIDE3;
+  Cell *lst = drf + (drf->n * SIDE) % SIDE3;
+
+  // A collapse forces all affine bubbles to reissue.
+  // nxt->a1 is the skewed affinity being explored.
+  // stb->obj is the affinity inherited from interaction.
+  // Only non trivial p matters.
+  // Annihilation makes all affinities different.
+  // Secondary match is attempted using a2, so that
+  // composite particles are considered.
+
+  if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
+      !ZERO(nxt->p) && stb->k == COLLAPSE)
   {
-    // This sequence is asynchronous, that is, happens
-    // many times in a light step.
+    // Target found.
+    // Reissue this particular bubble.
+    // Collapse happens at c.p.
 
-    // Find new skewed addresses inside espacito
-    // for updates. (Sect. 4.2)
+    RSET(lst->po);    // reissue from c.p.
+    RSET(lst->o);     // radius 0
+    lst->syn = 0;     // ready for immediate expansion
+    lst->n   = 0;     // synchronize clocks
+    lst->obj = SIDE3; // no target in view
 
-	  /*
-    int oE = stb->off % SIDE3;
-    int off;
-    if (oE % 2 == 0)
-      off = (oE + (t + 1)) % SIDE3;
-    else
-      off = (oE - (t + 1)) % SIDE3;
-    Cell *nxt = stb - oE + off;
-    Cell *lst = drf - oE + off;
-*/
+    // Reset sine wave.
+    // Sect. 6.3 and (Eq. 2).
 
-    Cell *nxt = stb + (stb->n * SIDE) % SIDE3;
-    Cell *lst = drf + (drf->n * SIDE) % SIDE3;
+    lst->u   = 0;     // always reset sine
+    RSET(lst->m);     // not a messenger
 
-    // A collapse forces all affine bubbles to reissue.
-    // nxt->a1 is the skewed affinity being explored.
-    // stb->obj is the affinity inherited from interaction.
-    // Only non trivial p matters.
-    // Annihilation makes all affinities different.
-    // Secondary match is attempted using a2, so that
-    // composite particles are considered.
+    // Dissolution?
 
-    if ((nxt->a1 == stb->obj || nxt->a2 == stb->obj) &&
-        !ZERO(nxt->p) && stb->k == COLLAPSE)
+    if (ANNIHIL(stb, nxt))
     {
-      // Target found.
-      // Reissue this particular bubble.
-      // Collapse happens at c.p.
+      // Free from particle restoring
+      // default value.
 
-      RSET(lst->po);    // reissue from c.p.
-      RSET(lst->o);     // radius 0
-      lst->syn = 0;     // ready for immediate expansion
-      lst->n   = 0;     // synchronize clocks
-      lst->obj = SIDE3; // no target in view
-
-      // Reset sine wave.
-      // Sect. 6.3 and (Eq. 2).
-
-      lst->u   = 0;     // always reset sine
-      RSET(lst->m);     // not a messenger
-
-      // Dissolution?
-
-      if (ANNIHIL(stb, nxt))
-      {
-        // Free from particle restoring
-        // default value.
-
-        lst->a1 = (nxt->off % SIDE3) + 1;
-      }
+      lst->a1 = (nxt->off % SIDE3) + 1;
     }
+  }
 
-    // No reissue ocurred so the net effect
-    // is a high frequency sine, that is,
-    // all related bubbles are bumped.
+  // No reissue ocurred so the net effect
+  // is a high frequency sine, that is,
+  // all related bubbles are bumped.
 
-    else if (nxt->a1 == stb->obj)
+  else if (nxt->a1 == stb->obj)
+  {
+    // Bump sine generator.
+    // (Euler formula for sine)
+
+    int tn = nxt->n / LIGHT;  // skewed time
+    if (tn > 0)
     {
-      // Bump sine generator.
-      // (Euler formula for sine)
-
-      int tn = nxt->n / LIGHT;  // skewed time
-      if (tn > 0)
-      {
-        lst->u = nxt->u * (tn * tn - MOD2(nxt->o)) / (tn * tn);
-      }
+      lst->u = nxt->u * (tn * tn - MOD2(nxt->o)) / (tn * tn);
     }
   }
 }

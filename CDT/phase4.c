@@ -5,7 +5,7 @@
 #include "simulation.h"
 
 extern Cell *stb, *drf;
-extern Cell *latt0, *latt1;//DEBUG
+//extern Cell *latt0, *latt1;//DEBUG
 
 boolean isEmpty(Cell *c)
 {
@@ -23,7 +23,6 @@ boolean isEmpty(Cell *c)
       ZERO(c->pP) &&
       ISSAT(c->m));
 }
-
 
 void empty(Cell *c)
 {
@@ -99,8 +98,8 @@ void phase4()
 
   for(int dir = 0; dir < NDIR; dir++)
   {
-	if(stb->off == 0)
-	  printf("dir=%d\n", dir);
+//	if(stb->off == 0)
+	//  printf("dir=%d\n", dir);
 
     // Calculate the address of the next neighbor.
 
@@ -110,6 +109,8 @@ void phase4()
 
     if (BUSY(nei))
     {
+//    	if(stb->n == 380 && stb->off ==	28688)
+//    		puts("puts");
       code |= BUSY_OUT;
       continue;
     }
@@ -117,6 +118,7 @@ void phase4()
     // The first part of this block propagates info
     // asynchronously (TRAVELLER processing).
 
+    int axis = dir >> 1;
     if (role == TRVLLR)
     {
       // Destiny already visited?
@@ -129,7 +131,7 @@ void phase4()
       {
         // Transmit superluminal info
 
-        nei->occ = stb->occ;
+        nei->occ = SIDE_2 - 1;
         nei->n   = stb->n;    // used to calculate skew
         nei->obj = stb->obj;  // used for collapse
 
@@ -138,20 +140,24 @@ void phase4()
         {
           // The seed is transported superluminaly.
 
+          code |= POLE_OUT;     // encode this case
           nei->ch  = stb->ch;   // charges
-          nei->a1   = stb->a1;  // affinity
-          nei->a2   = stb->a2;  // affinity
+          nei->a1  = stb->a1;   // affinity
+          nei->a2  = stb->a2;   // affinity
           nei->syn = stb->syn;  // wf synch
           nei->u   = stb->u;    // sine
           nei->k   = stb->k;    // kind
           CP(nei->p, stb->p);   // used to find pole
           CP(nei->s, stb->s);   // spin
           CP(nei->o, stb->o);   // bubble origin
-          CP(nei->po, stb->po); // pole
           CP(nei->pP, stb->pP); // decay
           CP(nei->m, stb->m);   // messenger
 
-          code |= POLE_OUT;
+          // Shrink pole toward re-emission cell.
+
+          CP(nei->po, stb->po); // pole
+          if (nei->po[axis] > 0)
+        	  nei->po[axis] -= (dir % 2 == 0) ? +1 : -1;
         }
       }
       continue;
@@ -170,12 +176,11 @@ void phase4()
 
     int org[3];
     CP(org, stb->o);
-    int i = dir >> 1;
-    org[i] += (dir % 2 == 0) ? +1 : -1;
+    org[axis] += (dir % 2 == 0) ? +1 : -1;
 
     // Propagate forward only.
 
-    if (abs(org[i]) < abs(stb->o[i]))
+    if (abs(org[axis]) < abs(stb->o[axis]))
     {
       code |= BACK_OUT;
       continue;
@@ -273,7 +278,7 @@ void phase4()
   }
   else if (code & TX_OUT)
   {
-    puts("TX_OUT");
+    //puts("TX_OUT");
 
     // Per definition of GRID:
 
@@ -287,7 +292,7 @@ void phase4()
   }
   else if (code & WF_OUT)
   {
-    puts("WF_OUT");   // WAVE
+    //puts("WF_OUT");   // WAVE
     empty(drf);
   }
   else if (code & NWAVE_OUT)// neither SEED nor WAVE
@@ -327,12 +332,16 @@ void phase4()
   else if (code & BUSY_OUT)
   {
     puts("BUSY_OUT (not expected)");
-    assert(0);
+//    printConfig(stb);
+//    sound();
+	empty(drf);
+    //assert(0);
   }
   else if (code & BACK_OUT)
   {
     puts("BACK_OUT (not expected)");
-    assert(0);
+	empty(drf);
+//    assert(0);
   }
   else
   {
@@ -340,3 +349,9 @@ void phase4()
     assert(0);
   }
 }
+
+/*
+n	ch		off		a1	a2	k	syn		occ	obj		u	o		p		s		po		pP		m			role
+----------------------------------------------------------------------------------------------------------------------------------
+380	0x10	28688	1	0	2	180000	0	4096	0	1,7,0	0,0,0	8,0,0	0,0,0 	0,0,0	16,16,16
+ */

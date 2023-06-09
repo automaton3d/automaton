@@ -17,7 +17,7 @@
 
 // Lattice symbols.
 
-#define ORDER    4
+#define ORDER    3
 #define SIDE     (1<<ORDER)
 #define SIDE2    (SIDE*SIDE)
 #define SIDE3    (SIDE*SIDE2)
@@ -174,7 +174,7 @@ void initScreen();
 void model(int phase);
 Cell *neighbor(Cell *ptr, int dir);
 void phase1();
-void phase2();
+void traveller();
 void phase3();
 void phase4();
 void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);

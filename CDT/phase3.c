@@ -9,6 +9,9 @@
 
 extern Cell *stb, *drf;
 
+/**
+ * Empodion decay, pair management and interaction.
+ */
 void phase3()
 {
   // If cell is empty, does nothing.
