@@ -147,7 +147,7 @@ int main__()
 	cell->m[1]=16;
 	cell->m[2]=16;
 	drf = cell;
-	phase4();
+	spread();
 	puts("done.");
 	return 0;
 }

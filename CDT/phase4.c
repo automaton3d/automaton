@@ -64,7 +64,7 @@ int getrole(Cell *c)
 /*
  * Information spreading.
  */
-void phase4()
+void spread()
 {
   // If cell is empty, does nothing.
 
@@ -98,9 +98,6 @@ void phase4()
 
   for(int dir = 0; dir < NDIR; dir++)
   {
-//	if(stb->off == 0)
-	//  printf("dir=%d\n", dir);
-
     // Calculate the address of the next neighbor.
 
     Cell* nei = neighbor(drf, dir);
@@ -109,8 +106,6 @@ void phase4()
 
     if (BUSY(nei))
     {
-//    	if(stb->n == 380 && stb->off ==	28688)
-//    		puts("puts");
       code |= BUSY_OUT;
       continue;
     }
@@ -131,7 +126,7 @@ void phase4()
       {
         // Transmit superluminal info
 
-        nei->occ = SIDE_2 - 1;
+        nei->occ = SIDE_2 - 1; // TODO: check if this value cover all regions
         nei->n   = stb->n;    // used to calculate skew
         nei->obj = stb->obj;  // used for collapse
 
@@ -139,6 +134,7 @@ void phase4()
         if (code & PONZ)
         {
           // The seed is transported superluminaly.
+          // TODO: Guarantee that nei->o will be reset at destiny!
 
           code |= POLE_OUT;     // encode this case
           nei->ch  = stb->ch;   // charges
@@ -149,7 +145,6 @@ void phase4()
           nei->k   = stb->k;    // kind
           CP(nei->p, stb->p);   // used to find pole
           CP(nei->s, stb->s);   // spin
-          CP(nei->o, stb->o);   // bubble origin
           CP(nei->pP, stb->pP); // decay
           CP(nei->m, stb->m);   // messenger
 
@@ -167,7 +162,10 @@ void phase4()
 
     if (code & SZ)
     {
+      // Unexpected
+
       code |= NWAVE_OUT;
+      assert(0);
       continue;
     }
 
@@ -188,7 +186,9 @@ void phase4()
     int mag3 = org[0] * org[0] + org[1] * org[1] + org[2] * org[2];
     if (mag3 > SIDE2/4)
     {
-      code |= BACK_OUT;	// provisional
+      // Beyond maximum radius.
+
+      code |= MAG_OUT;
       continue;
     }
 
@@ -202,8 +202,12 @@ void phase4()
     }
     if (mag3 == SIDE2/4)
     {
+      // Bubble meets itself?
+
       if (ISMILD(org))
       {
+        // Not bearing momentum?
+
         if (code & PZ)
         {
           code |= WRAP_OUT;
@@ -211,6 +215,8 @@ void phase4()
         }
         else
         {
+          // Wrapping succeeded.
+
           code |= UNI_OUT;
         }
       }
@@ -244,7 +250,7 @@ void phase4()
 
     nei->syn = LIGHT2 * MOD2(org);
 
-    // Let neighbor wrappable by default?????
+    // Let the neighbor be ready to propagate.
 
     RSET(nei->po);
 
@@ -273,13 +279,18 @@ void phase4()
 
   if (code & POLE_OUT)
   {
-    puts("POLE_OUT");  // transported p
+    // Momentum transported superluminaly.
+
+    empty(drf);
+  }
+  else if (code & TRAV_OUT)
+  {
+    // Hunting.
+
     empty(drf);
   }
   else if (code & TX_OUT)
   {
-    //puts("TX_OUT");
-
     // Per definition of GRID:
 
     RSET(drf->p);     // no seed
@@ -290,68 +301,72 @@ void phase4()
     drf->k = NONE;
     RSET(drf->pP);
   }
-  else if (code & WF_OUT)
+
+  // WAVE propagated.
+
+  else if (code & WF_OUT)	// TODO: rule out?
   {
-    //puts("WF_OUT");   // WAVE
     empty(drf);
   }
-  else if (code & NWAVE_OUT)// neither SEED nor WAVE
+
+  // Neither SEED nor WAVE.
+
+  else if (code & NWAVE_OUT)
   {
-    puts("NWAVE_OUT");
     empty(drf);
   }
-  else if (code & TRAV_OUT)
-  {
-    puts("TRAV_OUT");  // hunting
-    empty(drf);
-  }
+
+  // Wavefront vanishes at max. radius.
+
   else if (code & CLASH_OUT)
   {
-    puts("CLASH_OUT");
     empty(drf);
-  }
-  else if (code & RAW_OUT)
-  {
-    //puts("RAW_OUT (does nothing!!)");
-  }
-  else if (code & VISIT_OUT)
-  {
-    puts("VISIT_OUT (not expected)");
-    assert(0);
   }
   else if (code & UNI_OUT)
   {
-    puts("UNI_OUT");
 	empty(drf);
+  }
+  else if (code & RAW_OUT)
+  {
+    // Do nothing!!
+  }
+  else if (code & MAG_OUT)
+  {
+    // Unexpected!
+
+    assert(0);
+  }
+  else if (code & VISIT_OUT)
+  {
+    // Unexpected!
+
+    assert(0);
   }
   else if (code & WRAP_OUT)
   {
-    puts("WRAP_OUT (not expected)");
-    assert(0);
+    // Do nothing!
   }
   else if (code & BUSY_OUT)
   {
-    puts("BUSY_OUT (not expected)");
-//    printConfig(stb);
-//    sound();
 	empty(drf);
-    //assert(0);
   }
   else if (code & BACK_OUT)
   {
-    puts("BACK_OUT (not expected)");
-	empty(drf);
-//    assert(0);
+    // Unexpected!
+    // TODO: rule out?
+
+    assert(0);
   }
   else
   {
-    puts("** ELSE ** (catastrophic)");
+    // Catastrophic state.
+
+	for (int i = 0; i < 20; i++)
+	{
+		Beep(800, 100);
+		Sleep(300);
+	}
+
     assert(0);
   }
 }
-
-/*
-n	ch		off		a1	a2	k	syn		occ	obj		u	o		p		s		po		pP		m			role
-----------------------------------------------------------------------------------------------------------------------------------
-380	0x10	28688	1	0	2	180000	0	4096	0	1,7,0	0,0,0	8,0,0	0,0,0 	0,0,0	16,16,16
- */

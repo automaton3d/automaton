@@ -20,6 +20,8 @@ extern Quaternion rotation;
 extern boolean active;
 extern RECT bitrect;
 extern Quaternion currQ, lastQ;
+extern float scale;
+extern float dx, dy;
 
 COLORREF voxels[SIDE6];
 
@@ -53,14 +55,14 @@ boolean isPartial(int i)
 void putVoxel(Vector v, COLORREF color, HDC hdc)
 {
     Vector rotated = rotateVector(v, rotation);
-    SetPixel(hdc, WIDTH/2 + rotated.x, HEIGHT/2 + rotated.y, color);
+    SetPixel(hdc, WIDTH/2 + rotated.x + dx, HEIGHT/2 + rotated.y + dy, color);
 }
 
 void projPoint(Vector v, int *x, int *y)
 {
     Vector rotated = rotateVector(v, rotation);
-    *x = WIDTH/2 + rotated.x/2;
-    *y = HEIGHT/2 + rotated.y/2;
+    *x = WIDTH/2 + rotated.x/2 + dx;
+    *y = HEIGHT/2 + rotated.y/2 + dy;
 }
 
 HWND CreateCheckBox(HWND hwndParent, int x, int y, int width, int height, int id, LPCWSTR text)
@@ -80,7 +82,29 @@ void DrawLabel(HDC hdc, int x, int y, const TCHAR* labelText)
 
 void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 {
-	switch(wparam) { case 'S': stop = !stop; InvalidateRect(hwnd, &bitrect, TRUE); }
+	switch(wparam)
+	{
+		case 'S':
+			stop = !stop;
+			InvalidateRect(hwnd, &bitrect, TRUE);
+			break;
+		case VK_UP:
+			dy += 2;
+			InvalidateRect(hwnd, &bitrect, TRUE);
+			break;
+		case VK_DOWN:
+			dy -= 2;
+			InvalidateRect(hwnd, &bitrect, TRUE);
+			break;
+		case VK_RIGHT:	// right arrow
+			dx += 2;
+			InvalidateRect(hwnd, &bitrect, TRUE);
+			break;
+		case VK_LEFT:
+			dx -= 2;
+			InvalidateRect(hwnd, &bitrect, TRUE);
+			break;
+	}
 }
 
 void normalize_quat(Quaternion *quat)
@@ -203,9 +227,9 @@ void drawModel(HDC hdc)
 		  int x = i % SIDE2;
 		  int y = (i / SIDE2) % SIDE2;
 		  int z = (i / SIDE4) % SIDE2;
-		  p.x = (x - SIDE2/2);
-		  p.y = (y - SIDE2/2);
-		  p.z = (z - SIDE2/2);
+		  p.x = (x - SIDE2/2)*scale;
+		  p.y = (y - SIDE2/2)*scale;
+		  p.z = (z - SIDE2/2)*scale;
 		  putVoxel(p, color, hdc);
 	  }
   }
@@ -214,17 +238,17 @@ void drawModel(HDC hdc)
 	  int x, y;
 	  SelectObject(hdc, xPen);
 	  Vector p1 = { 0, 0, 0 };
-	  Vector p2 = { 2*SIDE2, 0, 0 };
+	  Vector p2 = { 2*SIDE2*scale, 0, 0 };
 	  projLine(hdc, p1, p2);
 	  projPoint(p2, &x, &y);
       TextOut(hdc, x, y, "x", 1);
 	  SelectObject(hdc, yPen);
-	  Vector p3 = { 0, 2*SIDE2, 0 };
+	  Vector p3 = { 0, 2*SIDE2*scale, 0 };
 	  projLine(hdc, p1, p3);
 	  projPoint(p3, &x, &y);
       TextOut(hdc, x, y, "y", 1);
 	  SelectObject(hdc, zPen);
-	  Vector p4 = { 0, 0, 2*SIDE2 };
+	  Vector p4 = { 0, 0, 2*SIDE2*scale };
 	  projLine(hdc, p1, p4);
 	  projPoint(p4, &x, &y);
       TextOut(hdc, x, y, "z", 1);
@@ -239,17 +263,12 @@ void drawModel(HDC hdc)
 	  {
 		  if(i % 24 == 0) shift = b[i/24];
 		  int index = (i / 3) % 2;
+		  int xyz = (shift & 1) == 0 ? +SIDE2*scale : -SIDE2*scale;
 		  switch(i % 3)
 		  {
-		  	  case 0:
-		  		  v[index].x = (shift & 1) == 0 ? +SIDE2 : -SIDE2;
-		  		  break;
-		  	  case 1:
-		  		  v[index].y = (shift & 1) == 0 ? +SIDE2 : -SIDE2;
-		  		  break;
-		  	  case 2:
-		  		  v[index].z = (shift & 1) == 0 ? +SIDE2 : -SIDE2;
-		  		  break;
+		  	  case 0: v[index].x = xyz; break;
+		  	  case 1: v[index].y = xyz; break;
+		  	  case 2: v[index].z = xyz; break;
 		  }
 		  if((i + 1) % 6 == 0) projLine(hdc, v[0], v[1]);
 	  }

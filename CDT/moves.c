@@ -10,6 +10,7 @@ extern float radius;
 extern boolean drag;
 extern Quaternion rotation;
 extern float width, height;
+extern float dx, dy;
 
 Quaternion Quaternion_multiply(Quaternion q1, Quaternion q2) {
     Quaternion result;
@@ -50,32 +51,6 @@ Quaternion Quaternion_fromBetweenVectors(Vector a, Vector b) {
     return result;
 }
 
-void pan(float deltaX, float deltaY, Quaternion* currQ, Quaternion* lastQ) {
-    // Create a translation quaternion based on the deltaX and deltaY values
-    Quaternion translation;
-    translation.w = 1.0f;
-    translation.x = deltaX;
-    translation.y = deltaY;
-    translation.z = 0.0f;
-
-    // Apply the translation to currQ and lastQ
-    *currQ = Quaternion_multiply(translation, *currQ);
-    *lastQ = Quaternion_multiply(translation, *lastQ);
-
-    // Normalize currQ and lastQ to maintain quaternion properties
-    float currQLength = sqrt(currQ->w * currQ->w + currQ->x * currQ->x + currQ->y * currQ->y + currQ->z * currQ->z);
-    currQ->w /= currQLength;
-    currQ->x /= currQLength;
-    currQ->y /= currQLength;
-    currQ->z /= currQLength;
-
-    float lastQLength = sqrt(lastQ->w * lastQ->w + lastQ->x * lastQ->x + lastQ->y * lastQ->y + lastQ->z * lastQ->z);
-    lastQ->w /= lastQLength;
-    lastQ->x /= lastQLength;
-    lastQ->y /= lastQLength;
-    lastQ->z /= lastQLength;
-}
-
 void zoom(float wheelDelta, Quaternion* currQ, Quaternion* lastQ)
 {
     float scalingFactor = wheelDelta > 0 ? 1.1f : 0.9f;  // Determine the scaling factor based on wheel delta
@@ -105,7 +80,8 @@ void zoom(float wheelDelta, Quaternion* currQ, Quaternion* lastQ)
     lastQ->z /= lastQLength;
 }
 
-Vector rotateVector2(Vector v, Quaternion q)
+
+Vector rotateVector(Vector v, Quaternion q)
 {
     // Perform quaternion rotation on vector v
     Quaternion conjugate = { q.w, -q.x, -q.y, -q.z };
@@ -117,8 +93,9 @@ Vector rotateVector2(Vector v, Quaternion q)
     return rotated;
 }
 
+
 // Rotate a point by a quaternion
-Vector rotateVector(Vector v, Quaternion q)
+Vector rotateVectorzz(Vector v, Quaternion q)
 {
     float qx = q.x;
     float qy = q.y;
@@ -137,13 +114,12 @@ Vector rotateVector(Vector v, Quaternion q)
     return rotated;
 }
 
-
 void projLine(HDC hdc, Vector point1, Vector point2)
 {
 	Vector rotated = rotateVector(point1, rotation);
-    MoveToEx(hdc, WIDTH/2 + rotated.x/2, HEIGHT/2 + rotated.y/2, NULL);
+    MoveToEx(hdc, WIDTH/2 + rotated.x/2 + dx, HEIGHT/2 + rotated.y/2 + dy, NULL);
 	rotated = rotateVector(point2, rotation);
-	LineTo(hdc, WIDTH/2 + rotated.x/2, HEIGHT/2 + rotated.y/2);
+	LineTo(hdc, WIDTH/2 + rotated.x/2 + dx, HEIGHT/2 + rotated.y/2 + dy);
 }
 
 void mousedown(double x, double y)
@@ -166,6 +142,7 @@ void mousemove(double x, double y)
 		// Calculate the rotation between vectors a and b
 
 		currQ = Quaternion_fromBetweenVectors(a, b);
+	    normalize_quat(&currQ);
 	}
 }
 
@@ -181,8 +158,8 @@ void mouseup(double x, double y)
 		currQ.x = 0.0;
 		currQ.y = 0.0;
 		currQ.z = 0.0;
-		start.x = 0.0;
-		start.y = 0.0;
+//		start.x = x;
+//		start.y = y;
 	}
 }
 

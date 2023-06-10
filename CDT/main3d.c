@@ -30,6 +30,8 @@ Quaternion rotation;
 float radius;
 float width, height;
 Vector start;
+float scale = 5.0;
+float dx = 0, dy = 0;
 
 // Simulation
 
@@ -39,6 +41,25 @@ unsigned long begin;
 unsigned long timer = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 RECT bitrect = { BMAPX, BMAPY, BMAPX + WIDTH, BMAPY + HEIGHT };
+
+// Rotate a point by a quaternion
+void rotatePoint(const Quaternion* q, float* x, float* y, float* z)
+{
+    float qx = q->x;
+    float qy = q->y;
+    float qz = q->z;
+    float qw = q->w;
+
+    float ix = qw * (*x) + qy * (*z) - qz * (*y);
+    float iy = qw * (*y) + qz * (*x) - qx * (*z);
+    float iz = qw * (*z) + qx * (*y) - qy * (*x);
+    float iw = -qx * (*x) - qy * (*y) - qz * (*z);
+
+    *x = ix * qw + iw * -qx + iy * -qz - iz * -qy;
+    *y = iy * qw + iw * -qy + iz * -qx - ix * -qz;
+    *z = iz * qw + iw * -qz + ix * -qy - iy * -qx;
+}
+
 
 VOID CALLBACK TimerCallback(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
@@ -218,7 +239,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
             setView(ISO_VIEW, &lastQ);
         	// Identity
-            radius = 1.0;
+            radius = 0.7;
             currQ.w = 1.0;
             currQ.x = 0.0;
             currQ.y = 0.0;
@@ -259,8 +280,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case WM_LBUTTONDOWN:
 		{
-			mousedown(x, y);
-		    drag = true;
+			mousedown(x - BMAPX - WIDTH/2, BMAPY + HEIGHT/2 - y);
 		    SetCapture(hwnd);
 		    SendMessage(xy_rad, BM_SETCHECK, BST_UNCHECKED, 0);
 		    SendMessage(yz_rad, BM_SETCHECK, BST_UNCHECKED, 0);
@@ -271,7 +291,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		case WM_LBUTTONUP:
 			if (drag)
 			{
-				mouseup(x, y);
+				mouseup(x - BMAPX - WIDTH/2, BMAPY + HEIGHT/2 - y);
 				drag = false;
 				ReleaseCapture();
 			}
@@ -281,7 +301,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		{
 			if (drag)
 			{
-				mousemove(x, y);
+				mousemove(x - BMAPX - WIDTH/2, BMAPY + HEIGHT/2 - y);
 	            InvalidateRect(hwnd, &bitrect, TRUE);
 			}
             break;
@@ -289,7 +309,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         case WM_MOUSEWHEEL:
         {
         	float wheelDelta = GET_WHEEL_DELTA_WPARAM(wparam);
-        	zoom(wheelDelta, &currQ, &lastQ);
+        	scale += (wheelDelta > 0) ? 0.3 : -0.3;
             InvalidateRect(hwnd, &bitrect, TRUE);
             break;
         }

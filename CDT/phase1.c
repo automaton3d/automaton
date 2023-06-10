@@ -15,7 +15,7 @@ extern Cell *stb, *drf;
  * Copy data.
  * (massive transfer between lattices)
  */
-void phase1()
+void transfer()
 {
   // Clock tick.
 

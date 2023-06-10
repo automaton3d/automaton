@@ -52,5 +52,6 @@ Quaternion Quaternion_multiply(Quaternion q1, Quaternion q2);
 void zoom(float wheelDelta, Quaternion* currQ, Quaternion* lastQ);
 void putVoxel(Vector v, COLORREF color, HDC hdc);
 void projLine(HDC hdc, Vector point1, Vector point2);
+void pan(float deltaX, float deltaY, Quaternion* currQ, Quaternion* lastQ);
 
 #endif /* GRAPHICS_H_ */

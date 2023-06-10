@@ -14,9 +14,10 @@ extern Cell *stb, *drf;
  */
 void phase3()
 {
-  // If cell is empty, does nothing.
+  // If cell is empty or is lattice, does nothing.
 
-  if (GET_ROLE(stb) == EMPTY)
+  int role = GET_ROLE(stb);
+  if (role == EMPTY && role == GRID)
     return;
 
   // Calculate physical time
