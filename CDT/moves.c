@@ -3,16 +3,17 @@
 #include <math.h>
 #include "graphics.h"
 
-// Global variables
-extern Quaternion lastQ, currQ;
-extern Vector start;
 extern float radius;
-extern boolean drag;
 extern Quaternion rotation;
 extern float width, height;
 extern float dx, dy;
 
-Quaternion Quaternion_multiply(Quaternion q1, Quaternion q2) {
+extern Quaternion currQ, lastQ;
+extern RECT bitrect;
+extern Vector start;
+
+Quaternion Quaternion_multiply(Quaternion q1, Quaternion q2)
+{
     Quaternion result;
     result.w = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
     result.x = q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y;
@@ -21,7 +22,8 @@ Quaternion Quaternion_multiply(Quaternion q1, Quaternion q2) {
     return result;
 }
 
-Quaternion Quaternion_fromBetweenVectors(Vector a, Vector b) {
+Quaternion Quaternion_fromBetweenVectors(Vector a, Vector b)
+{
     // Normalize the input vectors
     double lengthA = sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
     double lengthB = sqrt(b.x * b.x + b.y * b.y + b.z * b.z);
@@ -93,74 +95,12 @@ Vector rotateVector(Vector v, Quaternion q)
     return rotated;
 }
 
-
-// Rotate a point by a quaternion
-Vector rotateVectorzz(Vector v, Quaternion q)
-{
-    float qx = q.x;
-    float qy = q.y;
-    float qz = q.z;
-    float qw = q.w;
-
-    float ix = qw * (v.x) + qy * (v.z) - qz * (v.y);
-    float iy = qw * (v.y) + qz * (v.x) - qx * (v.z);
-    float iz = qw * (v.z) + qx * (v.y) - qy * (v.x);
-    float iw = -qx * (v.x) - qy * (v.y) - qz * (v.z);
-
-    Vector rotated;
-    rotated.x = ix * qw + iw * -qx + iy * -qz - iz * -qy;
-    rotated.y = iy * qw + iw * -qy + iz * -qx - ix * -qz;
-    rotated.z = iz * qw + iw * -qz + ix * -qy - iy * -qx;
-    return rotated;
-}
-
 void projLine(HDC hdc, Vector point1, Vector point2)
 {
 	Vector rotated = rotateVector(point1, rotation);
     MoveToEx(hdc, WIDTH/2 + rotated.x/2 + dx, HEIGHT/2 + rotated.y/2 + dy, NULL);
 	rotated = rotateVector(point2, rotation);
 	LineTo(hdc, WIDTH/2 + rotated.x/2 + dx, HEIGHT/2 + rotated.y/2 + dy);
-}
-
-void mousedown(double x, double y)
-{
-    start.x = x;
-    start.y = y;
-    drag = TRUE;
-}
-
-void mousemove(double x, double y)
-{
-	if (drag)
-	{
-		if (start.x == 0.0 && start.y == 0.0)
-			return;
-
-		Vector a = project(start.x, start.y);
-		Vector b = project(x, y);
-
-		// Calculate the rotation between vectors a and b
-
-		currQ = Quaternion_fromBetweenVectors(a, b);
-	    normalize_quat(&currQ);
-	}
-}
-
-void mouseup(double x, double y)
-{
-	if (drag)
-	{
-		if (start.x == 0.0 && start.y == 0.0)
-			return;
-
-		lastQ = Quaternion_multiply(currQ, lastQ);
-		currQ.w = 1.0;
-		currQ.x = 0.0;
-		currQ.y = 0.0;
-		currQ.z = 0.0;
-//		start.x = x;
-//		start.y = y;
-	}
 }
 
 Vector project(double x, double y)
@@ -186,4 +126,54 @@ Vector project(double x, double y)
     result.z = z;
 
     return result;
+}
+
+void init()
+{
+    // Set initial orientations
+    lastQ.w = 1; // Example initial values
+    lastQ.x = 0;
+    lastQ.y = 0;
+    lastQ.z = 0;
+    currQ.w = 1.0;
+    currQ.x = 0.0;
+    currQ.y = 0.0;
+    currQ.z = 0.0;
+    start.x = 0.0;
+    start.y = 0.0;
+}
+
+void mousedown(double x, double y)
+{
+    start.x = x;
+    start.y = y;
+}
+
+void mousemove(double x, double y, HWND hwnd)
+{
+	if (start.x == 0.0 && start.y == 0.0)
+		return;
+
+	Vector a = project(start.x, start.y);
+	Vector b = project(x, y);
+
+	// Calculate the rotation between vectors a and b
+
+	currQ = Quaternion_fromBetweenVectors(a, b);
+	normalize_quat(&currQ);
+    InvalidateRect(hwnd, &bitrect, TRUE);
+}
+
+void mouseup(double x, double y)
+{
+	if (start.x == 0.0 && start.y == 0.0)
+		return;
+
+	lastQ = Quaternion_multiply(currQ, lastQ);
+	currQ.w = 1.0;
+	currQ.x = 0.0;
+	currQ.y = 0.0;
+	currQ.z = 0.0;
+	start.x = 0.0;
+	start.y = 0.0;
 }

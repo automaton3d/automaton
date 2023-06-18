@@ -8,6 +8,7 @@
 #include "simulation.h"
 
 extern Cell *stb, *drf;
+extern Cell *latt0, *latt1;
 
 /**
  * Empodion decay, pair management and interaction.
@@ -27,14 +28,8 @@ void phase3()
   // Find new skewed addresses inside espacito
   // for updates. (Sect. 4.2)
 
-  int oE = stb->off % SIDE3;
-  int off;
-  if (oE % 2 == 0)
-    off = (oE + (t + 1)) % SIDE3;
-  else
-    off = (oE - (t + 1)) % SIDE3;
-  Cell *nxt = stb - oE + off;
-  Cell *lst = drf - oE + off;
+  Cell *nxt = SKEW(stb, latt0);
+  Cell *lst = SKEW(drf, latt1);
 
   // Last pass of wavefront?
 
@@ -71,13 +66,13 @@ void phase3()
 
     // A light pass was completed, detect interactions.
 
-    interact(stb, drf, nxt, lst);
+    interact(nxt, lst);
   }
   else
   {
     // Pair management.
 
-    managePairs(t, stb, drf, nxt, lst);
+    managePairs(t, nxt, lst);
   }
 }
 

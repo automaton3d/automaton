@@ -10,18 +10,17 @@
 
 extern Cell *stb, *drf;
 extern Cell *latt0, *latt1;
+extern unsigned long timer;
 int jump = 0;
 
 void printCell(Cell *cell)
 {
-  if(cell->off == 0 || 1)
-  {
     if(jump % 64 == 0)
     {
 	  puts("\nn\tch\toff\ta1\ta2\tk\tsyn\tocc\tobj\tu\to\tp\ts\tpo\tpP\tm\trole");
 	  puts("----------------------------------------------------------------------------------------------------------------------------------");
 	}
-	printf("%d\t", cell->n);
+	printf("%d:%ld\t", cell->n, timer);
 	printf("0x%02x\t", cell->ch);
 	printf("%d\t", cell->off);
 	printf("%d\t", cell->a1);
@@ -34,13 +33,11 @@ void printCell(Cell *cell)
 	printf("%d,%d,%d\t", cell->o[0], cell->o[1], cell->o[2]);
 	printf("%d,%d,%d\t", cell->p[0], cell->p[1], cell->p[2]);
 	printf("%d,%d,%d\t", cell->s[0], cell->s[1], cell->s[2]);
-	char *ch = ISMILD(cell->po) ? "M" : " ";
-	printf("%d,%d,%d%s\t", cell->po[0], cell->po[1], cell->po[2], ch);
+	printf("%d,%d,%d\t", cell->po[0], cell->po[1], cell->po[2]);
 	printf("%d,%d,%d\t", cell->pP[0], cell->pP[1], cell->pP[2]);
 	printf("%d,%d,%d\t", cell->m[0], cell->m[1], cell->m[2]);
 	printf("%d\n\n", GET_ROLE(cell));
 	jump++;
-  }
 }
 
 void printConfig(Cell *cell)

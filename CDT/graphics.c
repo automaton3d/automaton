@@ -22,6 +22,7 @@ extern RECT bitrect;
 extern Quaternion currQ, lastQ;
 extern float scale;
 extern float dx, dy;
+extern HWND stopButton;
 
 COLORREF voxels[SIDE6];
 
@@ -86,6 +87,10 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 	{
 		case 'S':
 			stop = !stop;
+			if (stop)
+				SetWindowText(stopButton, TEXT("Resume"));
+			else
+				SetWindowText(stopButton, TEXT("Pause"));
 			InvalidateRect(hwnd, &bitrect, TRUE);
 			break;
 		case VK_UP:
@@ -97,11 +102,11 @@ void keyboard(UINT msg, WPARAM wparam, LPARAM lparam)
 			InvalidateRect(hwnd, &bitrect, TRUE);
 			break;
 		case VK_RIGHT:	// right arrow
-			dx += 2;
+			dx -= 2;
 			InvalidateRect(hwnd, &bitrect, TRUE);
 			break;
 		case VK_LEFT:
-			dx -= 2;
+			dx += 2;
 			InvalidateRect(hwnd, &bitrect, TRUE);
 			break;
 	}

@@ -19,18 +19,17 @@ HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
 HWND single_rad, partial_rad, full_rad, rand_rad;
 HWND xy_rad, yz_rad, zx_rad, iso_rad;
 HPEN xPen, yPen, zPen, boxPen;
-HWND g_hButton, suspendButton;
+HWND stopButton, suspendButton, centerButton;
 boolean momentum, wavefront, mode0, mode1, mode2, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
 
 // Trackball
 
-boolean drag;
 Quaternion currQ, lastQ;
 Quaternion rotation;
 float radius;
 float width, height;
-Vector start;
-float scale = 5.0;
+Vector start = { 0, 0, 0 };
+float scale;
 float dx = 0, dy = 0;
 
 // Simulation
@@ -68,8 +67,8 @@ VOID CALLBACK TimerCallback(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime
 
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    int x = GET_X_LPARAM(lparam);
-    int y = GET_Y_LPARAM(lparam);
+    int x = GET_X_LPARAM(lparam) - BMAPX;
+    int y = GET_Y_LPARAM(lparam) - BMAPY;
 	switch(msg)
 	{
     	case WM_PAINT:
@@ -133,6 +132,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         }
 	    case WM_CREATE:
     	{
+    		scale = (0.45 * pow(3.3, (5 - ORDER)*1.01));
 			ZeroMemory(&bmInfo, sizeof(BITMAPINFO));
 			bmInfo.bmiHeader.biBitCount    = 32;
 			bmInfo.bmiHeader.biHeight      = HEIGHT;
@@ -193,13 +193,13 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             SendMessage(full_rad, BM_SETCHECK, BST_CHECKED, 0);
             SendMessage(iso_rad, BM_SETCHECK, BST_CHECKED, 0);
             //
-         	front_chk = CreateCheckBox(hwnd, 50, 120, 150, 30, FRONT, (LPCWSTR)"Wavefront");
-         	track_chk = CreateCheckBox(hwnd, 50, 150, 150, 30, TRACK, (LPCWSTR)"Track");
-         	p_chk     = CreateCheckBox(hwnd, 50, 180, 150, 30, MOMENTUM, (LPCWSTR)"Momentum");
-         	plane_chk = CreateCheckBox(hwnd, 50, 210, 150, 30, PLANE, (LPCWSTR)"Plane");
-         	cube_chk  = CreateCheckBox(hwnd, 50, 240, 150, 30, CUBE, (LPCWSTR)"Cube");
-         	latt_chk  = CreateCheckBox(hwnd, 50, 270, 150, 30, LATTICE, (LPCWSTR)"Lattice");
-         	axes_chk  = CreateCheckBox(hwnd, 50, 300, 150, 30, AXES, (LPCWSTR)"Axes");
+         	front_chk = CreateCheckBox(hwnd, 50, 120, 100, 30, FRONT, (LPCWSTR)"Wavefront");
+         	track_chk = CreateCheckBox(hwnd, 50, 150, 100, 30, TRACK, (LPCWSTR)"Track");
+         	p_chk     = CreateCheckBox(hwnd, 50, 180, 100, 30, MOMENTUM, (LPCWSTR)"Momentum");
+         	plane_chk = CreateCheckBox(hwnd, 50, 210, 100, 30, PLANE, (LPCWSTR)"Plane");
+         	cube_chk  = CreateCheckBox(hwnd, 50, 240, 100, 30, CUBE, (LPCWSTR)"Cube");
+         	latt_chk  = CreateCheckBox(hwnd, 50, 270, 100, 30, LATTICE, (LPCWSTR)"Lattice");
+         	axes_chk  = CreateCheckBox(hwnd, 50, 300, 100, 30, AXES, (LPCWSTR)"Axes");
          	SendMessage(cube_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(front_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(p_chk, BM_SETCHECK, BST_CHECKED, 0);
@@ -208,9 +208,9 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             // Create the stop button
         	RECT clirect;
         	GetClientRect(hwnd, &clirect);
-            g_hButton = CreateWindow(
+            stopButton = CreateWindow(
                 TEXT("BUTTON"),
-                TEXT("Stop"),
+                TEXT("Pause"),
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                 clirect.right - 200,
 				clirect.top + BMAPY,
@@ -234,11 +234,26 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                 ((LPCREATESTRUCT)lparam)->hInstance,
                 NULL
             );
+            centerButton = CreateWindow(
+                TEXT("BUTTON"),
+                TEXT("Center"),
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                clirect.left + 50,
+				clirect.top + BMAPY + 550,
+                100,
+                30,
+                hwnd,
+                NULL,
+                ((LPCREATESTRUCT)lparam)->hInstance,
+                NULL
+            );
 
             // Initial orientation
 
             setView(ISO_VIEW, &lastQ);
+
         	// Identity
+
             radius = 0.7;
             currQ.w = 1.0;
             currQ.x = 0.0;
@@ -246,7 +261,6 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             currQ.z = 0.0;
             start.x = 0.0;
             start.y = 0.0;
-        	drag = false;
 
 	        // Start the simulate thread
 
@@ -280,7 +294,12 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case WM_LBUTTONDOWN:
 		{
-			mousedown(x - BMAPX - WIDTH/2, BMAPY + HEIGHT/2 - y);
+			mousedown(x, y);
+			/*
+			start.x = x;
+			start.y = y;
+			*/
+			//
 		    SetCapture(hwnd);
 		    SendMessage(xy_rad, BM_SETCHECK, BST_UNCHECKED, 0);
 		    SendMessage(yz_rad, BM_SETCHECK, BST_UNCHECKED, 0);
@@ -289,27 +308,46 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		    break;
 		}
 		case WM_LBUTTONUP:
-			if (drag)
-			{
-				mouseup(x - BMAPX - WIDTH/2, BMAPY + HEIGHT/2 - y);
-				drag = false;
-				ReleaseCapture();
-			}
+			mouseup(x, y);
+			/*
+			if (start.x == 0 && start.y == 0)
+				break;
+			lastQ = Quaternion_multiply(currQ, lastQ);
+			normalize_quat(&lastQ);
+			currQ.w = 1.0;
+			currQ.x = 0.0;
+			currQ.y = 0.0;
+			currQ.z = 0.0;
+			start.x = 0;
+			start.y = 0;
+            */
+			ReleaseCapture();
 			break;
 
 		case WM_MOUSEMOVE:
 		{
-			if (drag)
-			{
-				mousemove(x - BMAPX - WIDTH/2, BMAPY + HEIGHT/2 - y);
-	            InvalidateRect(hwnd, &bitrect, TRUE);
-			}
+			mousemove(x, y, hwnd);
+			/*
+			if (start.x == 0 && start.y == 0)
+				break;
+			Vector a = project(start.x, start.y);
+			Vector b = project(x, y);
+			currQ = Quaternion_fromBetweenVectors(a, b);
+			normalize_quat(&currQ);
+			//
+            InvalidateRect(hwnd, &bitrect, TRUE);
+            */
             break;
 		}
         case WM_MOUSEWHEEL:
         {
         	float wheelDelta = GET_WHEEL_DELTA_WPARAM(wparam);
         	scale += (wheelDelta > 0) ? 0.3 : -0.3;
+        	if(scale < 0.302836)
+        		scale = 0.302836;
+        	if(scale > 7.802838)
+        		scale = 7.802838;
+        	printf("%f\n",scale);fflush(stdout);
             InvalidateRect(hwnd, &bitrect, TRUE);
             break;
         }
@@ -322,13 +360,13 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         	break;
 
         case WM_COMMAND:
-            if (lparam == (LPARAM)g_hButton && active)
+            if (lparam == (LPARAM)stopButton && active)
             {
             	stop = !stop;
             	if(stop)
-            		SetWindowText(g_hButton, TEXT("Continue"));
+            		SetWindowText(stopButton, TEXT("Continue"));
             	else
-            		SetWindowText(g_hButton, TEXT("Stop"));
+            		SetWindowText(stopButton, TEXT("Stop"));
             	InvalidateRect(hwnd, NULL, TRUE);
             }
             else if (lparam == (LPARAM)suspendButton && !stop)
@@ -346,6 +384,23 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             		//sound(); TODO
             	}
             	InvalidateRect(hwnd, NULL, TRUE);
+            }
+            else if (lparam == (LPARAM)centerButton)
+            {
+                setView(ISO_VIEW, &lastQ);
+            	// Identity
+                radius = 0.7;
+                currQ.w = 1.0;
+                currQ.x = 0.0;
+                currQ.y = 0.0;
+                currQ.z = 0.0;
+                start.x = 0.0;
+                start.y = 0.0;
+        		scale = (0.45 * pow(3.3, (5 - ORDER)*1.01));
+    		    SendMessage(xy_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+    		    SendMessage(yz_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+    		    SendMessage(zx_rad, BM_SETCHECK, BST_UNCHECKED, 0);
+    		    SendMessage(iso_rad, BM_SETCHECK, BST_CHECKED, 0);
             }
             else if (!active)
             {
@@ -368,7 +423,27 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
  	setvbuf(stdout, NULL, _IONBF, 0);
-	CreateEvent(NULL, FALSE, FALSE, "Launching...");
+ 	MEMORYSTATUSEX memoryStatus;
+    memoryStatus.dwLength = sizeof(memoryStatus);
+
+    // Retrieve the memory status
+    if (GlobalMemoryStatusEx(&memoryStatus))
+    {
+    	// Retrieve the available RAM
+ 	    ULONGLONG availableRAM = memoryStatus.ullAvailPhys;
+
+ 	    // Convert the RAM size to gigabytes
+ 	    double availableRAMGB = availableRAM / (1024.0 * 1024.0 * 1024.0);
+
+ 	    // Display the available RAM
+ 	    printf("Available RAM: %.2f GB\n", availableRAMGB);
+ 	}
+    else
+    {
+    	printf("Failed to retrieve the memory status.\n");
+ 	}
+    //
+    CreateEvent(NULL, FALSE, FALSE, "Launching...");
 	if(GetLastError() == ERROR_ALREADY_EXISTS)
 	{
 	    puts("double instance not allowed");
@@ -412,7 +487,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ReleaseDC(hwnd, hdc);
  	//
 	srand(time(NULL));
-    InvalidateRect(hwnd, NULL, TRUE);
+    //InvalidateRect(hwnd, NULL, TRUE);
  	//
 	Beep(1000, 100);
 	while(GetMessage(&msg, NULL, 0,0))

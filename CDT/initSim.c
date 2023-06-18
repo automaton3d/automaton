@@ -5,6 +5,7 @@
  *      Author: Alexandre
  */
 
+#include <assert.h>
 #include "simulation.h"
 
 extern Cell *latt0, *latt1;
@@ -95,6 +96,7 @@ void initGrid(Cell *grid)
     RSET(ptr->p);     // null momentum
     RSET(ptr->s);     // trivial spin
     RSET(ptr->pP);    // no empodion
+    assert(ptr==SKEW(ptr,grid));
     ptr++;
   }
 }
@@ -104,9 +106,13 @@ void initSimulation()
   printf("SIDE=%d DIAG=%d\n", SIDE, DIAG);
 
   latt0 = malloc(SIDE6 * sizeof(Cell));
+  assert(latt0 != NULL);
   latt1 = malloc(SIDE6 * sizeof(Cell));
+  assert(latt1 != NULL);
   initGrid(latt0);
   initGrid(latt1);
   singularity(latt0);
   singularity(latt1);
+  assert(sanity(latt0));
+  assert(sanity(latt1));
 }

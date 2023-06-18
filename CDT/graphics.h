@@ -30,6 +30,11 @@ typedef struct
 
 } Vector;
 
+typedef struct
+{
+	int x, y;
+} V2;
+
 HWND CreateCheckBox(HWND hwndParent, int x, int y, int width, int height, int id, LPCWSTR text);
 void DrawLabel(HDC hdc, int x, int y, const TCHAR* labelText);
 //void trackball(float q[4], float p1x, float p1y, float p2x, float p2y);
@@ -44,7 +49,7 @@ void setView(int view, Quaternion *quat);
 void vcopy(const float *v1, float *v2);
 
 void mousedown(double x, double y);
-void mousemove(double x, double y);
+void mousemove(double x, double y, HWND hwnd);
 void mouseup(double x, double y);
 Vector project(double x, double y);
 Vector rotateVector(Vector v, Quaternion q);
@@ -53,5 +58,6 @@ void zoom(float wheelDelta, Quaternion* currQ, Quaternion* lastQ);
 void putVoxel(Vector v, COLORREF color, HDC hdc);
 void projLine(HDC hdc, Vector point1, Vector point2);
 void pan(float deltaX, float deltaY, Quaternion* currQ, Quaternion* lastQ);
+Quaternion Quaternion_fromBetweenVectors(Vector a, Vector b);
 
 #endif /* GRAPHICS_H_ */

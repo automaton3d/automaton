@@ -5,61 +5,7 @@
 #include "simulation.h"
 
 extern Cell *stb, *drf;
-//extern Cell *latt0, *latt1;//DEBUG
-
-boolean isEmpty(Cell *c)
-{
-  return (c->a1==0 &&
-      c->a2==0 &&
-      c->syn==0 &&
-      c->u==0 &&
-      c->k==0 &&
-      c->obj==SIDE3 &&
-      c->occ==0 &&
-      ZERO(c->p) &&
-      ZERO(c->s) &&
-      ISSAT(c->o) &&
-      ISSAT(c->po) &&
-      ZERO(c->pP) &&
-      ISSAT(c->m));
-}
-
-void empty(Cell *c)
-{
-    RSET(drf->p);
-    RSET(drf->s);
-    drf->a1 = 0;
-    drf->a2 = 0;
-    SAT(drf->o);
-    drf->syn = 0;
-    drf->occ = 0;
-    drf->u = 0;
-    RSET(drf->pP);
-    SAT(drf->m);
-    SAT(drf->po);
-    drf->obj = SIDE3;
-    drf->k = NONE;
-}
-
-int getrole(Cell *c)
-{
-	if (!ZERO(c->p) && ZERO(c->po))
-  		return SEED;
-
-	if (!ZERO(c->s) && ZERO(c->po))
-  		return WAVE;
-
-	if (!ISSAT(c->o) && ISSAT(c->po))
-  		return GRID;
-
-	if ((!ZERO(c->po) && !ISSAT(c->po)) || (c)->obj<SIDE3)
-  		return TRVLLR;
-
-	if (ISSAT(c->o) && ISSAT(c->po) && c->obj==SIDE3)
-  		return EMPTY;
-	assert(0);
-	return -1;
-}
+//extern boolean stop;
 
 /*
  * Information spreading.
@@ -68,30 +14,49 @@ void spread()
 {
   // If cell is empty, does nothing.
 
-  int role = getrole(stb);//GET_ROLE(stb);
+  int role = GET_ROLE(stb);
   if(role == EMPTY || role == GRID)
     return;
-
   int code = 0;
   if (ZERO(stb->po))
     code |= POZ;
   else
     code |= PONZ;
-
   if (ZERO(stb->s))
     code |= SZ;
   else
     code |= SNZ;
-
   if (ZERO(stb->p))
     code |= PZ;
   else
     code |= PNZ;
-
   if (stb->n * stb->n < stb->syn)
-    code |= RAW;
-  else
-    code |= READY;
+    code |= RAW_IN;
+
+  // Test wrapping.
+  // Roles possible from now on: TRVLLR, SEED, WAVE
+
+  if (abs(stb->o[0]) == SIDE_2 && abs(stb->o[1]) == SIDE_2 && abs(stb->o[2]) == SIDE_2)
+  {
+    if (role == SEED)
+    {
+      // Reissue from the ultimate cell.
+
+      drf->n = 1;
+      RSET(drf->o);
+      RSET(drf->po);
+      drf->syn = 0;
+      drf->occ = SIDE_2 - 1;
+      drf->u = 0;
+      drf->obj = SIDE3;
+      puts("REISSUE---------------------------------------------------");
+    }
+    else
+    {
+    	empty(drf);
+    	return;
+    }
+  }
 
   // Spread information.
   // Roles possible: SEED, WAVE, TRAVELLER.
@@ -102,20 +67,17 @@ void spread()
 
     Cell* nei = neighbor(drf, dir);
 
-    // Do not touch wavefront.
-
-    if (BUSY(nei))
-    {
-      code |= BUSY_OUT;
-      continue;
-    }
-
     // The first part of this block propagates info
     // asynchronously (TRAVELLER processing).
 
     int axis = dir >> 1;
     if (role == TRVLLR)
     {
+      // Do not touch wavefront.
+
+      if (BUSY(nei))
+        continue;
+
       // Destiny already visited?
 
       if (nei->occ > 0)
@@ -127,9 +89,8 @@ void spread()
         // Transmit superluminal info
 
         nei->occ = SIDE_2 - 1; // TODO: check if this value cover all regions
-        nei->n   = stb->n;    // used to calculate skew
-        nei->obj = stb->obj;  // used for collapse
-
+        nei->n   = stb->n;     // used to calculate skew
+        nei->obj = stb->obj;   // used for collapse
         code |= TRAV_OUT;
         if (code & PONZ)
         {
@@ -137,6 +98,7 @@ void spread()
           // TODO: Guarantee that nei->o will be reset at destiny!
 
           code |= POLE_OUT;     // encode this case
+
           nei->ch  = stb->ch;   // charges
           nei->a1  = stb->a1;   // affinity
           nei->a2  = stb->a2;   // affinity
@@ -152,75 +114,39 @@ void spread()
 
           CP(nei->po, stb->po); // pole
           if (nei->po[axis] > 0)
-        	  nei->po[axis] -= (dir % 2 == 0) ? +1 : -1;
+            nei->po[axis] -= (dir % 2 == 0) ? +1 : -1;
         }
       }
       continue;
     }
+
     // The second part of this block deals with
     // spherical synchronization (SEED and WAVE processing).
 
-    if (code & SZ)
-    {
-      // Unexpected
+    // Is wavefront synchronized?
+    // (see Ref. [14])
 
-      code |= NWAVE_OUT;
-      assert(0);
+    if (code & RAW_IN)
       continue;
-    }
 
     // Calculate new origin vector.
-    // Roles possible: SEED or WAVE.
 
     int org[3];
     CP(org, stb->o);
     org[axis] += (dir % 2 == 0) ? +1 : -1;
 
-    // Propagate forward only.
+    // Spatially illegal move?
 
-    if (abs(org[axis]) < abs(stb->o[axis]))
-    {
-      code |= BACK_OUT;
+    if (abs(org[axis]) < abs(stb->o[axis]) || (abs(org[axis]) > SIDE_2))
       continue;
-    }
-    int mag3 = org[0] * org[0] + org[1] * org[1] + org[2] * org[2];
-    if (mag3 > SIDE2/4)
+
+    // Ultimate cell?
+
+    if (abs(org[0]) == SIDE_2 && abs(org[1]) == SIDE_2 && abs(org[2]) == SIDE_2)
     {
-      // Beyond maximum radius.
+      // Not bearing momentum?
 
-      code |= MAG_OUT;
-      continue;
-    }
-
-    // Is wavefront synchronized?
-    // (see Ref. [14])
-
-    if (code & RAW)
-    {
-      code |= RAW_OUT;
-      continue;
-    }
-    if (mag3 == SIDE2/4)
-    {
-      // Bubble meets itself?
-
-      if (ISMILD(org))
-      {
-        // Not bearing momentum?
-
-        if (code & PZ)
-        {
-          code |= WRAP_OUT;
-          continue;
-        }
-        else
-        {
-          // Wrapping succeeded.
-
-          code |= UNI_OUT;
-        }
-      }
-      else
+      if (role != SEED)
       {
         code |= CLASH_OUT;
         continue;
@@ -248,7 +174,7 @@ void spread()
 
     // Spherical synchronism.
 
-    nei->syn = LIGHT2 * MOD2(org);
+    nei->syn = LIGHT2 * MAG(org);
 
     // Let the neighbor be ready to propagate.
 
@@ -263,110 +189,65 @@ void spread()
     }
 
     // Select momentum destination (Sect. 3.1).
+    // Test alignment of o with s.
 
-    int dot = org[0] * stb->s[0] + org[1] * stb->s[1] + org[2] * stb->s[2];
-    int mag1 = org[0] * org[0] + org[1] * org[1] + org[2] * org[2];
-    int mag2 = stb->s[0] * stb->s[0] + stb->s[1] * stb->s[1] + stb->s[2] * stb->s[2];
-    if ((code & TX_OUT) == 0 && dot * dot == mag1 * mag2)
+    int dot2 = DOT(org,stb->s) * DOT(org,stb->s);
+    if ((code & TX_OUT) == 0 && dot2 == MAG(org)*MAG(stb->s)) // MODULO???
     {
       CP(nei->p, stb->p);    // propagate momentum
       nei->occ = SIDE_2 - 1; // cell is crest now
       code |= TX_OUT;
     }
-  }
 
-  //////////////// End of for loop ///////////////
+  } //// End of for loop ////
 
-  if (code & POLE_OUT)
+  // Traveller processing.
+
+  if (code & (POLE_OUT | TRAV_OUT | VISIT_OUT))
   {
-    // Momentum transported superluminaly.
+    // Always clean left cell.
 
     empty(drf);
   }
-  else if (code & TRAV_OUT)
-  {
-    // Hunting.
 
-    empty(drf);
+  // Test maturity.
+
+  else if (code & RAW_IN)
+  {
+    // Wavefront not ready, do nothing.
   }
+
+  // Momentum transfer concluded?
+
   else if (code & TX_OUT)
   {
     // Per definition of GRID:
 
     RSET(drf->p);     // no seed
     RSET(drf->s);     // no wavefront
+    RSET(drf->pP);    // no empodion
     SAT(drf->m);      // no messenger
     SAT(drf->po);     // no traveller (1)
     drf->obj = SIDE3; // no traveller (2)
     drf->k = NONE;
-    RSET(drf->pP);
   }
 
-  // WAVE propagated.
+  // DEBUG
 
-  else if (code & WF_OUT)	// TODO: rule out?
+  else if (role == SEED)
   {
+	  printCell(stb);
+	  assert(0);
+  }
+
+  // WAVE propagated or
+  // not bearing momentum in wrapping?
+
+  else if (code & (WF_OUT | CLASH_OUT))
+  {
+    // No info left in cell.
+
     empty(drf);
-  }
-
-  // Neither SEED nor WAVE.
-
-  else if (code & NWAVE_OUT)
-  {
-    empty(drf);
-  }
-
-  // Wavefront vanishes at max. radius.
-
-  else if (code & CLASH_OUT)
-  {
-    empty(drf);
-  }
-  else if (code & UNI_OUT)
-  {
-	empty(drf);
-  }
-  else if (code & RAW_OUT)
-  {
-    // Do nothing!!
-  }
-  else if (code & MAG_OUT)
-  {
-    // Unexpected!
-
-    assert(0);
-  }
-  else if (code & VISIT_OUT)
-  {
-    // Unexpected!
-
-    assert(0);
-  }
-  else if (code & WRAP_OUT)
-  {
-    // Do nothing!
-  }
-  else if (code & BUSY_OUT)
-  {
-	empty(drf);
-  }
-  else if (code & BACK_OUT)
-  {
-    // Unexpected!
-    // TODO: rule out?
-
-    assert(0);
-  }
-  else
-  {
-    // Catastrophic state.
-
-	for (int i = 0; i < 20; i++)
-	{
-		Beep(800, 100);
-		Sleep(300);
-	}
-
-    assert(0);
   }
 }
+

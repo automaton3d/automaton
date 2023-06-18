@@ -17,28 +17,29 @@
 
 // Lattice symbols.
 
-#define ORDER    4
-#define SIDE     (1<<ORDER)
-#define SIDE2    (SIDE*SIDE)
-#define SIDE3    (SIDE*SIDE2)
-#define SIDE4    (SIDE*SIDE3)
-#define SIDE5    (SIDE*SIDE4)
-#define SIDE6    (SIDE*SIDE5)
-#define SIDE_2   (SIDE/2)
-#define MASK     (SIDE-1)
-#define DIAG     (2*MASK)
-#define LIGHT    (2*DIAG)
-#define LIGHT2   (LIGHT*LIGHT)
-#define NDIR     6    // von Neumman directions
+#define ORDER     3
+#define SIDE      (1<<ORDER)
+#define SIDE2     (SIDE*SIDE)
+#define SIDE3     (SIDE*SIDE2)
+#define SIDE4     (SIDE*SIDE3)
+#define SIDE5     (SIDE*SIDE4)
+#define SIDE6     (SIDE*SIDE5)
+#define SIDE_2    (SIDE/2)
+#define SIDE2_4   (SIDE2/4)
+#define DIAG      (2*SIDE-2)  // Gran Cube diagonal
+#define LIGHT     (2*DIAG)    // light step in ticks
+#define LIGHT2    (LIGHT*LIGHT)
+
+#define NDIR      6    // von Neumman directions
 
 // Roles.
 
-#define EMPTY    0x00
-#define SEED     0x01
-#define WAVE     0x02
-#define GRID     0x04
-#define TRVLLR   0x08
-#define POLE     0x10
+#define EMPTY     0x00
+#define SEED      0x01
+#define WAVE      0x02
+#define GRID      0x04
+#define TRVLLR    0x08
+#define POLE      0x10
 
 // Expansion codes
 
@@ -48,55 +49,45 @@
 #define SNZ       0x000008
 #define PZ        0x000010
 #define PNZ       0x000020
-#define RAW       0x000040
-#define READY    0x000080
-#define NOTWV     0x000100
-#define WRAP_OUT  0x000200
-#define BACK_OUT  0x000400
-#define TRAV_OUT  0x000800
-#define NWAVE_OUT 0x001000
-#define CLASH_OUT 0x002000
-#define RAW_OUT   0x004000
-#define WF_OUT    0x008000
-#define TX_OUT    0x010000
-#define BUSY_OUT  0x020000
-#define VISIT_OUT 0x040000
-#define POLE_OUT  0x080000
-#define UNI_OUT   0x100000
-#define MAG_OUT   0x100000
+#define RAW_IN    0x000040
+#define CLASH_OUT 0x000100
+#define TRAV_OUT  0x000200
+#define WF_OUT    0x000400
+#define TX_OUT    0x000800
+#define VISIT_OUT 0x001000
+#define POLE_OUT  0x002000
 
 // Particle singles and pairs (used in k).
 
-#define NONE     0x0000
-#define COLLAPSE 0x0001
-#define FERMION  0x0002
-#define SPHOTON  0x0004	// super photon
-#define PHOTON   0x0008
-#define GLUON    0x0010
-#define NEUTRINO 0x0020
-#define ZB       0x0040
-#define WB       0x0080
-#define UP       0x0100
-#define DOWN     0x0200
+#define NONE      0x0000
+#define COLLAPSE  0x0001
+#define FERMION   0x0002
+#define SPHOTON   0x0004	// super photon
+#define PHOTON    0x0008
+#define GLUON     0x0010
+#define NEUTRINO  0x0020
+#define ZB        0x0040
+#define WB        0x0080
+#define UP        0x0100
+#define DOWN      0x0200
 
 // Charge masks.
 
-#define C_MASK   0x07
-#define Q_MASK   0x08
-#define W0_MASK  0x10
-#define W1_MASK  0x20
+#define C_MASK    0x07
+#define Q_MASK    0x08
+#define W0_MASK   0x10
+#define W1_MASK   0x20
 
 // Handedness.
 
-#define RIGHT 0
-#define LEFT  1
+#define RIGHT     0
+#define LEFT      1
 
 // Macros (helps readability).
 
 #define ZERO(v)      (v[0]==0&&v[1]==0&&v[2]==0)
 #define EQ(v,u)      (v[0]==u[0]&&v[1]==u[1]&&v[2]==u[2])
 #define ISSAT(v)     (v[0]==SIDE&&v[1]==SIDE&&v[2]==SIDE)
-#define ISMILD(v)    (abs(v[0])==SIDE_2&&abs(v[1])==SIDE_2&&abs(v[2])==SIDE_2)
 #define C(u)         (u->ch&C_MASK)      // color
 #define _C(u)        ((~u->ch&C_MASK)&7) // anticolor
 #define W1(u)        ((u->ch&W1_MASK)==W1_MASK)
@@ -114,17 +105,21 @@
 	((!ZERO((c)->po) && !ISSAT((c)->po)) || (c)->obj < SIDE3) ? TRVLLR : \
 	(ISSAT((c)->o) && ISSAT((c)->po) && (c)->obj == SIDE3) ? EMPTY : NONE)
 #define DOT(u, v)    ((u)[0] * (v)[0] + (u)[1] * (v)[1] + (u)[2] * (v)[2])
-#define MOD2(v)      ((v)[0] * (v)[0] + (v)[1] * (v)[1] + (v)[2] * (v)[2])
+#define MAG(v)       ((v)[0]*(v)[0]+(v)[1]*(v)[1]+(v)[2]*(v)[2])
+#define SKEW(c,g)    ((g)+((c)->off/SIDE3)*SIDE3+((c)->off%SIDE3+(c)->n)%SIDE3)
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
-#define SUB(v,v1,v2) {v[0]=v2[0]-v1[0];v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
+#define SUB(v,v1,v2) {v[0]=v2[0]-v1[0]; \
+	v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
 #define MILD(v)      {v[0]=SIDE_2;v[1]=SIDE_2;v[2]=SIDE_2;}
-#define CROSS(a,b,c) {a[0]=b[1]*c[2]-b[2]*c[1];a[1]=b[2]*c[0]-b[0]*c[2];a[2]=b[0]*c[1]-b[1]*c[0];}
+#define CROSS(a,b,c) {a[0]=b[1]*c[2]-b[2]*c[1]; \
+	a[1]=b[2]*c[0]-b[0]*c[2]; \
+	a[2]=b[0]*c[1]-b[1]*c[0];}
 #define CP(u,v)      {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
 #define CPNEG(u,v)   {u[0]=-v[0];u[1]=-v[1];u[2]=-v[2];}
 
 // Cell structure.
-// Uses practical types instead of conceptual ones.
+// (Uses practical types instead of conceptual ones)
 
 typedef struct Cell
 {
@@ -133,34 +128,34 @@ typedef struct Cell
   // Physical properties.
 
   char ch;          // charge
-  int p[3], s[3];   // momentum, spin
-  unsigned a1, a2;  // affinity
+  short p[3], s[3]; // momentum, spin
+  short a1, a2;     // affinity
 
   // Wavefront.
 
-  unsigned n;       // low level tick
-  int o[3];         // origin
+  short n;          // low level tick
+  short o[3];       // origin
   unsigned syn;     // synchronism
 
-  unsigned occ;     // occupancy
+  short occ;        // occupancy
 
   // Sine wave.
 
-  int u;            // Euler product formula
+  short u;          // Euler product formula
 
   // Footprint.
 
-  int pP[3];        // empodion momentum
-  int m[3];         // sought for direction
+  short pP[3];      // empodion momentum
+  short m[3];       // sought for direction
 
   // Superluminal variables.
 
-  int po[3];        // pole
-  unsigned obj;     // affinity collapsing
+  short po[3];      // pole
+  short obj;        // affinity collapsing
 
   // Interaction control.
 
-  unsigned k;       // calculated kind of fragment
+  short k;           // calculated kind of fragment
 
 } Cell;
 
@@ -178,8 +173,8 @@ void transfer();
 void traveller();
 void phase3();
 void spread();
-void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst);
-void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst);
+void interact (Cell *nxt, Cell *lst);
+void managePairs(int t, Cell *nxt, Cell *lst);
 void sanityCheck();
 void printCell(Cell *cell);
 void drawModel(HDC hdc);
@@ -187,5 +182,8 @@ void fromAxisAngle(const float axis[3], float angleRadians, float *result);
 void printCell(Cell *cell);
 void printConfig(Cell *cell);
 void sound();
+void empty(Cell *c);
+boolean isCentralPoint(int i);
+boolean sanity(Cell *latt);
 
 #endif /* SIMULATION_H_ */

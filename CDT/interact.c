@@ -7,10 +7,12 @@
 
 #include "simulation.h"
 
+extern Cell *stb, *drf;
+
 /**
  * Detects interactions.
  */
-void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
+void interact (Cell *nxt, Cell *lst)
 {
   // Empty cells not allowed.
 
@@ -39,7 +41,7 @@ void interact (Cell *stb, Cell*drf, Cell *nxt, Cell *lst)
 
     int dif[3];
     SUB(dif, stb->o, nxt->o);
-    if (DOT(nxt->o, stb->o) == 1 && MOD2(dif) == 0)
+    if (DOT(nxt->o, stb->o) == 1 && MAG(dif) == 0)
     {
       // Induce empodion (Sect. 5.6.3).
       // With reciprocity.

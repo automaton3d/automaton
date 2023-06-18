@@ -1,4 +1,5 @@
 #include "simulation.h"
+#include "test/test.h"
 
 extern unsigned long timer;
 extern boolean stop;
@@ -12,6 +13,7 @@ Cell *neighbor(Cell *ptr, int dir)
     int x = i % SIDE2;
     int y = (i / SIDE2) % SIDE2;
     int z = (i / SIDE4) % SIDE2;
+    assert(ptr == (latt1 + x + SIDE2*y + SIDE4*z));
     switch(dir)
     {
         case 0:
@@ -36,10 +38,29 @@ void simulation()
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
     	transfer();
+    /*
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
-    	spread();
+    	traveller();
+    stb = latt0;
+    drf = latt1;
+    for(int i = 0; i < SIDE6; i++, stb++, drf++)
+    	phase3();
+    	*/
+    stb = latt0;
+    drf = latt1;
+    for(int i = 0; i < SIDE6; i++, stb++, drf++)
+  		spread();
+
+    // DEBUG
+    if(countMomentum(latt1) == 0)
+    {
+    	stop = true;
+    	puts("NPZERO");
+    	sound();
+    }
+//    Sleep(10);
 }
 
 DWORD WINAPI SimulateThread(LPVOID lpParam)

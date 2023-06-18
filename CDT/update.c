@@ -7,10 +7,12 @@
 
 #include "simulation.h"
 
+extern Cell *stb, *drf;
+
 /**
  * Detects multipair or new pair.
  */
-void managePairs(int t, Cell *stb, Cell *drf, Cell *nxt, Cell *lst)
+void managePairs(int t, Cell *nxt, Cell *lst)
 {
   // Bubbles not superposing?
 
