@@ -6,15 +6,25 @@
  */
 #include "test.h"
 #include "../simulation.h"
-#include "../utils.h"
 
 int countMomentum(Cell *latt)
 {
 	int n = 0;
-    for(int i = 0; i < SIDE3 * SIDE3; i++, latt++)
+    for(int i = 0; i < SIDE6; i++, latt++)
     {
     	if(!ZERO(latt->p))
     		n++;
     }
     return n;
+}
+
+boolean sanity(Cell *latt)
+{
+	int n = 0;
+	for(int i = 0; i < SIDE6; i++, latt++)
+	{
+		if(GET_ROLE(latt) == EMPTY)
+			n++;
+	}
+	return n == SIDE6 - SIDE3;
 }

@@ -11,8 +11,6 @@
 #include <stdio.h>
 #include "../simulation.h"
 
-//#define TEST_TREE
-
 void explore(int org[3], int level);
 void test_expand();
 Cell *getAddress(Cell *latt, int x, int y, int z);
