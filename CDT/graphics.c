@@ -167,7 +167,8 @@ void updateBuffer()
 	Cell *stb = latt0;
 	for(int i = 0; i < SIDE6; i++, stb++)
 	{
-		boolean ok = mode2 || (mode1 && isPartial(i)) || (mode0 && isCentralPoint(i)) || (rnd && rand() % 100 == 0);
+		boolean ok = mode2 || (mode1 && isPartial(i)) ||
+				(mode0 && isCentralPoint(i)) || (rnd && rand() % 100 == 0);
 	    if(!ZERO(stb->p) && momentum && ok)
 	      voxels[i] = RGB(255,0,0);
 	    else if(!ZERO(stb->s) && wavefront && ok)

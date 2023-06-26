@@ -49,15 +49,15 @@ void singularity(Cell *grid)
   ptr = grid;
   for(int z = 0; z < SIDE; z++)
   {
-	ref = ptr;
+    ref = ptr;
     for(int y = 0; y < SIDE; y++)
     {
       for(int x = 0; x < SIDE; x++)
       {
-    	char w0 = i % 2;
-    	char w1 = (i >> 1) % 2;
-    	char q  = w0 ^ w1;
-        ptr->ch = (i % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+    	char w0  = i % 2;
+    	char w1  = (i >> 1) % 2;
+    	char q   = w0 ^ w1;
+        ptr->ch  = (i % 8) | (w0 << 3) | (1 << 4) | (q << 5);
         ptr->a1  = i + 1;	           // dodges zero
         ptr->a2  = 0;                  // no chaining
         ptr->k   = FERMION;            // intially just singles
@@ -89,7 +89,7 @@ void initGrid(Cell *grid)
     ptr->k   = NONE;  // no role whatsoever
     ptr->obj = SIDE3; // no target
     ptr->occ = 0;     // free cell
-	ptr->off = i;     // offset
+    ptr->off = i;     // offset
     SAT(ptr->o);      // invalid value
     SAT(ptr->po);     // unreachable
     SAT(ptr->m);      // messenger

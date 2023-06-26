@@ -5,7 +5,6 @@
 #include "simulation.h"
 
 extern Cell *stb, *drf;
-//extern boolean stop;
 
 /*
  * Information spreading.
@@ -17,50 +16,17 @@ void spread()
   int role = GET_ROLE(stb);
   if(role == EMPTY || role == GRID)
     return;
+
+  // Test maturity.
+
   int code = 0;
-  if (ZERO(stb->po))
-    code |= POZ;
-  else
-    code |= PONZ;
-  if (ZERO(stb->s))
-    code |= SZ;
-  else
-    code |= SNZ;
-  if (ZERO(stb->p))
-    code |= PZ;
-  else
-    code |= PNZ;
   if (stb->n * stb->n < stb->syn)
     code |= RAW_IN;
-
-  // Test wrapping.
-  // Roles possible from now on: TRVLLR, SEED, WAVE
-
-  if (abs(stb->o[0]) == SIDE_2 && abs(stb->o[1]) == SIDE_2 && abs(stb->o[2]) == SIDE_2)
-  {
-    if (role == SEED)
-    {
-      // Reissue from the ultimate cell.
-
-      drf->n = 1;
-      RSET(drf->o);
-      RSET(drf->po);
-      drf->syn = 0;
-      drf->occ = SIDE_2 - 1;
-      drf->u = 0;
-      drf->obj = SIDE3;
-      puts("REISSUE---------------------------------------------------");
-    }
-    else
-    {
-    	empty(drf);
-    	return;
-    }
-  }
 
   // Spread information.
   // Roles possible: SEED, WAVE, TRAVELLER.
 
+  Cell *resort = NULL;
   for(int dir = 0; dir < NDIR; dir++)
   {
     // Calculate the address of the next neighbor.
@@ -92,7 +58,7 @@ void spread()
         nei->n   = stb->n;     // used to calculate skew
         nei->obj = stb->obj;   // used for collapse
         code |= TRAV_OUT;
-        if (code & PONZ)
+        if (!ZERO(stb->po))
         {
           // The seed is transported superluminaly.
           // TODO: Guarantee that nei->o will be reset at destiny!
@@ -137,20 +103,50 @@ void spread()
 
     // Spatially illegal move?
 
-    if (abs(org[axis]) < abs(stb->o[axis]) || (abs(org[axis]) > SIDE_2))
+    if (abs(org[axis]) < abs(stb->o[axis]) || abs(org[axis]) > SIDE_2)
       continue;
+
+    // Test if destiny is busy.
+
+    if (BUSY(nei))
+    {
+      // Guarantee momentum transfer.
+
+      if (ZERO(stb->p))
+      {
+        code |= WF_OUT;
+        continue;
+      }
+    }
 
     // Ultimate cell?
 
     if (abs(org[0]) == SIDE_2 && abs(org[1]) == SIDE_2 && abs(org[2]) == SIDE_2)
     {
-      // Not bearing momentum?
-
-      if (role != SEED)
+      if (role == SEED)
+      {
+        nei->ch  = stb->ch;       // charges
+        nei->n   = 0;             // reset tick counter
+        nei->a1  = stb->off + 1;  // untie 1
+        nei->a2  = 0;             // untie 2
+        nei->k   = FERMION;       // untie 3
+        nei->u   = 0;             // reset sine
+        nei->obj = SIDE3;         // no target
+        nei->occ = SIDE_2 - 1;    // crest cell
+        nei->syn = 0;             // immediate expansion 1
+        SAT(nei->m);              // no messenger role
+        RSET(nei->o);             // immediate expansion 2
+        RSET(nei->po);            // immediate expansion 3
+        RSET(nei->pP);            // no empodion role
+        CP(nei->s, stb->s);       // transfer spin
+        CP(nei->p, stb->p);       // transfer momentum
+        code |= WRAP_OUT;
+      }
+      else
       {
         code |= CLASH_OUT;
-        continue;
       }
+      continue;
     }
 
     // Transmit superluminal info
@@ -188,11 +184,13 @@ void spread()
       continue;
     }
 
+    resort = nei;
+
     // Select momentum destination (Sect. 3.1).
     // Test alignment of o with s.
 
-    int dot2 = DOT(org,stb->s) * DOT(org,stb->s);
-    if ((code & TX_OUT) == 0 && dot2 == MAG(org)*MAG(stb->s)) // MODULO???
+    if ((code & TX_OUT) == 0 &&
+        DOT(org,stb->s)*DOT(org,stb->s) == MAG(org)*MAG(stb->s)) // MODULO???
     {
       CP(nei->p, stb->p);    // propagate momentum
       nei->occ = SIDE_2 - 1; // cell is crest now
@@ -217,7 +215,14 @@ void spread()
     // Wavefront not ready, do nothing.
   }
 
-  // Momentum transfer concluded?
+  // Wrapping without momentum.
+
+  else if (code & WRAP_OUT)
+  {
+    empty(drf);
+  }
+
+  // Effective momentum transfer?
 
   else if (code & TX_OUT)
   {
@@ -232,12 +237,14 @@ void spread()
     drf->k = NONE;
   }
 
-  // DEBUG
+  // Do not let momentum escape.
 
-  else if (role == SEED)
+  else if (role == SEED && resort != NULL)
   {
-	  printCell(stb);
-	  assert(0);
+    // Last resort.
+
+    CP(resort->p, stb->p);
+    empty(drf);
   }
 
   // WAVE propagated or
@@ -250,4 +257,3 @@ void spread()
     empty(drf);
   }
 }
-

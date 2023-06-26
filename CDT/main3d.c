@@ -190,7 +190,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                 50, 600, 100, 20,
                 hwnd, (HMENU)ZX_VIEW,
 				(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-            SendMessage(full_rad, BM_SETCHECK, BST_CHECKED, 0);
+            SendMessage(rand_rad, BM_SETCHECK, BST_CHECKED, 0);
             SendMessage(iso_rad, BM_SETCHECK, BST_CHECKED, 0);
             //
          	front_chk = CreateCheckBox(hwnd, 50, 120, 100, 30, FRONT, (LPCWSTR)"Wavefront");
@@ -203,7 +203,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
          	SendMessage(cube_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(front_chk, BM_SETCHECK, BST_CHECKED, 0);
          	SendMessage(p_chk, BM_SETCHECK, BST_CHECKED, 0);
-         	SendMessage(axes_chk, BM_SETCHECK, BST_CHECKED, 0);
+         	//SendMessage(axes_chk, BM_SETCHECK, BST_CHECKED, 0);
          	//
             // Create the stop button
         	RECT clirect;

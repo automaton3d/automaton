@@ -29,7 +29,7 @@ void interact (Cell *nxt, Cell *lst)
   if (!ZERO(stb->po) || !ZERO(nxt->po))
     goto TICK;
 
-  int t = stb->n / LIGHT;
+//  int t = stb->n / LIGHT;
 
   // Self interference (Sect. 5.6.3)?
   // (Sciarretta)
@@ -73,7 +73,8 @@ void interact (Cell *nxt, Cell *lst)
 
   // Detect interaction.
 
-  else if (stb->n < stb->u * t)
+  else if (rand() % 10 == 0)
+//  else if (stb->n < stb->u * t)
   {
     // Default reissue at c.p.
 
@@ -93,7 +94,7 @@ void interact (Cell *nxt, Cell *lst)
       switch(code)
       {
         case 2:case 4:    // Weak interaction
-
+        	puts("weak");
           // Particles are different.
           // Virtual photon capture.
           // Part of electrical, magnetic or
@@ -185,6 +186,7 @@ void interact (Cell *nxt, Cell *lst)
 
         case 3:     // Inertia
 
+        	puts("inertia 1");
           // Calculate parallel transported pole.
           // bubbles have the same a1 value.
           // nxt is the master, stb is the slave.
@@ -193,6 +195,7 @@ void interact (Cell *nxt, Cell *lst)
           break;
 
         case 5:    // Inertia
+        	puts("inertia 2");
 
           // Counterpart.
           // stb is the master, nxt is the slave.
@@ -201,6 +204,7 @@ void interact (Cell *nxt, Cell *lst)
           break;
 
         case 6:    // Collapse
+        	puts("collapse");
 
           // Covers annihilation , light-matter
           // and scattering.
@@ -212,6 +216,7 @@ void interact (Cell *nxt, Cell *lst)
           break;
 
         case 7:    // Internal collision
+        	puts("cohesion");
 
           // Cohesion.
           // (Sect. 4.1)

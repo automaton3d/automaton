@@ -43,19 +43,14 @@
 
 // Expansion codes
 
-#define PONZ      0x000001
-#define POZ       0x000002
-#define SZ        0x000004
-#define SNZ       0x000008
-#define PZ        0x000010
-#define PNZ       0x000020
-#define RAW_IN    0x000040
-#define CLASH_OUT 0x000100
-#define TRAV_OUT  0x000200
-#define WF_OUT    0x000400
-#define TX_OUT    0x000800
-#define VISIT_OUT 0x001000
-#define POLE_OUT  0x002000
+#define RAW_IN    0x01
+#define CLASH_OUT 0x02
+#define TRAV_OUT  0x04
+#define WF_OUT    0x08
+#define TX_OUT    0x10
+#define VISIT_OUT 0x20
+#define POLE_OUT  0x40
+#define WRAP_OUT  0x80
 
 // Particle singles and pairs (used in k).
 

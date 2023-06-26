@@ -38,7 +38,6 @@ void simulation()
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
     	transfer();
-    /*
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
@@ -47,20 +46,12 @@ void simulation()
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
     	phase3();
-    	*/
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
   		spread();
 
-    // DEBUG
-    if(countMomentum(latt1) == 0)
-    {
-    	stop = true;
-    	puts("NPZERO");
-    	sound();
-    }
-//    Sleep(10);
+    // Sleep(10);
 }
 
 DWORD WINAPI SimulateThread(LPVOID lpParam)

@@ -20,7 +20,6 @@ void phase3()
   int role = GET_ROLE(stb);
   if (role == EMPTY && role == GRID)
     return;
-
   // Calculate physical time
 
   int t = stb->n / LIGHT;
