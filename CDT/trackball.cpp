@@ -93,20 +93,18 @@ void TrackBallInteractor::computePan(glm::vec3 & pan)
 void TrackBallInteractor::computePointOnSphere(
     const glm::vec2 & point, glm::vec3 & result)
 {
-    // https://www.opengl.org/wiki/Object_Mouse_Trackball
     float x = (2.f * point.x - mWidth) / mWidth;
     float y = (mHeight - 2.f * point.y) / mHeight;
-
     float length2 = x*x + y*y;
-
-    if (length2 <= .5) {
+    if (length2 <= .5)
+    {
         result.z = sqrt(1.0 - length2);
-    } else {
+    }
+    else
+    {
         result.z = 0.5 / sqrt(length2);
     }
-
     float norm = 1.0 / sqrt(length2 + result.z*result.z);
-
     result.x = x * norm;
     result.y = y * norm;
     result.z *= norm;
@@ -119,7 +117,8 @@ void TrackBallInteractor::computeRotationBetweenVectors(
     glm::vec3 rotationAxis;
     static const float EPSILON = 1.0e-5f;
 
-    if (cosTheta < -1.0f + EPSILON) {
+    if (cosTheta < -1.0f + EPSILON)
+    {
         // Parallel and opposite directions.
         rotationAxis = glm::cross(glm::vec3(0.f, 0.f, 1.f), u);
 
@@ -130,11 +129,13 @@ void TrackBallInteractor::computeRotationBetweenVectors(
 
         rotationAxis = glm::normalize(rotationAxis);
         result = glm::angleAxis(180.0f, rotationAxis);
-    } else if (cosTheta > 1.0f - EPSILON) {
+    } else if (cosTheta > 1.0f - EPSILON)
+    {
         // Parallel and same direction.
         result = glm::quat(1, 0, 0, 0);
         return;
-    } else {
+    } else
+    {
         float theta = acos(cosTheta);
         rotationAxis = glm::cross(u, v);
 
@@ -145,11 +146,11 @@ void TrackBallInteractor::computeRotationBetweenVectors(
 
 void TrackBallInteractor::drag()
 {
-    if (mPrevClickPoint == mClickPoint) {
+    if (mPrevClickPoint == mClickPoint)
+    {
         // Not moving during drag state, so skip unnecessary processing.
         return;
     }
-
     computePointOnSphere(mClickPoint, mStopVector);
     computeRotationBetweenVectors(mStartVector,
                                   mStopVector,
@@ -168,11 +169,12 @@ void TrackBallInteractor::drag()
 
 void TrackBallInteractor::drag(bool isClicked, CameraMotionType motion)
 {
-    if (!isClicked) {
+    if (!isClicked)
+    {
         return;
     }
-
-    switch(motion) {
+    switch(motion)
+    {
         case ARC:
             dragArc();
             break;
@@ -195,7 +197,6 @@ void TrackBallInteractor::drag(bool isClicked, CameraMotionType motion)
 void TrackBallInteractor::dragArc()
 {
     mRotationSum *= mRotation; // Accumulate quaternions.
-
     updateCameraEyeUp(true, true);
 }
 
@@ -229,13 +230,13 @@ void TrackBallInteractor::dragZoom()
     } else {
         setScrollDirection(dir.x <= 0);
     }
-
     updateCameraEyeUp(true, false);
 }
 
 void TrackBallInteractor::freezeTransform()
 {
-    if (mCamera) {
+    if (mCamera)
+    {
         // Opengl is ZYX order.
         // Flip orientation to rotate scene with sticky cursor.
         mRotationSum = glm::inverse(glm::quat(mCamera->getMatrix()));
@@ -288,7 +289,6 @@ void TrackBallInteractor::rollCamera()
         default:
             break;
     }
-
     glm::vec3 axis = glm::normalize(mCamera->getCenter() - mCamera->getEye());
     float angle = mRollScale * mSpeed * (delta.x + delta.y + mRollSum);
     glm::quat rot = glm::angleAxis(angle, axis);
@@ -300,7 +300,8 @@ void TrackBallInteractor::rollCamera()
 
 void TrackBallInteractor::scroll()
 {
-    switch(mCameraMotionScroll) {
+    switch(mCameraMotionScroll)
+    {
         case ROLL:
             rollCamera();
             break;
@@ -361,7 +362,8 @@ void TrackBallInteractor::setRightClicked(bool value)
 
 void TrackBallInteractor::setScreenSize(float width, float height)
 {
-    if (width > 1 && height > 1) {
+    if (width > 1 && height > 1)
+    {
         mWidth = width;
         mHeight = height;
     }
@@ -408,7 +410,8 @@ void TrackBallInteractor::update()
 
 void TrackBallInteractor::updateCameraEyeUp(bool eye, bool up)
 {
-    if (eye) {
+    if (eye)
+    {
         glm::vec3 eye;
         computeCameraEye(eye);
         mCamera->setEye(eye);
@@ -421,4 +424,4 @@ void TrackBallInteractor::updateCameraEyeUp(bool eye, bool up)
     mCamera->update();
 }
 
-} // end namespace rsmz
+}

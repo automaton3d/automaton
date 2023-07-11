@@ -1,8 +1,11 @@
 //#include "simulation.h"
 #include "window.h"
+#include "mygl.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
+
+void sound();
 
 namespace framework
 {
@@ -15,49 +18,140 @@ RenderWindowGLFW::~RenderWindowGLFW()
 {
 }
 
-void RenderWindowGLFW::buttonCallback(GLFWwindow *window, int button,
-                                      int action, int mods)
+void RenderWindowGLFW::buttonCallback(GLFWwindow *window, int button, int action, int mods)
 {
-    switch(action)
+  switch(action)
+  {
+    case GLFW_PRESS:
     {
-        case GLFW_PRESS:
+      double xpos, ypos;
+      glfwGetCursorPos(window, & xpos, & ypos);
+      ypos += 20;
+      switch(button)
+      {
+        case GLFW_MOUSE_BUTTON_LEFT:
         {
-            switch(button)
+          for (Tickbox& checkbox : checkboxes)
+          {
+            if (xpos >= checkbox.getX() && xpos <= checkbox.getX() + 100 &&
+                ypos >= checkbox.getY() && ypos <= checkbox.getY() + 20)
             {
-                case GLFW_MOUSE_BUTTON_LEFT:
-                    instance().mInteractor.setLeftClicked(true);
-                    break;
-                case GLFW_MOUSE_BUTTON_MIDDLE:
-                    instance().mInteractor.setMiddleClicked(true);
-                    break;
-                case GLFW_MOUSE_BUTTON_RIGHT:
-                    instance().mInteractor.setRightClicked(true);
-                    break;
+              checkbox.setState(!checkbox.getState());
+              break;
             }
-
-            double xpos, ypos;
-            glfwGetCursorPos(window, & xpos, & ypos);
-            instance().mInteractor.setClickPoint(xpos, ypos);
-            break;
-        }
-        case GLFW_RELEASE:
-        {
-            switch(button)
+          }
+          bool ok = false;
+          for (Radio& radio : dataset)
+          {
+            if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 && ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+              ok = true;
+          }
+          if (ok)
+          {
+            for (Radio& radio : dataset)
             {
-                case GLFW_MOUSE_BUTTON_LEFT:
-                    instance().mInteractor.setLeftClicked(false);
-                    break;
-                case GLFW_MOUSE_BUTTON_MIDDLE:
-                    instance().mInteractor.setMiddleClicked(false);
-                    break;
-                case GLFW_MOUSE_BUTTON_RIGHT:
-                    instance().mInteractor.setRightClicked(false);
-                    break;
+              if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
+                  ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+              {
+                radio.setSelected(true);
+              }
+              else
+              {
+                radio.setSelected(false);
+              }
             }
-            break;
+          }
+          ok = false;
+          for (Radio& radio : viewpoint)
+          {
+            if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 && ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+              ok = true;
+          }
+          if (ok)
+          {
+            for (Radio& radio : viewpoint)
+            {
+              if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
+                  ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+              {
+                radio.setSelected(true);
+                if (viewpoint[0].isSelected())
+                {
+                  // Isometric view
+            	  int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+            	  instance().mCamera.setEye(length, length, length);
+            	  instance().mCamera.setUp(0, 1, 0);
+            	  instance().mCamera.update();
+            	  instance().mInteractor.setCamera(& instance().mCamera);
+                }
+                else if (viewpoint[1].isSelected())
+                {
+                  int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(0,0,length);
+                  instance().mCamera.setUp(1,0,0);
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(& instance().mCamera);
+                }
+                else if (viewpoint[2].isSelected())
+                {
+                  int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(length,0,0);
+                  instance().mCamera.setUp(0,1,0);
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(& instance().mCamera);
+                }
+                else if (viewpoint[3].isSelected())
+                {
+                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                    instance().mCamera.setEye(0,length,0);
+                    instance().mCamera.setUp(1,0,0);
+                    instance().mCamera.update();
+                    instance().mInteractor.setCamera(& instance().mCamera);
+                }
+                else if (viewpoint[4].isSelected())
+                {
+                  instance().mCamera.reset();
+                  instance().mInteractor.setCamera(& instance().mCamera);
+                }
+              }
+              else
+              {
+                radio.setSelected(false);
+              }
+            }
+          }
+          instance().mInteractor.setLeftClicked(true);
+          instance().mInteractor.setClickPoint(xpos, ypos);
+          break;
         }
-        default: break;
+        case GLFW_MOUSE_BUTTON_MIDDLE:
+            instance().mInteractor.setMiddleClicked(true);
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            instance().mInteractor.setRightClicked(true);
+            break;
+      }
+      instance().mInteractor.setClickPoint(xpos, ypos);
+      break;
     }
+    case GLFW_RELEASE:
+    {
+      switch(button)
+      {
+        case GLFW_MOUSE_BUTTON_LEFT:
+          instance().mInteractor.setLeftClicked(false);
+          break;
+        case GLFW_MOUSE_BUTTON_MIDDLE:
+          instance().mInteractor.setMiddleClicked(false);
+          break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+          instance().mInteractor.setRightClicked(false);
+          break;
+      }
+      break;
+    }
+    default: break;
+  }
 }
 
 void RenderWindowGLFW::errorCallback(int error, const char* description)
@@ -155,6 +249,9 @@ void RenderWindowGLFW::keyCallback(GLFWwindow *window, int key, int scancode,
                 	instance().mCamera.setUp(0, 1, 0);
                 	instance().mCamera.update();
                 	instance().mInteractor.setCamera(& instance().mCamera);
+                	break;
+                case GLFW_KEY_M:
+                	sound();
                 	break;
                 default: break;
             }

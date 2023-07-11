@@ -21,11 +21,12 @@ Animator::~Animator()
 
 void Animator::animate()
 {
-    if (elapsedSeconds() < 1.0 / mFramesPerSecond) {
+    if (elapsedSeconds() < 1.0 / mFramesPerSecond)
+    {
         return;
     }
-
-    switch(mAnimation) {
+    switch(mAnimation)
+    {
         case FIRST_PERSON:
             firstperson();
             break;
@@ -63,8 +64,8 @@ void Animator::firstperson()
 void Animator::orbit()
 {
     Camera *c = mInteractor->getCamera();
-
-    if (0 == mFrame) {
+    if (0 == mFrame)
+    {
         mFrames = 5 * mFramesPerSecond;
         c->setEye(1., 1., 1.);
         c->setUp(-0., -0., 1.);
@@ -78,7 +79,8 @@ void Animator::orbit()
     mInteractor->setLeftClicked(true);
     mInteractor->setClickPoint(x, y);
 
-    if (++mFrame >= mFrames) {
+    if (++mFrame >= mFrames)
+    {
         mInteractor->setLeftClicked(false);
         reset();
     }

@@ -1,17 +1,16 @@
 #include "mygl.h"
-#include <GL/glut.h>
-#include <cstdio>
 
 namespace automaton
 {
   extern unsigned long timer;
-  extern Cell *latt0;
 }
-
-void explore(int org[3], int level);
 
 namespace framework
 {
+
+std::vector<Tickbox> checkboxes;
+std::vector<Radio> dataset;
+std::vector<Radio> viewpoint;
 
 unsigned long tbegin;
 
@@ -42,11 +41,31 @@ void RendererOpenGL1::init()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-
-	// Enable transparency.
 	glEnable (GL_BLEND);
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	tbegin = GetTickCount64();
+	checkboxes.push_back(Tickbox(50, 80, "Wavefront")); // 0
+	checkboxes.push_back(Tickbox(50, 110, "Momentum"));  // 1
+	checkboxes.push_back(Tickbox(50, 140, "Plane"));     // 2
+	checkboxes.push_back(Tickbox(50, 170, "Cube"));      // 3
+	checkboxes.push_back(Tickbox(50, 200, "Lattice"));   // 4
+	checkboxes.push_back(Tickbox(50, 230, "Axes"));      // 5
+	checkboxes.push_back(Tickbox(50, 260, "Track"));     // 6
+	checkboxes[0].setState(true);
+	checkboxes[1].setState(true);
+	checkboxes[2].setState(true);
+	checkboxes[5].setState(true);
+	dataset.push_back(Radio(60, 330, "Single"));
+	dataset.push_back(Radio(60, 360, "Partial"));
+	dataset.push_back(Radio(60, 390, "Full"));
+	dataset.push_back(Radio(60, 420, "Random"));
+	dataset[3].setSelected(true);
+	viewpoint.push_back(Radio(60, 490, "Isometric"));
+	viewpoint.push_back(Radio(60, 520, "XY"));
+	viewpoint.push_back(Radio(60, 550, "YZ"));
+	viewpoint.push_back(Radio(60, 580, "ZX"));
+	viewpoint.push_back(Radio(60, 610, "Reset view"));
+	viewpoint[0].setSelected(true);
 }
 
 void RendererOpenGL1::render()
@@ -60,14 +79,12 @@ void RendererOpenGL1::renderCenter()
 {
     glPointSize(4);
     glBegin(GL_POINTS);
-
     if (mCamera)
     {
         const glm::vec3 & p = mCamera->getCenter();
         glColor3f (1.f, 1.f, 0.f);
         glVertex3f(p.x, p.y, p.z);
     }
-
     glEnd();
 }
 
@@ -88,13 +105,6 @@ void setOrthographicProjection()
     glOrtho(0, viewport[2], 0, viewport[3], -1, 1);
     glScalef(1, -1, 1);
     glTranslatef(0, -viewport[3], 0);
-    glMatrixMode(GL_MODELVIEW);
-}
-
-void resetPerspectiveProjectionxx()
-{
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
 }
 
@@ -120,7 +130,7 @@ void RendererOpenGL1::renderText()
     glPushMatrix();
     glLoadIdentity();
 	glColor3f(1.0f, 1.0f, 1.0f);
-	glRasterPos2f(50, 40);
+//	glRasterPos2f(50, 40);
 
 	unsigned long millis = GetTickCount64() - tbegin;
 	char s[100];
@@ -129,9 +139,14 @@ void RendererOpenGL1::renderText()
 	//
 	std::sprintf(s, "Light: %lu tick: %lu", automaton::timer / LIGHT, automaton::timer);
 	drawString(s, 50, 40);
-	//
+
+	// Get the primary monitor
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+	// Get the video mode of the monitor
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 	for(int i = 0; i < 10; i++)
-		drawString(help[i], 50, 20 * i + 80);
+		drawString(help[i], mode->width - 500, 20 * i + mode->height - 260);
 	glPopMatrix();
 	resetPerspectiveProjection();
 }
@@ -165,8 +180,32 @@ void RendererOpenGL1::renderPoints()
     glEnd();
 }
 
+void RendererOpenGL1::renderGadgets()
+{
+    glDisable(GL_DEPTH_TEST);
+    setOrthographicProjection();
+    glPointSize(1);
+    glPushMatrix();
+    for (Tickbox& checkbox : checkboxes)
+    {
+        checkbox.draw();
+    }
+    for (Radio& radio : dataset)
+    {
+        radio.draw();
+    }
+    for (Radio& radio : viewpoint)
+    {
+        radio.draw();
+    }
+    glFlush();
+    glPopMatrix();
+	resetPerspectiveProjection();
+}
+
 void RendererOpenGL1::renderObjects()
 {
+	glEnable(GL_DEPTH_TEST);
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(mProjection));
 
@@ -176,21 +215,25 @@ void RendererOpenGL1::renderObjects()
         glMultMatrixf(mCamera->getMatrixFlat());
     }
     renderCenter();
-	renderGrid();
-	renderAxes();
-//	renderCube();
-	renderPoints();
+    if (checkboxes[0].getState() || checkboxes[1].getState())
+	  renderPoints();
+    if (checkboxes[2].getState())
+      renderGrid();
+    if (checkboxes[3].getState())
+      renderCube();
+    if (checkboxes[5].getState())
+      renderAxes();
     if (mCamera)
     {
         glPopMatrix();
     }
     glPopMatrix();
+	renderGadgets();
 }
 
 void RendererOpenGL1::renderAxes()
 {
 	glLineWidth(2);
-
 	glBegin(GL_LINES);
     glColor3f ( 1.f,    0.f,  0.f);
     glVertex3f( 0.0f,   0.f,  0.f);
@@ -202,6 +245,7 @@ void RendererOpenGL1::renderAxes()
     glVertex3f( 0.0f,   0.f,  0.f);
     glVertex3f( 0.f,    0.f,  0.5f);
 	glEnd();
+	glLineWidth(1);
 }
 
 void RendererOpenGL1::renderCube()
@@ -315,5 +359,5 @@ void RendererOpenGL1::resize(int width, int height)
     mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
 }
 
-} // end namespace rsmz
+}
 

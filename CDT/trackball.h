@@ -97,6 +97,6 @@ private:
 
 }; // end class TrackBallInteractor
 
-} // end namespace rsmz
+} // end namespace framework
 
 #endif // RSMZ_TRACKBALLINTERACTOR_H
