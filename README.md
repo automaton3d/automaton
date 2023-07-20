@@ -14,6 +14,8 @@ The immediate goals of this computational implementation are
 * Check charge quantization for SIDE=32;
 * Plot the entropy cycle.
 
+I am passionately dedicated to achieving ambitious goals with my GitHub project, and to make this a reality, I require substantial computational power that exceeds my current budget. As an independent developer without funding from any university or organization, I rely on the generous support of href="https://patreon.com/user?u=60332830">contributors</a> like you. Your valuable assistance will play a crucial role in propelling this project forward and unlocking its full potential. By becoming a Patreon, you'll be directly empowering advancements and innovations in this project, making a tangible impact on its success. Join me on this exciting journey, and together, we can shape the future of this project and make a lasting difference.
+
 To achieve even these simple goals, I need lots of computational power, far beyond my limited budget. Notice that I do not receive funds from any university, so your <a href="https://patreon.com/user?u=60332830">help</a> will be very valuable :)
 
 You are visitor 
