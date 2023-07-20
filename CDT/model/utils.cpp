@@ -6,13 +6,18 @@
  */
 
 #include "simulation.h"
+#include "mygl.h"
+
+namespace framework
+{
+  extern std::vector<Tickbox> checkboxes;
+}
 
 namespace automaton
 {
-
 extern Cell *latt0;
-extern boolean single, partial, full, momentum, wavefront, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
 extern boolean active;
+
 
 COLORREF voxels[SIDE6];
 
@@ -45,29 +50,15 @@ bool isPartial(int i)
 
 void updateBuffer()
 {
-	if (!active)
+	if (!active || framework::checkboxes.empty())
 		return;
-
-	momentum  = true;
-	wavefront = true;
-
-	single    = false;
-	partial   = false;
-	full      = true;
-	rnd       = false;
-
-	lattice   = false;
-	track     = false;
-	cube      = false;
-	plane     = false;
-	axes      = false;
-
-	xy        = false;
-	yz        = false;
-	zx        = false;
-	iso       = true;
-
-//	pthread_mutex_lock(&mutex);
+	boolean wavefront = ((framework::Tickbox)framework::checkboxes[0]).getState();
+	boolean momentum  = ((framework::Tickbox)framework::checkboxes[1]).getState();
+	boolean lattice   = ((framework::Tickbox)framework::checkboxes[4]).getState();
+	boolean single    = framework::dataset[0].isSelected();
+	boolean partial   = framework::dataset[1].isSelected();
+	boolean full      = framework::dataset[2].isSelected();
+	boolean rnd       = framework::dataset[3].isSelected();
 	Cell *stb = latt0;
 	for(int i = 0; i < SIDE6; i++, stb++)
 	{
@@ -82,7 +73,6 @@ void updateBuffer()
 	    else
 	      voxels[i] = RGB(0,0,0);
 	}
-//	pthread_mutex_unlock(&mutex);
 }
 
 bool isEmpty(Cell *c)

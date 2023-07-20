@@ -1,63 +1,50 @@
 /*
- * init.c
+ * initSim.cpp
  *
  *  Created on: 23 de mai. de 2023
  *      Author: Alexandre
  */
 
 #include "simulation.h"
+#include "tests/tests.h"
 
 short points[SIDE5][3];
 int indx = 0;
 
 namespace automaton
 {
+using namespace std;
+
 extern Cell *latt0, *latt1;
 
 void initSpin(Cell *grid)
 {
-  int i = 0;
   Cell *ptr = grid;
-  Cell *curr;
-  for (int z = 0; z < SIDE; z++)
+  for(int i = 0; i < SIDE6; i++, ptr++)
   {
-    for (int y = 0; y < SIDE; y++)
+    if (!ZERO(ptr->p))
     {
-      for (int x = 0; x < SIDE; x++)
-      {
-    	if (i == SIDE3 - 1)
-    	{
-      	  CROSS(ptr->s, ptr->p, grid->p);
-          double length = sqrt(ptr->s[0] * ptr->s[0] + ptr->s[1] * ptr->s[1] + ptr->s[2] * ptr->s[2]);
-          if (length != 0)
-          {
-              ptr->s[0] = (int)round((ptr->s[0] / length) * SIDE);
-              ptr->s[1] = (int)round((ptr->s[1] / length) * SIDE);
-              ptr->s[2] = (int)round((ptr->s[2] / length) * SIDE);
-          }
-    	}
-    	if (i > 0)
-    	{
-    	  CROSS(curr->s, curr->p, ptr->p);
-          double length = sqrt(curr->s[0] * curr->s[0] + curr->s[1] * curr->s[1] + curr->s[2] * curr->s[2]);
-          if (length != 0)
-          {
-        	  curr->s[0] = (int)round((curr->s[0] / length) * SIDE);
-        	  curr->s[1] = (int)round((curr->s[1] / length) * SIDE);
-        	  curr->s[2] = (int)round((curr->s[2] / length) * SIDE);
-          }
-    	}
-        curr = ptr;
-        i++; ptr++;
-      }
-      ptr += SIDE2 - SIDE;
+      // Rotate 90 degrees around the x-axis
+      ptr->s[0] = +ptr->p[0];
+      ptr->s[1] = -ptr->p[2];
+      ptr->s[2] = +ptr->p[1];
+
+      // Rotate 90 degrees around the y-axis
+      ptr->s[0] = +ptr->p[2];
+      ptr->s[1] = +ptr->p[1];
+      ptr->s[2] = -ptr->p[0];
+
+      // Rotate 90 degrees around the z-axis
+      ptr->s[0] = -ptr->p[1];
+      ptr->s[1] = +ptr->p[0];
+      ptr->s[2] = +ptr->p[2];
     }
-    ptr += SIDE4 - SIDE3;
   }
 }
 
 /*
  * Partial initialization of singularity.
+ * (less momentum and spin)
  */
 static void singularity(Cell *grid)
 {
@@ -73,12 +60,13 @@ static void singularity(Cell *grid)
     	char w1  = (i >> 1) % 2;
     	char q   = w0 ^ w1;
         ptr->ch  = (i % 8) | (w0 << 3) | (1 << 4) | (q << 5);
-        ptr->a1  = i + 1;	                // dodges zero
-        ptr->a2  = 0;                       // no chaining
-        ptr->k   = FERMION;                 // intially just singles
-        ptr->occ = SIDE_2 - 1;              // crest cell
-        RSET(ptr->o);	                    // ready for immediate expansion
-        RSET(ptr->po);                      // already at the reissue cell
+        ptr->a1  = i + 1;	    // dodges zero
+        ptr->a2  = 0;           // no chaining
+        ptr->k   = FERMION;     // intially just singles
+        ptr->occ = SIDE_2 - 1;  // crest cell
+        RSET(ptr->o);	        // ready for immediate expansion
+        RSET(ptr->po);          // already at the reissue cell
+        ptr->p[0] = 1;          // used to initialize p
         i++; ptr++;
       }
       ptr += SIDE2 - SIDE;
@@ -114,65 +102,54 @@ static void initGrid(Cell *grid)
   }
 }
 
+/*
+ * Auxiliary recursive function.
+ * Generates a maximal spherical shell.
+ */
 void explore(short org[3], int level)
 {
-	boolean shell = true;
-	for (int dir = 0; dir < 6; dir++)
-	{
-		short o[3];
-		CP(o, org);
-	    o[dir>>1] += (dir % 2 == 0) ? +1 : -1;
-        if(abs(o[dir >> 1]) < abs(org[dir >> 1]))
-            continue;
-		if(isAllowed(dir, o))
-		{
-			shell = false;
-			explore(o, level+1);
-		}
-	}
-	if(shell)
-	{
-        points[indx][0] = org[0];
-        points[indx][1] = org[1];
-        points[indx][2] = org[2];
-        indx++;
-	}
+  boolean shell = true;
+  for (int dir = 0; dir < 6; dir++)
+  {
+    short o[3];
+    CP(o, org);
+    o[dir>>1] += (dir % 2 == 0) ? +1 : -1;
+    if(abs(o[dir >> 1]) < abs(org[dir >> 1]))
+      continue;
+    if(isAllowed(dir, o))
+    {
+      shell = false;
+      explore(o, level+1);
+    }
+  }
+  if(shell)
+  {
+    points[indx][0] = org[0];
+    points[indx][1] = org[1];
+    points[indx][2] = org[2];
+    indx++;
+  }
 }
 
+/*
+ * Generates momentum pattern.
+ */
 void initMomentum(Cell *grid)
 {
   indx = 0;
   short org[3] = { 0, 0, 0 };
   explore(org, 0);
   //
+  int m = 0;
   Cell *ptr = grid;
-  int i = 0;
-  for (int z = 0; z < SIDE; z++)
+  for(int i = 0; i < SIDE6; i++, ptr++)
   {
-    for (int y = 0; y < SIDE; y++)
-    {
-      for (int x = 0; x < SIDE; x++)
-      {
-        CP(ptr->p, points[i % indx]);
-        i++; ptr++;
-      }
-      ptr += SIDE2 - SIDE;
-    }
-    ptr += SIDE4 - SIDE3;
+	if(!ZERO(ptr->p))
+	{
+      CP(ptr->p, points[m % indx]);
+      m++;
+	}
   }
-}
-
-boolean sanity(Cell *grid)
-{
-  int n = 0;
-  Cell *ptr = grid;
-  for (int i = 0; i < SIDE6; i++)
-  {
-    if(!ZERO(ptr->s))
-      n++;
-    ptr++;
-  }
-  return n == SIDE3;
 }
 
 /**
@@ -193,8 +170,14 @@ void initSimulation()
   initMomentum(latt1);
   initSpin(latt0);
   initSpin(latt1);
+
+#ifdef DEVELOP
+
   assert(sanity(latt0));
   assert(sanity(latt1));
+  assert(alignment(latt0));
+
+#endif
 }
 
 /**

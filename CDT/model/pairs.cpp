@@ -1,5 +1,5 @@
 /*
- * update.c
+ * pairs.cpp
  *
  *  Created on: 3 de mai. de 2023
  *      Author: Alexandre
@@ -19,9 +19,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
 {
   // Bubbles not superposing?
 
-  if (!((stb->off / SIDE3) == (nxt->off / SIDE3) &&
-      ZERO(stb->o) && ZERO(nxt->o) &&
-      !ZERO(stb->p) && !ZERO(nxt->p)))
+  if (!SUPERPOSING(stb, nxt))
   {
     return;
   }
@@ -77,13 +75,18 @@ void pairs(int t, Cell *nxt, Cell *lst)
     // (Sec. 4.7.7)
 
     if (W1(stb) != W1(nxt))
-    {
+    {/*
+  	  printCell(stb);
+  	  printCell(nxt);
+  	  puts("");
+  	  fflush(stdout);*/
       // Super photon formation.
       // (Sect. 3.1)
 
       if (C(stb) == _C(nxt) && W0(stb) == !W0(nxt) &&
           Q(stb) == !Q(nxt))
       {
+        assert(!ANTI(stb->p, nxt->p));
         drf->k = SPHOTON;
         lst->k = SPHOTON;
 
@@ -101,8 +104,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
         // Symmetry breaking after singularity.
         // (Sect. 4.6.7)
 
-    	printf("symm break \n");
-
+    	std::cout << "symm break" << std::endl;
         CP(drf->po, stb->p);
         CP(lst->po, nxt->p);
       }
@@ -116,7 +118,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
       if (MAT(stb) != MAT(nxt) && W0(stb) == !W0(nxt) &&
           Q(stb) == !Q(nxt))
       {
-    	  puts("\tgluon");
+//    	  puts("\tgluon");
         drf->k = GLUON;
         lst->k = GLUON;
       }
@@ -124,14 +126,14 @@ void pairs(int t, Cell *nxt, Cell *lst)
                C(stb) != 0 && C(stb) != 7 &&
                Q(stb) == Q(nxt) && Q(stb) == W1(stb))
       {
-    	  puts("\tup");
+//    	  puts("\tup");
         drf->k = UP;
         lst->k = UP;
       }
       else if (C(stb) == _C(nxt) && W0(stb) == !W0(nxt) &&
                Q(stb) == !Q(nxt))
       {
-    	  puts("\tphoton");
+//    	  puts("\tphoton");
         drf->k = PHOTON;
         lst->k = PHOTON;
       }
@@ -140,7 +142,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
               Q(stb) != Q(nxt) && W0(stb) == W0(nxt) &&
               W0(stb) != W1(stb))
       {
-    	  puts("\tnu");
+//    	  puts("\tnu");
         drf->k = NEUTRINO;
         lst->k = NEUTRINO;
       }
@@ -155,7 +157,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
       else if (C(stb) == _C(nxt) && W0(stb) == W0(nxt) &&
                Q(stb) == Q(nxt) && W0(stb) != W1(stb))
       {
-    	  puts("\tW");
+//    	  puts("\tW");
         drf->k = WB;
         lst->k = WB;
       }

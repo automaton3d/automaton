@@ -3,9 +3,6 @@
 namespace automaton
 {
 
-extern unsigned long timer;
-extern boolean stop;
-
 Cell *latt0, *latt1;
 Cell *stb, *drf;
 
@@ -54,25 +51,6 @@ void simulation()
   		spread();
 
     // Sleep(10);
-}
-
-DWORD WINAPI SimulateThread(LPVOID lpParam)
-{
-	initSimulation();
-    while (true)
-    {
-		if(!stop)
-		{
-			simulation();
-			updateBuffer();
-			timer++;
-		}
-		else
-		{
-	        Sleep(80);
-		}
-    }
-    return 0;
 }
 
 }

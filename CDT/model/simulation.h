@@ -13,14 +13,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include <GL/gl.h>
+#include <iostream>
 #include <assert.h>
-
-namespace automaton
-{
 
 // Lattice symbols.
 
-#define ORDER     3
+#define ORDER     4
 #define SIDE      (1<<ORDER)
 #define SIDE2     (SIDE*SIDE)
 #define SIDE3     (SIDE*SIDE2)
@@ -96,7 +94,10 @@ namespace automaton
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>COLLAPSE)
 #define ANNIHIL(u,v) (C(u)==_C(v))
-
+#define SUPERPOSING(u, v) \
+    (((u->off / SIDE3) == (v->off / SIDE3)) && \
+    ZERO(u->o) && ZERO(v->o) && \
+    !ZERO(u->p) && !ZERO(v->p))
 #define GET_ROLE(c) \
 	((!ZERO((c)->p) && ZERO((c)->po)) ? SEED : \
 	(!ZERO((c)->s) && ZERO((c)->po)) ? WAVE : \
@@ -116,6 +117,9 @@ namespace automaton
 	a[2]=b[0]*c[1]-b[1]*c[0];}
 #define CP(u,v)      {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
 #define CPNEG(u,v)   {u[0]=-v[0];u[1]=-v[1];u[2]=-v[2];}
+
+namespace automaton
+{
 
 // Cell structure.
 // (Uses practical types instead of conceptual ones)
@@ -166,6 +170,7 @@ void copy();
 void update();
 void initSimulation();
 void initScreen();
+void simulation();
 void model(int phase);
 void transfer();
 void traveller();
@@ -175,20 +180,22 @@ void interact (Cell *nxt, Cell *lst);
 void pairs(int t, Cell *nxt, Cell *lst);
 void sanityCheck();
 void printCell(Cell *cell);
-void drawModel(HDC hdc);
 void fromAxisAngle(const float axis[3], float angleRadians, float *result);
 void printCell(Cell *cell);
 void printConfig(Cell *cell);
-void sound();
 void empty(Cell *c);
 bool isCentralPoint(int i);
 Cell *neighbor(Cell *ptr, int dir);
+bool aligned(short* a, short* b);
 bool antialigned(short* a, short* b);
 void initText(void);
-DWORD WINAPI SimulateThread(LPVOID lpParam);
 void updateBuffer();
+void orthogonalize();
 
 extern COLORREF voxels[SIDE6];
+extern Cell *latt0;	// debug
+extern unsigned long timer;
+extern bool stop;
 
 }
 
