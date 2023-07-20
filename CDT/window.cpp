@@ -5,8 +5,6 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
-void sound();
-
 namespace framework
 {
 
@@ -169,8 +167,8 @@ void RenderWindowGLFW::keyCallback(GLFWwindow *window, int key, int scancode,
                                    int action, int mods)
 {
     float length;
-
-    switch(action) {
+    switch(action)
+    {
         case GLFW_PRESS:
             switch(key)
             {
@@ -290,12 +288,109 @@ void RenderWindowGLFW::sizeCallback(GLFWwindow *window, int width, int height)
     instance().mAnimator.setScreenSize(width, height);
 }
 
+DWORD WINAPI RenderWindowGLFW::SimulateThread(LPVOID lpParam)
+{
+	automaton::initSimulation();
+    static_cast<RenderWindowGLFW*>(lpParam)->isThreadReady = true;
+    Sleep(100);
+    while (true)
+    {
+		if(!automaton::stop)
+		{
+			automaton::simulation();
+			automaton::updateBuffer();
+			automaton::timer++;
+		}
+		else
+		{
+	        Sleep(80);
+		}
+    }
+    return 0;
+}
+
 int RenderWindowGLFW::run(int width, int height)
 {
+    // Get the primary monitor's dimensions
+    GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+    if (!primaryMonitor) {
+        glfwTerminate();
+        // Error handling...
+        return 1;
+    }
+
+    const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+    if (!mode) {
+        glfwTerminate();
+        // Error handling...
+        return 1;
+    }
+
+    // Calculate the position to center the window
+    int xPos = (mode->width - 300) / 2;
+    int yPos = (mode->height - 50) / 2;
+
+    // Create a borderless GLFW window and center it on the screen
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    GLFWwindow* iconWindow = glfwCreateWindow(300, 50, "Loading...", NULL, NULL);
+
+
+    glfwSetWindowPos(iconWindow, xPos, yPos); // Set window position
+
+    // Make the window's context current
+    glfwMakeContextCurrent(iconWindow);
+
+    //////
+
     DWORD dwThreadId;
-	HANDLE hSimulateThread = CreateThread(NULL, 0, automaton::SimulateThread, NULL, 0, &dwThreadId);
+    HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, this, 0, &dwThreadId);
 	CloseHandle(hSimulateThread);
 
+
+	// Set up variables for the ellipsis
+	    int ellipsisCount = 2;
+	    int maxEllipsisCount = 12;
+	    double lastEllipsisChangeTime = glfwGetTime();
+	    double ellipsisChangeInterval = 0.5; // Change the ellipsis every 0.5 seconds
+
+	    // Set up OpenGL for basic text rendering
+	     glMatrixMode(GL_PROJECTION);
+	     glLoadIdentity();
+	     glOrtho(0, width, 0, height, -1, 1);
+	     glMatrixMode(GL_MODELVIEW);
+	     glLoadIdentity();
+	     glDisable(GL_DEPTH_TEST);
+	     glDisable(GL_LIGHTING);
+	     glColor3f(1.0f, 1.0f, 1.0f);
+
+
+    while (!isThreadReady)
+    {
+        // Poll events
+         glfwPollEvents();
+
+         // Clear the buffer
+         glClear(GL_COLOR_BUFFER_BIT);
+
+         // Draw the loading message and ellipsis
+         std::string loadingMessage = "Loading";
+         for (int i = 0; i < ellipsisCount; ++i)
+         {
+             loadingMessage += ".";
+         }
+
+         // Draw the loading message at the center of the screen
+         framework::drawString(loadingMessage, 500, height / 2);
+
+         // Change the ellipsis count if enough time has passed
+         if (glfwGetTime() - lastEllipsisChangeTime >= ellipsisChangeInterval) {
+             ellipsisCount = (ellipsisCount % maxEllipsisCount) + 1;
+             lastEllipsisChangeTime = glfwGetTime();
+         }
+
+         // Swap buffers
+         glfwSwapBuffers(iconWindow);
+      }
     glfwSetErrorCallback(& RenderWindowGLFW::errorCallback);
     mWindow = glfwCreateWindow(width, height, "Cellular automaton", NULL, NULL);
     if (!mWindow)

@@ -7,6 +7,7 @@
 #include <iostream>
 #include "animator.h"
 #include "mygl.h"
+#include "model/simulation.h"
 
 namespace framework
 {
@@ -39,8 +40,12 @@ private:
 	TrackBallInteractor mInteractor;
 	RendererOpenGL1 mRenderer;
     GLFWwindow *mWindow;
+    static DWORD WINAPI SimulateThread(LPVOID lpParam);
+    volatile bool isThreadReady = false;
 };
 
-} // end namespace rsmz
+void sound();
+
+} // end namespace framework
 
 #endif // RSMZ_RENDERWINDOWGLFW_H

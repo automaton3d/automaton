@@ -159,6 +159,35 @@ void RendererOpenGL1::renderPoints()
     glPointSize(1.0f);
     glBegin(GL_POINTS);
     //
+//#define DEBUG
+#ifdef DEBUG
+
+    automaton::Cell *ptr = automaton::latt0;
+    for (int i = 0; i < SIDE6; i++, ptr++)
+    {
+    	if (!ZERO(ptr->p))
+    	{
+            glColor3d(255, 0, 0);
+            float px = ptr->p[0] * GRID_SIZE - 0.25f;
+            float py = ptr->p[1] * GRID_SIZE - 0.25f;
+            float pz = ptr->p[2] * GRID_SIZE - 0.25f;
+            glVertex3f(px+0.2, py, pz);
+    	}
+    	if (!ZERO(ptr->s))
+    	{
+            glColor3d(0, 255, 0);
+            float px = ptr->s[0] * GRID_SIZE - 0.25f;
+            float py = ptr->s[1] * GRID_SIZE - 0.25f;
+            float pz = ptr->s[2] * GRID_SIZE - 0.25f;
+            glVertex3f(px, py, pz);
+    	}
+    }
+
+#endif
+
+#define SYM
+#ifdef SYM
+
     for (int i = 0; i < SIDE6; i++)
     {
   	  COLORREF color = automaton::voxels[i];
@@ -177,6 +206,8 @@ void RendererOpenGL1::renderPoints()
           glVertex3f(px, py, pz);
   	  }
     }
+
+#endif
     glEnd();
 }
 
