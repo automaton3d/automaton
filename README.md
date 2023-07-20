@@ -16,9 +16,4 @@ The immediate goals of this computational implementation are
 
 I am passionately dedicated to achieving ambitious goals with my GitHub project, and to make this a reality, I require substantial computational power that exceeds my current budget. As an independent developer without funding from any university or organization, I rely on the generous support of <a href="https://patreon.com/user?u=60332830">contributors</a> like you. Your valuable assistance will play a crucial role in propelling this project forward and unlocking its full potential. By becoming a Patreon, you'll be directly empowering advancements and innovations in this project, making a tangible impact on its success. Join me on this exciting journey, and together, we can shape the future of this project and make a lasting difference.
 
-You are visitor 
-
-![Visitor Count](https://profile-counter.glitch.me/javaresende/count.svg)
-
-
-Last update: 17/05/2023
+Last update: 20/07/2023
