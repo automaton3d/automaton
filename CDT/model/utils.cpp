@@ -16,63 +16,62 @@ namespace framework
 namespace automaton
 {
 extern Cell *latt0;
-extern boolean active;
 
 
-COLORREF voxels[SIDE6];
+COLORREF *voxels;
 
 bool isCentralPoint(int i)
 {
-	int x = i % SIDE2 - SIDE_2;
-	int y = (i / SIDE2) % SIDE2 - SIDE_2;
-	int z = (i / SIDE4) % SIDE2 - SIDE_2;
-	if(x < 0 || y < 0 || z < 0)
-		return false;
-	return x % SIDE == 0 && y % SIDE == 0 && z % SIDE == 0;
+  int x = i % SIDE2 - SIDE_2;
+  int y = (i / SIDE2) % SIDE2 - SIDE_2;
+  int z = (i / SIDE4) % SIDE2 - SIDE_2;
+  if(x < 0 || y < 0 || z < 0)
+    return false;
+  return x % SIDE == 0 && y % SIDE == 0 && z % SIDE == 0;
 }
 
 bool isPartial(int i)
 {
-	int x = i % SIDE2 - SIDE_2;
-	int y = (i / SIDE2) % SIDE2 - SIDE_2;
-	int z = (i / SIDE4) % SIDE2 - SIDE_2;
-	for (int j = -1; j < 2; j++)
-		for (int k = -1; k < 2; k++)
-			for (int l = -1; l < 2; l++)
-			{
-				if(x + j < 0 || y + k < 0 || z + l < 0)
-					return false;
-				if((x + j) % SIDE == 0 && (y + k) % SIDE == 0 && (z + l) % SIDE == 0)
-					return true;
-			}
-	return false;
+  int x = i % SIDE2 - SIDE_2;
+  int y = (i / SIDE2) % SIDE2 - SIDE_2;
+  int z = (i / SIDE4) % SIDE2 - SIDE_2;
+  for (int j = -1; j < 2; j++)
+    for (int k = -1; k < 2; k++)
+      for (int l = -1; l < 2; l++)
+      {
+        if(x + j < 0 || y + k < 0 || z + l < 0)
+          return false;
+        if((x + j) % SIDE == 0 && (y + k) % SIDE == 0 && (z + l) % SIDE == 0)
+          return true;
+      }
+  return false;
 }
 
 void updateBuffer()
 {
-	if (!active || framework::checkboxes.empty())
-		return;
-	boolean wavefront = ((framework::Tickbox)framework::checkboxes[0]).getState();
-	boolean momentum  = ((framework::Tickbox)framework::checkboxes[1]).getState();
-	boolean lattice   = ((framework::Tickbox)framework::checkboxes[4]).getState();
-	boolean single    = framework::dataset[0].isSelected();
-	boolean partial   = framework::dataset[1].isSelected();
-	boolean full      = framework::dataset[2].isSelected();
-	boolean rnd       = framework::dataset[3].isSelected();
-	Cell *stb = latt0;
-	for(int i = 0; i < SIDE6; i++, stb++)
-	{
-		boolean ok = full || (partial && isPartial(i)) ||
-				(single && isCentralPoint(i)) || (rnd && rand() % 100 == 0);
-	    if(!ZERO(stb->p) && momentum && ok)
-	      voxels[i] = RGB(255,0,0);
-	    else if(!ZERO(stb->s) && wavefront && ok)
-	      voxels[i] = RGB(0, 255,0);
-	    else if (lattice && isCentralPoint(i))
-	      voxels[i] = RGB(150,150,150);
-	    else
-	      voxels[i] = RGB(0,0,0);
-	}
+  if (!framework::active || framework::checkboxes.empty())
+    return;
+  bool wavefront = ((framework::Tickbox)framework::checkboxes[0]).getState();
+  bool momentum  = ((framework::Tickbox)framework::checkboxes[1]).getState();
+  bool lattice   = ((framework::Tickbox)framework::checkboxes[4]).getState();
+  bool single    = framework::dataset[0].isSelected();
+  bool partial   = framework::dataset[1].isSelected();
+  bool full      = framework::dataset[2].isSelected();
+  bool rnd       = framework::dataset[3].isSelected();
+  Cell *stb = latt0;
+  for(int i = 0; i < SIDE6; i++, stb++)
+  {
+    bool ok = full || (partial && isPartial(i)) ||
+        (single && isCentralPoint(i)) || (rnd && rand() % 100 == 0);
+      if(!ZERO(stb->p) && momentum && ok)
+        voxels[i] = RGB(255,0,0);
+      else if(!ZERO(stb->s) && wavefront && ok)
+        voxels[i] = RGB(0, 255,0);
+      else if (lattice && isCentralPoint(i))
+        voxels[i] = RGB(150,150,150);
+      else
+        voxels[i] = RGB(0,0,0);
+  }
 }
 
 bool isEmpty(Cell *c)
@@ -109,6 +108,20 @@ void empty(Cell *c)
     SAT(c->po);
 }
 
+Cell *skew(Cell *c)
+{
+    int i = c->off;
+    int xe = i / SIDE3;
+    i %= SIDE3;
+    int ye = i / SIDE4;
+    i %= SIDE4;
+    int ze = i / SIDE5;
+    i %= SIDE5;
+
+    int e = xe * SIDE3 + ye * SIDE4 + ze * SIDE5;
+    return (c - c->off) + e + ((i + 1) % SIDE3);
+}
+
 }
 
 void normalize(float vec[3])
@@ -118,4 +131,3 @@ void normalize(float vec[3])
     vec[1] /= length;
     vec[2] /= length;
 }
-

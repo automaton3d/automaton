@@ -18,7 +18,7 @@
 
 // Lattice symbols.
 
-#define ORDER     4
+#define ORDER     3
 #define SIDE      (1<<ORDER)
 #define SIDE2     (SIDE*SIDE)
 #define SIDE3     (SIDE*SIDE2)
@@ -27,11 +27,11 @@
 #define SIDE6     (SIDE*SIDE5)
 #define SIDE_2    (SIDE/2)
 #define SIDE2_4   (SIDE2/4)
-#define DIAG      (2*SIDE-2)  // Gran Cube diagonal
-#define LIGHT     (2*DIAG)    // light step in ticks
+#define DIAG      (2*SIDE-2)  	// Gran Cube diagonal
+#define LIGHT     (2*DIAG)    	// light step in ticks
 #define LIGHT2    (LIGHT*LIGHT)
 
-#define NDIR      6    // von Neumman directions
+#define NDIR      6    			// von Neumman directions
 
 // Roles.
 
@@ -58,7 +58,7 @@
 #define NOROLE      0x0000
 #define COLLAPSE  0x0001
 #define FERMION   0x0002
-#define SPHOTON   0x0004	// super photon
+#define SPHOTON   0x0004  		// super photon
 #define PHOTON    0x0008
 #define GLUON     0x0010
 #define NEUTRINO  0x0020
@@ -81,7 +81,7 @@
 
 // Macros (helps readability).
 
-#define ZERO(v)      (v[0]==0&&v[1]==0&&v[2]==0)
+#define ZERO(v)      (!(v[0]|v[1]|v[2]))
 #define EQ(v,u)      (v[0]==u[0]&&v[1]==u[1]&&v[2]==u[2])
 #define ANTI(v,u)    (v[0]==-u[0]&&v[1]==-u[1]&&v[2]==-u[2])
 #define ISSAT(v)     (v[0]==SIDE&&v[1]==SIDE&&v[2]==SIDE)
@@ -99,22 +99,22 @@
     ZERO(u->o) && ZERO(v->o) && \
     !ZERO(u->p) && !ZERO(v->p))
 #define GET_ROLE(c) \
-	((!ZERO((c)->p) && ZERO((c)->po)) ? SEED : \
-	(!ZERO((c)->s) && ZERO((c)->po)) ? WAVE : \
-	(!ISSAT((c)->o) && ISSAT((c)->po)) ? GRID : \
-	((!ZERO((c)->po) && !ISSAT((c)->po)) || (c)->obj < SIDE3) ? TRVLLR : \
-	(ISSAT((c)->o) && ISSAT((c)->po) && (c)->obj == SIDE3) ? EMPTY : NOROLE)
+  ((!ZERO((c)->p) && ZERO((c)->po)) ? SEED : \
+  (!ZERO((c)->s) && ZERO((c)->po)) ? WAVE : \
+  (!ISSAT((c)->o) && ISSAT((c)->po)) ? GRID : \
+  ((!ZERO((c)->po) && !ISSAT((c)->po)) || (c)->obj < SIDE3) ? TRVLLR : \
+  (ISSAT((c)->o) && ISSAT((c)->po) && (c)->obj == SIDE3) ? EMPTY : NOROLE)
 #define DOT(u, v)    ((u)[0] * (v)[0] + (u)[1] * (v)[1] + (u)[2] * (v)[2])
 #define MAG(v)       ((v)[0]*(v)[0]+(v)[1]*(v)[1]+(v)[2]*(v)[2])
-#define SKEW(c,g)    ((g)+((c)->off/SIDE3)*SIDE3+((c)->off%SIDE3+(c)->n)%SIDE3)
+//#define SKEW(c,g)    ((g)+((c)->off/SIDE3)*SIDE3+((c)->off%SIDE3+(c)->n)%SIDE3)
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
 #define SUB(v,v1,v2) {v[0]=v2[0]-v1[0]; \
-	v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
+  v[1]=v2[1]-v1[1];v[2]=v2[2]-v1[2];}
 #define MILD(v)      {v[0]=SIDE_2;v[1]=SIDE_2;v[2]=SIDE_2;}
 #define CROSS(a,b,c) {a[0]=b[1]*c[2]-b[2]*c[1]; \
-	a[1]=b[2]*c[0]-b[0]*c[2]; \
-	a[2]=b[0]*c[1]-b[1]*c[0];}
+  a[1]=b[2]*c[0]-b[0]*c[2]; \
+  a[2]=b[0]*c[1]-b[1]*c[0];}
 #define CP(u,v)      {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
 #define CPNEG(u,v)   {u[0]=-v[0];u[1]=-v[1];u[2]=-v[2];}
 
@@ -126,7 +126,7 @@ namespace automaton
 
 typedef struct Cell
 {
-  unsigned off;     // offset (const.)
+  unsigned short off;     // offset (const.)
 
   // Physical properties.
 
@@ -138,7 +138,7 @@ typedef struct Cell
 
   short n;          // low level tick
   short o[3];       // origin
-  unsigned syn;     // synchronism
+  unsigned short syn;     // synchronism
 
   short occ;        // occupancy
 
@@ -184,6 +184,7 @@ void fromAxisAngle(const float axis[3], float angleRadians, float *result);
 void printCell(Cell *cell);
 void printConfig(Cell *cell);
 void empty(Cell *c);
+Cell *skew(Cell *c);
 bool isCentralPoint(int i);
 Cell *neighbor(Cell *ptr, int dir);
 bool aligned(short* a, short* b);
@@ -192,8 +193,8 @@ void initText(void);
 void updateBuffer();
 void orthogonalize();
 
-extern COLORREF voxels[SIDE6];
-extern Cell *latt0;	// debug
+extern COLORREF *voxels;
+extern Cell *latt0;  // debug
 extern unsigned long timer;
 extern bool stop;
 

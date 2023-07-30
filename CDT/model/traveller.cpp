@@ -11,7 +11,19 @@ namespace automaton
 {
 
 extern Cell *stb, *drf;
-extern Cell *latt0, *latt1;
+
+int internalT(int i)
+{
+    int xe = i / SIDE3;
+    i %= SIDE3;
+    int ye = i / SIDE4;
+    i %= SIDE4;
+    int ze = i / SIDE5;
+    i %= SIDE5;
+
+    int e = xe * SIDE3 + ye * SIDE4 + ze * SIDE5;
+    return e + ((i + 1) % SIDE3);
+}
 
 /**
  * Superluminal updates.
@@ -29,8 +41,8 @@ void traveller()
   // Find new skewed addresses inside espacito
   // for updates. (Sect. 4.2)
 
-  Cell *nxt = SKEW(stb, latt0);
-  Cell *lst = SKEW(drf, latt1);
+  Cell *nxt = skew(stb);
+  Cell *lst = skew(drf);
 
   // A collapse forces all affine bubbles to reissue.
   // nxt->a1 is the skewed affinity being explored.

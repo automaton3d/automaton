@@ -30,7 +30,7 @@ void interact (Cell *nxt, Cell *lst)
   // Not settled?
 
   if (!ZERO(stb->po) || !ZERO(nxt->po))
-	  return;
+    return;
 
 //  int t = stb->n / LIGHT;
 
@@ -189,7 +189,7 @@ void interact (Cell *nxt, Cell *lst)
 
         case 3:     // Inertia
 
-        	puts("inertia 1");
+          puts("inertia 1");
           // Calculate parallel transported pole.
           // bubbles have the same a1 value.
           // nxt is the master, stb is the slave.
@@ -207,7 +207,7 @@ void interact (Cell *nxt, Cell *lst)
           break;
 
         case 6:    // Collapse
-        	puts("collapse");
+          puts("collapse");
 
           // Covers annihilation , light-matter
           // and scattering.
@@ -219,7 +219,7 @@ void interact (Cell *nxt, Cell *lst)
           break;
 
         case 7:    // Internal collision
-        	puts("cohesion");
+          puts("cohesion");
 
           // Cohesion.
           // (Sect. 4.1)

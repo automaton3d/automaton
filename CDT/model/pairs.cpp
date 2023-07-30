@@ -10,10 +10,16 @@
 namespace automaton
 {
 
+// Pointers to the current stable and draft cells.
+
 extern Cell *stb, *drf;
 
 /**
  * Detects multipair or new pair.
+ *
+ * @t physical time
+ * @nxt a stable cell with same x, y, z coords. in espacito
+ * @last a drafy cell with same x, y, z coords. in espacito
  */
 void pairs(int t, Cell *nxt, Cell *lst)
 {
@@ -75,11 +81,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
     // (Sec. 4.7.7)
 
     if (W1(stb) != W1(nxt))
-    {/*
-  	  printCell(stb);
-  	  printCell(nxt);
-  	  puts("");
-  	  fflush(stdout);*/
+    {
       // Super photon formation.
       // (Sect. 3.1)
 
@@ -104,7 +106,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
         // Symmetry breaking after singularity.
         // (Sect. 4.6.7)
 
-    	std::cout << "symm break" << std::endl;
+      std::cout << "symm break" << std::endl;
         CP(drf->po, stb->p);
         CP(lst->po, nxt->p);
       }
@@ -118,7 +120,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
       if (MAT(stb) != MAT(nxt) && W0(stb) == !W0(nxt) &&
           Q(stb) == !Q(nxt))
       {
-//    	  puts("\tgluon");
+//        puts("\tgluon");
         drf->k = GLUON;
         lst->k = GLUON;
       }
@@ -126,14 +128,14 @@ void pairs(int t, Cell *nxt, Cell *lst)
                C(stb) != 0 && C(stb) != 7 &&
                Q(stb) == Q(nxt) && Q(stb) == W1(stb))
       {
-//    	  puts("\tup");
+//        puts("\tup");
         drf->k = UP;
         lst->k = UP;
       }
       else if (C(stb) == _C(nxt) && W0(stb) == !W0(nxt) &&
                Q(stb) == !Q(nxt))
       {
-//    	  puts("\tphoton");
+//        puts("\tphoton");
         drf->k = PHOTON;
         lst->k = PHOTON;
       }
@@ -142,7 +144,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
               Q(stb) != Q(nxt) && W0(stb) == W0(nxt) &&
               W0(stb) != W1(stb))
       {
-//    	  puts("\tnu");
+//        puts("\tnu");
         drf->k = NEUTRINO;
         lst->k = NEUTRINO;
       }
@@ -150,20 +152,20 @@ void pairs(int t, Cell *nxt, Cell *lst)
               (W0(stb) != W1(stb) || W0(nxt) != W1(stb)) &&
               Q(stb) == !Q(nxt))
       {
-    	// puts("\tZ");
+      // puts("\tZ");
         drf->k = ZB;
         lst->k = ZB;
       }
       else if (C(stb) == _C(nxt) && W0(stb) == W0(nxt) &&
                Q(stb) == Q(nxt) && W0(stb) != W1(stb))
       {
-//    	  puts("\tW");
+//        puts("\tW");
         drf->k = WB;
         lst->k = WB;
       }
       else
       {
-    	  return;
+        return;
       }
 
       // Calculate the common value for affinity.

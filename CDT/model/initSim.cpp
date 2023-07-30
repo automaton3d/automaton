@@ -8,7 +8,7 @@
 #include "simulation.h"
 #include "tests/tests.h"
 
-short points[SIDE5][3];
+short (*points)[3];
 int indx = 0;
 
 namespace automaton
@@ -16,6 +16,7 @@ namespace automaton
 using namespace std;
 
 extern Cell *latt0, *latt1;
+extern COLORREF *voxels;
 
 void initSpin(Cell *grid)
 {
@@ -56,15 +57,15 @@ static void singularity(Cell *grid)
     {
       for (int x = 0; x < SIDE; x++)
       {
-    	char w0  = i % 2;
-    	char w1  = (i >> 1) % 2;
-    	char q   = w0 ^ w1;
+        char w0  = i % 2;
+        char w1  = (i >> 1) % 2;
+        char q   = w0 ^ w1;
         ptr->ch  = (i % 8) | (w0 << 3) | (1 << 4) | (q << 5);
-        ptr->a1  = i + 1;	    // dodges zero
+        ptr->a1  = i + 1;      // dodges zero
         ptr->a2  = 0;           // no chaining
         ptr->k   = FERMION;     // intially just singles
         ptr->occ = SIDE_2 - 1;  // crest cell
-        RSET(ptr->o);	        // ready for immediate expansion
+        RSET(ptr->o);          // ready for immediate expansion
         RSET(ptr->po);          // already at the reissue cell
         ptr->p[0] = 1;          // used to initialize p
         i++; ptr++;
@@ -108,7 +109,7 @@ static void initGrid(Cell *grid)
  */
 void explore(short org[3], int level)
 {
-  boolean shell = true;
+  bool shell = true;
   for (int dir = 0; dir < 6; dir++)
   {
     short o[3];
@@ -144,11 +145,24 @@ void initMomentum(Cell *grid)
   Cell *ptr = grid;
   for(int i = 0; i < SIDE6; i++, ptr++)
   {
-	if(!ZERO(ptr->p))
-	{
+    if(!ZERO(ptr->p))
+    {
       CP(ptr->p, points[m % indx]);
       m++;
-	}
+    }
+  }
+}
+
+void copyMomentum()
+{
+  Cell *ptr0 = latt0;
+  Cell *ptr1 = latt1;
+  for(int i = 0; i < SIDE6; i++, ptr0++, ptr1++)
+  {
+    if(!ZERO(ptr0->p))
+    {
+      CP(ptr1->p, ptr0->p);
+    }
   }
 }
 
@@ -158,25 +172,27 @@ void initMomentum(Cell *grid)
 void initSimulation()
 {
   printf("SIDE=%d DIAG=%d\n", SIDE, DIAG);
+  voxels = (COLORREF *) malloc(SIDE6 * sizeof(COLORREF));
   latt0 = (Cell*)malloc(SIDE6 * sizeof(Cell));
   assert(latt0 != NULL);
+  points = (short(*)[3])malloc(SIDE5 * sizeof(short[3]));
+  assert(points != NULL);
+  initGrid(latt0);
+  singularity(latt0);
+  initMomentum(latt0);
+  free(points);
   latt1 = (Cell*)malloc(SIDE6 * sizeof(Cell));
   assert(latt1 != NULL);
-  initGrid(latt0);
   initGrid(latt1);
-  singularity(latt0);
   singularity(latt1);
-  initMomentum(latt0);
-  initMomentum(latt1);
+  copyMomentum();
   initSpin(latt0);
   initSpin(latt1);
-
 #ifdef DEVELOP
-
   assert(sanity(latt0));
   assert(sanity(latt1));
   assert(alignment(latt0));
-
+  framework::sound();
 #endif
 }
 

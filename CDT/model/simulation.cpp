@@ -8,7 +8,7 @@ Cell *stb, *drf;
 
 Cell *neighbor(Cell *ptr, int dir)
 {
-	int i = ptr - latt1;
+  int i = ptr - latt1;
     int x = i % SIDE2;
     int y = (i / SIDE2) % SIDE2;
     int z = (i / SIDE4) % SIDE2;
@@ -36,19 +36,19 @@ void simulation()
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
-    	transfer();
+      transfer();
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
-    	traveller();
+      traveller();
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
-    	empodion();
+      empodion();
     stb = latt0;
     drf = latt1;
     for(int i = 0; i < SIDE6; i++, stb++, drf++)
-  		spread();
+      spread();
 
     // Sleep(10);
 }

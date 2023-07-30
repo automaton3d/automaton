@@ -36,10 +36,21 @@ void spread()
 
     Cell* nei = neighbor(drf, dir);
 
+    // Calculate new origin vector.
+
+    int axis = dir >> 1;
+    int org[3];
+    CP(org, stb->o);
+    org[axis] += (dir % 2 == 0) ? +1 : -1;
+
+    // Illegal move?
+
+    if (abs(org[axis]) > SIDE_2)
+      continue;
+
     // The first part of this block propagates info
     // asynchronously (TRAVELLER processing).
 
-    int axis = dir >> 1;
     if (role == TRVLLR)
     {
       // Do not touch wavefront.
@@ -98,15 +109,9 @@ void spread()
     if (code & RAW_IN)
       continue;
 
-    // Calculate new origin vector.
-
-    int org[3];
-    CP(org, stb->o);
-    org[axis] += (dir % 2 == 0) ? +1 : -1;
-
     // Spatially illegal move?
 
-    if (abs(org[axis]) < abs(stb->o[axis]) || abs(org[axis]) > SIDE_2)
+    if (abs(org[axis]) < abs(stb->o[axis]))
       continue;
 
     // Test if destiny is busy.
