@@ -9,16 +9,16 @@ namespace framework
 class Renderer
 {
 public:
-	Renderer();
-	virtual ~Renderer();
+  Renderer();
+  virtual ~Renderer();
 
-	virtual void render() = 0;
+  virtual void render() = 0;
 
-	void setCamera(Camera *c);
+  void setCamera(Camera *c);
     const Camera* getCamera();
 
 protected:
-	Camera *mCamera;
+  Camera *mCamera;
 
 }; // end class Renderer
 

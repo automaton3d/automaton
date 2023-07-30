@@ -8,6 +8,21 @@
 namespace framework
 {
 
+// UID
+
+HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
+HWND single_rad, partial_rad, full_rad, rand_rad;
+HWND xy_rad, yz_rad, zx_rad, iso_rad;
+HPEN xPen, yPen, zPen, boxPen;
+HWND stopButton, suspendButton, centerButton;
+bool momentum, wavefront, single, partial, full, track, cube, plane, lattice, axes, xy, yz, zx, iso, rnd;
+
+// Trackball
+
+bool stop;
+bool active = true;
+unsigned long timer = 0;
+
 RenderWindowGLFW::RenderWindowGLFW() :  mWindow(0)
 {
 }
@@ -76,11 +91,11 @@ void RenderWindowGLFW::buttonCallback(GLFWwindow *window, int button, int action
                 if (viewpoint[0].isSelected())
                 {
                   // Isometric view
-            	  int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-            	  instance().mCamera.setEye(length, length, length);
-            	  instance().mCamera.setUp(0, 1, 0);
-            	  instance().mCamera.update();
-            	  instance().mInteractor.setCamera(& instance().mCamera);
+                int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                instance().mCamera.setEye(length, length, length);
+                instance().mCamera.setUp(0, 1, 0);
+                instance().mCamera.update();
+                instance().mInteractor.setCamera(& instance().mCamera);
                 }
                 else if (viewpoint[1].isSelected())
                 {
@@ -159,8 +174,8 @@ void RenderWindowGLFW::errorCallback(int error, const char* description)
 
 RenderWindowGLFW & RenderWindowGLFW::instance()
 {
-	static RenderWindowGLFW i;
-	return i;
+  static RenderWindowGLFW i;
+  return i;
 }
 
 void RenderWindowGLFW::keyCallback(GLFWwindow *window, int key, int scancode,
@@ -241,16 +256,16 @@ void RenderWindowGLFW::keyCallback(GLFWwindow *window, int key, int scancode,
                     instance().mInteractor.setCamera(& instance().mCamera);
                     break;
                 case GLFW_KEY_O:
-                	// Isometric view
-                	length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                	instance().mCamera.setEye(length, length, length);
-                	instance().mCamera.setUp(0, 1, 0);
-                	instance().mCamera.update();
-                	instance().mInteractor.setCamera(& instance().mCamera);
-                	break;
+                  // Isometric view
+                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(length, length, length);
+                  instance().mCamera.setUp(0, 1, 0);
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(& instance().mCamera);
+                  break;
                 case GLFW_KEY_M:
-                	sound();
-                	break;
+                  sound();
+                  break;
                 default: break;
             }
             break;
@@ -290,146 +305,160 @@ void RenderWindowGLFW::sizeCallback(GLFWwindow *window, int width, int height)
 
 DWORD WINAPI RenderWindowGLFW::SimulateThread(LPVOID lpParam)
 {
-	automaton::initSimulation();
-    static_cast<RenderWindowGLFW*>(lpParam)->isThreadReady = true;
-    Sleep(100);
-    while (true)
-    {
-		if(!automaton::stop)
-		{
-			automaton::simulation();
-			automaton::updateBuffer();
-			automaton::timer++;
-		}
-		else
-		{
-	        Sleep(80);
-		}
-    }
-    return 0;
+  automaton::initSimulation();
+  static_cast<RenderWindowGLFW*>(lpParam)->isThreadReady = true;
+  Sleep(100);
+  while (true)
+  {
+  if(!stop)
+  {
+    automaton::simulation();
+    automaton::updateBuffer();
+    timer++;
+  }
+  else
+  {
+    Sleep(80);
+  }
+  }
+  return 0;
 }
 
 int RenderWindowGLFW::run(int width, int height)
 {
-    // Get the primary monitor's dimensions
-    GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
-    if (!primaryMonitor) {
-        glfwTerminate();
-        // Error handling...
-        return 1;
-    }
-
-    const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
-    if (!mode) {
-        glfwTerminate();
-        // Error handling...
-        return 1;
-    }
-
-    // Calculate the position to center the window
-    int xPos = (mode->width - 300) / 2;
-    int yPos = (mode->height - 50) / 2;
-
-    // Create a borderless GLFW window and center it on the screen
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    GLFWwindow* iconWindow = glfwCreateWindow(300, 50, "Loading...", NULL, NULL);
-
-
-    glfwSetWindowPos(iconWindow, xPos, yPos); // Set window position
-
-    // Make the window's context current
-    glfwMakeContextCurrent(iconWindow);
-
-    //////
-
-    DWORD dwThreadId;
-    HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, this, 0, &dwThreadId);
-	CloseHandle(hSimulateThread);
-
-
-	// Set up variables for the ellipsis
-	    int ellipsisCount = 2;
-	    int maxEllipsisCount = 12;
-	    double lastEllipsisChangeTime = glfwGetTime();
-	    double ellipsisChangeInterval = 0.5; // Change the ellipsis every 0.5 seconds
-
-	    // Set up OpenGL for basic text rendering
-	     glMatrixMode(GL_PROJECTION);
-	     glLoadIdentity();
-	     glOrtho(0, width, 0, height, -1, 1);
-	     glMatrixMode(GL_MODELVIEW);
-	     glLoadIdentity();
-	     glDisable(GL_DEPTH_TEST);
-	     glDisable(GL_LIGHTING);
-	     glColor3f(1.0f, 1.0f, 1.0f);
-
-
-    while (!isThreadReady)
-    {
-        // Poll events
-         glfwPollEvents();
-
-         // Clear the buffer
-         glClear(GL_COLOR_BUFFER_BIT);
-
-         // Draw the loading message and ellipsis
-         std::string loadingMessage = "Loading";
-         for (int i = 0; i < ellipsisCount; ++i)
-         {
-             loadingMessage += ".";
-         }
-
-         // Draw the loading message at the center of the screen
-         framework::drawString(loadingMessage, 500, height / 2);
-
-         // Change the ellipsis count if enough time has passed
-         if (glfwGetTime() - lastEllipsisChangeTime >= ellipsisChangeInterval) {
-             ellipsisCount = (ellipsisCount % maxEllipsisCount) + 1;
-             lastEllipsisChangeTime = glfwGetTime();
-         }
-
-         // Swap buffers
-         glfwSwapBuffers(iconWindow);
-      }
-    glfwSetErrorCallback(& RenderWindowGLFW::errorCallback);
-    mWindow = glfwCreateWindow(width, height, "Cellular automaton", NULL, NULL);
-    if (!mWindow)
-    {
-        glfwTerminate();
-        return EXIT_FAILURE;
-    }
-//    std::cout << HELP;
-    glfwMakeContextCurrent(mWindow);
-    glfwSwapInterval(1);
-    glfwSetCursorPosCallback(mWindow, & RenderWindowGLFW::moveCallback);
-    glfwSetKeyCallback(mWindow, & RenderWindowGLFW::keyCallback);
-    glfwSetMouseButtonCallback(mWindow, & RenderWindowGLFW::buttonCallback);
-    glfwSetScrollCallback(mWindow, & RenderWindowGLFW::scrollCallback);
-    glfwSetWindowSizeCallback(mWindow, &RenderWindowGLFW::sizeCallback);
-    mInteractor.setCamera(& mCamera);
-    mRenderer.setCamera(& mCamera);
-    mAnimator.setInteractor(& mInteractor);
-    mRenderer.init();
-    sizeCallback(mWindow, width, height); // Set initial size.
-
-	// Isometric view
-	int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-	instance().mCamera.setEye(length, length, length);
-	instance().mCamera.setUp(0, 1, 0);
-	instance().mCamera.update();
-	instance().mInteractor.setCamera(& instance().mCamera);
-
-    while (!glfwWindowShouldClose(mWindow))
-    {
-        mAnimator.animate();
-        mInteractor.update();
-        mRenderer.render();
-        glfwSwapBuffers(mWindow);
-        glfwPollEvents();
-    }
-    glfwDestroyWindow(mWindow);
+  // Get the primary monitor's dimensions
+  GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+  if (!primaryMonitor)
+  {
     glfwTerminate();
-    return EXIT_SUCCESS;
+    return 1;
+  }
+  const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+  if (!mode)
+  {
+    glfwTerminate();
+    return 1;
+  }
+
+  // Calculate the position to center the window
+  int xPos = (mode->width - 300) / 2;
+  int yPos = (mode->height - 50) / 2;
+
+  // Create a borderless GLFW window and center it on the screen
+  glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+  GLFWwindow* iconWindow = glfwCreateWindow(300, 50, "Loading...", NULL, NULL);
+  glfwSetWindowPos(iconWindow, xPos, yPos); // Set window position
+
+  // Make the window's context current
+  glfwMakeContextCurrent(iconWindow);
+
+  DWORD dwThreadId;
+  HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, this, 0, &dwThreadId);
+  CloseHandle(hSimulateThread);
+
+  // Set up variables for the ellipsis
+  int ellipsisCount = 2;
+  int maxEllipsisCount = 12;
+  double lastEllipsisChangeTime = glfwGetTime();
+  double ellipsisChangeInterval = 0.5; // Change the ellipsis every 0.5 seconds
+
+  // Set up OpenGL for basic text rendering
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0, width, 0, height, -1, 1);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_LIGHTING);
+  glColor3f(1.0f, 1.0f, 1.0f);
+  while (!isThreadReady)
+  {
+    // Poll events
+    glfwPollEvents();
+
+    // Clear the buffer
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Draw the loading message and ellipsis
+    std::string loadingMessage = "Loading";
+    for (int i = 0; i < ellipsisCount; ++i)
+    {
+      loadingMessage += ".";
+    }
+
+    // Draw the loading message at the center of the screen
+    framework::drawString(loadingMessage, 500, height / 2);
+
+    // Change the ellipsis count if enough time has passed
+    if (glfwGetTime() - lastEllipsisChangeTime >= ellipsisChangeInterval)
+    {
+      ellipsisCount = (ellipsisCount % maxEllipsisCount) + 1;
+      lastEllipsisChangeTime = glfwGetTime();
+    }
+
+    // Swap buffers
+    glfwSwapBuffers(iconWindow);
+  }
+  glfwSetErrorCallback(& RenderWindowGLFW::errorCallback);
+  mWindow = glfwCreateWindow(width, height, "Cellular automaton", NULL, NULL);
+  if (!mWindow)
+  {
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+  glfwMakeContextCurrent(mWindow);
+  glfwSwapInterval(1);
+  glfwSetCursorPosCallback(mWindow, & RenderWindowGLFW::moveCallback);
+  glfwSetKeyCallback(mWindow, & RenderWindowGLFW::keyCallback);
+  glfwSetMouseButtonCallback(mWindow, & RenderWindowGLFW::buttonCallback);
+  glfwSetScrollCallback(mWindow, & RenderWindowGLFW::scrollCallback);
+  glfwSetWindowSizeCallback(mWindow, &RenderWindowGLFW::sizeCallback);
+  mInteractor.setCamera(& mCamera);
+  mRenderer.setCamera(& mCamera);
+  mAnimator.setInteractor(& mInteractor);
+  mRenderer.init();
+  sizeCallback(mWindow, width, height); // Set initial size.
+
+  // Isometric view
+  int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+  instance().mCamera.setEye(length, length, length);
+  instance().mCamera.setUp(0, 1, 0);
+  instance().mCamera.update();
+  instance().mInteractor.setCamera(& instance().mCamera);
+
+  while (!glfwWindowShouldClose(mWindow))
+  {
+    mAnimator.animate();
+    mInteractor.update();
+    mRenderer.render();
+    glfwSwapBuffers(mWindow);
+    glfwPollEvents();
+  }
+  glfwDestroyWindow(mWindow);
+  glfwTerminate();
+  return EXIT_SUCCESS;
 }
 
-} // end namespace rsmz
+} // end namespace framework
+
+/**
+ * Entry point.
+ */
+int main(int argc, char *argv[])
+{
+  glutInit(&argc, argv);
+    if (!glfwInit())
+    {
+        return EXIT_FAILURE;
+    }
+    GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+
+    // Get the video mode of the primary monitor
+    const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+    if (!videoMode)
+    {
+      glfwTerminate();
+      return -1;
+    }
+  return framework::RenderWindowGLFW::instance().run(videoMode->width, videoMode->height);
+}

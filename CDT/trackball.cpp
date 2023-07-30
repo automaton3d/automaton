@@ -13,14 +13,14 @@ const glm::vec3 TrackBallInteractor::Y(0.f, 1.f, 0.f);
 const glm::vec3 TrackBallInteractor::Z(0.f, 0.f, 1.f);
 
 TrackBallInteractor::TrackBallInteractor() :
-	mCamera(NULL),
+  mCamera(NULL),
     mCameraMotionLeftClick(ARC),
     mCameraMotionMiddleClick(ROLL),
     mCameraMotionRightClick(FIRSTPERSON),
     mCameraMotionScroll(ZOOM),
     mHeight(1),
     mIsDragging(false),
-	mIsLeftClick(false),
+  mIsLeftClick(false),
     mIsMiddleClick(false),
     mIsRightClick(false),
     mIsScrolling(false),
@@ -30,7 +30,7 @@ TrackBallInteractor::TrackBallInteractor() :
     mRotation(1.f, 0, 0, 0),
     mRotationSum(1.f, 0, 0, 0),
     mSpeed(1.f),
-	mTranslateLength(0),
+  mTranslateLength(0),
     mWidth(1),
     mZoomSum(0.f),
     mZoomScale(.1f)
@@ -327,7 +327,7 @@ void TrackBallInteractor::setClickPoint(double x, double y)
 
 void TrackBallInteractor::setLeftClicked(bool value)
 {
-	mIsLeftClick = value;
+  mIsLeftClick = value;
 }
 
 void TrackBallInteractor::setMiddleClicked(bool value)
@@ -357,7 +357,7 @@ void TrackBallInteractor::setMotionScroll(CameraMotionType motion)
 
 void TrackBallInteractor::setRightClicked(bool value)
 {
-	mIsRightClick = value;
+  mIsRightClick = value;
 }
 
 void TrackBallInteractor::setScreenSize(float width, float height)
@@ -390,7 +390,7 @@ void TrackBallInteractor::update()
     {
         if (isClick)
         {
-			mIsDragging = true;
+      mIsDragging = true;
             computePointOnSphere(mClickPoint, mStartVector);
         } else if (mIsScrolling) {
             scroll();

@@ -1,12 +1,8 @@
 #include "mygl.h"
 
-namespace automaton
-{
-  extern unsigned long timer;
-}
-
 namespace framework
 {
+extern unsigned long timer;
 
 std::vector<Tickbox> checkboxes;
 std::vector<Radio> dataset;
@@ -38,41 +34,41 @@ RendererOpenGL1::~RendererOpenGL1()
 
 void RendererOpenGL1::init()
 {
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-	glEnable (GL_BLEND);
-	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	tbegin = GetTickCount64();
-	checkboxes.push_back(Tickbox(50, 80, "Wavefront")); // 0
-	checkboxes.push_back(Tickbox(50, 110, "Momentum"));  // 1
-	checkboxes.push_back(Tickbox(50, 140, "Plane"));     // 2
-	checkboxes.push_back(Tickbox(50, 170, "Cube"));      // 3
-	checkboxes.push_back(Tickbox(50, 200, "Lattice"));   // 4
-	checkboxes.push_back(Tickbox(50, 230, "Axes"));      // 5
-	checkboxes.push_back(Tickbox(50, 260, "Track"));     // 6
-	checkboxes[0].setState(true);
-	checkboxes[1].setState(true);
-	checkboxes[2].setState(true);
-	checkboxes[5].setState(true);
-	dataset.push_back(Radio(60, 330, "Single"));
-	dataset.push_back(Radio(60, 360, "Partial"));
-	dataset.push_back(Radio(60, 390, "Full"));
-	dataset.push_back(Radio(60, 420, "Random"));
-	dataset[3].setSelected(true);
-	viewpoint.push_back(Radio(60, 490, "Isometric"));
-	viewpoint.push_back(Radio(60, 520, "XY"));
-	viewpoint.push_back(Radio(60, 550, "YZ"));
-	viewpoint.push_back(Radio(60, 580, "ZX"));
-	viewpoint.push_back(Radio(60, 610, "Reset view"));
-	viewpoint[0].setSelected(true);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glEnable (GL_BLEND);
+  glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  tbegin = GetTickCount64();
+  checkboxes.push_back(Tickbox(50, 80, "Wavefront")); // 0
+  checkboxes.push_back(Tickbox(50, 110, "Momentum"));  // 1
+  checkboxes.push_back(Tickbox(50, 140, "Plane"));     // 2
+  checkboxes.push_back(Tickbox(50, 170, "Cube"));      // 3
+  checkboxes.push_back(Tickbox(50, 200, "Lattice"));   // 4
+  checkboxes.push_back(Tickbox(50, 230, "Axes"));      // 5
+  checkboxes.push_back(Tickbox(50, 260, "Track"));     // 6
+  checkboxes[0].setState(true);
+  checkboxes[1].setState(true);
+  checkboxes[2].setState(true);
+  checkboxes[5].setState(true);
+  dataset.push_back(Radio(60, 330, "Single"));
+  dataset.push_back(Radio(60, 360, "Partial"));
+  dataset.push_back(Radio(60, 390, "Full"));
+  dataset.push_back(Radio(60, 420, "Random"));
+  dataset[3].setSelected(true);
+  viewpoint.push_back(Radio(60, 490, "Isometric"));
+  viewpoint.push_back(Radio(60, 520, "XY"));
+  viewpoint.push_back(Radio(60, 550, "YZ"));
+  viewpoint.push_back(Radio(60, 580, "ZX"));
+  viewpoint.push_back(Radio(60, 610, "Reset view"));
+  viewpoint[0].setSelected(true);
 }
 
 void RendererOpenGL1::render()
 {
-	renderClear();
-	renderObjects();
-	renderText();
+  renderClear();
+  renderObjects();
+  renderText();
 }
 
 void RendererOpenGL1::renderCenter()
@@ -90,15 +86,15 @@ void RendererOpenGL1::renderCenter()
 
 void RendererOpenGL1::renderClear()
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClearDepth(1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  glClearDepth(1.0f);
 }
 
 void setOrthographicProjection()
 {
-	GLint viewport[4];
-	glGetIntegerv(GL_VIEWPORT, viewport);
+  GLint viewport[4];
+  glGetIntegerv(GL_VIEWPORT, viewport);
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -119,9 +115,9 @@ void resetPerspectiveProjection()
 
 void drawString(std::string s, int x, int y)
 {
-	glRasterPos2f(x, y);
-	for (int i = 0; s[i] != '\0'; ++i)
-		glutBitmapCharacter(GLUT_BITMAP_8_BY_13, s[i]);
+  glRasterPos2f(x, y);
+  for (int i = 0; s[i] != '\0'; ++i)
+    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, s[i]);
 }
 
 void RendererOpenGL1::renderText()
@@ -129,34 +125,34 @@ void RendererOpenGL1::renderText()
     setOrthographicProjection();
     glPushMatrix();
     glLoadIdentity();
-	glColor3f(1.0f, 1.0f, 1.0f);
-//	glRasterPos2f(50, 40);
+  glColor3f(1.0f, 1.0f, 1.0f);
+//  glRasterPos2f(50, 40);
 
-	unsigned long millis = GetTickCount64() - tbegin;
-	char s[100];
-	std::sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
-	drawString(s, 900, 40);
-	//
-	std::sprintf(s, "Light: %lu tick: %lu", automaton::timer / LIGHT, automaton::timer);
-	drawString(s, 50, 40);
+  unsigned long millis = GetTickCount64() - tbegin;
+  char s[100];
+  std::sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
+  drawString(s, 900, 40);
+  //
+  std::sprintf(s, "Light: %lu tick: %lu", timer / LIGHT, timer);
+  drawString(s, 50, 40);
 
-	// Get the primary monitor
+  // Get the primary monitor
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
-	// Get the video mode of the monitor
-	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-	for(int i = 0; i < 10; i++)
-		drawString(help[i], mode->width - 500, 20 * i + mode->height - 260);
-	glPopMatrix();
-	resetPerspectiveProjection();
+  // Get the video mode of the monitor
+  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  for(int i = 0; i < 10; i++)
+    drawString(help[i], mode->width - 500, 20 * i + mode->height - 260);
+  glPopMatrix();
+  resetPerspectiveProjection();
 }
 
 void RendererOpenGL1::renderPoints()
 {
-	// Cell spacing.
+  // Cell spacing.
     const float GRID_SIZE =  0.5 / SIDE2;
     // Size of each lattice point.
-    glPointSize(1.0f);
+    glPointSize(1.5f);
     glBegin(GL_POINTS);
     //
 //#define DEBUG
@@ -165,22 +161,22 @@ void RendererOpenGL1::renderPoints()
     automaton::Cell *ptr = automaton::latt0;
     for (int i = 0; i < SIDE6; i++, ptr++)
     {
-    	if (!ZERO(ptr->p))
-    	{
+      if (!ZERO(ptr->p))
+      {
             glColor3d(255, 0, 0);
             float px = ptr->p[0] * GRID_SIZE - 0.25f;
             float py = ptr->p[1] * GRID_SIZE - 0.25f;
             float pz = ptr->p[2] * GRID_SIZE - 0.25f;
             glVertex3f(px+0.2, py, pz);
-    	}
-    	if (!ZERO(ptr->s))
-    	{
+      }
+      if (!ZERO(ptr->s))
+      {
             glColor3d(0, 255, 0);
             float px = ptr->s[0] * GRID_SIZE - 0.25f;
             float py = ptr->s[1] * GRID_SIZE - 0.25f;
             float pz = ptr->s[2] * GRID_SIZE - 0.25f;
             glVertex3f(px, py, pz);
-    	}
+      }
     }
 
 #endif
@@ -190,21 +186,21 @@ void RendererOpenGL1::renderPoints()
 
     for (int i = 0; i < SIDE6; i++)
     {
-  	  COLORREF color = automaton::voxels[i];
-  	  if (color != RGB(0,0,0))
-  	  {
-  		  int x = i % SIDE2;
-  		  int y = (i / SIDE2) % SIDE2;
-  		  int z = (i / SIDE4) % SIDE2;
-  		  float r = (color >> 16) & 255;
-  		  float g = (color >> 8) & 255;
-  		  float b = (color & 255);
+      COLORREF color = automaton::voxels[i];
+      if (color != RGB(0,0,0))
+      {
+        int x = i % SIDE2;
+        int y = (i / SIDE2) % SIDE2;
+        int z = (i / SIDE4) % SIDE2;
+        float b = (color >> 16) & 255;
+        float g = (color >> 8) & 255;
+        float r = (color & 255);
           glColor3d(r, g, b);
           float px = x * GRID_SIZE - 0.25f;
           float py = y * GRID_SIZE - 0.25f;
           float pz = z * GRID_SIZE - 0.25f;
           glVertex3f(px, py, pz);
-  	  }
+      }
     }
 
 #endif
@@ -231,12 +227,12 @@ void RendererOpenGL1::renderGadgets()
     }
     glFlush();
     glPopMatrix();
-	resetPerspectiveProjection();
+  resetPerspectiveProjection();
 }
 
 void RendererOpenGL1::renderObjects()
 {
-	glEnable(GL_DEPTH_TEST);
+  glEnable(GL_DEPTH_TEST);
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(mProjection));
 
@@ -246,42 +242,42 @@ void RendererOpenGL1::renderObjects()
         glMultMatrixf(mCamera->getMatrixFlat());
     }
     renderCenter();
-    if (checkboxes[0].getState() || checkboxes[1].getState())
-	  renderPoints();
     if (checkboxes[2].getState())
       renderGrid();
-    if (checkboxes[3].getState())
-      renderCube();
     if (checkboxes[5].getState())
       renderAxes();
+    if (checkboxes[3].getState())
+      renderCube();
+    if (checkboxes[0].getState() || checkboxes[1].getState())
+    renderPoints();
     if (mCamera)
     {
         glPopMatrix();
     }
     glPopMatrix();
-	renderGadgets();
+  renderGadgets();
 }
 
 void RendererOpenGL1::renderAxes()
 {
-	glLineWidth(2);
-	glBegin(GL_LINES);
-    glColor3f ( 1.f,    0.f,  0.f);
+  glLineWidth(2);
+  glBegin(GL_LINES);
+    glColor3f ( 0.6f,    0.f,  0.f);
     glVertex3f( 0.0f,   0.f,  0.f);
     glVertex3f( 0.5f,   0.f,  0.f);
-    glColor3f ( 0.f,    1.f,  0.f);
+    glColor3f ( 0.f,    0.6f,  0.f);
     glVertex3f( 0.f,    0.f,  0.f);
     glVertex3f( 0.f,   0.5f,  0.f);
-    glColor3f ( 0.f,    0.f,  1.f);
+    glColor3f ( 0.f,    0.f,  0.6f);
     glVertex3f( 0.0f,   0.f,  0.f);
     glVertex3f( 0.f,    0.f,  0.5f);
-	glEnd();
-	glLineWidth(1);
+  glEnd();
+  glLineWidth(1);
 }
 
 void RendererOpenGL1::renderCube()
 {
-	GLfloat alpha = .9f;
+  GLfloat alpha = .9f;
 
     glBegin(GL_TRIANGLES);
     glColor4f ( .8f,    0.4f,   0.4f, alpha);
@@ -302,19 +298,19 @@ void RendererOpenGL1::renderCube()
 
     glColor4f ( 0.4f,   0.8f,  0.4f, alpha);
     glVertex3f( 0.f,    0.2f,  0.f);
-	glVertex3f( 0.2f,   0.2f,  0.f);
-	glVertex3f( 0.2f,   0.2f,  0.2f);
+  glVertex3f( 0.2f,   0.2f,  0.f);
+  glVertex3f( 0.2f,   0.2f,  0.2f);
     glVertex3f( 0.f,    0.2f,  0.f);
-	glVertex3f( 0.f,    0.2f,  0.2f);
-	glVertex3f( 0.2f,   0.2f,  0.2f);
+  glVertex3f( 0.f,    0.2f,  0.2f);
+  glVertex3f( 0.2f,   0.2f,  0.2f);
 
     glColor4f ( 0.2f,   0.4f,  0.2f, alpha);
     glVertex3f( 0.f,    0.f,  0.f);
-	glVertex3f( 0.2f,   0.f,  0.f);
-	glVertex3f( 0.2f,   0.f,  0.2f);
+  glVertex3f( 0.2f,   0.f,  0.f);
+  glVertex3f( 0.2f,   0.f,  0.2f);
     glVertex3f( 0.f,    0.f,  0.f);
-	glVertex3f( 0.f,    0.f,  0.2f);
-	glVertex3f( 0.2f,   0.f,  0.2f);
+  glVertex3f( 0.f,    0.f,  0.2f);
+  glVertex3f( 0.2f,   0.f,  0.2f);
 
     glColor4f ( .4f,    .4f,   .8f, alpha);
     glVertex3f( 0.f,    0.f,   0.2f);
@@ -337,16 +333,16 @@ void RendererOpenGL1::renderCube()
 
 void RendererOpenGL1::renderGrid()
 {
-	float p, d = .1, mn=-1.f, mx=1.f, eps=-1e-4;
-	int i, n = 20;
+  float p, d = .1, mn=-1.f, mx=1.f, eps=-1e-4;
+  int i, n = 20;
     #define WHITE() glColor4f(1.f, 1.f, 1.f, .2f)
 
-	glLineWidth(1);
-	glBegin(GL_LINES);
+  glLineWidth(1);
+  glBegin(GL_LINES);
 
-	for(i = 0; i <= n; ++i)
-	{
-		p = mn + i*d;
+  for(i = 0; i <= n; ++i)
+  {
+    p = mn + i*d;
 
         if (i == 0 || i == 10 || i == n)
         {
@@ -356,8 +352,8 @@ void RendererOpenGL1::renderGrid()
         {
             WHITE();
         }
-		glVertex3f(p, mn, eps);
-		glVertex3f(p, mx, eps);
+    glVertex3f(p, mn, eps);
+    glVertex3f(p, mx, eps);
 
         if (i == 0 || i == 10 || i == n)
         {
@@ -367,25 +363,25 @@ void RendererOpenGL1::renderGrid()
         {
             WHITE();
         }
-		glVertex3f(mn, p, eps);
-		glVertex3f(mx, p, eps);
-	}
+    glVertex3f(mn, p, eps);
+    glVertex3f(mx, p, eps);
+  }
 
-	glEnd();
+  glEnd();
     #undef WHITE
 }
 
 void RendererOpenGL1::resize(int width, int height)
 {
-	if (0 == height)
-	{
-		height = 1; // Avoid division by zero.
-	}
+  if (0 == height)
+  {
+    height = 1; // Avoid division by zero.
+  }
 
-	GLfloat ratio = width / (GLfloat) height;
-	glViewport(0, 0, width, height);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+  GLfloat ratio = width / (GLfloat) height;
+  glViewport(0, 0, width, height);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
 
     mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
 }

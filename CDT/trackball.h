@@ -19,10 +19,10 @@ public:
 
     static const glm::vec3 X, Y, Z;
 
-	TrackBallInteractor();
-	~TrackBallInteractor();
+  TrackBallInteractor();
+  ~TrackBallInteractor();
 
-	void computePointOnSphere(const glm::vec2 & point,
+  void computePointOnSphere(const glm::vec2 & point,
                               glm::vec3 & result);
     void computeRotationBetweenVectors(const glm::vec3 & start,
                                        const glm::vec3 & stop,
@@ -33,18 +33,18 @@ public:
     CameraMotionType getMotionRightClick();
     CameraMotionType getMotionScroll();
     void setScrollDirection(bool up);
-	void setCamera(Camera *c);
-	void setClickPoint(double x, double y);
-	void setLeftClicked(bool value);
-	void setMiddleClicked(bool value);
-	void setMotionLeftClick(CameraMotionType motion);
-	void setMotionMiddleClick(CameraMotionType motion);
-	void setMotionRightClick(CameraMotionType motion);
+  void setCamera(Camera *c);
+  void setClickPoint(double x, double y);
+  void setLeftClicked(bool value);
+  void setMiddleClicked(bool value);
+  void setMotionLeftClick(CameraMotionType motion);
+  void setMotionMiddleClick(CameraMotionType motion);
+  void setMotionRightClick(CameraMotionType motion);
     void setMotionScroll(CameraMotionType motion);
-	void setRightClicked(bool value);
-	void setScreenSize(float width, float height);
-	void setSpeed(float s);
-	void update();
+  void setRightClicked(bool value);
+  void setScreenSize(float width, float height);
+  void setSpeed(float s);
+  void update();
 
 protected:
     char clickQuadrant(float x, float y);
@@ -69,25 +69,25 @@ protected:
     void updateCameraEyeUp(bool eye, bool up);
 
 private:
-	Camera *mCamera;
+  Camera *mCamera;
     CameraMotionType mCameraMotionLeftClick;
     CameraMotionType mCameraMotionMiddleClick;
     CameraMotionType mCameraMotionRightClick;
     CameraMotionType mCameraMotionScroll;
-	glm::vec2 mClickPoint;
+  glm::vec2 mClickPoint;
     float mHeight;
-	bool mIsDragging;
-	bool mIsLeftClick;
-	bool mIsMiddleClick;
-	bool mIsRightClick;
+  bool mIsDragging;
+  bool mIsLeftClick;
+  bool mIsMiddleClick;
+  bool mIsRightClick;
     bool mIsScrolling;
     float mPanScale;
-	glm::vec2 mPrevClickPoint;
+  glm::vec2 mPrevClickPoint;
     float mRollScale;
     float mRollSum;
     glm::quat mRotation;
     glm::quat mRotationSum;
-	float mSpeed;
+  float mSpeed;
     glm::vec3 mStartVector;
     glm::vec3 mStopVector;
     float mTranslateLength;

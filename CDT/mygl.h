@@ -17,31 +17,31 @@
 
 namespace framework
 {
-void drawString(std::string s, int x, int y);
-
 class RendererOpenGL1 : public Renderer
 {
 public:
-	RendererOpenGL1();
-	virtual ~RendererOpenGL1();
+  RendererOpenGL1();
+  virtual ~RendererOpenGL1();
 
-	void init();
-	virtual void render();
-	void renderAxes();
+  void init();
+  virtual void render();
+  void renderAxes();
     void renderCenter();
-	void renderClear();
-	void renderCube();
-	void renderGrid();
-	void renderObjects();
-	void renderPoints();
-	void renderText();
-	void renderGadgets();
-	void resize(int width, int height);
+  void renderClear();
+  void renderCube();
+  void renderGrid();
+  void renderObjects();
+  void renderPoints();
+  void renderText();
+  void renderGadgets();
+  void resize(int width, int height);
 
 protected:
     glm::mat4 mProjection;
 
 };
+
+void drawString(std::string s, int x, int y);
 
 class Tickbox
 {
@@ -66,7 +66,7 @@ public:
         if (state)
             glColor3f(0.0, 1.0, 0.0);
         else
-        	glColor3f(0.5, 0.5, 0.5);
+          glColor3f(0.5, 0.5, 0.5);
         glVertex2i(x, y);
         glVertex2i(x, y+15);
         glVertex2i(x+15, y+15);
@@ -89,12 +89,12 @@ public:
 
     int getX()
     {
-    	return x;
+      return x;
     }
 
     int getY()
     {
-    	return y;
+      return y;
     }
 };
 
@@ -166,12 +166,12 @@ public:
     }
 };
 
+extern bool active;
 extern std::vector<Tickbox> checkboxes;
 extern std::vector<Radio> dataset;
 extern std::vector<Radio> viewpoint;
 
 void initText();
-void drawString(const std::string& str);
 void reshape(GLFWwindow* window, int width, int height);
 
 } // end namespace framework

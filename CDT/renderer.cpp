@@ -18,7 +18,7 @@ const Camera* Renderer::getCamera()
 
 void Renderer::setCamera(Camera *c)
 {
-	mCamera = c;
+  mCamera = c;
 }
 
 } // end namespace rsmz
