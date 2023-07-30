@@ -1,62 +1,82 @@
-#include "tests.h"
-
-namespace automaton
-{
 /*
  * sanity.cpp
  *
  *  Created on: 11 de jul. de 2023
  *      Author: Alexandre
  */
-bool sanity(Cell *grid)
-{
-  // Check othogonality of momentum
+#include <cstdlib> // Include the necessary header for malloc and free
+#include "tests.h"
 
+namespace automaton
+{
+
+/**
+ * Consistency tests.
+ */
+bool sanity(Cell* grid)
+{
+  int ni = 0;
+  long x=0, y=0, z=0;
+
+  // Check orthogonality of momentum
   int n = 0;
-  bool paired[SIDE6] = {false}; // Initialize flag array
-  Cell *ptr1 = grid;
+  bool* paired = static_cast<bool*>(malloc(SIDE6 * sizeof(bool)));
+  if (!paired)
+    return false;
+  for (int i = 0; i < SIDE6; i++)
+    paired[i] = false;
+  Cell* ptr1 = grid;
   for (int i = 0; i < SIDE6; i++, ptr1++)
   {
-    Cell *ptr2 = grid + i + 1;
-    for (int j = i + 1; j < SIDE6; j++, ptr2++)
+    if (!ZERO(ptr1->p))
     {
-      if (!ZERO(ptr1->p) && !ZERO(ptr2->p) && ANTI(ptr1->p, ptr2->p))
+      Cell* ptr2 = grid + i + 1;
+      for (int j = i + 1; j < SIDE6; j++, ptr2++)
       {
-        // Check if ptr1 and ptr2 have not been paired yet
-        if (!paired[i] && !paired[j])
+        if (paired[j])
+          continue;
+        if (!ZERO(ptr2->p) && ANTI(ptr1->p, ptr2->p))
         {
-          n++;
-          paired[i] = true; // Mark ptr1 as paired
-          paired[j] = true; // Mark ptr2 as paired
-          break;
+          if (!paired[i])
+          {
+            n++;
+            paired[i] = true;
+            paired[j] = true;
+            break;
+          }
         }
+      }
+      if(!paired[i])
+      {
+        printf("\ti=%d\n", i);
+        printCell(ptr1);
+        ni++;
+        x += ptr1->p[0];
+        y += ptr1->p[1];
+        z += ptr1->p[2];
       }
     }
   }
-
-  /*
-
-  It not possible to antialign these vectors:
-  5,6,0
-  6,5,1
-  6,5,-1
-  5,5,2
-  5,5,-2
-  5,5,3
-  5,5,-3
-  -5,6,0
-  */
+  printf("TOT=%d\n", ni);
+  printf("P: %ld,%ld,%ld\n", x, y, z);
+  fflush(stdout);
+  if (n != SIDE3)
+  {
+    free(paired);
+    return false;
+  }
 
   // Check spins
-
   n = 0;
   Cell *ptr = grid;
   for (int i = 0; i < SIDE6; i++)
   {
-    if(!ZERO(ptr->s))
+    if (!ZERO(ptr->s))
       n++;
     ptr++;
   }
+  free(paired);
+  framework::sound();
   return n == SIDE3;
 }
 
@@ -71,16 +91,16 @@ bool alignment(Cell *grid)
     {
       Cell *ptr2 = grid;
       for (int j = i; j < SIDE6; j++)
-   	  {
-   	    if(!ZERO(ptr2->s))
-   	    {
-   	      if (antialigned(ptr1->s, ptr2->s))
-   	      {
-   	    	  n++;
-   	      }
-   	    }
-   	    ptr2++;
-   	  }
+       {
+         if(!ZERO(ptr2->s))
+         {
+           if (antialigned(ptr1->s, ptr2->s))
+           {
+             n++;
+           }
+         }
+         ptr2++;
+       }
     }
     ptr1++;
   }

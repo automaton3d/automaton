@@ -13,9 +13,9 @@
 
 namespace automaton
 {
-	bool sanity(Cell *grid);
-	bool alignment(Cell *grid);
-	void printCell(Cell *cell);
+  bool sanity(Cell *grid);
+  bool alignment(Cell *grid);
+  void printCell(Cell *cell);
 }
 
 #endif /* TESTS_TESTS_H_ */
