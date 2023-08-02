@@ -25,7 +25,8 @@ void pairs(int t, Cell *nxt, Cell *lst)
 {
   // Bubbles not superposing?
 
-  if (!SUPERPOSING(stb, nxt))
+  if (!superpose(stb->off, nxt->off) || !ZERO(stb->o) ||
+      !ZERO(nxt->o) || ZERO(stb->p) || ZERO(nxt->p))
   {
     return;
   }
@@ -33,6 +34,8 @@ void pairs(int t, Cell *nxt, Cell *lst)
   // Combine pairs to form multi-pairs.
   // (Sect. 5.2)
 
+  //printCell(stb);
+  //printCell(nxt);
   if (stb->k > FERMION && stb->k == nxt->k)
   {
     if (stb->a1 != nxt->a1)
@@ -107,6 +110,7 @@ void pairs(int t, Cell *nxt, Cell *lst)
         // (Sect. 4.6.7)
 
       std::cout << "symm break" << std::endl;
+      printCell(stb);
         CP(drf->po, stb->p);
         CP(lst->po, nxt->p);
       }

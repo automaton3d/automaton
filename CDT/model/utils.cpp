@@ -47,6 +47,10 @@ bool isPartial(int i)
   return false;
 }
 
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<int> dist(0, 99);
+
 void updateBuffer()
 {
   if (!framework::active || framework::checkboxes.empty())
@@ -61,8 +65,9 @@ void updateBuffer()
   Cell *stb = latt0;
   for(int i = 0; i < SIDE6; i++, stb++)
   {
+    int opt = dist(gen);
     bool ok = full || (partial && isPartial(i)) ||
-        (single && isCentralPoint(i)) || (rnd && rand() % 100 == 0);
+        (single && isCentralPoint(i)) || (rnd && opt == 0);
       if(!ZERO(stb->p) && momentum && ok)
         voxels[i] = RGB(255,0,0);
       else if(!ZERO(stb->s) && wavefront && ok)
@@ -119,7 +124,46 @@ Cell *skew(Cell *c)
     i %= SIDE5;
 
     int e = xe * SIDE3 + ye * SIDE4 + ze * SIDE5;
-    return (c - c->off) + e + ((i + 1) % SIDE3);
+    return (c - c->off) + e + ((i + c->n) % SIDE3);
+}
+
+Cell *skew2(Cell *c)
+{
+	int n = c->off / SIDE3;
+	int x1 = n % SIDE;
+	int y1 = (n / SIDE) % SIDE;
+	int z1 = (n / SIDE2) % SIDE;
+	n = (c->off + 1) / SIDE3;
+	int x2 = n % SIDE;
+	int y2 = (n / SIDE) % SIDE;
+	int z2 = (n / SIDE2) % SIDE;
+	if (x1==x2 && y1==y2 && z1==z2)
+	  return c + 1;
+	n = (c->off + SIDE2 + 1) / SIDE3;
+	x2 = n % SIDE;
+	y2 = (n / SIDE) % SIDE;
+	z2 = (n / SIDE2) % SIDE;
+	if (x1==x2 && y1==y2 && z1==z2)
+	  return c + SIDE2 + 1;
+	else
+	  return c + SIDE2 + SIDE4 + 1;
+}
+
+bool superpose(int i, int o)
+{
+    int zi = i / SIDE5;
+    i %= SIDE5;
+    int yi = i / SIDE4;
+    i %= SIDE4;
+    int xi = i / SIDE3;
+
+    int zo = o / SIDE5;
+    o %= SIDE5;
+    int yo = o / SIDE4;
+    o %= SIDE4;
+    int xo = o / SIDE3;
+
+    return zi==zo && yi==yo && xi==xo;
 }
 
 }

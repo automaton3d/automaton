@@ -94,10 +94,21 @@
 #define CMPL(u,v)    ((((~u)^W1_MASK)&0x3f)==v)
 #define BUSY(c)      (c->k>COLLAPSE)
 #define ANNIHIL(u,v) (C(u)==_C(v))
+
+/*
+#define SUPERPOSING(u,v) \
+    (((u->off)%SIDE==(v->off)%SIDE)&& \
+    (((u->off)/SIDE)%SIDE==((v->off)/SIDE)%SIDE)&& \
+	(((u->off)/SIDE2)%SIDE==((v->off)/SIDE2)%SIDE)&& \
+	ZERO(u->o)&&ZERO(v->o)&&!ZERO(u->p)&&!ZERO(v->p))
+*/
+
+/*
 #define SUPERPOSING(u, v) \
     (((u->off / SIDE3) == (v->off / SIDE3)) && \
     ZERO(u->o) && ZERO(v->o) && \
     !ZERO(u->p) && !ZERO(v->p))
+    */
 #define GET_ROLE(c) \
   ((!ZERO((c)->p) && ZERO((c)->po)) ? SEED : \
   (!ZERO((c)->s) && ZERO((c)->po)) ? WAVE : \
@@ -107,6 +118,10 @@
 #define DOT(u, v)    ((u)[0] * (v)[0] + (u)[1] * (v)[1] + (u)[2] * (v)[2])
 #define MAG(v)       ((v)[0]*(v)[0]+(v)[1]*(v)[1]+(v)[2]*(v)[2])
 //#define SKEW(c,g)    ((g)+((c)->off/SIDE3)*SIDE3+((c)->off%SIDE3+(c)->n)%SIDE3)
+
+
+#define SWEEP(c)     ((c)+((c)->off/SIDE3)*SIDE3+((c)->off%SIDE3+(c)->n)%SIDE3-(c)->off)
+
 #define RSET(v)      {v[0]=0;v[1]=0;v[2]=0;}
 #define SAT(v)       {v[0]=SIDE;v[1]=SIDE;v[2]=SIDE;}
 #define SUB(v,v1,v2) {v[0]=v2[0]-v1[0]; \
@@ -185,6 +200,7 @@ void printCell(Cell *cell);
 void printConfig(Cell *cell);
 void empty(Cell *c);
 Cell *skew(Cell *c);
+bool superpose(int i, int o);
 bool isCentralPoint(int i);
 Cell *neighbor(Cell *ptr, int dir);
 bool aligned(short* a, short* b);
@@ -194,7 +210,6 @@ void updateBuffer();
 void orthogonalize();
 
 extern COLORREF *voxels;
-extern Cell *latt0;  // debug
 extern unsigned long timer;
 extern bool stop;
 

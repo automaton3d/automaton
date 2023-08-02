@@ -27,6 +27,10 @@ void interact (Cell *nxt, Cell *lst)
   int code = (nxt->a1 == drf->a1) | (!ZERO(nxt->p) << 1) |
              (!ZERO(drf->p) << 2);
 
+  // Calculate physical time
+
+  int t = stb->n / LIGHT;
+
   // Not settled?
 
   if (!ZERO(stb->po) || !ZERO(nxt->po))
@@ -76,8 +80,7 @@ void interact (Cell *nxt, Cell *lst)
 
   // Detect interaction.
 
-  else if (rand() % 10 == 0)
-//  else if (stb->n < stb->u * t)
+  else if (stb->n < stb->u * t)
   {
     // Default reissue at c.p.
 
