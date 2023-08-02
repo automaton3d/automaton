@@ -8,6 +8,11 @@ std::vector<Tickbox> checkboxes;
 std::vector<Radio> dataset;
 std::vector<Radio> viewpoint;
 
+
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<int> dist(0, SIDE6-1);
+
 unsigned long tbegin;
 
 std::string help[10] =
@@ -122,22 +127,19 @@ void drawString(std::string s, int x, int y)
 
 void RendererOpenGL1::renderText()
 {
-    setOrthographicProjection();
-    glPushMatrix();
-    glLoadIdentity();
+  setOrthographicProjection();
+  glPushMatrix();
+  glLoadIdentity();
   glColor3f(1.0f, 1.0f, 1.0f);
-//  glRasterPos2f(50, 40);
-
   unsigned long millis = GetTickCount64() - tbegin;
   char s[100];
   std::sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
   drawString(s, 900, 40);
-  //
   std::sprintf(s, "Light: %lu tick: %lu", timer / LIGHT, timer);
   drawString(s, 50, 40);
 
   // Get the primary monitor
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
   // Get the video mode of the monitor
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
@@ -147,14 +149,57 @@ void RendererOpenGL1::renderText()
   resetPerspectiveProjection();
 }
 
+
+int rev(int m, int n)
+{
+    int i = m;
+    int xe = i / SIDE3;
+    i %= SIDE3;
+    int ye = i / SIDE4;
+    i %= SIDE4;
+    int ze = i / SIDE5;
+    i %= SIDE5;
+
+    int e = xe * SIDE3 + ye * SIDE4 + ze * SIDE5;
+    return e + ((i + n) % SIDE3);
+}
+
+
 void RendererOpenGL1::renderPoints()
 {
   // Cell spacing.
-    const float GRID_SIZE =  0.5 / SIDE2;
-    // Size of each lattice point.
-    glPointSize(1.5f);
-    glBegin(GL_POINTS);
-    //
+  const float GRID_SIZE =  0.5 / SIDE2;
+  // Size of each lattice point.
+  glPointSize(1.5f);
+  glBegin(GL_POINTS);
+  //
+  // This debug code tests the skew code
+  //
+//#define DEBUG2
+#ifdef DEBUG2
+  glColor3d(255, 0, 0);
+  int m = dist(gen);
+  for (int i = 0; i < SIDE6; i++)
+  {
+    int n = (m/SIDE3)*SIDE3+(m%SIDE3+(i%SIDE3))%SIDE3;
+	int xi = n % SIDE;
+	int yi = (n / SIDE) % SIDE;
+	int zi = (n / SIDE2) % SIDE;
+	int xe = (n / SIDE3) % SIDE;
+	int ye = (n / SIDE4) % SIDE;
+	int ze = (n / SIDE5) % SIDE;
+
+	int x = xe * SIDE + xi;
+	int y = ye * SIDE + yi;
+	int z = ze * SIDE + zi;
+
+	float px = x * GRID_SIZE - 0.25f;
+	float py = y * GRID_SIZE - 0.25f;
+	float pz = z * GRID_SIZE - 0.25f;
+	glVertex3f(px, py, pz);
+  }
+#endif
+
 //#define DEBUG
 #ifdef DEBUG
 

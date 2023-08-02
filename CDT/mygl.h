@@ -2,6 +2,7 @@
 #define RSMZ_RENDEREROPENGL1_H
 
 #include "renderer.h"
+#include <cstdlib>
 #include <GL/gl.h>
 #include <math.h>
 #include <iostream>
@@ -13,6 +14,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <random>
 #include "model/simulation.h"
 
 namespace framework

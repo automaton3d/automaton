@@ -1,4 +1,3 @@
-//#include "simulation.h"
 #include "window.h"
 #include "mygl.h"
 
@@ -7,7 +6,6 @@
 
 namespace framework
 {
-
 // UID
 
 HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
@@ -326,6 +324,7 @@ DWORD WINAPI RenderWindowGLFW::SimulateThread(LPVOID lpParam)
 
 int RenderWindowGLFW::run(int width, int height)
 {
+  srand(time(NULL));
   // Get the primary monitor's dimensions
   GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
   if (!primaryMonitor)
@@ -447,18 +446,19 @@ int RenderWindowGLFW::run(int width, int height)
 int main(int argc, char *argv[])
 {
   glutInit(&argc, argv);
-    if (!glfwInit())
-    {
-        return EXIT_FAILURE;
-    }
-    GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+  if (!glfwInit())
+  {
+    return EXIT_FAILURE;
+  }
+  GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
 
-    // Get the video mode of the primary monitor
-    const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
-    if (!videoMode)
-    {
-      glfwTerminate();
-      return -1;
-    }
+  // Get the video mode of the primary monitor
+  const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+  if (!videoMode)
+  {
+    glfwTerminate();
+    return -1;
+  }
+  Beep(1000, 100);
   return framework::RenderWindowGLFW::instance().run(videoMode->width, videoMode->height);
 }
