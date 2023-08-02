@@ -19,8 +19,8 @@ namespace automaton
 
 void printCell(Cell *cell)
 {
-    if(jump % 64 == 0)
-    {
+  if(jump % 64 == 0)
+  {
     puts("\nn\tch\toff\ta1\ta2\tk\tsyn\tocc\tobj\tu\to\tp\ts\tpo\tpP\tm\trole");
     puts("----------------------------------------------------------------------------------------------------------------------------------");
   }
@@ -37,12 +37,13 @@ void printCell(Cell *cell)
   printf("%d,%d,%d\t", cell->o[0], cell->o[1], cell->o[2]);
   printf("%d,%d,%d\t", cell->p[0], cell->p[1], cell->p[2]);
   printf("%d,%d,%d\t", cell->s[0], cell->s[1], cell->s[2]);
-  printf("\n");
   printf("%d,%d,%d\t", cell->po[0], cell->po[1], cell->po[2]);
   printf("%d,%d,%d\t", cell->pP[0], cell->pP[1], cell->pP[2]);
   printf("%d,%d,%d\t", cell->m[0], cell->m[1], cell->m[2]);
   printf("%d\n\n", GET_ROLE(cell));
   jump++;
+  fflush(stdout);
+  getc(stdin);
 }
 
 void printConfig(Cell *cell)
