@@ -10,10 +10,10 @@ I'm an independent researcher. My link to the Research Gate portal is
 https://www.researchgate.net/
 
 The immediate goals of this computational implementation are
-* Compute the Poincaré Cycle for sizes SIDE=8, SIDE=16 and SIDE=32 (the universe is SIDE=2 to 269 power);
-* Check charge quantization for SIDE=32;
+* Compute the Poincaré Cycle for sizes L=8, L=16 and L=32 (the universe is L=2 to 269 power);
+* Check charge quantization for L=32;
 * Plot the entropy cycle.
 
 I am passionately dedicated to achieving ambitious goals with my GitHub project, and to make this a reality, I require substantial computational power that exceeds my current budget. As an independent developer without funding from any university or organization, I rely on the generous support of <a href="https://patreon.com/user?u=60332830">contributors</a> like you. Your valuable assistance will play a crucial role in propelling this project forward and unlocking its full potential. By becoming a Patreon, you'll be directly empowering advancements and innovations in this project, making a tangible impact on its success. Join me on this exciting journey, and together, we can shape the future of this project and make a lasting difference.
 
-Last update: 02/08/2023
+Last update: 06/11/2024
