@@ -19,7 +19,6 @@
 
 namespace framework
 {
-
 	// UID
 
 	HWND front_chk, track_chk, p_chk, plane_chk, cube_chk, latt_chk, axes_chk;
@@ -67,18 +66,33 @@ namespace framework
 					              break;
 			      			  }
 			      		  }
-			      		  for (Tickbox& layer : layers)
+			      		  Radio *option = nullptr;
+			      		  Radio *last = nullptr;
+			      		  // Identify the selected option and the previously selected layer
+			      		  for (Radio& layer : layers)
 			      		  {
-			      			  if (xpos >= layer.getX() && xpos <= layer.getX() + 100 && ypos >= layer.getY() && ypos <= layer.getY() + 40)
+			      			  if (xpos >= layer.getX() && xpos <= layer.getX() + 100 &&
+			      				  ypos >= layer.getY() && ypos <= layer.getY() + 40)
 			      			  {
-			      				layer.setState(!layer.getState());
-					              break;
+			      				  option = &layer; // Found the layer at the given position
 			      			  }
+			      			  if (layer.isSelected())
+			      			  {
+			      				  last = &layer; // Track the currently selected layer
+			      			  }
+			      		  }
+			      		  // Update selection if a new option is selected
+			      		  if (option && option != last)
+			      		  {
+			      			  if (last) // Deselect the previously selected layer, if any
+			      				  last->setSelected(false);
+			      			  option->setSelected(true); // Select the new option
 			      		  }
 			      		  bool ok = false;
 			      		  for (Radio& radio : dataset)
 			      		  {
-			      			  if (xpos >= radio.getX()-15 && xpos <= radio.getX() + 100 && ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+			      			  if (xpos >= radio.getX()-15 && xpos <= radio.getX() + 100 &&
+			      				  ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
 			      				  ok = true;
 			      		  }
 			      		  if (ok)
@@ -371,7 +385,6 @@ namespace framework
 			glfwTerminate();
 		    return 1;
 		}
-
 		// Calculate the position to center the window
 		int xPos = (mode->width - 300) / 2;
 		int yPos = (mode->height - 50) / 2;
@@ -484,7 +497,8 @@ namespace framework
  *      (Called by the OS)          *
  *          					    *
  ************************************/
-#ifdef GRAPH
+
+#ifdef GRAPH	// Create the graphical version
 
 	int main(int argc, char *argv[])
 	{
@@ -507,47 +521,18 @@ namespace framework
 		return framework::RenderWindowGLFW::instance().run(videoMode->width, videoMode->height);
 	}
 
-#else
+#else		// Create the text only version
 
 	#include "model/simulation.h"
 	int main(int argc, char *argv[])
 	{
 		printf("SIDE=%d, DIFFUSE=%d, PERIOD=%d, RANGE=%d\n", SIDE, automaton::XYZ_DIFFUSION, automaton::RMAX, automaton::RANGE);
 		fflush(stdout);
-		int timer = 0;
 		automaton::initSimulation();
-#define CA
-#ifdef CA
 		while (true)
 		{
 			automaton::displayLattice();
 			automaton::simulation(); Sleep(100);
-			timer++;
 		}
-#else
-
-		int x = SIDE/2;
-		int y = SIDE/2;
-		int z = SIDE/2;
-		for (int i = 0; i < 3*SIDE/2; i++)
-		{
-			if(i % 10 == 0)
-				printf("\n");
-			printf("(%d, %d),\t", automaton::lattice_main[x][y][z].d, automaton::lattice_main[x][y][z].sin);
-			switch(i % 3)
-			{
-			case 0:
-				x++;
-				break;
-			case 1:
-				y++;
-				break;
-			case 2:
-				z++;
-				break;
-			}
-		}
-		printf("\n");
-#endif
 	}
 #endif

@@ -46,6 +46,9 @@ public:
   void renderPoints();
   void renderText();
   void renderGadgets();
+  void renderEntropy();
+  void renderParticles();
+  void renderProgressBar();
   void resize(int width, int height);
 
 protected:
@@ -180,7 +183,7 @@ public:
 
 extern bool active;
 extern std::vector<Tickbox> checkboxes;
-extern std::vector<Tickbox> layers;
+extern std::vector<Radio> layers;
 extern std::vector<Radio> dataset;
 extern std::vector<Radio> viewpoint;
 

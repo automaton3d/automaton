@@ -7,7 +7,7 @@
 #ifndef TRACKBALL_H
 #define TRACKBALL_H
 
-#include <camera.h>
+#include "camera.h"
 
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/quaternion.hpp>

@@ -9,7 +9,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/constants.hpp> // pi
 #include <glm/glm.hpp>
-#include <trackball.h>
+#include "trackball.h"
 
 namespace framework
 {

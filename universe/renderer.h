@@ -8,7 +8,7 @@
 #ifndef RSMZ_RENDERER_H
 #define RSMZ_RENDERER_H
 
-#include <camera.h>
+#include "camera.h"
 #include <GL/gl.h>
 
 namespace framework
