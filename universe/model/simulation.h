@@ -10,25 +10,33 @@
 #include <stdlib.h>
 #include <math.h>
 #include <GL/gl.h>
-#include <iostream>
 #include <assert.h>
+#include <vector>
+#include <iostream>
+#include <cstdint>
+#include <unordered_map>
+#include "entropy.h"
 
-#define SIDE	11			// Odd multiple of 3 (9, 15, 21, ...)
-#define SIDE2	(SIDE*SIDE)
-#define SIDE3	(SIDE2*SIDE)
-#define SIDE4	(SIDE2*SIDE2)
-#define DEPTH	(13*SIDE2/4)
+#define ORDER		4
+#define SIDE		13	//((1<<ORDER)+1)
+#define CENTER	(SIDE/2)
+#define FCENTER	(SIDE/2.0)
 
-#define NORTH   0
-#define EAST    1
-#define SOUTH   2
-#define WEST    3
-#define UP      4
-#define DOWN    5
+#define NORTH   	0
+#define EAST    	1
+#define SOUTH   	2
+#define WEST    	3
+#define UP      	4
+#define DOWN    	5
 
-#define ZERO(v)      (!(v[0]|v[1]|v[2]))
-#define MAG(v)       ((v)[0]*(v)[0]+(v)[1]*(v)[1]+(v)[2]*(v)[2])
-#define CP(u,v)      {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
+#define POINCARE	2400
+#define WIDTH		480		// graph width
+#define ERA			(POINCARE/WIDTH)
+
+// Macros
+
+#define ZERO(v)		(!(v[0]|v[1]|v[2]))
+#define COPY(u,v)   {u[0]=v[0];u[1]=v[1];u[2]=v[2];}
 
 // Charge masks.
 
@@ -48,46 +56,53 @@ namespace framework
 
 namespace automaton
 {
+	// Signed natural
+
+	typedef struct
+	{
+		unsigned a;				// Absolute value
+		bool s;					// sign
+
+	} SN;
 
 	/// Cell structure ///
 
 	typedef struct
 	{
-		// Wavefront
-
-	    unsigned n, m;			// Tick counters
-	    bool ctrl;				// Cycle control bit
-	    bool wv;				// Wavefront
-	    unsigned d;				// Euclidean distance code
-	    bool reloc;				// Relocation flag
-	    unsigned x, y, z;		// Relative position
-	    unsigned cx, cy, cz;	// Relocation offset
-	    unsigned dx, dy, dz;	// Parallel transport offset
-
-	    // Sine phase
-
-	    unsigned amplitude;		// Combined phase
-	    unsigned sin;			// Basic sine half cycle
-	    unsigned angle;			// To find the phase
-	    unsigned freq;			// Frequency (angle increment)
-
 	    // Physical properties
 
+		bool pole;
 	    unsigned char charge;	// Charge bits w1,w0,q,c2,c1,c0
-	    int p[3];				// Motion driver (momentum)
-	    int s[3];				// Rotation driver (spin)
+	    unsigned s[3];			// Rotation driver (spin)
 	    unsigned aff;			// Affinity
-	    int o[3];
+	    unsigned pos[3];		// Relative position
 
-	    bool seed;				// Marks where p punches the sphere
+	    // Wavefront
+
+	    bool wv;				// Wavefront
+	    unsigned d;				// Euclidean distance code
+	    unsigned sin;			// Basic sine half cycle
+	    SN A;					// Amplitude of frequency freq
+	    unsigned freq;			// Frequency (angle increment)
+	    unsigned angle;			// To find the amplitude
+
+	    // Superluminal
+
+	    unsigned c[3];			// Relocation offset
+	    unsigned k, t;			// Tick counters
+	    bool ctrl;				// Cycle control bit
+	    bool reloc;				// Relocation flag
 
 	    // Interference
 
+	    unsigned m[3];			// Parallel transport offset
 	    bool e;					// Empodion role
+	    SN A_bar;				// Boson average amplitude
+	    SN ph;					// Cumulative phase
 
 	    // Interaction control
 
-	    bool boson;				// boson x non boson
+	    bool collapse;
 	    unsigned net_c0;		// Net color 0 charge
 	    unsigned net_c1;		// Net color 1 charge
 	    unsigned net_c2;		// Net color 2 charge
@@ -95,9 +110,10 @@ namespace automaton
 	    unsigned net_w0;		// Net weak 0 charge
 	    unsigned net_w1;		// Net weak 1 charge
 	    bool fxf;				// fermion x fermion flag
-	    bool bxb;
-	    bool fxb;
-	    bool collapse;
+	    bool bxb;				// boson x boson flag
+	    bool fxb;				// fermion x boson flag
+	    bool wxw;				// segregation flag
+	    bool boson;				// boson x non boson
 
 	} Cell;
 
@@ -114,10 +130,15 @@ namespace automaton
 	void displayLattice();
 	void listLattice();
 	int calc_index(int x, int y, int z, int w);
-	Cell* get_neighbor(int index, int dir);
+	Cell* get_neighbor(Cell *lattice, int index, int dir);
 	bool isColorNeutral(unsigned char c1, unsigned char c2);
-	bool isWeakNeutral(unsigned char c1, unsigned char c2);
 	void printLattice();
+	unsigned int nextPowerOfTwo(unsigned int n);
+	void normalize(double vec[3]);
+	void cross_product(double result[3], const double a[3], const double b[3]);
+	void compileNetCharges(Cell *mirror, Cell *draft);
+	void relocate(Cell *draft, Cell *nei);
+	void markPoles(unsigned p[3], int w);
 
 	/// Cross variables ///
 
@@ -125,7 +146,7 @@ namespace automaton
 	extern unsigned long timer;
 	extern bool stop;
 
-	extern Cell *lattice_main;
+	extern Cell *lattice_current;
 
 	/// Cross constants ///
 
@@ -138,6 +159,11 @@ namespace automaton
 	extern const unsigned UPDATE;
 	extern const unsigned FRAME;
 	extern const unsigned FMAX;
+	extern const unsigned SIDE2;
+	extern const unsigned SIDE3;
+	extern const unsigned W_DIM;
+	extern const unsigned BLOCK;
+	extern const unsigned CONVOL;
 
 }
 

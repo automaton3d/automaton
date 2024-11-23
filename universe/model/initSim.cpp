@@ -6,240 +6,236 @@
 
 #include "simulation.h"
 #include <cstring>
+#include <iostream>
+#include <cmath>
+#include <set>
+#include <tuple>
 
 namespace automaton
 {
-	using namespace std;
+  using namespace std;
 
-	extern Cell *lattice_main, *lattice_draft, *lattice_mirror;
-	int (*points)[3];
-	int indx = 0;
+  const double epsilon = 1e-9;
 
-	/*
-	 * Initializes the spin vectors in two steps.
-	 */
-	void initSpin(Cell *lattice)
-	{
-	  Cell *ptr = lattice;
-	  int w = 0;
-	  // Fisrt step: isotropic distribution
-	  for (int x = 0; x < SIDE; x++)
-	  {
-	    for (int y = 0; y < SIDE; y++)
-	    {
-	      for (int z = 0; z < SIDE; z++)
-	      {
-	        int dx = x - SIDE/2;
-	        int dy = y - SIDE/2;
-	        int dz = z - SIDE/2;
-	        double d = sqrt(dx*dx + dy*dy + dz*dz);
-	        if (d >= SIDE/2 && d < SIDE/2+1)
-	        {
-	          ptr->p[0] = x;
-	          ptr->p[1] = y;
-	          ptr->p[2] = z;
-              ptr++;
-              w++;
-	        }
-          }
-	    }
-	  }
-	  // Second step: complete cells, introduce a 'defect'
-      for (int x = SIDE - 1; w < 13*SIDE*SIDE/4; x--)
-	  {
-	    for (int y = 0; y < SIDE; y++)
-	    {
-	      for (int z = 0; z < SIDE; z++)
-	      {
-	        int dx = x - SIDE/2;
-	        int dy = y - SIDE/2;
-	        int dz = z - SIDE/2;
-	        double d = sqrt(dx*dx + dy*dy + dz*dz);
-	        if (d >= SIDE/2 && d < SIDE/2+1)
-	        {
-	          ptr->p[0] = x;
-	          ptr->p[1] = y;
-	          ptr->p[2] = z;
-              ptr++;
-              w++;
-	        }
-	      }
-	    }
-      }
-	}
+  extern Cell *lattice_current, *lattice_draft, *lattice_mirror;
 
-	// Function to compute the cross product of two vectors
-	void cross_product(int result[3], int a[3], int b[3])
-	{
-	    result[0] = a[1] * b[2] - a[2] * b[1];
-	    result[1] = a[2] * b[0] - a[0] * b[2];
-	    result[2] = a[0] * b[1] - a[1] * b[0];
-	}
-
-	// Function to normalize a vector
-	void normalize(int v[3])
-	{
-	    double magnitude = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-	    if (magnitude == 0)
-	        return; // Prevent division by zero
-
-	    v[0] = static_cast<int>(v[0] / magnitude);
-	    v[1] = static_cast<int>(v[1] / magnitude);
-	    v[2] = static_cast<int>(v[2] / magnitude);
-	}
-
-	// Generate the orthogonal momentum set
-	void generate_momentum_set(Cell *lattice)
-	{
-	    Cell *ptr = lattice;
-
-	    for (int i = 0; i < DEPTH; i++, ptr++)
-	    {
-	        int *s = ptr->s; // Directly use the pointer from Cell
-
-	        // Choose a default vector `v` to calculate perpendicular
-	        int v[3] = {1, 0, 0};
-
-	        // Adjust vector `v` if `s` is aligned along z-axis
-	        if (s[0] == 0 && s[1] == 0)
-	        {
-	            v[0] = 0;
-	            v[1] = 1; // Choose x-y plane vector
-	        }
-
-	        // Generate the first perpendicular vector
-	        int p1[3];
-	        cross_product(p1, s, v);
-	        normalize(p1);
-
-	        // Generate the second perpendicular vector and assign directly to `ptr->p`
-	        cross_product(ptr->p, s, p1);
-	        normalize(ptr->p);
-	    }
-	}
-
-	/*
-	 * Partial initialization of singularity.
-	 * (less momentum and spin)
-	 */
-	void partialInit(Cell *grid)
-	{
-	    Cell *ptr = grid;
-	    int i = 0;
-	    for (int z = 0; z < SIDE; z++)
-	    {
-	        for (int y = 0; y < SIDE; y++)
-	        {
-	            for (int x = 0; x < SIDE; x++)
-	            {
-	                char w0 = i % 2;
-	                char w1 = (i >> 1) % 2;
-	                char q = w0 ^ w1;
-
-	                ptr->charge = (i % 8) | (w0 << 3) | (1 << 4) | (q << 5);
-	                ptr->aff = i + 1;     // dodges zero
-
-	                // Use memset to initialize struct members o and po
-	                memset(ptr->o, 0, sizeof(ptr->o));
-	                i++;
-	                ptr++;
-	            }
-	            ptr += SIDE2 - SIDE;
-	        }
-	        ptr += SIDE4 - SIDE3;
-	    }
-	}
-
-    /**
-     * Function to initialize the lattice.
-     */
-    void initLattice()
+  /*
+   * Generate spin vectors.
+   */
+  void initSpin()
+  {
+    // Maximum radius of the greatest sphere
+    int r_max = CENTER;
+    // Calculate number of steps based on L
+    // (let's take L/2 as a reference for the steps)
+    int n_steps = CENTER;
+    // Interval step size (difference between consecutive steps)
+    double step_size = 1.0 / n_steps;
+    Cell *ptr = lattice_current + CENTER * SIDE2 + CENTER * SIDE + CENTER;
+    for (unsigned w = 0;;)
     {
-        Cell *main_ptr = lattice_main;
-        Cell *draft_ptr = lattice_draft;
-
-        // Loop over the linear index in a 4D grid
-        for (int index = 0; index < SIDE4; index++)
+      for (int x = 0; x < SIDE; x++)
+      {
+        for (int y = 0; y < SIDE; y++)
         {
-            int x = (index / SIDE2) % SIDE;    // Calculate x coordinate
-            int y = (index / SIDE) % SIDE;     // Calculate y coordinate
-            int z = index % SIDE;              // Calculate z coordinate
-
-            // Calculate distances relative to the center
-            double dx = (double)(x - SIDE / 2);
-            double dy = (double)(y - SIDE / 2);
-            double dz = (double)(z - SIDE / 2);
-            double d = sqrt(dx * dx + dy * dy + dz * dz);
-
-            // Initialize cell properties
-            main_ptr->n = 0;
-            main_ptr->m = 0;
-            main_ptr->ctrl = false;  // this guarantees segregation (6.6.7)
-            main_ptr->wv = false;
-            main_ptr->d = (unsigned)(LIGHT * d);
-            main_ptr->reloc = false;
-
-            // Assign cell coordinates
-            main_ptr->x = x;
-            main_ptr->y = y;
-            main_ptr->z = z;
-
-            main_ptr->cx = 0;
-            main_ptr->cy = 0;
-            main_ptr->cz = 0;
-
-            // Define frequency and assertion
-            main_ptr->freq = 2;
-            assert(main_ptr->freq < FMAX);
-
-            // Calculate 'sin' value based on the distance
-            main_ptr->sin = (unsigned)(SIDE * fabs(sin(2 * M_PI * d / SIDE)));
-
-            // Initialize momentum and spin vectors
-            main_ptr->p[0] = 0;
-            main_ptr->p[1] = 0;
-            main_ptr->p[2] = 0;
-            main_ptr->s[0] = 0;
-            main_ptr->s[1] = 0;
-            main_ptr->s[2] = 0;
-
-            // Net charges initialization
-            main_ptr->net_c0 = 0;
-            main_ptr->net_c1 = 0;
-            main_ptr->net_c2 = 0;
-            main_ptr->net_q = 0;
-            main_ptr->net_w0 = 0;
-            main_ptr->net_w1 = 0;
-
-            // Copy the cell to the draft lattice
-            *draft_ptr++ = *main_ptr++;
+          for (int z = 0; z < SIDE; z++)
+          {
+            // Compute the squared distance from the center
+            int dx = x - CENTER;
+            int dy = y - CENTER;
+            int dz = z - CENTER;
+            int distance_squared = dx * dx + dy * dy + dz * dz;
+            // Check for distance lying between r_max-1 and r_max
+            for (int i = 0; i < n_steps; i++)
+            {
+              // Define the distance at step i (d) and check if the point
+              // is within the range [d^2, (d + step_size)^2]
+              double d = r_max - 1 + i * step_size;
+              double next_d = r_max - 1 + (i + 1) * step_size;
+              if (distance_squared >= d * d && distance_squared < next_d * next_d)
+              {
+                ptr->s[0] = x;
+                ptr->s[1] = y;
+                ptr->s[2] = z;
+                w++;
+                ptr += SIDE3;
+                if (w == W_DIM)
+                  return;
+              }
+            }
+          }
         }
-
-        // Calculate the central index for all layers in the w dimension
-        for (int w_layer = 0; w_layer < SIDE; w_layer++)
-        {
-            // Calculate the central index for the w_layer
-            int center = w_layer * SIDE3 + (SIDE / 2) * SIDE2 + (SIDE / 2) * SIDE + (SIDE / 2);
-            // Define the seed cell
-        	partialInit(lattice_main + center);
-        	partialInit(lattice_draft + center);
-        	initSpin(lattice_main + center);
-        	generate_momentum_set(lattice_main + center);
-        	initSpin(lattice_draft + center);
-        	generate_momentum_set(lattice_draft + center);
-        }
+      }
+      if (w == 0)
+        break;
     }
+    // Catastrophic exit
+    assert(0);
+  }
 
-	/**
-	 * Hub for initialization routines.
-	 */
-	void initSimulation()
-	{
-		voxels = (COLORREF *)malloc(SIDE3 * sizeof(COLORREF));
-		lattice_main = (Cell *)malloc(SIDE3 * DEPTH * sizeof(Cell));
-		lattice_draft = (Cell *)malloc(SIDE3 * DEPTH * sizeof(Cell));
-		lattice_mirror = (Cell *)malloc(SIDE3 * DEPTH * sizeof(Cell));
-		initLattice();
-	}
+  /*
+   * Generates momentum vectors from spin.
+   */
+  void initMomentum()
+  {
+    Cell *ptr = lattice_current + CENTER * SIDE2 +
+      CENTER * SIDE + CENTER;
+    for (unsigned w = 0; w < W_DIM; w++, ptr += SIDE3)
+    {
+      double dx = ptr->s[0] - FCENTER;
+      double dy = ptr->s[1] - FCENTER;
+      double dz = ptr->s[2] - FCENTER;
+      double s[3] = { dx, dy, dz };
+      normalize(s);
+      double v[3];
+      if (fabs(s[0]) < epsilon && fabs(s[1]) < epsilon)
+      {
+          // Handle special case where s is aligned with the z-axis
+          v[0] = 0.0;
+          v[1] = 1.0;
+          v[2] = 0.0;
+      }
+      else
+      {
+          // Default spin vector
+          v[0] = 1.0;
+          v[1] = 0.0;
+          v[2] = 0.0;
+      }
+      double p1[3];
+      cross_product(p1, s, v);
+      normalize(p1);
+      double p2[3];
+      cross_product(p2, s, p1);
+      normalize(p2);
+      // Map normalized vector to unsigned integer range
+      unsigned p[3];
+      p[0] = (unsigned)((p2[0] + 1.0) * FCENTER);
+      p[1] = (unsigned)((p2[1] + 1.0) * FCENTER);
+      p[2] = (unsigned)((p2[2] + 1.0) * FCENTER);
+      // Mark the poles in the layer
+      markPoles(p, w);
+      // Ensure the values are in the expected range
+      assert(p[0] < SIDE && p[1] < SIDE && p[2] < SIDE);
+    }
+    puts("\tinitMomentum ok.");
+ }
+
+ /*
+  * Initializes charges and affinity in the central
+  * cell of every layer.
+  */
+ void initCharges()
+ {
+   int c2 = CENTER * SIDE2 + CENTER * SIDE + CENTER;
+   Cell *ptr = lattice_current + c2;
+   // Calculate the central index for all layers in the w dimension
+   for (unsigned w = 0; w < W_DIM; w++, ptr += SIDE3)
+   {
+     char w0 = w % 2;
+     char w1 = (w >> 1) % 2;
+     char q = w0 ^ w1;
+     ptr->charge = (w % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+     ptr->aff = w + 1;     // avoid zero
+   }
+   puts("initCharges ok.");
+ }
+
+ void initDebug()
+ {
+   Cell *cell = lattice_current + CENTER * SIDE2 + CENTER * SIDE + CENTER;
+   cell->c[0] = SIDE/4;
+   cell->c[1] = 0;
+   cell->c[2] = 0;
+   cell->reloc = 1;
+   cell->k = 0;
+   puts("initDebug ok.");
+ }
+
+  /**
+   * Function to initialize the lattice.
+   */
+  void initGeneral()
+  {
+    // Initialize other properties
+    Cell *ptr = lattice_current;
+    for (unsigned index = 0; index < BLOCK; index++, ptr++)
+    {
+      // x, y, z here are spatial coordinates
+      int x = (index / SIDE2) % SIDE;
+      int y = (index / SIDE) % SIDE;
+      int z = index % SIDE;
+      // z is the layer coordinate
+      int w = index / SIDE3;printf("w=%d\n", w);
+      Cell *cell0 = lattice_current + SIDE3 * w;
+      ptr->charge = cell0->charge;
+      // Spread spin
+      ptr->s[0] = cell0->s[0];
+      ptr->s[1] = cell0->s[1];
+      ptr->s[2] = cell0->s[2];
+      // Assign cell coordinates
+      ptr->pos[0] = x;
+      ptr->pos[1] = y;
+      ptr->pos[2] = z;
+      // Calculate distances relative to the center
+      double dx = (double)(x - FCENTER);
+      double dy = (double)(y - FCENTER);
+      double dz = (double)(z - FCENTER);
+      double d = sqrt(dx * dx + dy * dy + dz * dz);
+      // Initialize cell properties
+      ptr->d = (unsigned)(LIGHT * d);
+      // Define frequency and assertion
+      ptr->freq = 1;
+      assert(ptr->freq < FMAX);
+      // Calculate 'sin' value based on the distance
+      double sin_scaled = SIDE * fabs(sin(2 * M_PI * d / SIDE));
+      assert(sin_scaled >= 0 && sin_scaled <= UINT_MAX);
+      ptr->sin = (unsigned)sin_scaled;
+
+      ptr->ctrl = 1; // DEBUG
+    }
+    puts("initGeneral ok.");
+  }
+
+  void sanityTest()
+  {
+    unsigned ns = 0;
+    Cell *ptr = lattice_current;
+    for (unsigned i = 0; i < BLOCK; i++, ptr++)
+    {
+      if (ptr->s[0] != CENTER || ptr->s[1] != CENTER || ptr->s[2] != CENTER)
+        ns++;
+    }
+    if (ns == W_DIM)
+      puts("sanity ok.");
+    else
+      printf("sanity failed: s=%d\n", ns);
+  }
+
+  /**
+   * Hub for initialization routines.
+   */
+  void initSimulation()
+  {
+    // Allocate memory
+    voxels = (COLORREF *)malloc(SIDE3 * sizeof(COLORREF));
+    lattice_current   = (Cell *)malloc(BLOCK * sizeof(Cell));
+    lattice_draft  = (Cell *)malloc(BLOCK * sizeof(Cell));
+    lattice_mirror = (Cell *)malloc(BLOCK * sizeof(Cell));
+    assert(lattice_current != nullptr && lattice_draft != nullptr &&
+           lattice_mirror != nullptr);
+    // Clean the lattice
+    memset(lattice_current, 0, BLOCK * sizeof(Cell));
+    // Initialize data
+    initCharges();
+    initSpin();
+    initMomentum();
+    initGeneral();
+    initDebug();
+    sanityTest();
+    // Replicate main in draft
+    memcpy(lattice_draft, lattice_current, BLOCK * sizeof(Cell));
+    fflush(stdout);
+  }
 
 }

@@ -5,12 +5,14 @@
  */
 
 #include "simulation.h"
-#include "mygl.h"
+#include "../mygl.h"
+#include <cmath>
+#include <vector>
 
 namespace automaton
 {
 	unsigned last_n = 0;
-	extern Cell *lattice_main;
+	extern Cell *lattice_current;
 	COLORREF *voxels;
 
 	std::random_device rd;
@@ -26,15 +28,13 @@ namespace automaton
 	{
 	    if (!framework::active || framework::checkboxes.empty())
 	        return;
+	    w = 0;
 	    for (int i = 0; i < LAYERS; i++)
 	    {
-	    	if (framework::layers[i].getState())
-	    	{
+	    	if (framework::layers[i].isSelected())
 	    		w = i;
-	    	}
 	    }
-
-	    Cell *cell = lattice_main + SIDE3 * w;
+	    Cell *cell = lattice_current + SIDE3 * w;
 	    for (int x = 0; x < SIDE; x++)
 	    {
 	        for (int y = 0; y < SIDE; y++)
@@ -43,7 +43,11 @@ namespace automaton
 	            {
                     int index3D = x * SIDE2 + y * SIDE + z;
 	                // Map phase to gray tones from THRESH to 255
-	                unsigned tone = AMPLITUDE * cell->amplitude / SIDE + THRESH;
+#ifdef TONE
+	                unsigned tone = AMPLITUDE * cell->A.a / SIDE + THRESH;
+#else
+	                unsigned tone = 255;
+#endif
 
 	                // Set voxel color based on the cell's wv property
 	                voxels[index3D] = (cell->wv) ? RGB(tone, tone, tone) : RGB(0, 0, 0);
@@ -56,7 +60,7 @@ namespace automaton
 	void displayLattice()
     {
 		system("cls");
-		printf("DIFFUSE=%d\tSHIFTS=%d\tRMAX=%d\tUNIQUE=%d\tstep=%d\n", XYZ_DIFFUSION, RELOC, RMAX, LIGHT, lattice_main[0].n);
+		printf("DIFFUSE=%d\tSHIFTS=%d\tRMAX=%d\tUNIQUE=%d\tstep=%d\n", XYZ_DIFFUSION, RELOC, RMAX, LIGHT, lattice_current[0].k);
 
         // Cabeçalho da grade
         for (int i = 0; i < SIDE; i++)
@@ -77,10 +81,10 @@ namespace automaton
                     int index3D = x * SIDE * SIDE + y * SIDE + z;
 //#define PATTERN
 #ifdef PATTERN
-                    printf("[%3u,%d]", (lattice_main + index3D)->d, (lattice_main + index3D)->m);
+                    printf("[%3u,%d]", (lattice_current + index3D)->d, (lattice_current + index3D)->m);
 #else
-                    if ((lattice_main + index3D)->wv)
-                        printf("+ ");
+                    if ((lattice_current + index3D)->wv)
+                        printf("X ");
                     else
                         printf(". ");
 #endif
@@ -94,7 +98,7 @@ namespace automaton
     }
 
 	// Função para obter vizinhos considerando fronteiras toroidais
-	Cell* get_neighbor(int index, int dir)
+	Cell* get_neighbor(Cell *lattice, int index, int dir)
 	{
 	    int x = (index / SIDE3) % SIDE;
 	    int y = (index / SIDE2) % SIDE;
@@ -103,12 +107,12 @@ namespace automaton
 
 	    switch (dir)
 	    {
-	        case NORTH: return lattice_main + (((x - 1 + SIDE) % SIDE) * SIDE3 + y * SIDE2 + z * SIDE + shell);
-	        case EAST:  return lattice_main + (x * SIDE3 + ((y + 1) % SIDE) * SIDE2 + z * SIDE + shell);
-	        case SOUTH: return lattice_main + (((x + 1) % SIDE) * SIDE3 + y * SIDE2 + z * SIDE + shell);
-	        case WEST:  return lattice_main + (x * SIDE3 + ((y - 1 + SIDE) % SIDE) * SIDE2 + z * SIDE + shell);
-	        case UP:    return lattice_main + (x * SIDE3 + y * SIDE2 + ((z + 1) % SIDE) * SIDE + shell);
-	        case DOWN:  return lattice_main + (x * SIDE3 + y * SIDE2 + ((z - 1 + SIDE) % SIDE) * SIDE + shell);
+	        case NORTH: return lattice + (((x - 1 + SIDE) % SIDE) * SIDE3 + y * SIDE2 + z * SIDE + shell);
+	        case EAST:  return lattice + (x * SIDE3 + ((y + 1) % SIDE) * SIDE2 + z * SIDE + shell);
+	        case SOUTH: return lattice + (((x + 1) % SIDE) * SIDE3 + y * SIDE2 + z * SIDE + shell);
+	        case WEST:  return lattice + (x * SIDE3 + ((y - 1 + SIDE) % SIDE) * SIDE2 + z * SIDE + shell);
+	        case UP:    return lattice + (x * SIDE3 + y * SIDE2 + ((z + 1) % SIDE) * SIDE + shell);
+	        case DOWN:  return lattice + (x * SIDE3 + y * SIDE2 + ((z - 1 + SIDE) % SIDE) * SIDE + shell);
 	        default: return NULL;
 	    }
 	}
@@ -119,29 +123,64 @@ namespace automaton
 	    return ((res == 0 || res == 7) && c1 && c2 && c1 != 7 && c2 != 7);
 	}
 
-	bool isWeakNeutral(unsigned char c1, unsigned char c2)
-	{
-	    unsigned res = (c1 ^ c2) & 3; // Use 3 (binary 11) for 2 bits
-	    return ((res == 0 || res == 3) && c1 != 0 && c2 != 0 && c1 != 3 && c2 != 3);
-	}
-
 	void printLattice()
 	{
 	    for (int w = 0; w < SIDE; w++)
 	    {
 	        // Calculate the central index as done in `initLattice`
-	        int center = w * SIDE3 + (SIDE / 2) * SIDE2 + (SIDE / 2) * SIDE + (SIDE / 2);
+	        int center = w * SIDE3 + CENTER * SIDE2 + CENTER * SIDE + CENTER;
 
-	        Cell *pntr = lattice_main + center;
-	        int p_magnitude = (int)round(sqrt(pntr->p[0] * pntr->p[0] + pntr->p[1] * pntr->p[1] + pntr->p[2] * pntr->p[2]));
-	        int spin_magnitude = (int)round(sqrt(pntr->s[0] * pntr->s[0] + pntr->s[1] * pntr->s[1] + pntr->s[2] * pntr->s[2]));
-
-	        printf("w=%d: p=(%d, %d, %d), |p|=%d\t\tspin=(%d, %d, %d), |spin|=%d\n",
-	               w, pntr->p[0], pntr->p[1], pntr->p[2], p_magnitude,
-	               pntr->s[0], pntr->s[1], pntr->s[2], spin_magnitude);
+	        Cell *ptr = lattice_current + center;
+	        printf("%d  ", ptr->pole);
 	    }
 	}
 
+	unsigned int nextPowerOfTwo(unsigned int n)
+	{
+	    if (n == 0)
+	    	return 1; // Special case: Next power of 2 for 0 is 1.
+	    if (n >= (UINT_MAX >> 1) + 1)
+	    {
+	        // If n is too large, the next power of 2 exceeds unsigned int range.
+	        return 0; // Overflow scenario; return 0 to indicate failure.
+	    }
+	    n--; // Handle cases where n is already a power of 2.
+	    // Propagate the highest set bit
+	    n |= n >> 1;
+	    n |= n >> 2;
+	    n |= n >> 4;
+	    n |= n >> 8;
+	    n |= n >> 16;
+	    return n + 1; // Add 1 to get the next power of 2.
+	}
+
+	void cross_product(double result[3], const double a[3], const double b[3])
+	{
+	    result[0] = a[1] * b[2] - a[2] * b[1];
+	    result[1] = a[2] * b[0] - a[0] * b[2];
+	    result[2] = a[0] * b[1] - a[1] * b[0];
+	}
+
+	void normalize(double vec[3])
+	{
+	    double magnitude = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
+
+	    // Avoid division by zero
+	    if (magnitude > 0.0)
+	    {
+	        vec[0] /= magnitude;
+	        vec[1] /= magnitude;
+	        vec[2] /= magnitude;
+	    }
+	}
+
+	bool isMemoryAllZeroes(const void* memory, std::size_t size)
+	{
+	    char* zeroBlock = new char[size]();
+	    bool isAllZeroes = std::memcmp(memory, zeroBlock, size) == 0;
+	    delete[] zeroBlock;
+	    return isAllZeroes;
+	}
 }
 
 #ifdef REBOTALHO
@@ -220,7 +259,7 @@ bool aligned(short* a, short* b)
             {
               // Use tick parity to distinguish E or M case.
 
-              if (stb->n % SIDE_2 == 0)
+              if (stb->k % SIDE_2 == 0)
               {
                 // Repulsion.
                 // drf is now a messenger.
@@ -241,7 +280,7 @@ bool aligned(short* a, short* b)
             {
               // Use tick parity to distinguish E or M case.
 
-              if (stb->n % SIDE_2 == 0)
+              if (stb->k % SIDE_2 == 0)
               {
                 // Attraction.
                 // drf is now a messenger.
