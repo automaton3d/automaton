@@ -9,15 +9,19 @@
 
 #include "simulation.h"
 
+#define NON_ZERO_STATE_COUNT_LIMIT 11  // Adjust this based on your state's range
+
 namespace automaton
 {
     using namespace std;
 
+    // Global variables (ensure they are initialized properly elsewhere in your code)
     unordered_map<unsigned, unsigned> nonZeroStateCounts; // Sparse map for non-zero states
-    unsigned zeroStateCount = 0;	// Separate counter for zero states
-    unsigned totalStates = 0;		// Total number of states processed across all calls
+    unsigned zeroStateCount = 0;  // Separate counter for zero states
+    unsigned totalStates = 0;     // Total number of states processed across all calls
 
     Entropy entropy;
+    double H0;	// Initial entropy
 
     /*
      * State function that selects specific properties of interest to represent the state of a cell.
@@ -39,26 +43,31 @@ namespace automaton
         return 0;
     }
 
-    /*
-     * State function that collects and counts the state for a single cell position and depth.
-     */
+    // Function that collects and counts the state for a single cell position and depth
     void stateFunction(int x, int y, int z)
     {
-        Cell *ptr = lattice_current + x * SIDE2 + y * SIDE + z;
-        for (unsigned w = 0; w < W_DIM; w++, ptr += SIDE3)
+        // Iterate over the depth dimension (W_DIM layers)
+        for (unsigned w = 0; w < W_DIM; ++w)
         {
-            unsigned state = cellState(ptr);
+            // Calculate the index for the flattened 1D array using (x, y, z, w)
+            int index = (x * SIDE2 + y * SIDE + z) + (w * SIDE3);
+            Cell& cell = lattice_current[index];  // Access the current cell
+            // Get the state of the cell
+            unsigned state = cellState(&cell);  // Assuming cellState is a function returning the cell's state
+            // Count zero state
             if (state == 0)
             {
                 zeroStateCount++;  // Increment zero state counter
             }
             else
             {
-                nonZeroStateCounts[state]++;  // Increment count for non-zero states
+                nonZeroStateCounts[state]++;  // Increment count for this specific non-zero state
             }
-            totalStates++; // Track total number of states
+            // Increment the total state count
+            totalStates++;
         }
     }
+
 
     /*
      * Collects data from all cells in the lattice and updates the global state counts.
@@ -84,7 +93,8 @@ namespace automaton
     {
         double H = 0;
         double probs = 0;
-    	entropy.setMaxEntropy(log2(totalStates));
+        entropy.setMaxEntropy(log2(totalStates)); // Set max entropy
+
         // Include zero state in entropy calculation
         if (zeroStateCount > 0)
         {
@@ -92,6 +102,7 @@ namespace automaton
             probs += prob;
             H += prob * log2(prob);
         }
+
         // Compute probabilities and entropy for non-zero states
         for (const auto& par : nonZeroStateCounts)
         {
@@ -99,10 +110,45 @@ namespace automaton
             probs += prob;
             H += prob * log2(prob);
         }
+
         // Guarantee unitarity
         assert(abs(probs - 1.0) <= 1e-9);
-//        H=-rand()/ (double)RAND_MAX;
+
         return -H; // Entropy is negative sum
     }
 
-}
+    void detectPoincare()
+    {
+        // Test the completion of the Poincaré cycle graph
+        if (framework::timer == POINCARE)
+        {
+    		// Play trout.wav
+        	framework::sound();
+        	// The program stops here - END
+        }
+        // Update entropy data
+        if (framework::timer % FRAME == 0)
+    	{
+        	collectData();
+    	}
+        double H = 0;
+        if (framework::timer % FRAME * ERA == 0)
+        {
+        	H = computeEntropy();
+        }
+       	if (H == H0 || rand() % 2 == 0)
+       	{
+       		printf("***** Poincaré=%ld *****\n", framework::timer);
+       		// Play trout.wav
+           	framework::sound();
+           	// The program stops here - END
+        }
+    	else
+    	{
+    		printf("H=%f\n", H);	// debug
+    		Beep(750, 300);
+    		entropy.add(H);
+    	}
+    }
+
+} // End of namespace automaton

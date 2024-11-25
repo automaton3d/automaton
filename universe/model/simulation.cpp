@@ -4,6 +4,9 @@
  */
 
 #include "simulation.h"
+#include <windows.h>
+#include <mmsystem.h>
+#include <iostream>
 
 namespace automaton
 {
@@ -13,12 +16,12 @@ namespace automaton
   const unsigned W_DIM = 3 * SIDE2;
   const unsigned BLOCK = SIDE3 * W_DIM;
   // Dynamics constants
-  const unsigned CONVOL = 2;// W_DIM + 1;  // +1 needed for temp
+  const unsigned CONVOL = W_DIM + 1;  // +1 needed for temp
   const unsigned COLLISION = CONVOL + 1;
   const unsigned W_DIFFUSION = COLLISION + SIDE;
   const unsigned XYZ_DIFFUSION = W_DIFFUSION + 3 * CENTER;
   const unsigned RELOC = XYZ_DIFFUSION + 3 * SIDE;
-  const unsigned UPDATE = CONVOL + COLLISION + XYZ_DIFFUSION + RELOC;
+  const unsigned UPDATE = W_DIM + 1 + 1 + SIDE + 3 * CENTER + 3 * SIDE;
   const unsigned DIAG = (unsigned) SIDE * sqrt(3);
   const unsigned LIGHT = (SIDE - 1) / 2;
   const unsigned RMAX = DIAG / 2;
@@ -26,9 +29,9 @@ namespace automaton
   const unsigned FRAME = UPDATE + LIGHT;
   const unsigned FMAX = RMAX / 2;
 
-  Cell *lattice_current, *lattice_draft, *lattice_mirror;
-
-  extern Entropy entropy;
+  std::vector<Cell> lattice_current(BLOCK);
+  std::vector<Cell> lattice_draft(BLOCK);
+  std::vector<Cell> lattice_mirror(BLOCK);
 
   /*
    * TODO list
@@ -43,19 +46,29 @@ namespace automaton
    *
    */
 
+  // Used for circular shift in the W dimension
+  bool shift;
+
   /*
    * Executes an one tick operation in every cell.
    * (serialized, not parallel ideally)
    */
   void update_lattice()
   {
-    Cell *current = lattice_current,
-         *draft   = lattice_draft,
-         *mirror  = lattice_mirror,
-         *nei;
+	  auto current = lattice_current.begin();
+	  auto draft   = lattice_draft.begin();
+	  auto mirror  = lattice_mirror.begin();
+	  Cell *nei; // Remains a raw pointer if needed
     for (unsigned i = 0; i < BLOCK; i++, current++, draft++, mirror++)
     {
-    	unsigned z = i / SIDE3;
+      shift = false;
+    	/* DEBUG stuff
+      unsigned w = i / SIDE3;                    // Calculate the `w` index
+      unsigned x = (i % SIDE3) / SIDE2;          // Calculate the `x` index
+      unsigned y = (i % SIDE2) / SIDE;           // Calculate the `y` index
+      unsigned z = i % SIDE;                     // Calculate the `z`
+      */
+
       // Test the UPDATE x EXPANSION toggle bit
       if (current->ctrl)
       {
@@ -70,16 +83,16 @@ namespace automaton
           // First clock tick?
           if (current->k == 0)
           {
-            // Mirror the first version of
-            // lattice_main in lattice_mirror
-            *mirror = *draft;
+            // Mirror the first version of the main
+            // lattice in mirror lattice
+            *mirror = *current;
             // Prepare to convolve charge
-            draft->net_c0 = (draft->charge & C0_MASK) ? CENTER-1 : CENTER+1;
-            draft->net_c1 = (draft->charge & C1_MASK) ? CENTER-1 : CENTER+1;
-            draft->net_c2 = (draft->charge & C2_MASK) ? CENTER-1 : CENTER+1;
-            draft->net_w0 = (draft->charge & W0_MASK) ? CENTER-1 : CENTER+1;
-            draft->net_w1 = (draft->charge & W1_MASK) ? CENTER-1 : CENTER+1;
-            draft->net_q = (draft->charge & Q_MASK) ? CENTER-1 : CENTER+1;
+            draft->net_c0 = (current->charge & C0_MASK) ? CENTER-1 : CENTER+1;
+            draft->net_c1 = (current->charge & C1_MASK) ? CENTER-1 : CENTER+1;
+            draft->net_c2 = (current->charge & C2_MASK) ? CENTER-1 : CENTER+1;
+            draft->net_w0 = (current->charge & W0_MASK) ? CENTER-1 : CENTER+1;
+            draft->net_w1 = (current->charge & W1_MASK) ? CENTER-1 : CENTER+1;
+            draft->net_q = (current->charge & Q_MASK) ? CENTER-1 : CENTER+1;
             draft->boson = true;
           }
           // Wavefronts clash?
@@ -264,7 +277,7 @@ namespace automaton
           }
           // Execute a right circular shift in dimension W of the draft lattice
           // This shift will be completed during the swap_lattices() call
-          draft = lattice_draft + (draft - lattice_draft + SIDE3) % BLOCK;
+          shift = true;
         }
 
         /******** COLLISION ********/
@@ -311,14 +324,12 @@ namespace automaton
 
           if (current->pole && current->t % LIGHT == 0 && rand() % 5000 == 0)
           {
-//        	  printf("t=%u\n", current->t)
-        	  /*;
-          	draft->reloc = true;  // keep or remove?
+        	// DEBUG
+            draft->reloc = true;
             draft->c[0] = rand() % SIDE;
             draft->c[1] = rand() % SIDE;
             draft->c[2] = rand() % SIDE;
-            draft->t = 1
-            */;
+            //printf("t=%d %d\n", current->t, draft->t);
           }
 #endif
         }
@@ -357,9 +368,10 @@ namespace automaton
           {
             for (int dir = 0; dir < 6; dir++)
             {
-              nei = get_neighbor(lattice_current, i, dir);
+              nei = get_neighbor(i, dir);
               if (nei->reloc)
               {
+//            	  assert(w==0);
                 draft->reloc = true;
                 draft->c[0] = nei->c[0];
                 draft->c[1] = nei->c[1];
@@ -382,45 +394,51 @@ namespace automaton
         // the x, y, and z axes.
         else
         {
-          // Now bubble relocation to c.p.
-          nei = get_neighbor(lattice_current, i, NORTH);
-          if (nei->c[0] > 0)
-          {
-        	relocate(draft, nei);
-            draft->c[0]--;
-            printf("%u,%u,%u: k=%u z=%u\n", draft->c[0], draft->c[1], draft->c[2], current->k, z); fflush(stdout);
-          }
-          nei = get_neighbor(lattice_current, i, WEST);
-          if (nei->c[1] > 0)
-          {
-          	relocate(draft, nei);
-            draft->c[1]--;
-          }
-          nei = get_neighbor(lattice_current, i, DOWN);
-          if (nei->c[2] > 0)
-          {
-          	relocate(draft, nei);
-            draft->c[2]--;
-          }
+            // Bubble relocation to c.p.
+            int neighborIndex;
+
+            // Get the neighbor in the NORTH direction
+            neighborIndex = get_neighbor_index(i, NORTH);
+            if (neighborIndex >= 0 && lattice_current[neighborIndex].c[0] > 0)
+            {
+                relocate(&draft[i], &lattice_current[neighborIndex]);
+                draft[i].c[0]--;
+            }
+
+            // Get the neighbor in the WEST direction
+            neighborIndex = get_neighbor_index(i, WEST);
+            if (neighborIndex >= 0 && lattice_current[neighborIndex].c[1] > 0)
+            {
+                relocate(&draft[i], &lattice_current[neighborIndex]);
+                draft[i].c[1]--;
+            }
+
+            // Get the neighbor in the DOWN direction
+            neighborIndex = get_neighbor_index(i, DOWN);
+            if (neighborIndex >= 0 && lattice_current[neighborIndex].c[2] > 0)
+            {
+                relocate(&draft[i], &lattice_current[neighborIndex]);
+                draft[i].c[2]--;
+            }
 #ifdef PRODUCTION
           // Execute bubble parallel transport
           else if (draft->m[0] > 0)
           {
-            nei = get_neighbor(lattice_current, i, NORTH);
+            nei = get_neighbor(i, NORTH);
         	relocate(draft, nei);
             draft->reloc = false;
             draft->m[0]--;
           }
           else if (draft->m[1] > 0)
           {
-            nei = get_neighbor(lattice_current, i, WEST);
+            nei = get_neighbor(i, WEST);
         	relocate(draft, nei);
             draft->reloc = false;
             draft->m[1]--;
           }
           else if (draft->m[2] > 0)
           {
-            nei = get_neighbor(lattice_current, i, DOWN);
+            nei = get_neighbor(i, DOWN);
         	relocate(draft, nei);
             draft->reloc = false;
             draft->m[2]--;
@@ -453,7 +471,7 @@ namespace automaton
         // Check neighbors with information
         for (int dir = 0; dir < 6; dir++)
         {
-            nei = get_neighbor(lattice_current, i, dir);
+            nei = get_neighbor(i, dir);
             if (nei->freq > 0)
             {
             	draft->charge = nei->charge;
@@ -514,10 +532,26 @@ namespace automaton
    */
   void swap_lattices()
   {
-    Cell *main_ptr = lattice_current;
-    Cell *draft_ptr = lattice_draft;
-    for (unsigned i = 0; i < BLOCK; i++)
-      *main_ptr++ = *draft_ptr++;
+      // Ensure the draft lattice is the same size as the main lattice
+      if (lattice_current.size() != lattice_draft.size())
+      {
+          std::cerr << "Error: Lattices are not of the same size!" << std::endl;
+          return;
+      }
+      if (shift)
+      {
+          for (size_t i = 0; i < lattice_current.size(); ++i)
+          {
+        	  lattice_current[i] = lattice_draft[(i + SIDE3) % BLOCK];
+          }
+      }
+      else
+      {
+          for (size_t i = 0; i < lattice_current.size(); ++i)
+          {
+        	  lattice_current[i] = lattice_draft[i];
+          }
+      }
   }
 
   /*
@@ -525,35 +559,8 @@ namespace automaton
    */
   void simulation()
   {
+    // Execute one tick of the CA
     update_lattice();
     swap_lattices();
-
-#define XXX
-#ifdef XXX
-    // Update entropy
-    if (framework::timer % FRAME == 0)
-	{
-    	collectData();
-	}
-    if (framework::timer % (FRAME * ERA) == 0)
-    {
-    	double H = computeEntropy();
-    	printf("H=%f\n", H);	// debug
-    	Beep(750, 300);
-    	entropy.add(H);
-    }
-#else
-    // Update entropy
-    if (framework::timer % FRAME == 0)
-	{
-    	collectData();
-	}
-    if (framework::timer % (FRAME * ERA) == 0)
-    {
-    	double H = computeEntropy();
-    	assert(H >= 0);
-    	printf("H=%f\n", H);	// debug
-    }
-#endif
   }
 }

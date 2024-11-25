@@ -45,13 +45,17 @@ namespace automaton
 	      draft->net_w1--;
 	}
 
+	/*
+	 * Executes the relocation of one cell.
+	 */
 	void relocate(Cell *draft, Cell *nei)
 	{
 		COPY(draft->pos, nei->pos);
+		COPY(draft->c, nei->c);
 		draft->d = nei->d;
 		draft->sin = nei->sin;
 		draft->aff = nei->aff;
-		COPY(draft->c, nei->c);
+		draft->e = nei->e;
 	}
 
 	/*
@@ -89,7 +93,9 @@ namespace automaton
 	        int zd = az - dx;
 	        for (int i = 0; i <= dx; i++)
 	        {
-	        	(lattice_current + w * SIDE3 + x * SIDE2 + y * SIDE + z)->pole = true;
+//	        	(lattice_current + w * SIDE3 + x * SIDE2 + y * SIDE + z)->pole = true;
+	        	lattice_current[w * SIDE3 + x * SIDE2 + y * SIDE + z].pole = true;
+
 	            x += sx;
 	            if (yd >= 0)
 	            {
@@ -112,7 +118,8 @@ namespace automaton
 	        int zd = az - dy;
 	        for (int i = 0; i <= dy; i++)
 	        {
-	        	(lattice_current + w * SIDE3 + x * SIDE2 + y * SIDE + z)->pole = true;
+//	        	(lattice_current + w * SIDE3 + x * SIDE2 + y * SIDE + z)->pole = true;
+	        	lattice_current[w * SIDE3 + x * SIDE2 + y * SIDE + z].pole = true;
 	            y += sy;
 	            if (xd >= 0)
 	            {
@@ -135,7 +142,8 @@ namespace automaton
 	        int yd = ay - dz;
 	        for (int i = 0; i <= dz; i++)
 	        {
-	        	(lattice_current + w * SIDE3 + x * SIDE2 + y * SIDE + z)->pole = true;
+//	        	(lattice_current + w * SIDE3 + x * SIDE2 + y * SIDE + z)->pole = true;
+	        	lattice_current[w * SIDE3 + x * SIDE2 + y * SIDE + z].pole = true;
 	            z += sz;
 	            if (xd >= 0)
 	            {

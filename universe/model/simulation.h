@@ -15,6 +15,8 @@
 #include <iostream>
 #include <cstdint>
 #include <unordered_map>
+#include <fstream>
+#include <mmsystem.h>
 #include "entropy.h"
 
 #define ORDER		4
@@ -29,9 +31,13 @@
 #define UP      	4
 #define DOWN    	5
 
-#define POINCARE	2400
+#define POINCARE	48000
 #define WIDTH		480		// graph width
 #define ERA			(POINCARE/WIDTH)
+
+// Simulation IDE
+
+#define GRAPH
 
 // Macros
 
@@ -52,70 +58,93 @@
 namespace framework
 {
 	extern unsigned long timer;
+    extern void sound();
 }
 
 namespace automaton
 {
-	// Signed natural
-
-	typedef struct
+	// Signed Natural (SN) Class
+	class SN
 	{
-		unsigned a;				// Absolute value
-		bool s;					// sign
+		public:
+			unsigned a; // Absolute value
+			bool s;     // Sign
 
-	} SN;
+			// Default Constructor
+			SN() : a(0), s(false) {}
 
-	/// Cell structure ///
+			// Parameterized Constructor
+			SN(unsigned abs_val, bool sign) : a(abs_val), s(sign) {}
 
-	typedef struct
+			// Getters
+			unsigned getAbsolute() const { return a; }
+			bool getSign() const { return s; }
+
+			// Setters
+			void setAbsolute(unsigned abs_val) { a = abs_val; }
+			void setSign(bool sign) { s = sign; }
+
+			// Friend functions for serialization
+			friend void serializeSN(const SN& sn, std::ofstream& out);
+			friend void deserializeSN(SN& sn, std::ifstream& in);
+	};
+
+	// Declare serialize and deserialize functions
+	void serializeSN(const SN& sn, std::ofstream& out);
+	void deserializeSN(SN& sn, std::ifstream& in);
+
+	// Cell Class
+	class Cell
 	{
-	    // Physical properties
-
+		public:
+		// Attributes
 		bool pole;
-	    unsigned char charge;	// Charge bits w1,w0,q,c2,c1,c0
-	    unsigned s[3];			// Rotation driver (spin)
-	    unsigned aff;			// Affinity
-	    unsigned pos[3];		// Relative position
+		unsigned char charge;   // Charge bits
+		unsigned s[3];          // Rotation driver (spin)
+		unsigned aff;           // Affinity
+		unsigned pos[3];        // Relative position
 
-	    // Wavefront
-
-	    bool wv;				// Wavefront
-	    unsigned d;				// Euclidean distance code
-	    unsigned sin;			// Basic sine half cycle
-	    SN A;					// Amplitude of frequency freq
-	    unsigned freq;			// Frequency (angle increment)
-	    unsigned angle;			// To find the amplitude
+		// Wavefront
+	    bool wv;
+	    unsigned d;
+	    unsigned sin;
+	    SN A;                   // Amplitude of frequency
+	    unsigned freq;
+	    unsigned angle;
 
 	    // Superluminal
-
-	    unsigned c[3];			// Relocation offset
-	    unsigned k, t;			// Tick counters
-	    bool ctrl;				// Cycle control bit
-	    bool reloc;				// Relocation flag
+	    unsigned c[3];
+	    unsigned k, t;
+	    bool ctrl;
+	    bool reloc;
 
 	    // Interference
-
-	    unsigned m[3];			// Parallel transport offset
-	    bool e;					// Empodion role
-	    SN A_bar;				// Boson average amplitude
-	    SN ph;					// Cumulative phase
+	    unsigned m[3];
+	    bool e;
+	    SN A_bar;               // Boson average amplitude
+	    SN ph;                  // Cumulative phase
 
 	    // Interaction control
-
 	    bool collapse;
-	    unsigned net_c0;		// Net color 0 charge
-	    unsigned net_c1;		// Net color 1 charge
-	    unsigned net_c2;		// Net color 2 charge
-	    unsigned net_q;			// Net electric charge
-	    unsigned net_w0;		// Net weak 0 charge
-	    unsigned net_w1;		// Net weak 1 charge
-	    bool fxf;				// fermion x fermion flag
-	    bool bxb;				// boson x boson flag
-	    bool fxb;				// fermion x boson flag
-	    bool wxw;				// segregation flag
-	    bool boson;				// boson x non boson
+	    unsigned net_c0, net_c1, net_c2, net_q, net_w0, net_w1;
+	    bool fxf, bxb, fxb, wxw, boson;
 
-	} Cell;
+		public:
+	    // Constructor
+	    Cell()
+        	: pole(false), charge(0), aff(0), wv(false), d(0), sin(0), freq(0), angle(0),
+          k(0), t(0), ctrl(false), reloc(false), e(false), collapse(false),
+          net_c0(0), net_c1(0), net_c2(0), net_q(0), net_w0(0), net_w1(0),
+          fxf(false), bxb(false), fxb(false), wxw(false), boson(false) {
+        std::fill(std::begin(s), std::end(s), 0);
+        std::fill(std::begin(pos), std::end(pos), 0);
+        std::fill(std::begin(c), std::end(c), 0);
+        std::fill(std::begin(m), std::end(m), 0);
+    }
+	void serialize(std::ofstream& out) const;
+	void deserialize(std::ifstream& in);
+	};
+
 
 	/// Function prototypes ///
 
@@ -130,7 +159,7 @@ namespace automaton
 	void displayLattice();
 	void listLattice();
 	int calc_index(int x, int y, int z, int w);
-	Cell* get_neighbor(Cell *lattice, int index, int dir);
+	Cell* get_neighbor(int index, int dir);
 	bool isColorNeutral(unsigned char c1, unsigned char c2);
 	void printLattice();
 	unsigned int nextPowerOfTwo(unsigned int n);
@@ -139,6 +168,10 @@ namespace automaton
 	void compileNetCharges(Cell *mirror, Cell *draft);
 	void relocate(Cell *draft, Cell *nei);
 	void markPoles(unsigned p[3], int w);
+	int get_neighbor_index(int index, int dir);
+	void saveState0();
+	void checkPoincare();
+    void detectPoincare();
 
 	/// Cross variables ///
 
@@ -146,7 +179,7 @@ namespace automaton
 	extern unsigned long timer;
 	extern bool stop;
 
-	extern Cell *lattice_current;
+    extern double H0;
 
 	/// Cross constants ///
 
@@ -164,6 +197,7 @@ namespace automaton
 	extern const unsigned W_DIM;
 	extern const unsigned BLOCK;
 	extern const unsigned CONVOL;
+	extern std::vector<Cell> lattice_current;
 
 }
 

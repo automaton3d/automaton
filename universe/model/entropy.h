@@ -34,6 +34,11 @@ namespace automaton
 		{
 		}
 
+		int getPointer()
+		{
+			return index;
+		}
+
 		// Set the height of the graph
 		void setWidth(int w)
 		{
