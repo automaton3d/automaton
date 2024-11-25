@@ -71,7 +71,7 @@ namespace framework
 			      		  // Identify the selected option and the previously selected layer
 			      		  for (Radio& layer : layers)
 			      		  {
-			      			  if (xpos >= layer.getX() && xpos <= layer.getX() + 100 &&
+			      			  if (xpos >= layer.getX()-35 && xpos <= layer.getX() + 100 &&
 			      				  ypos >= layer.getY() && ypos <= layer.getY() + 40)
 			      			  {
 			      				  option = &layer; // Found the layer at the given position
@@ -91,7 +91,7 @@ namespace framework
 			      		  bool ok = false;
 			      		  for (Radio& radio : dataset)
 			      		  {
-			      			  if (xpos >= radio.getX()-15 && xpos <= radio.getX() + 100 &&
+			      			  if (xpos >= radio.getX()-35 && xpos <= radio.getX() + 100 &&
 			      				  ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
 			      				  ok = true;
 			      		  }
@@ -99,7 +99,7 @@ namespace framework
 			      		  {
 			      			  for (Radio& radio : dataset)
 			      			  {
-			      				  if (xpos >= radio.getX()-15 && xpos <= radio.getX() + 100 &&
+			      				  if (xpos >= radio.getX()-35 && xpos <= radio.getX() + 100 &&
 					                  ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
 					              {
 			      					  radio.setSelected(true);
@@ -355,6 +355,7 @@ namespace framework
 			{
 				automaton::simulation();
 				automaton::updateBuffer();
+			    automaton::detectPoincare();
 				timer++;
 			}
 			else
@@ -488,8 +489,6 @@ namespace framework
 	}
 
 } // end namespace framework
-
-#define GRAPH
 
 /************************************
  * 								    *

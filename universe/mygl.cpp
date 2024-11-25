@@ -58,6 +58,7 @@ RendererOpenGL1::~RendererOpenGL1()
 
 void RendererOpenGL1::init()
 {
+  voxels = (COLORREF*) malloc(SIDE3 * sizeof(COLORREF));
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
@@ -111,13 +112,13 @@ void RendererOpenGL1::init()
   entropy.setWidth(viewport[2]/4);
   entropy.setHeight(viewport[3]/4);
   //
+  // Initialize progress bar data
   int barWidth = viewport[2] / 4; // Bar is 1/4 of the screen width
-  double totalRatio = (double)(CONVOL + SIDE + 3 * CENTER + 3 * SIDE + LIGHT);
+  double totalRatio = (double) FRAME;
   barWidths[0] = (int)(barWidth * (double)CONVOL / totalRatio);
-  barWidths[1] = (int)(barWidth * (double)(SIDE + 3 * CENTER) / totalRatio);
+  barWidths[1] = (int)(barWidth * (double)(1 + SIDE + 3 * CENTER) / totalRatio);
   barWidths[2] = (int)(barWidth * (double)(3 * SIDE) / totalRatio);
   barWidths[3] = (int)(barWidth * (double)LIGHT / totalRatio);
-
 }
 
 void RendererOpenGL1::render()
@@ -185,6 +186,9 @@ void renderBitmapString(float x, float y, void *font, const char *string)
         glutBitmapCharacter(font, string[i]);
 }
 
+/*
+ * Renders a progress bar showing a complete light step.
+ */
 void RendererOpenGL1::renderProgressBar()
 {
     GLint viewport[4];
@@ -222,10 +226,10 @@ void RendererOpenGL1::renderProgressBar()
         // Set color for each section
         switch (i)
         {
-        case 0: glColor3f(0.5f, 0.5f, 0.0f); break; // Red
-        case 1: glColor3f(0.0f, 0.5f, 0.0f); break; // Green
-        case 2: glColor3f(0.0f, 0.0f, 0.5f); break; // Blue
-        case 3: glColor3f(0.5f, 0.0f, 0.0f); break; // Yellow
+        	case 0: glColor3f(0.3f, 0.3f, 0.0f); break;
+        	case 1: glColor3f(0.0f, 0.5f, 0.0f); break;
+        	case 2: glColor3f(0.0f, 0.2f, 0.5f); break;
+        	case 3: glColor3f(0.5f, 0.0f, 0.0f); break;
         }
 
         // Draw the section
@@ -279,12 +283,12 @@ void RendererOpenGL1::renderText()
 
   // Get the video mode of the monitor
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  // Draw the help text
   for(int i = 0; i < 10; i++)
 	  drawString(help[i], mode->width - 500, 20 * i + mode->height - 260);
-
-  renderProgressBar(); // Add the progress bar rendering
-
-
+  // Add the progress bar rendering
+  renderProgressBar();
+  //
   glPopMatrix();
   resetPerspectiveProjection();
 }
@@ -295,6 +299,21 @@ void drawText(const std::string& text, int x, int y)
     for (char c : text)
     {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c); // Use GLUT for bitmap fonts
+    }
+}
+
+void drawBoldText(const std::string& text, int x, int y, float offset = 0.5f)
+{
+    for (float dx = -offset; dx <= offset; dx += offset)
+    {
+        for (float dy = -offset; dy <= offset; dy += offset)
+        {
+            glRasterPos2i(x + dx, y + dy);
+            for (char c : text)
+            {
+                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
+            }
+        }
     }
 }
 
@@ -375,9 +394,17 @@ void RendererOpenGL1::renderEntropy()
     }
     glEnd();
 
+    // Draw vertical needle at pointer position
+    glColor3f(0.4f, 0.4f, 0.4f); // Green needle
+    glBegin(GL_LINES);
+    glVertex2i(graphX + entropy.getPointer(), graphY);
+    glVertex2i(graphX + entropy.getPointer(), graphY + graphHeight);
+    glEnd();
+
     // Draw axis labels
-    drawText("t", graphX + graphWidth / 2 - 10, graphY - 30); // Horizontal axis label
-    drawText("H", graphX - 40, graphY + graphHeight / 2);  // Vertical axis label
+    glColor3f(0.0f, 1.0f, 0.0f); // Green labels
+    drawBoldText("t", graphX + graphWidth / 2 - 10, graphY - 30); // Horizontal axis label
+    drawBoldText("H", graphX - 40, graphY + graphHeight / 2);  // Vertical axis label
 
     // Restore previous matrices
     glPopMatrix();
@@ -393,13 +420,13 @@ void RendererOpenGL1::renderPoints()
 	// Size of each lattice point.
 	glPointSize(2.0f);
 	glBegin(GL_POINTS);
-	for (int i = 0; i < SIDE; i++)
+	for (int x = 0; x < SIDE; x++)
 	{
-		for (int j = 0; j < SIDE; j++)
+		for (int y = 0; y < SIDE; y++)
 		{
-			for (int k = 0; k < SIDE; k++)
+			for (int z = 0; z < SIDE; z++)
 			{
-				COLORREF color = automaton::voxels[i*SIDE2 + j*SIDE + k];
+				COLORREF color = automaton::voxels[x*SIDE2 + y*SIDE + z];
 				if (!color)
 					continue;
 				// Extrair os componentes R, G, B
@@ -408,16 +435,16 @@ void RendererOpenGL1::renderPoints()
 				BYTE b = GetBValue(color);
 
 				// Converter para valores normalizados entre 0.0 e 1.0
-				GLdouble red = r / 255.0;
+				GLdouble red   = r / 255.0;
 				GLdouble green = g / 255.0;
-				GLdouble blue = b / 255.0;
+				GLdouble blue  = b / 255.0;
 
 				float alpha = 0.5;
 				// Definir a cor no OpenGL
 				glColor4d(red, green, blue, alpha);
-				float px = i * GRID_SIZE - 0.25f;
-				float py = j * GRID_SIZE - 0.25f;
-				float pz = k * GRID_SIZE - 0.25f;
+				float px = x * GRID_SIZE - 0.25f;
+				float py = y * GRID_SIZE - 0.25f;
+				float pz = z * GRID_SIZE - 0.25f;
 				glVertex3f(px, py, pz);
 			}
 		}
@@ -425,28 +452,45 @@ void RendererOpenGL1::renderPoints()
 	glEnd();
 }
 
-/*
- * Render only the centers of the bubbles.
- */
 void RendererOpenGL1::renderParticles()
 {
-	// Cell spacing.
-	const float GRID_SIZE =  0.5 / SIDE;
-	// Size of each lattice point.
-	glPointSize(8.0f);
-	glBegin(GL_POINTS);
-	for (unsigned w = 0; w < W_DIM; w++)
-	{
-        Cell *cell = lattice_current + w * SIDE3;
-		float alpha = 0.5;
-		// Definir a cor no OpenGL
-		glColor4d(0.6, 1, 0, alpha);
-		float px = cell->pos[0] * GRID_SIZE;
-		float py = cell->pos[1] * GRID_SIZE;
-		float pz = cell->pos[2] * GRID_SIZE;
-		glVertex3f(px, py, pz);
-	}
-	glEnd();
+    // Cell spacing.
+    const float GRID_SIZE = 0.5 / SIDE;
+    // Size of each lattice point.
+    glPointSize(8.0f);
+    glBegin(GL_POINTS);
+
+    // Calculate the index for the center element
+    int centerIndex = CENTER * SIDE2 + CENTER * SIDE + CENTER;
+
+    for (unsigned w = 0; w < W_DIM; w++)
+    {
+        // Calculate the starting index for the current w-dimension layer
+        unsigned layerStartIndex = centerIndex + w * SIDE3;
+
+        // Access the current cell in the lattice
+        if (layerStartIndex >= lattice_current.size())
+        {
+            // Safety check to prevent out-of-bounds access
+            break;
+        }
+
+        Cell &cell = lattice_current[layerStartIndex];
+
+        float alpha = 0.5;
+        // Set the color in OpenGL
+        float r = 1.0 / ((w + 1) & 7);
+        float g = 1.0 / (((w >> 2) + 1) & 7);
+        float b = 1.0 / (((w >> 4) + 1) & 7);
+        glColor4d(r, g, b, alpha);
+
+        float px = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
+        float py = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
+        float pz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
+        glVertex3f(px, py, pz);
+    }
+
+    glEnd();
 }
 
 void RendererOpenGL1::renderGadgets()
