@@ -23,9 +23,8 @@
 #include <random>
 #include "model/simulation.h"
 
-#define LAYERS	8
-#define THRESH		(255/8)
-#define AMPLITUDE	(7*255/8)
+#define LAYERS	25	// max layers shown
+#define WIDTH	480     // graph width
 
 namespace framework
 {

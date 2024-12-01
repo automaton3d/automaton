@@ -11,12 +11,12 @@
 
 namespace automaton
 {
-	extern Entropy entropy;
+	extern EntropyCalculator entropyCalc;
 }
 
 namespace framework
 {
-extern unsigned long timer;
+extern unsigned long long timer;
 
 std::vector<Tickbox> checkboxes;
 std::vector<Radio> layers;
@@ -31,6 +31,10 @@ std::mt19937 gen(rd());
 unsigned long tbegin;
 
 int barWidths[4];
+
+bool poincare = false;
+
+unsigned currentLayer = 0;
 
 std::string help[10] =
 {
@@ -99,19 +103,15 @@ void RendererOpenGL1::init()
   viewpoint[0].setSelected(true);
   //
   char s[100];
-  for (int i = 0; i < LAYERS; i++)
+  for (unsigned w = 0; w < W_DIM && w < LAYERS; w++)
   {
-	  std::sprintf(s, "Layer %d", i);
-	  drawString(s, 50, 40);
-	  layers.push_back(Radio(1800, 200 + 25 * i, s));
+	  std::sprintf(s, "Layer %2d", w);
+	  layers.push_back(Radio(1700, 100 + 25 * w, s));
   }
   layers[0].setSelected(true);
   // Initialize entropy
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT, viewport);
-  entropy.setWidth(viewport[2]/4);
-  entropy.setHeight(viewport[3]/4);
-  //
   // Initialize progress bar data
   int barWidth = viewport[2] / 4; // Bar is 1/4 of the screen width
   double totalRatio = (double) FRAME;
@@ -128,19 +128,6 @@ void RendererOpenGL1::render()
   renderText();
   if (entropyFlag)
 	  renderEntropy();
-}
-
-void RendererOpenGL1::renderCenter()
-{
-    glPointSize(4);
-    glBegin(GL_POINTS);
-    if (mCamera)
-    {
-        const glm::vec3 & p = mCamera->getCenter();
-        glColor3f (1.f, 1.f, 0.f);
-        glVertex3f(p.x, p.y, p.z);
-    }
-    glEnd();
 }
 
 void RendererOpenGL1::renderClear()
@@ -231,7 +218,6 @@ void RendererOpenGL1::renderProgressBar()
         	case 2: glColor3f(0.0f, 0.2f, 0.5f); break;
         	case 3: glColor3f(0.5f, 0.0f, 0.0f); break;
         }
-
         // Draw the section
         glBegin(GL_QUADS);
         glVertex2i(barX + sectionStart, barY);
@@ -247,19 +233,19 @@ void RendererOpenGL1::renderProgressBar()
     glColor3f(1.0f, 1.0f, 1.0f); // White outline
     glLineWidth(2);
     glBegin(GL_LINE_LOOP);
-    glVertex2i(barX, barY);
-    glVertex2i(barX + barWidth-1, barY);
-    glVertex2i(barX + barWidth-1, barY + barHeight);
-    glVertex2i(barX, barY + barHeight);
+    glVertex2i(barX-1, barY);
+    glVertex2i(barX-1 + barWidth, barY);
+    glVertex2i(barX-1 + barWidth, barY + barHeight);
+    glVertex2i(barX-1, barY + barHeight);
     glEnd();
 
     // Draw the pointer
-    glColor3f(1.0f, 1.0f, 1.0f); // Red pointer
+    glColor3f(1.0f, 1.0f, 0.0f); // Red pointer
     glBegin(GL_QUADS);
-    glVertex2i(pointerX - 2, barY+1);          // Pointer width: 10
-    glVertex2i(pointerX + 2, barY+1);
-    glVertex2i(pointerX + 2, barY + barHeight - 1);
-    glVertex2i(pointerX - 2, barY + barHeight - 1);
+    glVertex2i(pointerX - 2, barY+2);          // Pointer width: 10
+    glVertex2i(pointerX + 2, barY+2);
+    glVertex2i(pointerX + 2, barY + barHeight - 2);
+    glVertex2i(pointerX - 2, barY + barHeight - 2);
     glEnd();
 }
 
@@ -273,14 +259,19 @@ void RendererOpenGL1::renderText()
   char s[100];
   std::sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
   drawString(s, 50, 40);
-  std::sprintf(s, "Light: %lu tick: %lu", timer / automaton::FRAME, timer);
+  std::sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
   renderBitmapString(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
 
   std::sprintf(s, "SIDE %u", SIDE);
   renderBitmapString(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+  //
+  if (poincare)
+  {
+    std::sprintf(s, "POINCARE: %llu", timer);
+    renderBitmapString(300, 400, GLUT_BITMAP_TIMES_ROMAN_24, s);
+  }
   // Get the primary monitor
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-
   // Get the video mode of the monitor
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
   // Draw the help text
@@ -290,6 +281,17 @@ void RendererOpenGL1::renderText()
   renderProgressBar();
   //
   glPopMatrix();
+  // Update positions
+  int centerIndex = CENTER * SIDE2 + CENTER * SIDE + CENTER;
+  for (unsigned w = 0; w < W_DIM && w < LAYERS; w++)
+  {
+      Cell &cell = lattice_current[centerIndex + w * SIDE3];
+	  std::sprintf(s, "(%u, %u, %u)", cell.pos[0], cell.pos[1], cell.pos[2]);
+	  drawString(s, 1800, 100 + 25 * w);
+  }
+
+
+
   resetPerspectiveProjection();
 }
 
@@ -381,19 +383,20 @@ void RendererOpenGL1::renderEntropy()
         glEnd();
         drawText(std::to_string(i), graphX - 20, y - 5); // Adjust y offset for centering text
     }
-
+    Entropy entropy = entropyCalc.getEntropy();
     // Draw entropy function
     glColor3f(1.0f, 0.0f, 0.0f); // Red entropy function
     glBegin(GL_LINE_STRIP);
-
     for (int x = 0; x <= graphWidth; ++x)
     {
         // Normalize x to range [-1, 1]
         float y = entropy.getY(x);
-        glVertex2i(graphX + x, graphY + static_cast<int>(y));
+        float minEntropy = 0;
+        float normalizedY = (y - minEntropy) / (entropy.getMaxEntropy() - minEntropy) * graphHeight;
+        normalizedY = std::max(0.0f, std::min(normalizedY, static_cast<float>(graphHeight)));
+        glVertex2i(graphX + x, graphY + static_cast<int>(normalizedY));
     }
     glEnd();
-
     // Draw vertical needle at pointer position
     glColor3f(0.4f, 0.4f, 0.4f); // Green needle
     glBegin(GL_LINES);
@@ -450,47 +453,108 @@ void RendererOpenGL1::renderPoints()
 		}
 	}
 	glEnd();
+    int center = CENTER * SIDE2 + CENTER * SIDE + CENTER;
+    unsigned lIndex = center + currentLayer * SIDE3;
+    Cell &cell = lattice_current[lIndex];
+    float cx = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
+    float cy = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
+    float cz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
+   	glPointSize(1.0f);
+    glBegin(GL_POINTS);
+    glColor4d(1, 1, 1, 1);
+    glVertex3f(cx, cy, cz);
+    glVertex3f(cx + 0.005, cy, cz);
+    glVertex3f(cx - 0.005, cy, cz);
+    glVertex3f(cx, cy + 0.005, cz);
+    glVertex3f(cx, cy - 0.005, cz);
+    glVertex3f(cx, cy, cz + 0.005);
+    glVertex3f(cx, cy, cz - 0.005);
+    glVertex3f(cx + 0.01, cy, cz);
+    glVertex3f(cx - 0.01, cy, cz);
+    glVertex3f(cx, cy + 0.01, cz);
+    glVertex3f(cx, cy - 0.01, cz);
+    glVertex3f(cx, cy, cz + 0.01);
+    glVertex3f(cx, cy, cz - 0.01);
+    glEnd();
 }
 
+/*
+ * Render the center of the bubbles only.
+ */
 void RendererOpenGL1::renderParticles()
 {
     // Cell spacing.
     const float GRID_SIZE = 0.5 / SIDE;
     // Size of each lattice point.
-    glPointSize(8.0f);
+   	glPointSize(8.0f);
     glBegin(GL_POINTS);
-
     // Calculate the index for the center element
-    int centerIndex = CENTER * SIDE2 + CENTER * SIDE + CENTER;
-
+    int center = CENTER * SIDE2 + CENTER * SIDE + CENTER;
     for (unsigned w = 0; w < W_DIM; w++)
     {
         // Calculate the starting index for the current w-dimension layer
-        unsigned layerStartIndex = centerIndex + w * SIDE3;
-
+        unsigned lIndex = center + w * SIDE3;
         // Access the current cell in the lattice
-        if (layerStartIndex >= lattice_current.size())
-        {
-            // Safety check to prevent out-of-bounds access
-            break;
-        }
-
-        Cell &cell = lattice_current[layerStartIndex];
-
+        Cell &cell = lattice_current[lIndex];
         float alpha = 0.5;
         // Set the color in OpenGL
-        float r = 1.0 / ((w + 1) & 7);
-        float g = 1.0 / (((w >> 2) + 1) & 7);
-        float b = 1.0 / (((w >> 4) + 1) & 7);
-        glColor4d(r, g, b, alpha);
-
+        float r = 0.7 + (w & 1)*0.3;
+        float g = 0.7 + ((w >> 1) & 1)*0.3;
+        float b = 0.7 + ((w >> 2) & 1)*0.3;
+        //
         float px = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
         float py = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
         float pz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
+        glColor4d(r, g, b, alpha);
         glVertex3f(px, py, pz);
     }
-
     glEnd();
+    //
+    unsigned lIndex = center + currentLayer * SIDE3;
+    Cell &cell = lattice_current[lIndex];
+    float cx = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
+    float cy = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
+    float cz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
+   	glPointSize(1.0f);
+    glBegin(GL_POINTS);
+    glColor4d(1, 1, 1, 1);
+    glVertex3f(cx, cy, cz);
+    glVertex3f(cx + 0.005, cy, cz);
+    glVertex3f(cx - 0.005, cy, cz);
+    glVertex3f(cx, cy + 0.005, cz);
+    glVertex3f(cx, cy - 0.005, cz);
+    glVertex3f(cx, cy, cz + 0.005);
+    glVertex3f(cx, cy, cz - 0.005);
+    glVertex3f(cx + 0.01, cy, cz);
+    glVertex3f(cx - 0.01, cy, cz);
+    glVertex3f(cx, cy + 0.01, cz);
+    glVertex3f(cx, cy - 0.01, cz);
+    glVertex3f(cx, cy, cz + 0.01);
+    glVertex3f(cx, cy, cz - 0.01);
+    glEnd();
+    /*
+   	glPointSize(1.0f);
+    glBegin(GL_POINTS);
+    //
+    glColor4d(1, 1, 1, 1);
+    const float radius = 0.01f;
+    for (int i = 0; i < 10; i++)
+    {
+        // Generate random offsets within the radius
+        float theta = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI; // Random angle for rotation
+        float phi = static_cast<float>(rand()) / RAND_MAX * M_PI;         // Random angle for elevation
+        float r = static_cast<float>(rand()) / RAND_MAX * radius;         // Random distance within radius
+
+        // Convert spherical coordinates to Cartesian coordinates
+        float dx = r * sinf(phi) * cosf(theta);
+        float dy = r * sinf(phi) * sinf(theta);
+        float dz = r * cosf(phi);
+
+        // Draw the point at the calculated position
+        glVertex3f(pcx + dx, pcy + dy, pcz + dz);
+    }
+    glEnd();
+    */
 }
 
 void RendererOpenGL1::renderGadgets()
@@ -534,7 +598,6 @@ void RendererOpenGL1::renderObjects()
     glPushMatrix();
     glMultMatrixf(mCamera->getMatrixFlat());
   }
-  renderCenter();
   if (checkboxes[2].getState())
     renderGrid();
   if (checkboxes[5].getState())
@@ -578,50 +641,46 @@ void RendererOpenGL1::renderAxes()
 void RendererOpenGL1::renderCube()
 {
     GLfloat alpha = 0.6f;
-    glBegin(GL_TRIANGLES);
-    // Adjusted coordinates for centering
+    glBegin(GL_QUADS);
+
     glColor4f(0.8f, 0.4f, 0.4f, alpha);
-    glVertex3f(0.25f , -0.25f , -0.25f );
-    glVertex3f(0.25f ,  0.25f , -0.25f );
-    glVertex3f(0.25f ,  0.25f ,  0.25f );
-    glVertex3f(0.25f , -0.25f , -0.25f );
-    glVertex3f(0.25f , -0.25f ,  0.25f );
-    glVertex3f(0.25f ,  0.25f ,  0.25f );
-    //
-    glVertex3f(-0.25f , -0.25f , -0.25f );
-    glVertex3f(-0.25f ,  0.25f , -0.25f );
-    glVertex3f(-0.25f ,  0.25f ,  0.25f );
-    glVertex3f(-0.25f , -0.25f , -0.25f );
-    glVertex3f(-0.25f , -0.25f ,  0.25f );
-    glVertex3f(-0.25f ,  0.25f ,  0.25f );
-    //
-    glVertex3f(-0.25f ,  0.25f , -0.25f );
-    glVertex3f( 0.25f ,  0.25f , -0.25f );
-    glVertex3f( 0.25f ,  0.25f ,  0.25f );
-    glVertex3f(-0.25f ,  0.25f , -0.25f );
-    glVertex3f(-0.25f ,  0.25f ,  0.25f );
-    glVertex3f( 0.25f ,  0.25f ,  0.25f );
-    //
-    glVertex3f(-0.25f , -0.25f , -0.25f );
-    glVertex3f( 0.25f , -0.25f , -0.25f );
-    glVertex3f( 0.25f , -0.25f ,  0.25f );
-    glVertex3f(-0.25f , -0.25f , -0.25f );
-    glVertex3f(-0.25f , -0.25f ,  0.25f );
-    glVertex3f( 0.25f , -0.25f ,  0.25f );
-    //
-    glVertex3f(-0.25f , -0.25f ,  0.25f );
-    glVertex3f(-0.25f ,  0.25f ,  0.25f );
-    glVertex3f( 0.25f ,  0.25f ,  0.25f );
-    glVertex3f(-0.25f , -0.25f ,  0.25f );
-    glVertex3f( 0.25f , -0.25f ,  0.25f );
-    glVertex3f( 0.25f ,  0.25f ,  0.25f );
-    //
-    glVertex3f(-0.25f , -0.25f , -0.25f );
-    glVertex3f(-0.25f ,  0.25f , -0.25f );
-    glVertex3f( 0.25f ,  0.25f , -0.25f );
-    glVertex3f(-0.25f , -0.25f , -0.25f );
-    glVertex3f( 0.25f , -0.25f , -0.25f );
-    glVertex3f( 0.25f ,  0.25f , -0.25f );
+
+    // Right face
+    glVertex3f( 0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f,  0.25f);
+    glVertex3f( 0.25f, -0.25f,  0.25f);
+
+    // Left face
+    glVertex3f(-0.25f, -0.25f, -0.25f);
+    glVertex3f(-0.25f,  0.25f, -0.25f);
+    glVertex3f(-0.25f,  0.25f,  0.25f);
+    glVertex3f(-0.25f, -0.25f,  0.25f);
+
+    // Top face
+    glVertex3f(-0.25f,  0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f,  0.25f);
+    glVertex3f(-0.25f,  0.25f,  0.25f);
+
+    // Bottom face
+    glVertex3f(-0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f, -0.25f,  0.25f);
+    glVertex3f(-0.25f, -0.25f,  0.25f);
+
+    // Front face
+    glVertex3f(-0.25f, -0.25f,  0.25f);
+    glVertex3f( 0.25f, -0.25f,  0.25f);
+    glVertex3f( 0.25f,  0.25f,  0.25f);
+    glVertex3f(-0.25f,  0.25f,  0.25f);
+
+    // Back face
+    glVertex3f(-0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f, -0.25f);
+    glVertex3f(-0.25f,  0.25f, -0.25f);
+
     glEnd();
 }
 

@@ -17,6 +17,8 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
+bool debugFlag;
+
 namespace framework
 {
 	// UID
@@ -32,7 +34,7 @@ namespace framework
 
 	bool stop;
 	bool active = true;
-	unsigned long timer = 0;
+	unsigned long long timer = 0;
 
 	RenderWindowGLFW::RenderWindowGLFW() :  mWindow(0)
 	{
@@ -353,10 +355,23 @@ namespace framework
 		{
 			if(!stop)
 			{
+				// Run one step of the simulation
 				automaton::simulation();
+				// Transfer data to the GUI
 				automaton::updateBuffer();
+				// Detect Poincaré cycle
 			    automaton::detectPoincare();
 				timer++;
+                #ifdef DEBUG
+
+				// Accelerate the timing
+				if (debugFlag)
+				{
+					timer += automaton::CONVOL - 8;
+					debugFlag = false;
+				}
+
+                #endif
 			}
 			else
 			{
@@ -372,7 +387,7 @@ namespace framework
 	 */
 	int RenderWindowGLFW::run(int width, int height)
 	{
-		srand(time(NULL));
+		srand(0);//time(NULL));
 		// Get the primary monitor's dimensions
 		GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
 		if (!primaryMonitor)
