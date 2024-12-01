@@ -2,153 +2,120 @@
  * entropy.cpp
  *
  * See Section Entropy Considerations
- *
- *  Created on: 16 de nov. de 2024
- *      Author: Alexandre
  */
 
 #include "simulation.h"
+#include "entropy.h"
+#include "poincare.h"
+#include "../mygl.h"
 
-#define NON_ZERO_STATE_COUNT_LIMIT 11  // Adjust this based on your state's range
+namespace framework
+{
+  extern unsigned long long timer;
+}
 
 namespace automaton
 {
-    using namespace std;
+  double H0;
+  extern unsigned era;
+  extern unsigned long long poincare;//DEBUG
 
-    // Global variables (ensure they are initialized properly elsewhere in your code)
-    unordered_map<unsigned, unsigned> nonZeroStateCounts; // Sparse map for non-zero states
-    unsigned zeroStateCount = 0;  // Separate counter for zero states
-    unsigned totalStates = 0;     // Total number of states processed across all calls
+  // Implementation of Entropy class
 
-    Entropy entropy;
-    double H0;	// Initial entropy
+  Entropy::Entropy() : maxEntropy(1.0f)
+  {
+  }
 
-    /*
-     * State function that selects specific properties of interest to represent the state of a cell.
-     */
-    uint32_t cellState(Cell *cell)
+  float Entropy::getMaxEntropy() const { return maxEntropy; }
+
+  void Entropy::setMaxEntropy(float m)
+  {
+    maxEntropy = m;
+  }
+
+  void Entropy::add(float H)
+  {
+    values.push_back(H);
+    if (values.size() == WIDTH)
     {
-        if (cell->pole)
-        {
-            uint32_t p_x = cell->pos[0] & ((1U << ORDER) - 1);
-            uint32_t p_y = cell->pos[1] & ((1U << ORDER) - 1);
-            uint32_t p_z = cell->pos[2] & ((1U << ORDER) - 1);
-            return cell->charge
-                 | (cell->aff << 6)
-                 | (cell->freq << (6 + ORDER))
-                 | (p_x << (6 + ORDER + (ORDER - 1)))
-                 | (p_y << (6 + ORDER + (ORDER - 1) + ORDER))
-                 | (p_z << (6 + ORDER + (ORDER - 1) + 2 * ORDER));
-        }
-        return 0;
+      boostPoincare();
+      values.clear();			// Wrap around
     }
+  }
 
-    // Function that collects and counts the state for a single cell position and depth
-    void stateFunction(int x, int y, int z)
-    {
-        // Iterate over the depth dimension (W_DIM layers)
-        for (unsigned w = 0; w < W_DIM; ++w)
+  float Entropy::getY(unsigned x) const
+  {
+	if (x >= values.size())
+		return 0;
+    return values[x];
+  }
+
+  // Implementation of EntropyCalculator class
+
+  EntropyCalculator::EntropyCalculator() : totalStates(0)
+  {
+  }
+
+  void EntropyCalculator::collectData()
+  {
+    stateCounts.clear();
+    totalStates = 0;
+    for (int x = 0; x < SIDE; ++x)
+      for (int y = 0; y < SIDE; ++y)
+        for (int z = 0; z < SIDE; ++z)
         {
-            // Calculate the index for the flattened 1D array using (x, y, z, w)
-            int index = (x * SIDE2 + y * SIDE + z) + (w * SIDE3);
-            Cell& cell = lattice_current[index];  // Access the current cell
-            // Get the state of the cell
-            unsigned state = cellState(&cell);  // Assuming cellState is a function returning the cell's state
-            // Count zero state
-            if (state == 0)
+          for (unsigned w = 0; w < W_DIM; ++w)
+          {
+            int index = x * SIDE2 + y * SIDE + z + w * SIDE3;
+            Cell& cell = lattice_current[index];
+            if (cell.pos[0] == 0 && cell.pos[1] == 0 && cell.pos[2] == 0)
             {
-                zeroStateCount++;  // Increment zero state counter
+            	unsigned state = cellState(x, y, z, &cell);
+           		++stateCounts[state];
+            	++totalStates;
             }
-            else
-            {
-                nonZeroStateCounts[state]++;  // Increment count for this specific non-zero state
-            }
-            // Increment the total state count
-            totalStates++;
+          }
         }
-    }
+  }
 
-
-    /*
-     * Collects data from all cells in the lattice and updates the global state counts.
-     */
-    void collectData()
+  double EntropyCalculator::computeEntropy()
+  {
+    double H = 0.0;
+    assert(totalStates > 0);
+    double maxH = log2(totalStates);
+    entropy.setMaxEntropy(maxH);
+    for (const auto& entry : stateCounts)
     {
-        for (int x = 0; x < SIDE; x++)
-        {
-            for (int y = 0; y < SIDE; y++)
-            {
-                for (int z = 0; z < SIDE; z++)
-                {
-                    stateFunction(x, y, z);
-                }
-            }
-        }
+      double prob = entry.second / static_cast<double>(totalStates);
+      H += prob * log2(prob);
     }
+    return -H;
+  }
 
-    /*
-     * Computes Shannon entropy using the accumulated state counts.
-     */
-    double computeEntropy()
+  void EntropyCalculator::resetCounts()
+  {
+    stateCounts.clear();
+    totalStates = 0;
+  }
+
+  const Entropy& EntropyCalculator::getEntropy() const
+  {
+    return entropy;
+  }
+
+  void EntropyCalculator::updateEntropy()
+  {
+    // printf("timer=%llu ERA=%u\n", framework::timer, ERA); fflush(stdout); // Debug
+    if (framework::timer % FRAME == 0)
     {
-        double H = 0;
-        double probs = 0;
-        entropy.setMaxEntropy(log2(totalStates)); // Set max entropy
-
-        // Include zero state in entropy calculation
-        if (zeroStateCount > 0)
-        {
-            double prob = zeroStateCount / (double)totalStates;
-            probs += prob;
-            H += prob * log2(prob);
-        }
-
-        // Compute probabilities and entropy for non-zero states
-        for (const auto& par : nonZeroStateCounts)
-        {
-            double prob = par.second / (double)totalStates;
-            probs += prob;
-            H += prob * log2(prob);
-        }
-
-        // Guarantee unitarity
-        assert(abs(probs - 1.0) <= 1e-9);
-
-        return -H; // Entropy is negative sum
+      collectData();
     }
-
-    void detectPoincare()
+    if (framework::timer % (FRAME * era) == 0)
     {
-        // Test the completion of the Poincaré cycle graph
-        if (framework::timer == POINCARE)
-        {
-    		// Play trout.wav
-        	framework::sound();
-        	// The program stops here - END
-        }
-        // Update entropy data
-        if (framework::timer % FRAME == 0)
-    	{
-        	collectData();
-    	}
-        double H = 0;
-        if (framework::timer % FRAME * ERA == 0)
-        {
-        	H = computeEntropy();
-        }
-       	if (H == H0 || rand() % 2 == 0)
-       	{
-       		printf("***** Poincaré=%ld *****\n", framework::timer);
-       		// Play trout.wav
-           	framework::sound();
-           	// The program stops here - END
-        }
-    	else
-    	{
-    		printf("H=%f\n", H);	// debug
-    		Beep(750, 300);
-    		entropy.add(H);
-    	}
+      double H = computeEntropy();
+      printf("H=%f timer=%llu PC=%llu pointer=%d\n", H, framework::timer, poincare, entropy.getPointer()); fflush(stdout); // Debug
+      entropy.add(H);
     }
+  }
 
-} // End of namespace automaton
+} // namespace automaton

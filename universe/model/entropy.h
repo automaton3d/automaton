@@ -9,75 +9,65 @@
 #define MODEL_ENTROPY_H_
 
 #include <vector>
-#include <cstdlib>
+#include <unordered_map>
+#include <cmath>
 
 namespace automaton
 {
+	using namespace std;
 
-	class Entropy
-	{
-		int width;              // Width of the graph
-		int index;              // Current index in the values array
-		int height;        // Height of the graph in pixels
-		float maxEntropy;       // Maximum possible entropy for normalization
-		std::vector<float> values; // Stores entropy values
+    class Entropy
+    {
+    private:
+        float maxEntropy;     // Maximum possible entropy for normalization
+        vector<float> values; // Stores entropy values
 
-	public:
+    public:
+        // Default constructor
+        Entropy();
 
-		// Default constructor
-		Entropy() :
-			width(480),
-			index(0),
-			height(200),
-			maxEntropy(10.0f),
-			values(480, 0.0f)
-		{
-		}
+        // Getters
+        int getCurrentIndex() const;
+        int getWidth() const;
+        float getMaxEntropy() const;
+        int getPointer() { return values.size(); }
 
-		int getPointer()
-		{
-			return index;
-		}
+        // Setters with validation
+        void setWidth(int w);
+        void setHeight(int h);
+        void setMaxEntropy(float m);
 
-		// Set the height of the graph
-		void setWidth(int w)
-		{
-			width = w;
-		}
+        // Add a new entropy value
+        void add(float e);
 
-		// Set the height of the graph
-		void setHeight(int h)
-		{
-			height = h;
-		}
+        // Get the Y-coordinate for a given X based on entropy
+        float getY(unsigned x) const;
+    };
 
-		// Set the maximum entropy value
-		void setMaxEntropy(float m)
-		{
-			maxEntropy = m;
-		}
+    class EntropyCalculator
+    {
+    private:
+        Entropy entropy;
+        std::unordered_map<unsigned, unsigned> stateCounts;
+        unsigned totalStates;
 
-		// Add a new entropy value
-		void add(float e)
-		{
-			values[index++] = e;
-			if (index == width) // Wrap around when index reaches the width
-				index = 0;
-		}
+    public:
+        // Constructor
+        EntropyCalculator();
 
-		// Get the Y-coordinate for a given X based on entropy
-		int getY(int x) const
-		{
-			if (x < 0 || x >= width) // Ensure x is within bounds
-				return 0;
+        // Collect state data
+        void collectData();
 
-			return static_cast<int>(values[x] * height / maxEntropy);
-		}
-	};
+        // Compute entropy
+        double computeEntropy();
 
-	// Function declarations for entropy-related computations
-	void collectData();
-	double computeEntropy();
+        // Reset state counts
+        void resetCounts();
+
+        // Access entropy object for visualization
+        const Entropy& getEntropy() const;
+        void updateEntropy();
+    };
 
 } // namespace automaton
 

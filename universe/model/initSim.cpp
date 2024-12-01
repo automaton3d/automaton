@@ -5,11 +5,7 @@
  */
 
 #include "simulation.h"
-#include <cstring>
-#include <iostream>
-#include <cmath>
-#include <set>
-#include <tuple>
+#include "poincare.h"
 
 namespace automaton
 {
@@ -18,8 +14,9 @@ namespace automaton
   const double epsilon = 1e-9;
 
   // Global variables for lattice (assuming they're vectors, not functions)
-  extern std::vector<Cell> lattice_current;
-  extern std::vector<Cell> lattice_draft;
+  extern vector<Cell> lattice_current;
+  extern vector<Cell> lattice_draft;
+  extern EntropyCalculator entropyCalc;
 
   /*
    * Generate spin vectors.
@@ -72,8 +69,8 @@ namespace automaton
     // Handle error if no spins initialized
     if (w == 0)
     {
-      std::cerr << "Error: No spins initialized!" << std::endl;
-      std::exit(EXIT_FAILURE);  // Better error handling than assert(0)
+      cerr << "Error: No spins initialized!" << endl;
+      exit(EXIT_FAILURE);  // Better error handling than assert(0)
     }
   }
 
@@ -143,17 +140,6 @@ namespace automaton
     puts("initCharges ok.");
   }
 
-  void initDebug()
-  {
-    Cell* cell = &lattice_current[CENTER * SIDE2 + CENTER * SIDE + CENTER];
-    cell->c[0] = SIDE / 4;
-    cell->c[1] = 0;
-    cell->c[2] = 0;
-    cell->reloc = 1;
-    cell->k = 0;
-    puts("initDebug ok.");
-  }
-
   /**
    * Function to initialize the lattice.
    */
@@ -216,16 +202,14 @@ namespace automaton
     initSpin();
     initMomentum();
     initGeneral();
-    initDebug();
+    initPoincare();
     sanityTest();
 	saveState0();
-	// DEBUG: lattice_current[0].charge = 0x3f;
 	checkPoincare();
 	// Calculate the initial entropy of the universe
-	collectData();
-	H0 = computeEntropy();
+	entropyCalc.collectData();
+	H0 = entropyCalc.computeEntropy();
     // Replicate main in draft
     lattice_draft = lattice_current;
-    fflush(stdout);
   }
 }

@@ -36,7 +36,7 @@ namespace automaton
 
 	    // Find the selected layer
 	    int w = -1; // Initialize to -1 to indicate no layer selected
-	    for (int i = 0; i < LAYERS; i++)
+	    for (unsigned i = 0; i < W_DIM; i++)
 	    {
 	        if (framework::layers[i].isSelected())
 	        {
@@ -114,60 +114,13 @@ namespace automaton
         Sleep(50);  // Ajuste o tempo de pausa se necessário
     }
 
-	Cell* get_neighbor(int index, int dir)
-	{
-	    // Extract the 3D coordinates (x, y, z) and shell (w) from the flattened index
-	    int x = (index / SIDE2) % SIDE;
-	    int y = (index / SIDE) % SIDE;
-	    int z = index % SIDE;
-	    int shell = index / SIDE3;  // This should correspond to the depth layer (W_DIM)
-
-	    // Calculate the new index based on the direction
-	    switch (dir)
-	    {
-	        case NORTH:
-	            x = (x - 1 + SIDE) % SIDE;  // Wrap around on the x-axis
-	            break;
-
-	        case EAST:
-	            y = (y + 1) % SIDE;  // Wrap around on the y-axis
-	            break;
-
-	        case SOUTH:
-	            x = (x + 1) % SIDE;  // Wrap around on the x-axis
-	            break;
-
-	        case WEST:
-	            y = (y - 1 + SIDE) % SIDE;  // Wrap around on the y-axis
-	            break;
-
-	        case UP:
-	            z = (z + 1) % SIDE;  // Wrap around on the z-axis
-	            break;
-
-	        case DOWN:
-	            z = (z - 1 + SIDE) % SIDE;  // Wrap around on the z-axis
-	            break;
-
-	        default:
-	            return nullptr;  // Return nullptr if direction is invalid
-	    }
-
-	    // Calculate the new index based on the modified coordinates and shell
-	    int new_index = (x * SIDE2 + y * SIDE + z) + shell * SIDE3;
-
-	    // Return the pointer to the neighboring cell
-	    return &lattice_current[new_index];
-	}
-
-	int get_neighbor_index(int index, int dir)
+	unsigned getNeighbor(unsigned index, unsigned dir)
 	{
 	    // Extract x, y, z, and shell from the given index
-	    int x = (index / SIDE2) % SIDE;
-	    int y = (index / SIDE) % SIDE;
-	    int z = index % SIDE;
-	    int shell = index / SIDE3;
-
+		unsigned x = (index / SIDE2) % SIDE;
+		unsigned y = (index / SIDE) % SIDE;
+		unsigned z = index % SIDE;
+		unsigned shell = index / SIDE3;
 	    // Calculate the neighbor index based on the direction
 	    switch (dir)
 	    {
@@ -184,7 +137,9 @@ namespace automaton
 	        case DOWN:
 	            return (x * SIDE2 + y * SIDE + ((z - 1 + SIDE) % SIDE)) + shell * SIDE3;
 	        default:
-	            return -1; // Invalid direction
+	        	printf("Invalid direction %d for index %d\n", dir, index);
+	        	assert(0);
+	        	return 0;
 	    }
 	}
 

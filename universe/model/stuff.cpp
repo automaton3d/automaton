@@ -8,6 +8,8 @@
 
 namespace automaton
 {
+	using namespace std;
+
 	/*
 	 * Counts the charges in dimension W.
 	 */
@@ -45,42 +47,42 @@ namespace automaton
 	      draft->net_w1--;
 	}
 
-	/*
-	 * Executes the relocation of one cell.
-	 */
-	void relocate(Cell *draft, Cell *nei)
+	void relocate(Cell& draft, const Cell& nei)
 	{
-		COPY(draft->pos, nei->pos);
-		COPY(draft->c, nei->c);
-		draft->d = nei->d;
-		draft->sin = nei->sin;
-		draft->aff = nei->aff;
-		draft->e = nei->e;
+	    // Copy the pos and c arrays element by element
+	    copy(nei.pos, nei.pos + 3, draft.pos);  // Copy pos array
+	    copy(nei.c, nei.c + 3, draft.c);        // Copy c array
+
+	    // Copy other members
+	    draft.d = nei.d;
+	    draft.sin = nei.sin;
+	    draft.aff = nei.aff;
+	    draft.e = nei.e;
 	}
 
-	/*
-	 * Mark the poles of a given momentum
+	/**
+	 * Marks the poles of a given momentum.
 	 * Uses the Bresenham line algorithm.
+	 * (used during initialization)
+	 *
+	 * @p the current ray
+	 * @w the shell in the w dimension
 	 */
 	void markPoles(unsigned p[3], int w)
 	{
 	    // Calculate the center of the lattice
 	    int cx = CENTER, cy = CENTER, cz = CENTER;
-
 	    // Calculate the deltas
 	    int dx = p[0] - cx;
 	    int dy = p[1] - cy;
 	    int dz = p[2] - cz;
-
 	    // Determine the step direction
 	    int sx = (dx > 0) ? 1 : -1;
 	    int sy = (dy > 0) ? 1 : -1;
 	    int sz = (dz > 0) ? 1 : -1;
-
-	    dx = std::abs(dx);
-	    dy = std::abs(dy);
-	    dz = std::abs(dz);
-
+	    dx = abs(dx);
+	    dy = abs(dy);
+	    dz = abs(dz);
 	    // Determine the dominant axis
 	    int ax = 2 * dx;
 	    int ay = 2 * dy;
@@ -159,6 +161,19 @@ namespace automaton
 	            yd += ay;
 	        }
 	    }
+	}
+
+	/*
+	 * State function that selects specific properties of interest to
+	 * represent the state of a cell.
+	 */
+	uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell)
+	{
+        return cell->charge
+	               | (cell->aff << 6)
+	               | (x << (6 + (ORDER - 1)))
+	               | (y << (6 + (ORDER - 1) + ORDER))
+	               | (z << (6 + (ORDER - 1) + 2 * ORDER));
 	}
 
 }
