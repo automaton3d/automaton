@@ -360,7 +360,7 @@ namespace framework
 				// Transfer data to the GUI
 				automaton::updateBuffer();
 				// Detect Poincaré cycle
-			    automaton::detectPoincare();
+//			    automaton::detectPoincare();
 				timer++;
                 #ifdef DEBUG
 
@@ -516,7 +516,6 @@ namespace framework
 
 	int main(int argc, char *argv[])
 	{
-		printf("SIDE=%d, DIFFUSE=%d, PERIOD=%d, RANGE=%d\n", SIDE, automaton::XYZ_DIFFUSION, automaton::RMAX, automaton::RANGE);
 		glutInit(&argc, argv);
 		if (!glfwInit())
 		{

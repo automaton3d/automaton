@@ -16,27 +16,29 @@ namespace automaton
 
 namespace framework
 {
+using namespace std;
+
 extern unsigned long long timer;
 
-std::vector<Tickbox> checkboxes;
-std::vector<Radio> layers;
-std::vector<Radio> dataset;
-std::vector<Radio> viewpoint;
+vector<Tickbox> checkboxes;
+vector<Radio> layers;
+vector<Radio> dataset;
+vector<Radio> viewpoint;
 
 bool entropyFlag;
 
-std::random_device rd;
-std::mt19937 gen(rd());
+random_device rd;
+mt19937 gen(rd());
 
 unsigned long tbegin;
 
-int barWidths[4];
+int barWidths[5];
 
 bool poincare = false;
 
 unsigned currentLayer = 0;
 
-std::string help[10] =
+string help[10] =
 {
     "           c: Print camera Eye, Center, Up",
     "           r: Reset view",
@@ -49,6 +51,8 @@ std::string help[10] =
     " Right-Click: Roll",
     "Scroll-Wheel: Dolly (zoom)"
 };
+
+unsigned lastPos[W_DIM][3];
 
 using namespace automaton;
 
@@ -105,7 +109,7 @@ void RendererOpenGL1::init()
   char s[100];
   for (unsigned w = 0; w < W_DIM && w < LAYERS; w++)
   {
-	  std::sprintf(s, "Layer %2d", w);
+	  sprintf(s, "Layer %2d", w);
 	  layers.push_back(Radio(1700, 100 + 25 * w, s));
   }
   layers[0].setSelected(true);
@@ -115,10 +119,11 @@ void RendererOpenGL1::init()
   // Initialize progress bar data
   int barWidth = viewport[2] / 4; // Bar is 1/4 of the screen width
   double totalRatio = (double) FRAME;
-  barWidths[0] = (int)(barWidth * (double)CONVOL / totalRatio);
-  barWidths[1] = (int)(barWidth * (double)(1 + SIDE + 3 * CENTER) / totalRatio);
-  barWidths[2] = (int)(barWidth * (double)(3 * SIDE) / totalRatio);
-  barWidths[3] = (int)(barWidth * (double)LIGHT / totalRatio);
+  barWidths[0] = (int)(barWidth * (double)CONVOL / totalRatio);                       // CONVOL stripe
+  barWidths[1] = (int)(barWidth * 1 / totalRatio);                                    // COLLISION stripe
+  barWidths[2] = (int)(barWidth * (double)(W_DIM + 3 * (SIDE - 1)) / totalRatio); // DIFFUSION stripe
+  barWidths[3] = (int)(barWidth * (double)(3 * (SIDE - 1)) / totalRatio);             // RELOCATION stripe
+  barWidths[4] = (int)(barWidth * (double)LIGHT / totalRatio);                        // LIGHT stripe
 }
 
 void RendererOpenGL1::render()
@@ -159,7 +164,7 @@ void resetPerspectiveProjection()
     glMatrixMode(GL_MODELVIEW);
 }
 
-void drawString(std::string s, int x, int y)
+void drawString(string s, int x, int y)
 {
 	glRasterPos2f(x, y);
 	for (int i = 0; s[i] != '\0'; ++i)
@@ -204,19 +209,19 @@ void RendererOpenGL1::renderProgressBar()
 
     // Draw the sections of the bar with proportional widths
     int accumulatedWidth = 0;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
     {
         // Calculate this section's start and end positions
         int sectionStart = accumulatedWidth;
         int sectionEnd = accumulatedWidth + barWidths[i];
-
         // Set color for each section
         switch (i)
         {
         	case 0: glColor3f(0.3f, 0.3f, 0.0f); break;
-        	case 1: glColor3f(0.0f, 0.5f, 0.0f); break;
-        	case 2: glColor3f(0.0f, 0.2f, 0.5f); break;
-        	case 3: glColor3f(0.5f, 0.0f, 0.0f); break;
+        	case 1: glColor3f(1.0f, 1.0f, 1.0f); break;
+        	case 2: glColor3f(0.0f, 0.5f, 0.0f); break;
+        	case 3: glColor3f(0.0f, 0.2f, 0.5f); break;
+        	case 4: glColor3f(0.5f, 0.0f, 0.0f); break;
         }
         // Draw the section
         glBegin(GL_QUADS);
@@ -225,7 +230,6 @@ void RendererOpenGL1::renderProgressBar()
         glVertex2i(barX + sectionEnd, barY + barHeight);
         glVertex2i(barX + sectionStart, barY + barHeight);
         glEnd();
-
         // Update the accumulated width
         accumulatedWidth += barWidths[i];
     }
@@ -238,7 +242,6 @@ void RendererOpenGL1::renderProgressBar()
     glVertex2i(barX-1 + barWidth, barY + barHeight);
     glVertex2i(barX-1, barY + barHeight);
     glEnd();
-
     // Draw the pointer
     glColor3f(1.0f, 1.0f, 0.0f); // Red pointer
     glBegin(GL_QUADS);
@@ -257,17 +260,17 @@ void RendererOpenGL1::renderText()
   glColor3f(1.0f, 1.0f, 1.0f);
   unsigned long millis = GetTickCount64() - tbegin;
   char s[100];
-  std::sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
+  sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
   drawString(s, 50, 40);
-  std::sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
+  sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
   renderBitmapString(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
 
-  std::sprintf(s, "SIDE %u", SIDE);
+  sprintf(s, "SIDE %u", SIDE);
   renderBitmapString(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
   //
   if (poincare)
   {
-    std::sprintf(s, "POINCARE: %llu", timer);
+    sprintf(s, "POINCARE: %llu", timer);
     renderBitmapString(300, 400, GLUT_BITMAP_TIMES_ROMAN_24, s);
   }
   // Get the primary monitor
@@ -282,12 +285,22 @@ void RendererOpenGL1::renderText()
   //
   glPopMatrix();
   // Update positions
-  int centerIndex = CENTER * SIDE2 + CENTER * SIDE + CENTER;
   for (unsigned w = 0; w < W_DIM && w < LAYERS; w++)
   {
-      Cell &cell = lattice_current[centerIndex + w * SIDE3];
-	  std::sprintf(s, "(%u, %u, %u)", cell.pos[0], cell.pos[1], cell.pos[2]);
+      Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
+      if (cell.pos[0] != lastPos[w][0] || cell.pos[1] != lastPos[w][1] || cell.pos[2] != lastPos[w][2])
+      {
+    	  glColor3f(1.0f, 0.0f, 1.0f);
+      }
+      else
+      {
+    	  glColor3f(1.0f, 1.0f, 0.0f);
+      }
+	  sprintf(s, "(%u, %u, %u)", cell.pos[0], cell.pos[1], cell.pos[2]);
 	  drawString(s, 1800, 100 + 25 * w);
+      lastPos[w][0] = cell.pos[0];
+      lastPos[w][1] = cell.pos[1];
+      lastPos[w][2] = cell.pos[2];
   }
 
 
@@ -295,7 +308,7 @@ void RendererOpenGL1::renderText()
   resetPerspectiveProjection();
 }
 
-void drawText(const std::string& text, int x, int y)
+void drawText(const string& text, int x, int y)
 {
     glRasterPos2i(x, y);
     for (char c : text)
@@ -304,7 +317,7 @@ void drawText(const std::string& text, int x, int y)
     }
 }
 
-void drawBoldText(const std::string& text, int x, int y, float offset = 0.5f)
+void drawBoldText(const string& text, int x, int y, float offset = 0.5f)
 {
     for (float dx = -offset; dx <= offset; dx += offset)
     {
@@ -373,7 +386,7 @@ void RendererOpenGL1::renderEntropy()
         glVertex2i(x, graphY);
         glVertex2i(x, graphY - 5); // Tick length = 5
         glEnd();
-        drawText(std::to_string(i), x - 5, graphY - 15); // Adjust x offset for centering text
+        drawText(to_string(i), x - 5, graphY - 15); // Adjust x offset for centering text
 
         // Vertical ticks (entropy)
         int y = graphY + (i * graphHeight / numTicks);
@@ -381,19 +394,20 @@ void RendererOpenGL1::renderEntropy()
         glVertex2i(graphX, y);
         glVertex2i(graphX - 5, y); // Tick length = 5
         glEnd();
-        drawText(std::to_string(i), graphX - 20, y - 5); // Adjust y offset for centering text
+        drawText(to_string(i), graphX - 20, y - 5); // Adjust y offset for centering text
     }
     Entropy entropy = entropyCalc.getEntropy();
     // Draw entropy function
     glColor3f(1.0f, 0.0f, 0.0f); // Red entropy function
     glBegin(GL_LINE_STRIP);
-    for (int x = 0; x <= graphWidth; ++x)
+    for (int x = 0; x < graphWidth; ++x)
     {
         // Normalize x to range [-1, 1]
         float y = entropy.getY(x);
-        float minEntropy = 0;
-        float normalizedY = (y - minEntropy) / (entropy.getMaxEntropy() - minEntropy) * graphHeight;
-        normalizedY = std::max(0.0f, std::min(normalizedY, static_cast<float>(graphHeight)));
+        if (y == 0)
+        	break;
+        float normalizedY = (y - entropy.getMinEntropy()) / (entropy.getMaxEntropy() - entropy.getMinEntropy()) * graphHeight;
+        normalizedY = max(0.0f, min(normalizedY, static_cast<float>(graphHeight)));
         glVertex2i(graphX + x, graphY + static_cast<int>(normalizedY));
     }
     glEnd();
@@ -453,9 +467,7 @@ void RendererOpenGL1::renderPoints()
 		}
 	}
 	glEnd();
-    int center = CENTER * SIDE2 + CENTER * SIDE + CENTER;
-    unsigned lIndex = center + currentLayer * SIDE3;
-    Cell &cell = lattice_current[lIndex];
+    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][currentLayer];
     float cx = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
     float cy = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
     float cz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
@@ -489,13 +501,9 @@ void RendererOpenGL1::renderParticles()
    	glPointSize(8.0f);
     glBegin(GL_POINTS);
     // Calculate the index for the center element
-    int center = CENTER * SIDE2 + CENTER * SIDE + CENTER;
     for (unsigned w = 0; w < W_DIM; w++)
     {
-        // Calculate the starting index for the current w-dimension layer
-        unsigned lIndex = center + w * SIDE3;
-        // Access the current cell in the lattice
-        Cell &cell = lattice_current[lIndex];
+        Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
         float alpha = 0.5;
         // Set the color in OpenGL
         float r = 0.7 + (w & 1)*0.3;
@@ -510,8 +518,7 @@ void RendererOpenGL1::renderParticles()
     }
     glEnd();
     //
-    unsigned lIndex = center + currentLayer * SIDE3;
-    Cell &cell = lattice_current[lIndex];
+    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][currentLayer];
     float cx = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
     float cy = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
     float cz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;

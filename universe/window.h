@@ -9,9 +9,9 @@
 #include <GL/gl.h>
 #include <glm/glm.hpp>
 #include <iostream>
+#include "model/simulation.h"
 #include "animator.h"
 #include "mygl.h"
-#include "model/simulation.h"
 
 namespace framework
 {
