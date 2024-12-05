@@ -21,8 +21,10 @@
 #include "entropy.h"
 
 //#define ORDER        4
-#define SIDE        7   //((1<<ORDER)+1)
-#define ORDER        ((int)round(log2(SIDE)))
+#define SIDE        5   //((1<<ORDER)+1)
+#define SIDE2		(SIDE*SIDE)
+#define W_DIM		(3*SIDE2)
+#define ORDER       ((int)round(log2(SIDE)))
 #define CENTER      (SIDE/2)
 #define FCENTER     (SIDE/2.0)
 
@@ -32,10 +34,8 @@
 #define WEST        3
 #define UP          4
 #define DOWN        5
-
-//#define POINCARE    (480*3)
-//#define WIDTH       480     // graph width
-//#define ERA         (POINCARE/WIDTH)
+#define FORWARD     6
+#define BACKWARD    7
 
 // Simulation IDE
 #define GRAPH
@@ -83,13 +83,13 @@ namespace automaton
             void setSign(bool sign) { s = sign; }
 
             // Friend functions for serialization
-            friend void serializeSN(const SN& sn, std::ofstream& out);
-            friend void deserializeSN(SN& sn, std::ifstream& in);
+            friend void serializeSN(const SN& sn, ofstream& out);
+            friend void deserializeSN(SN& sn, ifstream& in);
     };
 
     // Declare serialize and deserialize functions
-    void serializeSN(const SN& sn, std::ofstream& out);
-    void deserializeSN(SN& sn, std::ifstream& in);
+    void serializeSN(const SN& sn, ofstream& out);
+    void deserializeSN(SN& sn, ifstream& in);
 
     // Cell Class
     class Cell
@@ -113,7 +113,6 @@ namespace automaton
             // Superluminal
             unsigned c[3] = { 0, 0, 0 };	// Relocation offset
             unsigned k, t;					// Tick counters
-            bool ctrl;						// Update/light toggle
 
             // Interference
             unsigned m[3] = { 0, 0, 0 };	// Sought for direction
@@ -130,21 +129,19 @@ namespace automaton
 
             // Constructor
             Cell()
-                : pole(false), charge(0), aff(0), wv(false),
-                  d(0), sin(0), freq(0), angle(0), k(0), t(0), ctrl(false),
-                  e(false), collapse(false),
+                : pole(false), charge(0), aff(0), wv(false), d(0), sin(0),
+				  freq(0), angle(0), k(0), t(0), e(false), collapse(false),
                   net_c0(0), net_c1(0), net_c2(0), net_q(0), net_w0(0), net_w1(0),
                   fxf(false), bxb(false), fxb(false), wxw(false), boson(false) {}
 
             // Serialization functions
-            void serialize(std::ofstream& out) const;
-            void deserialize(std::ifstream& in);
+            void serialize(ofstream& out) const;
+            void deserialize(ifstream& in);
     };
 
     /// Function prototypes ///
     bool checkPoincare();
     bool isColorNeutral(unsigned char c1, unsigned char c2);
-	unsigned getNeighbor(unsigned index, unsigned dir);
 	uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell);
     void* SimulationLoop();
     void DeleteAutomaton();
@@ -163,29 +160,40 @@ namespace automaton
     void saveState0();
     void updateEntropy();
     void detectPoincare();
-    Cell* get_neighbor(int index, int dir);
+    void shiftW();
+
+	// Tests
+
+    void printConstants();
+    bool sanityTest1();
+    bool sanityTest2();
+    bool sanityTest3();
+    bool sanityTest4();
 
     /// Cross variables ///
     extern COLORREF* voxels;
     extern bool stop;
-    extern double H0;
-    extern std::vector<Cell> lattice_current;
+    extern Cell lattice_curr[SIDE][SIDE][SIDE][W_DIM];
 
     /// Cross constants ///
-    extern const unsigned XYZ_DIFFUSION;
-    extern const unsigned RELOC;
-    extern const unsigned RMAX;
+    extern const unsigned SIDE3;
+    extern const unsigned BLOCK;
     extern const unsigned DIAG;
+    extern const unsigned RMAX;
+    extern const unsigned FMAX;
+    extern const unsigned CONVOL;
+    extern const unsigned COLLISION;
+    extern const unsigned W_DIFFUSION;
+    extern const unsigned X_DIFFUSION;
+    extern const unsigned Y_DIFFUSION;
+    extern const unsigned Z_DIFFUSION;
+    extern const unsigned X_RELOC;
+    extern const unsigned Y_RELOC;
+    extern const unsigned Z_RELOC;
+    extern const unsigned UPDATE;
     extern const unsigned LIGHT;
     extern const unsigned RANGE;
-    extern const unsigned UPDATE;
     extern const unsigned FRAME;
-    extern const unsigned FMAX;
-    extern const unsigned SIDE2;
-    extern const unsigned SIDE3;
-    extern const unsigned W_DIM;
-    extern const unsigned BLOCK;
-    extern const unsigned CONVOL;
 
 }
 

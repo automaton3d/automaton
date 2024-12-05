@@ -49,7 +49,7 @@ namespace automaton
       return;
     // First hint:
     // Check if tick clocks are ok
-    if ((lattice_current[0].t || lattice_current[0].k))
+    if ((lattice_curr[0][0][0][0].t || lattice_curr[0][0][0][0].k))
       return;
     // puts("passed hint 1");
     // Second hint:
@@ -57,8 +57,7 @@ namespace automaton
     for (unsigned w = 0; w < W_DIM; ++w)
     {
       // Calculate the index for the center cell
-      int index = (CENTER * SIDE2 + CENTER * SIDE + CENTER) + (w * SIDE3);
-      Cell& cell = lattice_current[index];  // Access the current cell
+      Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];  // Access the current cell
       if (cell.pos[0] != CENTER || cell.pos[1] != CENTER || cell.pos[2] != CENTER)
         return;
     }
@@ -67,19 +66,7 @@ namespace automaton
     // Check if the entropy is the same as the first registered
     entropyCalc.collectData();
     double H = entropyCalc.computeEntropy();
-
-    #ifdef DEBUG
-
-    // Force the entropies equality
-    H = 0;
-    if (rand() % 16 == 0)
-    {
-      H = H0;
-    }
-
-    #endif
-
-    if (H != H0)
+    if (H != entropyCalc.getEntropy().getMinEntropy())
       return;
     // puts("passed hint 3");
     // Final check:
@@ -141,7 +128,6 @@ namespace automaton
     out.write(reinterpret_cast<const char*>(c), sizeof(c));
     out.write(reinterpret_cast<const char*>(&k), sizeof(k));
     out.write(reinterpret_cast<const char*>(&t), sizeof(t));
-    out.write(reinterpret_cast<const char*>(&ctrl), sizeof(ctrl));
 
     out.write(reinterpret_cast<const char*>(m), sizeof(m));
     out.write(reinterpret_cast<const char*>(&e), sizeof(e));
@@ -181,7 +167,6 @@ namespace automaton
     in.read(reinterpret_cast<char*>(c), sizeof(c));
     in.read(reinterpret_cast<char*>(&k), sizeof(k));
     in.read(reinterpret_cast<char*>(&t), sizeof(t));
-    in.read(reinterpret_cast<char*>(&ctrl), sizeof(ctrl));
     in.read(reinterpret_cast<char*>(m), sizeof(m));
     in.read(reinterpret_cast<char*>(&e), sizeof(e));
     deserializeSN(A_bar, in);
@@ -201,23 +186,26 @@ namespace automaton
   }
 
   /*
-   * Save the current state of the CA in disk.
+   * Save the current state of the CA to disk.
    */
   void saveState0()
   {
-    ofstream out("CA-state0.dat", ios::binary);
-    if (!out)
-    {
-      cerr << "Error opening file for writing!" << endl;
-      return;
-    }
-    size_t count = lattice_current.size();
-    out.write(reinterpret_cast<const char*>(&count), sizeof(count));  // Save number of objects
-    for (const auto& cell : lattice_current)
-    {
-      cell.serialize(out);
-    }
-    out.close();
+      ofstream out("CA-state0.dat", ios::binary);
+      if (!out)
+      {
+          cerr << "Error opening file for writing!" << endl;
+          return;
+      }
+      // Save the total number of objects
+      size_t count = BLOCK;
+      out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+      // Save each Cell object in the lattice
+      for (int x = 0; x < SIDE; x++)
+          for (int y = 0; y < SIDE; y++)
+        	  for (int z = 0; z < SIDE; z++)
+        		  for (int w = 0; w < W_DIM; w++)
+        			  lattice_curr[x][y][z][w].serialize(out);
+      out.close();
   }
 
   bool compareCells(const Cell& cell1, const Cell& cell2)
@@ -240,36 +228,50 @@ namespace automaton
 
   bool checkPoincare()
   {
-    //#define DEBUG
+      //#define DEBUG
 
-    #ifdef DEBUG
+  #ifdef DEBUG
+      // For debug purposes, occasionally return true randomly
+      if (rand() % 16 == 0)
+      {
+          return true;
+      }
+  #endif
 
-    if (rand() % 16 == 0)
-    {
-      return true;
-    }
+      ifstream in("CA-state0.dat", ios::binary); // Open file in binary mode
+      if (!in)
+      {
+          cerr << "Error opening file for reading!" << endl;
+          return false;
+      }
 
-    #endif
+      size_t count;
+      in.read(reinterpret_cast<char*>(&count), sizeof(count)); // Read number of objects
 
-    ifstream in("CA-state0.dat", ios::binary);  // Open file in binary mode
-    if (!in)
-    {
-      cerr << "Error opening file for reading!" << endl;
-      return false;
-    }
-    size_t count;
-    in.read(reinterpret_cast<char*>(&count), sizeof(count));  // Read number of objects
+      if (count != BLOCK) // Validate size consistency
+      {
+          cerr << "Mismatch in lattice size: expected " << BLOCK << ", found " << count << endl;
+          in.close();
+          return false;
+      }
+
       Cell saved_cell;
       bool success = true;
-      for (const auto& cell : lattice_current)
-    {
-          saved_cell.deserialize(in);
-          if (!compareCells(cell, saved_cell))
-            success = false;
-    }
-    in.close();
-    //
-    return success;
+
+      // Iterate over the array and compare each cell
+      for (int x = 0; x < SIDE; x++)
+          for (int y = 0; y < SIDE; y++)
+        	  for (int z = 0; z < SIDE; z++)
+        		  for (int w = 0; w < W_DIM; w++)
+        		  {
+        			  saved_cell.deserialize(in); // Deserialize cell data from file
+        			  if (!compareCells(lattice_curr[x][y][z][w], saved_cell))
+        			  {
+        				  success = false;
+        			  }
+        		  }
+      in.close();
+      return success;
   }
 
 }

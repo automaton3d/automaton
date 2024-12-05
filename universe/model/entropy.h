@@ -8,41 +8,58 @@
 #ifndef MODEL_ENTROPY_H_
 #define MODEL_ENTROPY_H_
 
-#include <vector>
-#include <unordered_map>
-#include <cmath>
+#include "simulation.h"
+
+#define ENTROPIES 480
 
 namespace automaton
 {
 	using namespace std;
 
+	// Forward declaration of Cell
+	class Cell;
+
+	// The object encapsulating entropy
+
     class Entropy
     {
     private:
-        float maxEntropy;     // Maximum possible entropy for normalization
-        vector<float> values; // Stores entropy values
+        float minEntropy;
+        float maxEntropy;       // Maximum possible entropy for normalization
+        vector<float> states;   // Stores CA states
+        float entropies[ENTROPIES]; // Stores the calculated entropies
+        int pointer = 0;        // Position of last entropy value
 
     public:
         // Default constructor
         Entropy();
 
         // Getters
-        int getCurrentIndex() const;
-        int getWidth() const;
-        float getMaxEntropy() const;
-        int getPointer() { return values.size(); }
+        float getMinEntropy() const { return minEntropy; }
+        float getMaxEntropy() const { return maxEntropy; }
+        int getPointer() { return pointer; }
+        float getY(unsigned x) const;
 
-        // Setters with validation
-        void setWidth(int w);
-        void setHeight(int h);
-        void setMaxEntropy(float m);
+        // Setter
+        void setMinEntropy(float m) { minEntropy = m; }
+        void setMaxEntropy(float m) { maxEntropy = m; }
+
+        // Add a new state value
+        void addState(float state);
 
         // Add a new entropy value
-        void add(float e);
+        void addEntropy(float H);
 
-        // Get the Y-coordinate for a given X based on entropy
-        float getY(unsigned x) const;
+        // Resets the graph bar collector
+        void resetBars();
+
+        bool isFull()
+        {
+           return pointer >= ENTROPIES;
+        }
     };
+
+    // The object encapsulating entropy calculation
 
     class EntropyCalculator
     {
@@ -51,9 +68,22 @@ namespace automaton
         std::unordered_map<unsigned, unsigned> stateCounts;
         unsigned totalStates;
 
+        /*
+         * Resets the data collector.
+         * Called by updateEntropy().
+         */
+        void resetCollector()
+        {
+          stateCounts.clear();
+          totalStates = 0;
+        }
+
     public:
         // Constructor
         EntropyCalculator();
+
+        // Calculates the state of one cell
+        uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell);
 
         // Collect state data
         void collectData();
@@ -61,8 +91,6 @@ namespace automaton
         // Compute entropy
         double computeEntropy();
 
-        // Reset state counts
-        void resetCounts();
 
         // Access entropy object for visualization
         const Entropy& getEntropy() const;
