@@ -20,21 +20,31 @@ namespace automaton
     cout << "DIAG =\t\t" << DIAG << endl;
     cout << "RMAX =\t\t" << RMAX << endl;
     cout << "FMAX =\t\t" << FMAX << endl;
-    cout << "CONVOL =\t" << CONVOL << endl;
-    cout << "COLLISION =\t" << COLLISION << endl;
-    cout << "W_DIFFUSION =\t" << W_DIFFUSION << endl;
-    cout << "X_DIFFUSION =\t" << X_DIFFUSION << endl;
-    cout << "Y_DIFFUSION =\t" << Y_DIFFUSION << endl;
-    cout << "Z_DIFFUSION =\t" << Z_DIFFUSION << endl;
-    cout << "RELOC_X =\t\t" << X_RELOC << endl;
-    cout << "RELOC_Y =\t\t" << Y_RELOC << endl;
-    cout << "RELOC_Z =\t\t" << Z_RELOC << endl;
-    cout << "UPDATE =\t" << UPDATE << endl;
-    cout << "LIGHT =\t\t" << LIGHT << endl;
-    cout << "RANGE =\t\t" << RANGE << endl;
-    cout << "FRAME =\t\t" << FRAME << endl;
+    cout << "CONVOL =\t" << CONVOL << " (k)"  << endl;
+    cout << "COLLISION =\t"    << COLLISION << " (k)"  << endl;
+    cout << "DIFFUSION =\t"  << DIFFUSION << " (k)"  << endl;
+    cout << "RELOCATION =\t\t" << RELOCATION << " (k)"  << endl;
+    cout << "TRANSPORT =\t\t"  << TRANSPORT << " (k)"  << endl;
+    cout << "UPDATE =\t" << UPDATE << " (k)"  << endl;
+    cout << "LIGHT =\t\t" << LIGHT << " (t)" << endl;
+    cout << "RANGE =\t\t" << RANGE << " (t)"  << endl;
+    cout << "FRAME =\t\t" << FRAME << " (k)"  << endl;
     cout << "BLOCK =\t\t" << BLOCK << endl;
   }
+
+  void testReloc(Cell& curr, Cell &draft, Cell &mirror, unsigned w)
+  {
+      if (framework::timer == 1044 && curr.wv && w == 0 && curr.pos[0] == 3 && curr.pos[1] == 3 && curr.pos[2] == 3)
+      {
+    	printf("%llu %u,%u,%u\n", framework::timer, curr.pos[0], curr.pos[1], curr.pos[2]); fflush(stdout);
+        draft.fxf = true;
+        // Master look-ahead relocate his own pole
+        draft.c[0] = SIDE / 4;
+        draft.c[1] = SIDE / 4;
+        draft.c[2] = SIDE / 4;
+      }
+  }
+
 
   /**
    * Checks if all layers contain exactly one central
@@ -115,12 +125,17 @@ namespace automaton
    * Checks if all cells in each layer have the same c[] values.
    */
   bool sanityTest3()
-  {
+  {unsigned c0 = 0;
     bool isValid = true;
     // Sweep each layer
     for (unsigned w = 0; w < W_DIM; ++w)
     {
       Cell& cell0 = lattice_curr[0][0][0][w];
+
+
+      if (w == 0)
+    	  c0 = cell0.c[0];
+
       unsigned count = 0;
       for (unsigned x = 0; x < SIDE; ++x)
       {
@@ -139,9 +154,16 @@ namespace automaton
       }
       if (count != SIDE3)
       {
-        puts("T3 failed (c[]'s differ)");
+        printf("T3 failed (c[]'s differ) %u != %u\n", count, SIDE3);
         isValid = false;
         break;
+      }
+      else //DEBUG
+      {
+    	  if (c0)
+    	  {
+    		  printf("c0 = %u\n", c0); fflush(stdout);
+    	  }
       }
     }
     return isValid;
@@ -184,6 +206,30 @@ namespace automaton
         break;
     }
     return isValid;
+  }
+
+  /*
+   * Check if all cells have the same k value.
+   */
+  bool sanityTest5()
+  {
+    unsigned k_ref = lattice_curr[0][0][0][0].k;
+    for (unsigned w = 0; w < W_DIM; ++w)
+	{
+	  for (unsigned x = 0; x < SIDE; ++x)
+	  {
+	    for (unsigned y = 0; y < SIDE; ++y)
+	    {
+	      for (unsigned z = 0; z < SIDE; ++z)
+	      {
+	        Cell& cell = lattice_curr[x][y][z][w];
+	        if (cell.k != k_ref)
+	          return false;
+	      }
+	    }
+	  }
+	}
+    return true;
   }
 
   /**

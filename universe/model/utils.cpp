@@ -4,11 +4,13 @@
  * Ancillary code.
  */
 
+#include "../GUIrenderer.h"
 #include "simulation.h"
-#include "../mygl.h"
 
 namespace automaton
 {
+  extern bool reloc_x[W_DIM], reloc_y[W_DIM], reloc_z[W_DIM];
+  extern bool reloc_w;
   extern Cell lattice_curr[SIDE][SIDE][SIDE][W_DIM];
   extern Cell lattice_draft[SIDE][SIDE][SIDE][W_DIM];
   COLORREF *voxels;
@@ -18,40 +20,50 @@ namespace automaton
    */
   void updateBuffer()
   {
-      // Check if the framework is active and if there are any checkboxes
-      if (!framework::active || framework::checkboxes.empty())
-          return;
-      // Find the selected layer
-      int w = -1; // Initialize to -1 to indicate no layer selected
-      for (unsigned i = 0; i < W_DIM; i++)
+    // Check if the framework is active and if there are any checkboxes
+    if (!framework::active || framework::checkboxes.empty())
+      return;
+    // Check if data is not transient
+    if (lattice_curr[0][0][0][0].k < UPDATE)
+      return;
+    int w = framework::list.getSelected();
+
+    /*
+    // Find the selected layer
+    int w = -1; // Initialize to -1 to indicate no layer selected
+    for (unsigned i = 0; i < W_DIM; i++)
+    {
+      if (framework::layers[i].isSelected())
       {
-          if (framework::layers[i].isSelected())
-          {
-              w = i; // Set the selected layer
-              break; // Exit loop once the layer is found
-          }
+        w = i; // Set the selected layer
+        break; // Exit loop once the layer is found
       }
-      // If no layer is selected, exit the function
-      if (w == -1)
-          return;
-      // Iterate over the 3D grid to update the voxel data
-      unsigned index3D = 0;
-      for (int x = 0; x < SIDE; x++)
+    }
+    */
+
+    // If no layer is selected, exit the function
+    if (w == -1)
+      return;
+    // Iterate over the 3D grid to update the voxel data
+    unsigned index3D = 0;
+    for (int x = 0; x < SIDE; x++)
+    {
+      for (int y = 0; y < SIDE; y++)
       {
-          for (int y = 0; y < SIDE; y++)
-          {
-              for (int z = 0; z < SIDE; z++)
-              {
-                Cell &cell = lattice_curr[x][y][z][w];
-                  // Check if 'wv' is a valid property and update the voxel color
-                  if (cell.wv)  // Corrected to access the correct cell
-                      voxels[index3D] = RGB(255, 255, 255);  // White voxel
-                  else
-                      voxels[index3D] = RGB(0, 0, 0);        // Black voxel
-                  index3D++;
-              }
-          }
+        for (int z = 0; z < SIDE; z++)
+        {
+          Cell &cell = lattice_curr[x][y][z][w];
+          // Check if 'wv' is a valid property and update the voxel color
+          if (cell.wv)
+            voxels[index3D] = RGB(255, 255, 255);  // White voxel
+//        else if (cell.t == 0)
+  //        voxels[index3D] = RGB(255, 0, 0);//DEBUG
+          else
+            voxels[index3D] = RGB(0, 0, 0);        // Black voxel
+          index3D++;
+        }
       }
+    }
   }
 
   /**
@@ -96,53 +108,16 @@ namespace automaton
       }
   }
 
-    /*
-     * Counts the charges in dimension W.
-     */
-    void compileNetCharges(Cell *mirror, Cell *draft)
-    {
-      // Compile blindly net charges
-      if (mirror->charge & C0_MASK)
-        draft->net_c0++;
-      else
-        draft->net_c0--;
-      //
-      if (mirror->charge & C1_MASK)
-        draft->net_c1++;
-      else
-        draft->net_c1--;
-      //
-      if (mirror->charge & C2_MASK)
-        draft->net_c2++;
-      else
-        draft->net_c2--;
-      //
-      if (mirror->charge & Q_MASK)
-        draft->net_q++;
-      else
-        draft->net_q--;
-      //
-      if (mirror->charge & W0_MASK)
-        draft->net_w0++;
-      else
-        draft->net_w0--;
-      //
-      if (mirror->charge & W1_MASK)
-        draft->net_w1++;
-      else
-        draft->net_w1--;
-    }
-
-    /**
-     * Marks the poles of a given momentum.
-     * Uses the Bresenham line algorithm.
-     * (used during initialization)
-     *
-     * @p the current ray
-     * @w the shell in the w dimension
-     */
-    void markPoles(unsigned p[3], int w)
-    {
+  /**
+   * Marks the poles of a given momentum.
+   * Uses the Bresenham line algorithm.
+   * (used during initialization)
+   *
+   * @p the current ray
+   * @w the shell in the w dimension
+   */
+  void markPoles(unsigned p[3], int w)
+  {
       // Calculate the center of the lattice
       int cx = CENTER, cy = CENTER, cz = CENTER;
       // Calculate the deltas
@@ -232,29 +207,205 @@ namespace automaton
       }
     }
 
-    /**
-     * Implements a circular shift of the fourth dimension (w) in
-     * the lattice_draft array for every [x][y][z] coordinate.
-     */
-    void shiftW()
+  /*
+   * Circular Shift in the Fourth Dimension W
+   */
+  void shiftW()
+  {
+    // Iterate through each 3D grid position
+    for (int x = 0; x < SIDE; x++)
     {
-        for (unsigned x = 0; x < SIDE; ++x)
+      for (int y = 0; y < SIDE; y++)
+      {
+        for (int z = 0; z < SIDE; z++)
         {
-            for (unsigned y = 0; y < SIDE; ++y)
-            {
-                for (unsigned z = 0; z < SIDE; ++z)
-                {
-                    // Save the last element for wrapping
-                    Cell last = lattice_draft[x][y][z][W_DIM - 1];
-                    // Use `std::copy_backward` to shift elements efficiently
-                    std::copy_backward(&lattice_draft[x][y][z][0],
-                                       &lattice_draft[x][y][z][W_DIM - 1],
-                                       &lattice_draft[x][y][z][W_DIM]);
-                    // Set the first element to the saved last element
-                    lattice_draft[x][y][z][0] = last;
-                }
-            }
+          // Save the last element in the 4th dimension for wrapping
+          Cell temp = lattice_draft[x][y][z][W_DIM - 1];
+          // Shift elements in the 4th dimension "up"
+          for (unsigned w = W_DIM - 1; w > 0; w--)
+          {
+            lattice_draft[x][y][z][w] = lattice_draft[x][y][z][w - 1];
+          }
+          // Place the saved last element at the start of the 4th dimension
+          lattice_draft[x][y][z][0] = temp;
         }
+      }
     }
+    reloc_w = false;
+  }
+
+  /**
+   * Circular shift in the X direction.
+   */
+  void shiftX(unsigned w)
+  {
+    // Reset relocation flag
+    reloc_x[w] = false;
+    // Temporary storage for the rightmost column of each xz plane
+    Cell temp[SIDE][SIDE];
+    // Copy the rightmost column to the temporary storage
+    for (unsigned int y = 0; y < SIDE; ++y)
+    {
+      for (unsigned int z = 0; z < SIDE; ++z)
+      {
+        temp[y][z] = lattice_draft[SIDE - 1][y][z][w];
+      }
+    }
+    // Shift all other columns one position to the right
+    for (unsigned int x = SIDE - 1; x > 0; --x)
+    {
+      for (unsigned int y = 0; y < SIDE; ++y)
+      {
+        for (unsigned int z = 0; z < SIDE; ++z)
+        {
+          Cell &draft = lattice_draft[x][y][z][w];
+          draft = lattice_draft[((x + SIDE) - 1) % SIDE][y][z][w];
+          if (draft.pos[0] == CENTER && draft.pos[1] == CENTER && draft.pos[2] == CENTER)
+          {
+        	draft.aff = w;
+            draft.t = 0;
+          }
+          else
+          {
+          	draft.aff = W_DIM;
+          }
+        }
+      }
+    }
+    // Copy the stored rightmost column to the leftmost column
+    for (unsigned int y = 0; y < SIDE; ++y)
+    {
+      for (unsigned int z = 0; z < SIDE; ++z)
+      {
+        Cell &draft = lattice_draft[0][y][z][w];
+        draft = temp[y][z];
+        if (draft.pos[0] == CENTER && draft.pos[1] == CENTER && draft.pos[2] == CENTER)
+        {
+      	  draft.aff = w;
+      	  draft.t = 0;
+        }
+        else
+        {
+          draft.aff = W_DIM;
+        }
+      }
+    }
+  }
+
+  /**
+   * Circular shift in the Y direction.
+   */
+  void shiftY(unsigned w)
+  {
+    // Reset relocation flag
+    reloc_y[w] = false;
+    // Temporary storage for the topmost row of each xz plane
+    Cell temp[SIDE][SIDE];
+    // Copy the topmost row to the temporary storage
+    for (unsigned int x = 0; x < SIDE; ++x)
+    {
+      for (unsigned int z = 0; z < SIDE; ++z)
+      {
+        temp[x][z] = lattice_draft[x][SIDE - 1][z][w];
+      }
+    }
+    // Shift all other rows one position upwards
+    for (unsigned int y = SIDE - 1; y > 0; --y)
+    {
+      for (unsigned int x = 0; x < SIDE; ++x)
+      {
+        for (unsigned int z = 0; z < SIDE; ++z)
+        {
+          Cell &draft = lattice_draft[x][y][z][w];
+          draft = lattice_draft[x][((y + SIDE) - 1) % SIDE][z][w];
+          if (draft.pos[0] == CENTER && draft.pos[1] == CENTER && draft.pos[2] == CENTER)
+          {
+        	draft.aff = w;
+            draft.t = 0;
+          }
+          else
+          {
+          	draft.aff = W_DIM;
+          }
+        }
+      }
+    }
+    // Copy the stored topmost row to the bottommost row
+    for (unsigned int x = 0; x < SIDE; ++x)
+    {
+      for (unsigned int z = 0; z < SIDE; ++z)
+      {
+        Cell &draft = lattice_draft[x][0][z][w];
+        draft = temp[x][z];
+        if (draft.pos[0] == CENTER && draft.pos[1] == CENTER && draft.pos[2] == CENTER)
+        {
+      	  draft.aff = w;
+      	  draft.t = 0;
+        }
+        else
+        {
+          draft.aff = W_DIM;
+        }
+      }
+    }
+  }
+
+  /**
+   * Circular shift in the Z direction.
+   */
+  void shiftZ(unsigned w)
+  {
+    // Reset relocation flag
+    reloc_z[w] = false;
+    // Temporary storage for the frontmost slice of each xy plane
+    Cell temp[SIDE][SIDE];
+    // Copy the frontmost slice to the temporary storage
+    for (unsigned int x = 0; x < SIDE; ++x)
+    {
+      for (unsigned int y = 0; y < SIDE; ++y)
+      {
+        temp[x][y] = lattice_draft[x][y][SIDE - 1][w];
+      }
+    }
+    // Shift all other slices one position towards the front
+    for (unsigned int z = SIDE - 1; z > 0; --z)
+    {
+      for (unsigned int x = 0; x < SIDE; ++x)
+      {
+        for (unsigned int y = 0; y < SIDE; ++y)
+        {
+          Cell &draft = lattice_draft[x][y][z][w];
+          draft = lattice_draft[x][y][((z + SIDE) - 1) % SIDE][w];
+          if (draft.pos[0] == CENTER && draft.pos[1] == CENTER && draft.pos[2] == CENTER)
+          {
+        	draft.aff = w;
+            draft.t = 0;
+          }
+          else
+          {
+          	draft.aff = W_DIM;
+          }
+        }
+      }
+    }
+    // Copy the stored frontmost slice to the backmost slice
+    for (unsigned int x = 0; x < SIDE; ++x)
+    {
+      for (unsigned int y = 0; y < SIDE; ++y)
+      {
+        Cell &draft = lattice_draft[x][y][0][w];
+        draft = temp[x][y];
+        if (draft.pos[0] == CENTER && draft.pos[1] == CENTER && draft.pos[2] == CENTER)
+        {
+      	  draft.aff = w;
+      	  draft.t = 0;
+        }
+        else
+        {
+          draft.aff = W_DIM;
+        }
+      }
+    }
+  }
 
 }

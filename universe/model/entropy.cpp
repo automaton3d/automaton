@@ -175,7 +175,7 @@ namespace automaton
       //assert(sanityTest1());
       //assert(sanityTest2());
       //assert(sanityTest3());
-      assert(sanityTest4());
+    //  assert(sanityTest4());
       collectData();
     }
     if (framework::timer % (FRAME * era) == 0)

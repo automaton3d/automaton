@@ -1,9 +1,12 @@
 /*
- * simulation.h
+ * simul.h
+ *
+ *  Created on: 11 de dez. de 2024
+ *      Author: Alexandre
  */
 
-#ifndef SIMULATION_H_
-#define SIMULATION_H_
+#ifndef MODEL_SIMUL_H_
+#define MODEL_SIMUL_H_
 
 #include <windows.h>
 #include <stdio.h>
@@ -19,15 +22,13 @@
 #include <algorithm>
 #include <assert.h>
 #include "entropy.h"
-#include "nvector.h"
 
 //#define ORDER        4
-#define SIDE        13   //((1<<ORDER)+1)
+//#define SIDE        9   //((1<<ORDER)+1)
 #define SIDE2		(SIDE*SIDE)
 #define W_DIM		(3*SIDE2)
 #define ORDER       ((int)round(log2(SIDE)))
-#define CENTER      ((SIDE-1)/2)
-#define FCENTER     (SIDE/2.0)
+//#define FCENTER     (SIDE/2.0)
 
 #define NORTH       0
 #define EAST        1
@@ -57,13 +58,11 @@
 namespace framework
 {
     extern unsigned long long timer;
-    extern void sound(bool loop);
+    extern void sound();
 }
 
-namespace automaton
+namespace automaton_back
 {
-	using namespace std;
-
     // Signed Natural (SN) Class
     class SN
 	{
@@ -86,13 +85,13 @@ namespace automaton
             void setSign(bool sign) { s = sign; }
 
             // Friend functions for serialization
-     //       friend void serializeSN(const SN& sn, ofstream& out);
-       //     friend void deserializeSN(SN& sn, ifstream& in);
+      //      friend void serializeSN(const SN& sn, ofstream& out);
+        //    friend void deserializeSN(SN& sn, ifstream& in);
     };
 
     // Declare serialize and deserialize functions
-    //void serializeSN(const SN& sn, ofstream& out);
-  //  void deserializeSN(SN& sn, ifstream& in);
+   // void serializeSN(const SN& sn, ofstream& out);
+   // void deserializeSN(SN& sn, ifstream& in);
 
     // Cell Class
     class Cell
@@ -153,14 +152,9 @@ namespace automaton
                 std::copy(std::begin(other.c), std::end(other.c), std::begin(c));
                 std::copy(std::begin(other.m), std::end(other.m), std::begin(m));
             }
-
-            // Serialization functions
-            void serialize(ofstream& out) const;
-            void deserialize(ifstream& in);
     };
 
     /// Function prototypes ///
-    void swap_lattices();
     bool checkPoincare();
     bool isColorNeutral(unsigned char c1, unsigned char c2);
 	uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell);
@@ -181,14 +175,10 @@ namespace automaton
     void saveState0();
     void updateEntropy();
     void detectPoincare();
-    void shiftX(unsigned w);
-    void shiftY(unsigned w);
-    void shiftZ(unsigned w);
     void shiftW();
     void executeInteraction(Cell &curr, Cell &draft);
     bool convolute(Cell& curr, Cell &draft, Cell &mirror, Cell &wleft, Cell &wright);
     void seggregation(Cell& curr, Cell &draft, Cell &mirror);
-    void testReloc(Cell& curr, Cell &draft, Cell &mirror, unsigned w);
 
 	// Tests
 
@@ -197,7 +187,6 @@ namespace automaton
     bool sanityTest2();
     bool sanityTest3();
     bool sanityTest4();
-    bool sanityTest5();
 
     /// Cross variables ///
     extern COLORREF* voxels;
@@ -205,20 +194,24 @@ namespace automaton
 
     /// Cross constants ///
     extern const unsigned SIDE3;
-    extern const unsigned long BLOCK;
+    extern const unsigned BLOCK;
     extern const unsigned DIAG;
     extern const unsigned RMAX;
     extern const unsigned FMAX;
     extern const unsigned CONVOL;
     extern const unsigned COLLISION;
-    extern const unsigned DIFFUSION;
+    extern const unsigned W_DIFFUSION;
+    extern const unsigned X_DIFFUSION;
+    extern const unsigned Y_DIFFUSION;
+    extern const unsigned Z_DIFFUSION;
     extern const unsigned RELOCATION;
     extern const unsigned TRANSPORT;
     extern const unsigned UPDATE;
     extern const unsigned LIGHT;
-    extern unsigned RANGE;
+    extern const unsigned RANGE;
     extern const unsigned FRAME;
 
 }
 
-#endif /* SIMULATION_H_ */
+
+#endif /* MODEL_SIMUL_H_ */

@@ -4,8 +4,8 @@
  *  Created on: 24 de nov. de 2024
  *      Author: Alexandre
  */
+#include "../GUIrenderer.h"
 #include "simulation.h"
-#include "../mygl.h"
 
 namespace framework
 {
@@ -81,7 +81,7 @@ namespace automaton
     // Open alert window
     framework::poincare = true;
     // Play trout.wav
-    framework::sound();
+    framework::sound(true);
     // The program stops here - END
     while(true)
       Sleep(1000);
