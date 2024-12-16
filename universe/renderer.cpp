@@ -2,7 +2,7 @@
  * renderer.cpp
  *
  * Implements the top level renderer routines.
- * (OpenGL renderer is subordinated to it)
+ * (GUIrendere is subordinated to it)
  */
 
 #include "renderer.h"

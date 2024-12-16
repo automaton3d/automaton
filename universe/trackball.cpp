@@ -326,7 +326,7 @@ namespace framework
 
 	void TrackBallInteractor::setClickPoint(double x, double y)
 	{
-		if(x > 100)
+		if(x > 100 && x < 1680)
 		{
 			mPrevClickPoint = mClickPoint;
 			mClickPoint.x = x;

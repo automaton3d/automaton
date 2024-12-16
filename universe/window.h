@@ -11,7 +11,7 @@
 #include <iostream>
 #include "model/simulation.h"
 #include "animator.h"
-#include "mygl.h"
+#include "GUIrenderer.h"
 
 namespace framework
 {
@@ -26,7 +26,7 @@ namespace framework
 	    ~RenderWindowGLFW();
 
 	  static RenderWindowGLFW & instance();
-	  int run(int width, int height);
+	  int run();
 
 	  static void buttonCallback(GLFWwindow *window, int button, int action,
 	                               int mods);
@@ -38,16 +38,17 @@ namespace framework
 	  static void sizeCallback(GLFWwindow *window, int width, int height);
 
 	private:
-	    Animator mAnimator;
+	  Animator mAnimator;
 	  Camera mCamera;
 	  TrackBallInteractor mInteractor;
-	  RendererOpenGL1 mRenderer;
-	    GLFWwindow *mWindow;
-	    static DWORD WINAPI SimulateThread(LPVOID lpParam);
-	    volatile bool isThreadReady = false;
+	  GUIrenderer mRenderer;
+	  GLFWwindow *mWindow;
+	  static DWORD WINAPI SimulateThread(LPVOID lpParam);
+	  volatile bool isThreadReady = false;
 	};
 
 	void sound();
+    void renderCenterBox(const char* text);
 
 } // end namespace framework
 

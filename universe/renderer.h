@@ -2,7 +2,7 @@
  * renderer.h
  *
  * Declares the top level renderer routines.
- * (OpenGL renderer is subordinated to it)
+ * (GUIrenderer is subordinated to it)
  */
 
 #ifndef RSMZ_RENDERER_H
@@ -13,21 +13,21 @@
 
 namespace framework
 {
-class Renderer
-{
-public:
-  Renderer();
-  virtual ~Renderer();
+  class Renderer
+  {
+    public:
+      Renderer();
+      virtual ~Renderer();
 
-  virtual void render() = 0;
+      virtual void render() = 0;
 
-  void setCamera(Camera *c);
-    const Camera* getCamera();
+      void setCamera(Camera *c);
+      const Camera* getCamera();
 
-protected:
-  Camera *mCamera;
+    protected:
+      Camera *mCamera;
 
-}; // end class Renderer
+  }; // end class Renderer
 
 } // end namespace rsmz
 
