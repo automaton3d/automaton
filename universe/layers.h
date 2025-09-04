@@ -16,6 +16,11 @@
 
 #define LAYERS	25	// max layers shown
 
+namespace automaton
+{
+  extern Cell lattice_curr[EL][EL][EL][W_DIM];
+}
+
 namespace framework
 {
   using namespace std;
@@ -43,7 +48,7 @@ namespace framework
 	  for (unsigned w = 0; w < W_DIM && w < LAYERS; w++)
 	  {
 	    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
-	    if (cell.pos[0] != lastPos[w][0] || cell.pos[1] != lastPos[w][1] || cell.pos[2] != lastPos[w][2])
+	    if (cell.x[0] != lastPos[w][0] || cell.x[1] != lastPos[w][1] || cell.x[2] != lastPos[w][2])
 	    {
 	      glColor3f(1.0f, 0.0f, 1.0f);
 	    }
@@ -52,11 +57,11 @@ namespace framework
 	      glColor3f(1.0f, 1.0f, 0.0f);
 	    }
         char s[100];
-	    sprintf(s, "(%u, %u, %u)", cell.pos[0], cell.pos[1], cell.pos[2]);
+	    sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
 	    drawString8(s, 1800, 100 + 25 * w);
-	    lastPos[w][0] = cell.pos[0];
-	    lastPos[w][1] = cell.pos[1];
-	    lastPos[w][2] = cell.pos[2];
+	    lastPos[w][0] = cell.x[0];
+	    lastPos[w][1] = cell.x[1];
+	    lastPos[w][2] = cell.x[2];
 	  }
     }
 

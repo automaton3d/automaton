@@ -101,11 +101,6 @@ namespace framework
       }
       // Draw the loading message at the center of the screen
       framework::drawString8(loadingMessage, 500, mode->height / 2);
-
-
-//      drawBoldText(loadingMessage, 500, mode->height / 2, 1);
-
-
       // Change the ellipsis count if enough time has passed
       if (glfwGetTime() - lastEllipsisChangeTime >= ellipsisChangeInterval)
       {
@@ -210,6 +205,7 @@ namespace framework
                   }
                   else if (viewpoint[1].isSelected())
                   {
+                   // XY view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
                    instance().mCamera.setEye(0,0,length);
                    instance().mCamera.setUp(1,0,0);
@@ -218,6 +214,7 @@ namespace framework
                   }
                   else if (viewpoint[2].isSelected())
                   {
+                   // YZ view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
                    instance().mCamera.setEye(length,0,0);
                    instance().mCamera.setUp(0,1,0);
@@ -226,15 +223,11 @@ namespace framework
                   }
                   else if (viewpoint[3].isSelected())
                   {
+                   // ZX view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
                    instance().mCamera.setEye(0,length,0);
                    instance().mCamera.setUp(1,0,0);
                    instance().mCamera.update();
-                   instance().mInteractor.setCamera(& instance().mCamera);
-                  }
-                  else if (viewpoint[4].isSelected())
-                  {
-                   instance().mCamera.reset();
                    instance().mInteractor.setCamera(& instance().mCamera);
                   }
                  }
@@ -298,12 +291,12 @@ namespace framework
   */
  void RenderWindowGLFW::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
  {
-     float length;
-     switch(action)
-     {
-         case GLFW_PRESS:
-             switch(key)
-             {
+   float length;
+   switch(action)
+   {
+     case GLFW_PRESS:
+       switch(key)
+       {
                  case GLFW_KEY_ESCAPE:
                      // Exit app on ESC key.
                 	 if (enable)
@@ -413,30 +406,30 @@ namespace framework
 
   void RenderWindowGLFW::moveCallback(GLFWwindow* window, double xpos, double ypos)
   {
-      int width, height;
-      glfwGetWindowSize(window, &width, &height);
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
 
-      // Convert ypos to OpenGL coordinates
-      ypos = height - ypos;
+    // Convert ypos to OpenGL coordinates
+    ypos = height - ypos;
 
-      // Update the slider's thumb position if it's being dragged
-      slider.onMouseDrag(xpos, ypos, height);
+    // Update the slider's thumb position if it's being dragged
+    slider.onMouseDrag(xpos, ypos, height);
 
-      // Update the trackball
-      instance().mInteractor.setClickPoint(xpos, ypos);
+    // Update the trackball
+    instance().mInteractor.setClickPoint(xpos, ypos);
   }
 
- void RenderWindowGLFW::scrollCallback(GLFWwindow *window, double xpos, double ypos)
- {
-  instance().mInteractor.setScrollDirection(xpos + ypos > 0 ? true : false);
- }
+  void RenderWindowGLFW::scrollCallback(GLFWwindow *window, double xpos, double ypos)
+  {
+    instance().mInteractor.setScrollDirection(xpos + ypos > 0 ? true : false);
+  }
 
- void RenderWindowGLFW::sizeCallback(GLFWwindow *window, int width, int height)
- {
-  instance().mRenderer.resize(width, height);
-  instance().mInteractor.setScreenSize(width, height);
-  instance().mAnimator.setScreenSize(width, height);
- }
+  void RenderWindowGLFW::sizeCallback(GLFWwindow *window, int width, int height)
+  {
+    instance().mRenderer.resize(width, height);
+    instance().mInteractor.setScreenSize(width, height);
+    instance().mAnimator.setScreenSize(width, height);
+  }
 
   /*
    * Runs the simulation.
@@ -457,8 +450,6 @@ namespace framework
         automaton::simulation();
         // Transfer data to the GUI
         automaton::updateBuffer();
-        // Detect Poincaré cycle
-        //       automaton::detectPoincare();
         timer++;
       }
       else
@@ -583,9 +574,9 @@ namespace framework
 
   int main(int argc, char *argv[])
   {
-    printf("SIDE=%d, DIFFUSE=%d, PERIOD=%d, RANGE=%d\n", SIDE, automaton::XYZ_DIFFUSION, automaton::RMAX, automaton::RANGE);
+    printf("SIDE=%d, PERIOD=%d,\n", SIDE, automaton::RMAX);
     fflush(stdout);
-    automaton::initSimulation();
+ //   automaton::initSimulation();
     while (true)
     {
       automaton::displayLattice();

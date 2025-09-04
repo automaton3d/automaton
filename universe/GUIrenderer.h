@@ -127,6 +127,8 @@ void drawBoldText(const string& text, int x, int y, float offset = 0.5f);
 void drawString8(string s, int x, int y);
 void render2Dstring(float x, float y, void *font, const char *string);
 void render3Dstring(float x, float y, float z, void *font, const char *string);
+void blinkText(unsigned long long timer);
+void triggerEvent(unsigned long long timer);
 
 extern bool active;
 extern std::vector<Tickbox> checkboxes;

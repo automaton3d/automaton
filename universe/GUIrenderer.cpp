@@ -6,15 +6,9 @@
 
 #include "GUIrenderer.h"
 
-#include "model/entropy.h"
 #include "GLutils.h"
 #include "layers.h"
 #include "slider.h"
-
-namespace automaton
-{
-  extern EntropyCalculator entropyCalc;
-}
 
 namespace framework
 {
@@ -37,9 +31,10 @@ namespace framework
 
   bool entropyFlag;
   unsigned long tbegin;
-  int barWidths[5];
-  bool poincare = false;
+  int barWidths[4];
   unsigned currentLayer = 0;
+  // Global flag to control rendering mode: single cube or 27 cubes.
+  bool MULTICUBE_MODE = false;
 
   string help[10] =
   {
@@ -55,20 +50,19 @@ namespace framework
     "Scroll-Wheel: Dolly (zoom)"
   };
 
-  string steps[5] =
+  string steps[4] =
   {
 	"Convolution",
-	"Collision",
 	"Diffusion",
 	"Relocation",
-	"Light"
+	"Transport"
   };
 
   unsigned lastPos[W_DIM][3];
 
   using namespace automaton;
 
-  const float GRID_SIZE = 0.5 / SIDE;
+  const float GRID_SIZE = 0.5 / EL;
 
   /**
    * Default constructor.
@@ -89,7 +83,7 @@ namespace framework
    */
   void GUIrenderer::init()
   {
-    voxels = (COLORREF*) malloc(SIDE3 * sizeof(COLORREF));
+    voxels = (COLORREF*) malloc(L3 * sizeof(COLORREF));
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
@@ -116,7 +110,6 @@ namespace framework
     viewpoint.push_back(Radio(60, 520, "XY"));
     viewpoint.push_back(Radio(60, 550, "YZ"));
     viewpoint.push_back(Radio(60, 580, "ZX"));
-    viewpoint.push_back(Radio(60, 610, "Reset view"));
     viewpoint[0].setSelected(true);
     // Initialize entropy
     GLint viewport[4];
@@ -124,11 +117,10 @@ namespace framework
     // Initialize progress bar data
     int barWidth = viewport[2] / 4; // Bar is 1/4 of the screen width
     double totalRatio = (double) FRAME;
-    barWidths[0] = (int)(barWidth * (double)CONVOL / totalRatio);           // CONVOL
-    barWidths[1] = 1;                          								// COLLISION
-    barWidths[2] = (int)(barWidth * (double)(W_DIM - 1) / totalRatio);      // DIFFUSION
-    barWidths[3] = (int)(barWidth * (double)(4 * (SIDE - 1)) / totalRatio); // RELOCATION
-    barWidths[4] = (int)(barWidth * (double)LIGHT / totalRatio);            // LIGHT
+    barWidths[0] = (int)(barWidth * (double) CONVOL / totalRatio);
+    barWidths[1] = (int)(barWidth * (double) (DIFFUSION - CONVOL) / totalRatio);
+    barWidths[2] = (int)(barWidth * (double) (RELOC - DIFFUSION) / totalRatio);
+    barWidths[3] = (int)(barWidth * (double) (TRANSP - RELOC) / totalRatio);
   }
 
   /**
@@ -181,19 +173,31 @@ namespace framework
     int y0 = barY - 35;
     // Draw the sections of the bar with proportional widths
     int accumulatedWidth = 0;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 4; i++)
     {
       // Calculate this section's start and end positions
       int sectionStart = accumulatedWidth;
       int sectionEnd = accumulatedWidth + barWidths[i];
       // Set color for each section
-      switch (i)
+      if (timer % FRAME > 2)
       {
-        case 0: glColor3f(0.3f, 0.3f, 0.0f); break;
-        case 1: glColor3f(1.0f, 1.0f, 1.0f); break;
-        case 2: glColor3f(0.0f, 0.5f, 0.0f); break;
-        case 3: glColor3f(0.0f, 0.2f, 0.7f); break;
-        case 4: glColor3f(0.5f, 0.0f, 0.0f); break;
+        switch (i)
+        {
+          case 0: glColor3f(0.3f, 0.3f, 0.0f); break;
+          case 1: glColor3f(0.5f, 0.0f, 0.0f); break;
+          case 2: glColor3f(0.0f, 0.5f, 0.0f); break;
+          case 3: glColor3f(0.0f, 0.2f, 0.7f); break;
+        }
+      }
+      else
+      {
+        switch (i)
+        {
+          case 0: glColor3f(0.7f, 0.7f, 0.0f); break;
+          case 1: glColor3f(0.7f, 0.0f, 0.0f); break;
+          case 2: glColor3f(0.0f, 0.7f, 0.0f); break;
+          case 3: glColor3f(0.0f, 0.4f, 0.9f); break;
+        }
       }
       // Draw the section
       glBegin(GL_QUADS);
@@ -298,15 +302,9 @@ namespace framework
   drawString8(s, 50, 40);
   sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
   render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-
-  sprintf(s, "SIDE %u", SIDE);
+  sprintf(s, "SIDE %u", EL);
   render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
   //
-  if (poincare)
-  {
-    sprintf(s, "POINCARE: %llu", timer);
-    render2Dstring(300, 400, GLUT_BITMAP_TIMES_ROMAN_24, s);
-  }
   // Get the primary monitor
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
   // Get the video mode of the monitor
@@ -337,11 +335,6 @@ void GUIrenderer::renderEntropy()
   glGetIntegerv(GL_VIEWPORT, viewport);
   int screenWidth = viewport[2];
   int screenHeight = viewport[3];
-  // Define graph dimensions relative to screen size
-  int graphWidth = screenWidth / 4;  // 25% of the screen width
-  int graphHeight = screenHeight / 4; // 25% of the screen height
-  int graphX = 60;  // Margin from the left
-  int graphY = screenHeight - graphHeight - 770; // Margin from the top
   // Set orthographic projection for 2D graph
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
@@ -350,78 +343,9 @@ void GUIrenderer::renderEntropy()
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
-  // Draw graph background
-  glColor3f(0.2f, 0.2f, 0.2f); // Dark grey background
-  glBegin(GL_QUADS);
-  glVertex2i(graphX, graphY);
-  glVertex2i(graphX + graphWidth, graphY);
-  glVertex2i(graphX + graphWidth, graphY + graphHeight);
-  glVertex2i(graphX, graphY + graphHeight);
-  glEnd();
-  // Draw axes
-  glColor3f(1.0f, 1.0f, 1.0f); // White axes
-  glBegin(GL_LINES);
-  // Horizontal axis
-  glVertex2i(graphX, graphY);
-  glVertex2i(graphX + graphWidth, graphY);
-  // Vertical axis
-  glVertex2i(graphX, graphY);
-  glVertex2i(graphX, graphY + graphHeight);
-  glEnd();
-  // Draw axis ticks and labels
-  int numTicks = 5;
-  glColor3f(1.0f, 1.0f, 1.0f); // White for text and ticks
-  Entropy entropy = entropyCalc.getEntropy();
-  float minEntropy = entropy.getMinEntropy();
-  float maxEntropy = entropy.getMaxEntropy();
-  float entropyStep = (maxEntropy - minEntropy) / numTicks;
-  for (int i = 0; i <= numTicks; ++i)
-  {
-    // Horizontal ticks (percentages from 0 to 100)
-    int x = graphX + (i * graphWidth / numTicks);
-    glBegin(GL_LINES);
-    glVertex2i(x, graphY);
-    glVertex2i(x, graphY - 5); // Tick length = 5
-    glEnd();
-    // Label for horizontal axis as percentage
-    int percent = i * 100 / numTicks;  // Convert tick index to percentage
-    drawString12(std::to_string(percent) + "%", x - 5, graphY - 15); // Adjust x offset for centering text
-    // Vertical ticks (entropy)
-    float currentEntropy = minEntropy + i * entropyStep;
-    int y = graphY + static_cast<int>((i * graphHeight) / numTicks);
-    glBegin(GL_LINES);
-    glVertex2i(graphX, y);
-    glVertex2i(graphX - 5, y); // Tick length = 5
-    glEnd();
-    // Draw entropy value as the label
-    std::string entropyLabel = std::to_string(currentEntropy);
-    entropyLabel = entropyLabel.substr(0, entropyLabel.find('.') + 3); // Limit to two decimal places
-    drawString12(entropyLabel, graphX - 40, y - 5); // Adjust positioning for centering text
-  }
-  // Draw entropy function
-  glColor3f(1.0f, 0.0f, 0.0f); // Red entropy function
-  glBegin(GL_LINE_STRIP);
-  for (int x = 0; x < graphWidth; ++x)
-  {
-    // Normalize x to range [-1, 1]
-    float y = entropy.getY(x);
-    if (y == 0)
-      break;
-    float normalizedY = (y - entropy.getMinEntropy()) / (entropy.getMaxEntropy() - entropy.getMinEntropy()) * graphHeight;
-    normalizedY = max(0.0f, min(normalizedY, static_cast<float>(graphHeight)));
-    glVertex2i(graphX + x, graphY + static_cast<int>(normalizedY));
-  }
-  glEnd();
-  // Draw vertical needle at pointer position
-  glColor3f(0.4f, 0.4f, 0.4f); // Green needle
-  glBegin(GL_LINES);
-  glVertex2i(graphX + entropy.getPointer(), graphY);
-  glVertex2i(graphX + entropy.getPointer(), graphY + graphHeight);
-  glEnd();
-  // Draw axis labels
-  glColor3f(0.0f, 1.0f, 0.0f); // Green labels
-  drawBoldText("t", graphX + graphWidth / 2 - 10, graphY - 30); // Horizontal axis label
-  drawBoldText("H", graphX - 40, graphY + graphHeight / 2);  // Vertical axis label
+
+  // TODO DRAW 2D GRAPHICS HERE
+
   // Restore previous matrices
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
@@ -436,38 +360,57 @@ void GUIrenderer::renderEntropy()
 void GUIrenderer::renderWavefront()
 {
   // Cell spacing.
-  const float GRID_SIZE =  0.5 / SIDE;
+  const float GRID_SIZE =  0.5 / EL;
   // Size of each lattice point.
   glPointSize(2.0f);
+
+  // Define offsets for 27 cubes (-1, 0, 1 along each axis)
+  int offsets[3] = {-1, 0, 1};
   glBegin(GL_POINTS);
-  for (int x = 0; x < SIDE; x++)
+  for (int x = 0; x < EL; x++)
   {
-    for (int y = 0; y < SIDE; y++)
+    for (int y = 0; y < EL; y++)
     {
-      for (int z = 0; z < SIDE; z++)
+      for (int z = 0; z < EL; z++)
       {
-        COLORREF color = automaton::voxels[x*SIDE2 + y*SIDE + z];
+        COLORREF color = automaton::voxels[x * L2 + y * EL + z];
         if (!color)
           continue;
-        // Extrair os componentes R, G, B
+        // Extract the R, G, B components.
         BYTE r = GetRValue(color);
         BYTE g = GetGValue(color);
         BYTE b = GetBValue(color);
-        // Converter para valores normalizados entre 0.0 e 1.0
+
+        // Convert to normalized values between 0.0 and 1.0.
         GLdouble red   = r / 255.0;
         GLdouble green = g / 255.0;
         GLdouble blue  = b / 255.0;
         float alpha = 0.5;
-        // Definir a cor no OpenGL
+        // Set the OpenGL color.
         glColor4d(red, green, blue, alpha);
-        float px = (x - SIDE / 2) * GRID_SIZE;
-        float py = (y - SIDE / 2) * GRID_SIZE;
-        float pz = (z - SIDE / 2) * GRID_SIZE;
-        glVertex3f(px, py, pz);
-        // DEBUG
-        glColor3d(1, 1, 0);
-        if (lattice_curr[x][y][z][0].c[0] || lattice_curr[x][y][z][0].c[1] || lattice_curr[x][y][z][0].c[2])
-            glVertex3f(px+1, py+1, pz+1);
+        // Base position of the current voxel.
+        float px = (x - EL / 2) * GRID_SIZE;
+        float py = (y - EL / 2) * GRID_SIZE;
+        float pz = (z - EL / 2) * GRID_SIZE;
+        if (MULTICUBE_MODE)
+        {
+          // Render 27 cubes by translating the base grid position.
+          for (int dx : offsets)
+          {
+            for (int dy : offsets)
+            {
+              for (int dz : offsets)
+              {
+                glVertex3f(px + dx * 0.5, py + dy * 0.5, pz + dz * 0.5);
+              }
+            }
+          }
+        }
+        else
+        {
+          // Render a single cube.
+          glVertex3f(px, py, pz);
+        }
       }
     }
   }
@@ -482,7 +425,7 @@ void GUIrenderer::renderWavefront()
 void GUIrenderer::renderParticles()
 {
   // Cell spacing.
-  const float GRID_SIZE = 0.5 / SIDE;
+  const float GRID_SIZE = 0.5 / EL;
   // Size of each lattice point.
   glPointSize(8.0f);
   glBegin(GL_POINTS);
@@ -496,9 +439,9 @@ void GUIrenderer::renderParticles()
     float g = 0.7 + ((w >> 1) & 1)*0.3;
     float b = 0.7 + ((w >> 2) & 1)*0.3;
     //
-    float px = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
-    float py = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
-    float pz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
+    float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
+    float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
+    float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
     glColor4d(r, g, b, alpha);
     glVertex3f(px, py, pz);
   }
@@ -602,7 +545,7 @@ void GUIrenderer::renderAxes()
     glVertex3f(0.f, 0.5f, 0.f);
 
     // Z-axis
-    glColor3f(0.f, 0.f, 0.8f); // Blue for the Z-axis
+    glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
     glVertex3f(0.0f, 0.f, 0.f);
     glVertex3f(0.f, 0.f, 0.5f);
 
@@ -720,9 +663,9 @@ void GUIrenderer::renderCube()
   void GUIrenderer::enhanceVoxel()
   {
     Cell &cell = lattice_curr[CENTER][CENTER][CENTER][currentLayer];
-    float cx = (SIDE - cell.pos[0] - 0.5f) * GRID_SIZE - 0.25f;
-    float cy = (SIDE - cell.pos[1] - 0.5f) * GRID_SIZE - 0.25f;
-    float cz = (SIDE - cell.pos[2] - 0.5f) * GRID_SIZE - 0.25f;
+    float cx = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
+    float cy = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
+    float cz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
     glPointSize(1.0f);
     glBegin(GL_POINTS);
     glColor3d(0.7, 0.7, 0.7);
@@ -740,5 +683,4 @@ void GUIrenderer::renderCube()
     }
     glEnd();
   }
-
 }
