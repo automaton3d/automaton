@@ -8,36 +8,28 @@ namespace automaton
 {
   using namespace std;
 
-  extern EntropyCalculator entropyCalc;
+ // extern EntropyCalculator entropyCalc;
 
   // Grid constants
-  const unsigned SIDE3 = SIDE2 * SIDE;
-  const unsigned long BLOCK = SIDE3 * W_DIM;
+  const unsigned L3 = L2 * EL;
+  const unsigned long BLOCK = L3 * W_DIM;
 
   // Dynamics constants and variables
-  const unsigned DIAG        = (unsigned) SIDE * sqrt(3);
-  const unsigned RMAX        = DIAG / 2;
-  const unsigned FMAX        = RMAX / 2;
-  const unsigned CONVOL      = W_DIM;
-  const unsigned COLLISION   = CONVOL + 1;
-  const unsigned DIFFUSION   = COLLISION + W_DIM - 1;
-  const unsigned RELOCATION  = DIFFUSION + (SIDE - 1);
-  const unsigned TRANSPORT   = RELOCATION + 3*(SIDE - 1);
-  const unsigned UPDATE      = TRANSPORT;
-  const unsigned LIGHT       = (unsigned) (sqrt(3) * (SIDE - 1) / 2) + 1;
-  const unsigned FRAME       = UPDATE + LIGHT;
-
-  unsigned RANGE;
+  const unsigned DIAG      = (unsigned) EL* sqrt(3);
+  const unsigned CONVOL    = W_DIM;
+  const unsigned DIFFUSION = CONVOL + 3 * (EL - 1) + (W_DIM - 1);
+  const unsigned RELOC     = DIFFUSION + 3*(EL - 1);
+  const unsigned TRANSP    = RELOC + 3*(EL - 1);
+  const unsigned FRAME     = TRANSP;
 
   bool reloc = false;
 
   // The CA lattices
-  Cell lattice_curr   [SIDE][SIDE][SIDE][W_DIM];
-  Cell lattice_draft  [SIDE][SIDE][SIDE][W_DIM];
-  Cell lattice_mirror [SIDE][SIDE][SIDE][W_DIM];
+  Cell lattice_curr   [EL][EL][EL][W_DIM];
+  Cell lattice_draft  [EL][EL][EL][W_DIM];
+  Cell lattice_mirror [EL][EL][EL][W_DIM];
 
   bool reloc_x[W_DIM], reloc_y[W_DIM], reloc_z[W_DIM];
-  bool reloc_w = false;
 
   /*
    * Executes a one tick operation in every cell.
@@ -49,11 +41,11 @@ namespace automaton
     for (unsigned w = 0; w < W_DIM; ++w)
     {
       // Sweep a 3D space
-      for (unsigned x = 0; x < SIDE; ++x)
+      for (unsigned x = 0; x < EL; ++x)
       {
-        for (unsigned y = 0; y < SIDE; ++y)
+        for (unsigned y = 0; y < EL; ++y)
         {
-          for (unsigned z = 0; z < SIDE; ++z)
+          for (unsigned z = 0; z < EL; ++z)
           {
         	// Generate references to the working cells
             Cell &curr   = lattice_curr[x][y][z][w];
@@ -62,120 +54,25 @@ namespace automaton
             /****** CONVOLUTION ******/
             if (curr.k < CONVOL)
             {
-              // First tick used for initializations before
-              // the first w shift
-              if (curr.k == 0)
-              {
-                // Prepare to convolve charge
-                draft.net_c0 = (curr.charge & C0_MASK) ? CENTER-1 : CENTER+1;
-                draft.net_c1 = (curr.charge & C1_MASK) ? CENTER-1 : CENTER+1;
-                draft.net_c2 = (curr.charge & C2_MASK) ? CENTER-1 : CENTER+1;
-                draft.net_w0 = (curr.charge & W0_MASK) ? CENTER-1 : CENTER+1;
-                draft.net_w1 = (curr.charge & W1_MASK) ? CENTER-1 : CENTER+1;
-                draft.net_q  = (curr.charge & Q_MASK)  ? CENTER-1 : CENTER+1;
-                draft.boson = true;
-              }
-              // Interaction only involves active cells.
-              else if (curr.wv && mirror.wv)
-              {
-                // unsigned w_left = (w == 0) ? W_DIM-1 : w-1;
-                // unsigned w_right = (w == W_DIM-1) ? 0 : w+1;
-                // if (convolute(curr, draft, mirror, lattice_mirror[x][y][z][w_left],
-                // lattice_mirror[x][y][z][w_right]))
-                seggregation(curr, draft, mirror);
-              }
-              // Warn the swap routine to do a w shift
-              reloc_w = true;
-            }
-            /****** COLLISION ******/
-            else if (curr.k < COLLISION)
-            {
-              // Is it a slave?
-              // (the convolution step modifies the draft for
-              // masters and mirror for slaves, so we must get
-              // what was stored stored in mirror)
-              if (!ZERO(mirror.c))
-              {
-                // Copy back relocation
-                copy(begin(mirror.c), end(mirror.c), std::begin(draft.c));
-                // Copy back parallel transport
-                copy(begin(mirror.m), end(mirror.m), std::begin(draft.m));
-              }
-              else
-              {
-            	  // Template
-              }
+              convolute(curr, draft, mirror);
             }
             /****** DIFFUSION ******/
             else if (curr.k < DIFFUSION)
             {
-              draft.wv = false;
+              diffuse(curr, draft, mirror);
             }
             /****** RELOCATION ******/
-            else if (curr.k < RELOCATION)
+            else if (curr.k < RELOC)
             {
-              if (curr.c[0] > 0)
-              {
-            	reloc_x[w] = true;
-                draft.c[0] = curr.c[0] - 1;
-              }
-              if (curr.c[1] > 0)
-              {
-              	reloc_y[w] = true;
-                draft.c[1] = curr.c[1] - 1;
-              }
-              if (curr.c[2] > 0)
-              {
-              	reloc_z[w] = true;
-                draft.c[2] = curr.c[2] - 1;
-              }
+              relocate(curr, draft, mirror);
             }
             /****** PARALLEL TRANSPORT ******/
-            else if (curr.k < TRANSPORT)
+            else if (curr.k < TRANSP)
             {
+              transport(curr, draft, mirror);
             }
-            /***********************/
-            /*     EXPANSION       */
-            /*    (Light pass)     */
-            /***********************/
-            else
-            {
-              // Propagate time
-              unsigned t = curr.t;
-              unsigned t0;
-              t0 = lattice_curr[(x + 1) % SIDE][y][z][w].t;
-              t = min(t0, t);
-              t0 = lattice_curr[(x + SIDE - 1) % SIDE][y][z][w].t;
-              t = min(t0, t);
-              t0 = lattice_curr[x][(y + 1) % SIDE][z][w].t;
-              t = min(t0, t);
-              t0 = lattice_curr[x][(y + SIDE - 1) % SIDE][z][w].t;
-              t = min(t0, t);
-              t0 = lattice_curr[x][y][(z + 1) % SIDE][w].t;
-              t = min(t0, t);
-              t0 = lattice_curr[x][y][(z + SIDE - 1) % SIDE][w].t;
-              t = min(t0, t);
-              // Awake the wavefront
-              if (t == curr.d)
-                draft.wv = true;
-              // Increment the clock
-              draft.t = t + 1;
-              // Light pass completed?
-              if (draft.t % LIGHT == 0)
-              {
-                draft.ph.a >>= 1;
-              }
-              // Test time wrapping
-              if (draft.t == RANGE)
-              {
-                // TODO: angle etc.
-                draft.t = 0;
-              }
-            }
-            // Update the superluminal timer
-            draft.k = curr.k + 1;
-            if (draft.k == FRAME)
-           	  draft.k = 0;
+            // Update tick counter
+            draft.k = (curr.k + 1) % FRAME;
           }
         }
       }
@@ -188,12 +85,15 @@ namespace automaton
    */
   void swap_lattices()
   {
+    // Take the first cell to represent the others.
+    Cell &repr = lattice_curr[0][0][0][0];
 	// Execute pending shifts in draft
-	if (reloc_w)
+	if (repr.k == 0)
 	{
       // non spatial shifts
       shiftW();
 	}
+	// Complete relocation
 	else
 	{
       // Spatial shifts
@@ -212,8 +112,6 @@ namespace automaton
         &lattice_draft[0][0][0][0],
         &lattice_draft[0][0][0][0] + BLOCK,
         &lattice_curr[0][0][0][0]);
-    // Take the first cell to represent the others.
-    Cell &repr = lattice_curr[0][0][0][0];
     if (repr.k == 0)
     {
       // First tick: update mirror
@@ -221,6 +119,15 @@ namespace automaton
           &lattice_curr[0][0][0][0],
           &lattice_curr[0][0][0][0] + BLOCK,
           &lattice_mirror[0][0][0][0]);
+      // Update the f variable
+      for (unsigned w = 0; w < W_DIM; ++w)
+        for (unsigned x = 0; x < EL; ++x)
+          for (unsigned y = 0; y < EL; ++y)
+            for (unsigned z = 0; z < EL; ++z)
+            {
+              Cell &mirror = lattice_mirror[x][y][z][w];
+              mirror.f = mirror.t;
+            }
     }
   }
 
@@ -232,9 +139,32 @@ namespace automaton
     // Run one step of the simulation
     update_lattice();
     swap_lattices();
-    assert(sanityTest5());
-    // Update entropy object
-    entropyCalc.updateEntropy();
+  }
+
+  /*
+   * Finds neighbor in one of eight von Neumann directions.
+   */
+  Cell &Cell::getNeighbor(int i)
+  {
+      // Displacements for 8 von Neumann directions (4D)
+      static const int disp[8][4] = {
+          {+1,  0,  0,  0}, // +x
+          {-1,  0,  0,  0}, // -x
+          { 0, +1,  0,  0}, // +y
+          { 0, -1,  0,  0}, // -y
+          { 0,  0, +1,  0}, // +z
+          { 0,  0, -1,  0}, // -z
+          { 0,  0,  0, +1}, // +w
+          { 0,  0,  0, -1}  // -w
+      };
+
+      int nx = (x[0] + disp[i][0] + EL) % EL;
+      int ny = (x[1] + disp[i][1] + EL) % EL;
+      int nz = (x[2] + disp[i][2] + EL) % EL;
+      int nw = (x[3] + disp[i][3] + W_DIM)  % W_DIM;
+
+      return lattice_curr[nx][ny][nz][nw];
   }
 
 }
+

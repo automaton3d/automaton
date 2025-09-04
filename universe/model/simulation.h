@@ -18,31 +18,29 @@
 #include <mmsystem.h>
 #include <algorithm>
 #include <assert.h>
-#include "entropy.h"
 #include "nvector.h"
 
-//#define ORDER        4
-#define SIDE        13   //((1<<ORDER)+1)
-#define SIDE2		(SIDE*SIDE)
-#define W_DIM		(3*SIDE2)
-#define ORDER       ((int)round(log2(SIDE)))
-#define CENTER      ((SIDE-1)/2)
-#define FCENTER     (SIDE/2.0)
+#define EL        11                       // An odd number
+#define L2        (EL*EL)
+#define W_DIM     (3*L2+1)              // An even number
+#define ORDER     ((int)round(log2(EL))) // Number of bits
+#define CENTER    ((EL-1)/2)
+#define FCENTER   (EL/2.0)
 
-#define NORTH       0
-#define EAST        1
-#define SOUTH       2
-#define WEST        3
-#define UP          4
-#define DOWN        5
-#define FORWARD     6
-#define BACKWARD    7
+#define NORTH     0
+#define EAST      1
+#define SOUTH     2
+#define WEST      3
+#define UP        4
+#define DOWN      5
+#define FORWARD   6
+#define BACKWARD  7
 
-// Simulation IDE
+// Enable simulation IDE
 #define GRAPH
 
 // Macros
-#define ZERO(v)     (!(v[0] | v[1] | v[2]))
+#define ZERO(v)   (!(v[0] | v[1] | v[2]))
 
 // Charge masks
 #define C0_MASK     0x01
@@ -53,171 +51,142 @@
 #define W1_MASK     0x20
 #define COLOR_MASK  (C0_MASK | C1_MASK | C2_MASK)
 #define WEAK_MASK   (W0_MASK | W1_MASK)
+#define CHARGE_MASK (W0_MASK | W1_MASK | C0_MASK | C1_MASK | C2_MASK | Q_MASK)
 
 namespace framework
 {
-    extern unsigned long long timer;
-    extern void sound(bool loop);
+  extern unsigned long long timer;
+  extern void sound(bool loop);
 }
 
 namespace automaton
 {
-	using namespace std;
+  extern const unsigned LIGHT;
+  extern const unsigned COLLISION;
+  extern const unsigned UPDATE;
 
-    // Signed Natural (SN) Class
-    class SN
-	{
-        public:
-            unsigned a; // Absolute value
-            bool s;     // Sign
+  using namespace std;
 
-            // Default Constructor
-            SN() : a(0), s(false) {}
+  // Cell Class
+  class Cell
+  {
+    public:
+      // Physical properties
+      unsigned char ch; 	// Charge bits q, w1, w0, c2, c1, c0
+      bool pB;            	// Linear motion direction bit
+      bool sB;        		// Rotation spiral bit
+      unsigned a;           // Affinity
+      unsigned x[4] = { 0, 0, 0 }; // Relative position
+      // Wavefront
+      unsigned d;        	// Euclidean distance
+      bool phiB;			// Fixed period mask bit
+      unsigned t;         	// Light frame counter
+      unsigned f;      		// Sine phase parameter
+      // Operational variables
+      unsigned c[3] = { 0, 0, 0 }; // Relocation offset
+      unsigned k;         	// Tick counter
+      bool hB;
+      // Interaction control
+      bool kB;      		// Collapse flag
+      // Default constructor
+      Cell()
+        : ch(0), pB(false), sB(false), a(0),
+          d(0), phiB(false), t(0), f(0),
+          k(0), hB(false), kB(false)
+      {
+        std::fill(std::begin(x), std::end(x), 0);
+        std::fill(std::begin(c), std::end(c), 0);
+      }
+      // Copy constructor
+      Cell(const Cell& other)
+        : ch(other.ch), pB(other.pB), sB(other.sB), a(other.a),
+          d(other.d), phiB(other.phiB), t(other.t), f(other.f),
+          k(other.k), hB(other.hB), kB(other.kB)
+      {
+        std::copy(std::begin(other.x), std::end(other.x), std::begin(x));
+        std::copy(std::begin(other.c), std::end(other.c), std::begin(c));
+     }      // Serialization functions
+      void serialize(ofstream& out) const;
+      void deserialize(ifstream& in);
 
-            // Parameterized Constructor
-            SN(unsigned abs_val, bool sign) : a(abs_val), s(sign) {}
+      bool Q() { return ch & Q_MASK; }
+      bool W1() { return ch & W1_MASK; }
+      bool W0() { return ch & W0_MASK; }
+      bool C2() { return ch & C2_MASK; }
+      bool C1() { return ch & C1_MASK; }
+      bool C0() { return ch & C0_MASK; }
+      unsigned char COLOR() { return ch & COLOR_MASK; }
+      unsigned char ANTICOLOR() { return ~ch & COLOR_MASK; }
 
-            // Getters
-            unsigned getAbsolute() const { return a; }
-            bool getSign() const { return s; }
+      Cell &getNeighbor(int i);
+  };
 
-            // Setters
-            void setAbsolute(unsigned abs_val) { a = abs_val; }
-            void setSign(bool sign) { s = sign; }
+  /// Function prototypes ///
+  void swap_lattices();
+  bool isColorNeutral(unsigned char c1, unsigned char c2);
+  uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell);
+  void* SimulationLoop();
+  void DeleteAutomaton();
+  void update();
+  bool initSimulation(int step);
+  void initScreen();
+  void simulation();
+  void updateBuffer();
+  void displayLattice();
+  void printLattice();
+  void normalize(double vec[3]);
+  void cross_product(double result[3], const double a[3], const double b[3]);
+  void compileNetCharges(Cell &mirror, Cell &draft);
+  void relocate(Cell& draft, const Cell& nei);
+  void markPoles(unsigned p[3], int w);
+  void markMetaPoles(unsigned p[3], int w);
+  void saveState0();
+  void updateEntropy();
+  void shiftX(unsigned w);
+  void shiftY(unsigned w);
+  void shiftZ(unsigned w);
+  void shiftW();
+  void executeInteraction(Cell &curr, Cell &draft);
+  bool convolute(Cell& curr, Cell &draft, Cell &mirror);
+  void diffuse(Cell& curr, Cell &draft, Cell &mirror);
+  void relocate(Cell& curr, Cell &draft, Cell &mirror);
+  void transport(Cell& curr, Cell &draft, Cell &mirror);
+  void seggregation(Cell& curr, Cell &draft, Cell &mirror);
+  void testReloc(Cell& curr, Cell &draft, Cell &mirror, unsigned w);
+  //  vector<tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
 
-            // Friend functions for serialization
-     //       friend void serializeSN(const SN& sn, ofstream& out);
-       //     friend void deserializeSN(SN& sn, ifstream& in);
-    };
+  // Tests
 
-    // Declare serialize and deserialize functions
-    //void serializeSN(const SN& sn, ofstream& out);
-  //  void deserializeSN(SN& sn, ifstream& in);
+  void printConstants();
+  bool sanityTest1();
 
-    // Cell Class
-    class Cell
+  /// Cross variables ///
+  extern COLORREF* voxels;
+  extern Cell lattice_curr[EL][EL][EL][W_DIM];
+
+  /// Cross constants ///
+  extern const unsigned L3;
+  extern const unsigned long BLOCK;
+  extern const unsigned DIAG;
+  extern const unsigned RMAX;
+  extern const unsigned FMAX;
+  extern const unsigned CONVOL;
+  extern const unsigned COLLISION;
+  extern const unsigned DIFFUSION;
+  extern const unsigned RELOC;
+  extern const unsigned TRANSP;
+  extern const unsigned FRAME;
+
+  inline bool EQUAL(unsigned v1[3], unsigned v2[3])
+  {
+    // Compare elements
+    for (size_t i = 0; i < 3; ++i)
     {
-        public:
-            // Attributes
-            bool pole;				// Active spot of momentum
-            unsigned char charge;   // Charge bits
-            unsigned s[3] = { 0, 0, 0 };	// Rotation driver (spin)
-            unsigned aff;           // Affinity
-            unsigned pos[3] = { 0, 0, 0 }; // Relative position
-
-            // Wavefront
-            bool wv;				// Wavefront flag
-            unsigned d;				// Euclidean distance
-            unsigned sin;			// Half-wave sine pattern
-            SN A;                   // Amplitude of frequency
-            unsigned freq;			// Number of superposed bubbles
-            unsigned angle;			// Sine phase parameter
-
-            // Superluminal
-            unsigned c[3] = { 0, 0, 0 };	// Relocation offset
-            unsigned k, t;					// Tick counters
-
-            // Interference
-            unsigned m[3] = { 0, 0, 0 };	// Sought for direction
-            bool e;					// Empodion flag
-            SN A_bar;               // Boson average amplitude
-            SN ph;                  // Cumulative phase
-
-            // Interaction control
-            bool collapse;			// Collapse flag
-            // Charge counters
-            unsigned net_c0, net_c1, net_c2, net_q, net_w0, net_w1;
-            // Interaction flags
-            bool fxf, bxb, fxb, wxw, boson;
-
-            // Constructor
-            Cell()
-                : pole(false), charge(0), aff(0), wv(false), d(0), sin(0),
-				  freq(0), angle(0), k(0), t(0), e(false), collapse(false),
-                  net_c0(0), net_c1(0), net_c2(0), net_q(0), net_w0(0), net_w1(0),
-                  fxf(false), bxb(false), fxb(false), wxw(false), boson(false) {}
-
-            Cell(const Cell& other)
-                : pole(other.pole), charge(other.charge), aff(other.aff),
-                  wv(other.wv), d(other.d), sin(other.sin),
-                  A(other.A), freq(other.freq), angle(other.angle),
-                  k(other.k), t(other.t), e(other.e), A_bar(other.A_bar), ph(other.ph),
-                  collapse(other.collapse),
-                  net_c0(other.net_c0), net_c1(other.net_c1), net_c2(other.net_c2),
-                  net_q(other.net_q), net_w0(other.net_w0), net_w1(other.net_w1),
-                  fxf(other.fxf), bxb(other.bxb), fxb(other.fxb),
-                  wxw(other.wxw), boson(other.boson)
-            {
-                std::copy(std::begin(other.s), std::end(other.s), std::begin(s));
-                std::copy(std::begin(other.pos), std::end(other.pos), std::begin(pos));
-                std::copy(std::begin(other.c), std::end(other.c), std::begin(c));
-                std::copy(std::begin(other.m), std::end(other.m), std::begin(m));
-            }
-
-            // Serialization functions
-            void serialize(ofstream& out) const;
-            void deserialize(ifstream& in);
-    };
-
-    /// Function prototypes ///
-    void swap_lattices();
-    bool checkPoincare();
-    bool isColorNeutral(unsigned char c1, unsigned char c2);
-	uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell);
-    void* SimulationLoop();
-    void DeleteAutomaton();
-    void update();
-    bool initSimulation(int step);
-    void initScreen();
-    void simulation();
-    void updateBuffer();
-    void displayLattice();
-    void printLattice();
-    void normalize(double vec[3]);
-    void cross_product(double result[3], const double a[3], const double b[3]);
-    void compileNetCharges(Cell &mirror, Cell &draft);
-	void relocate(Cell& draft, const Cell& nei);
-    void markPoles(unsigned p[3], int w);
-    void saveState0();
-    void updateEntropy();
-    void detectPoincare();
-    void shiftX(unsigned w);
-    void shiftY(unsigned w);
-    void shiftZ(unsigned w);
-    void shiftW();
-    void executeInteraction(Cell &curr, Cell &draft);
-    bool convolute(Cell& curr, Cell &draft, Cell &mirror, Cell &wleft, Cell &wright);
-    void seggregation(Cell& curr, Cell &draft, Cell &mirror);
-    void testReloc(Cell& curr, Cell &draft, Cell &mirror, unsigned w);
-
-	// Tests
-
-    void printConstants();
-    bool sanityTest1();
-    bool sanityTest2();
-    bool sanityTest3();
-    bool sanityTest4();
-    bool sanityTest5();
-
-    /// Cross variables ///
-    extern COLORREF* voxels;
-    extern Cell lattice_curr[SIDE][SIDE][SIDE][W_DIM];
-
-    /// Cross constants ///
-    extern const unsigned SIDE3;
-    extern const unsigned long BLOCK;
-    extern const unsigned DIAG;
-    extern const unsigned RMAX;
-    extern const unsigned FMAX;
-    extern const unsigned CONVOL;
-    extern const unsigned COLLISION;
-    extern const unsigned DIFFUSION;
-    extern const unsigned RELOCATION;
-    extern const unsigned TRANSPORT;
-    extern const unsigned UPDATE;
-    extern const unsigned LIGHT;
-    extern unsigned RANGE;
-    extern const unsigned FRAME;
+      if (v1[i] != v2[i])
+        return false;
+    }
+    return true;
+  }
 
 }
 

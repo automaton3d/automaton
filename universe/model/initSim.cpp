@@ -5,7 +5,6 @@
  */
 
 #include "simulation.h"
-#include "poincare.h"
 
 namespace automaton
 {
@@ -14,14 +13,14 @@ namespace automaton
   const double epsilon = 1e-9;
 
   // Global variables for lattice (assuming they're vectors, not functions)
-  extern Cell lattice_curr[SIDE][SIDE][SIDE][W_DIM];
-  extern Cell lattice_draft[SIDE][SIDE][SIDE][W_DIM];
-  extern EntropyCalculator entropyCalc;
+  extern Cell lattice_curr[EL][EL][EL][W_DIM];
+  extern Cell lattice_draft[EL][EL][EL][W_DIM];
 
+  unsigned momenta[W_DIM][3];
   /*
-   * Generate spin vectors.
+   * Generate momentum vectors.
    */
-  void initSpin()
+  void initMomentum()
   {
     const int r_max = CENTER;
     const int n_steps = CENTER;
@@ -30,11 +29,11 @@ namespace automaton
     Cell& center_cell = lattice_curr[CENTER][CENTER][CENTER][0];
     unsigned w = 0; // Counter for the number of spins initialized
     // Iterate through the lattice to initialize spin vectors
-    for (int x = 0; x < SIDE; ++x)
+    for (unsigned x = 0; x < EL; ++x)
     {
-      for (int y = 0; y < SIDE; ++y)
+      for (unsigned y = 0; y < EL; ++y)
       {
-        for (int z = 0; z < SIDE; ++z)
+        for (unsigned z = 0; z < EL; ++z)
         {
           int dx = x - CENTER;
           int dy = y - CENTER;
@@ -49,23 +48,23 @@ namespace automaton
             double upper_bound_sq = upper_bound * upper_bound;
             if (distance_squared >= lower_bound_sq && distance_squared < upper_bound_sq)
             {
-              center_cell.s[0] = x;
-              center_cell.s[1] = y;
-              center_cell.s[2] = z;
+              unsigned p[3] = { x, y, z };
+  //            momenta[w] = p;
+              markPoles(p, w);
               ++w;
               // Move to the next cell in a valid manner
-              if (center_cell.pos[0] >= 0 && center_cell.pos[0] < SIDE &&
-                  center_cell.pos[1] >= 0 && center_cell.pos[1] < SIDE &&
-                  center_cell.pos[2] >= 0 && center_cell.pos[2] < SIDE)
+              if (center_cell.x[0] >= 0 && center_cell.x[0] < EL &&
+                  center_cell.x[1] >= 0 && center_cell.x[1] < EL &&
+                  center_cell.x[2] >= 0 && center_cell.x[2] < EL)
               {
-                center_cell = lattice_curr[center_cell.pos[0]][center_cell.pos[1]][center_cell.pos[2]][0];
+                center_cell = lattice_curr[center_cell.x[0]][center_cell.x[1]][center_cell.x[2]][0];
               }
               else
               {
                 cerr << "Error: Invalid cell position encountered!" << endl;
                 exit(EXIT_FAILURE);
               }
-              // Stop if the required number of spins have been initialized
+              // Stop if the required number of vector have been initialized
               if (w == W_DIM)
               {
                 return;
@@ -75,57 +74,11 @@ namespace automaton
         }
       }
     }
-
     // Error handling if no spins were initialized
     if (w == 0)
     {
       cerr << "Error: No spins initialized. Check lattice dimensions and thresholds!" << endl;
       exit(EXIT_FAILURE);
-    }
-  }
-
-  /*
-   * Generates momentum vectors from spin.
-   */
-  void initMomentum()
-  {
-    for (unsigned w = 0; w < W_DIM; w++)
-    {
-      // Access the cell at the center of the current w-slice
-      Cell& cell = lattice_curr[CENTER][CENTER][CENTER][w];
-      double dx = cell.s[0] - CENTER;
-      double dy = cell.s[1] - CENTER;
-      double dz = cell.s[2] - CENTER;
-      double s[3] = { dx, dy, dz };
-      normalize(s); // Normalizes the spin vector `s`
-      double v[3];
-      if (fabs(s[0]) < epsilon && fabs(s[1]) < epsilon)
-      {
-        v[0] = 0.0;
-        v[1] = 1.0;
-        v[2] = 0.0;
-      }
-      else
-      {
-        v[0] = 1.0;
-        v[1] = 0.0;
-        v[2] = 0.0;
-      }
-      // Compute orthogonal vectors to `s`
-      double p1[3];
-      cross_product(p1, s, v);
-      normalize(p1);
-      double p2[3];
-      cross_product(p2, s, p1);
-      normalize(p2);
-      // Calculate lattice positions for marking poles
-      unsigned p[3];
-      p[0] = (unsigned)((p2[0] + 1.0) * FCENTER);
-      p[1] = (unsigned)((p2[1] + 1.0) * FCENTER);
-      p[2] = (unsigned)((p2[2] + 1.0) * FCENTER);
-      // Validate indices and mark poles
-      assert(p[0] < SIDE && p[1] < SIDE && p[2] < SIDE);
-      markPoles(p, w);
     }
     puts("\tinitMomentum ok.");
   }
@@ -144,9 +97,27 @@ namespace automaton
       char w1 = (w >> 1) % 2;
       char q = w0 ^ w1;
       // Set charge and affinity values
-      cell.charge = (w % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+      cell.ch = (w % 8) | (w0 << 3) | (1 << 4) | (q << 5);
     }
     puts("initCharges ok.");
+  }
+
+  /**
+   * Initialize the center cells.
+   */
+  void initCell0()
+  {
+    for (unsigned w = 0; w < W_DIM; w++)
+    {
+      // Access the central cell in the current layer (w-slice)
+      Cell& cell = lattice_curr[CENTER][CENTER][CENTER][w];
+      char w0 = w % 2;
+      char w1 = (w >> 1) % 2;
+      char q = w0 ^ w1;
+      // Set charge and affinity values
+      cell.ch = (w % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+    }
+    puts("initCell0 ok.");
   }
 
   /**
@@ -156,54 +127,139 @@ namespace automaton
   {
     for (unsigned w = 0; w < W_DIM; w++)
     {
-      for (unsigned x = 0; x < SIDE; x++)
+      int i = 0;
+      for (unsigned x = 0; x < EL; x++)
       {
-        for (unsigned y = 0; y < SIDE; y++)
+        for (unsigned y = 0; y < EL; y++)
         {
-          for (unsigned z = 0; z < SIDE; z++)
+          for (unsigned z = 0; z < EL; z++)
           {
             // Reference to the current cell
             Cell& cell = lattice_curr[x][y][z][w];
+            // Initialize coordinates
+            cell.x[0] = x;
+            cell.x[1] = y;
+            cell.x[2] = z;
+            cell.a = w;
+            //
+            cell.k = 0;
+            cell.t = 0;
+            cell.c[0] = 0;
+            cell.c[1] = 0;
+            cell.c[2] = 0;
+            cell.hB = 0;
             // Reference to the central cell in the current layer
             Cell& cell0 = lattice_curr[CENTER][CENTER][CENTER][w];
             // Initialize properties of the cell
-            cell.charge = cell0.charge;
-            cell.s[0] = cell0.s[0];
-            cell.s[1] = cell0.s[1];
-            cell.s[2] = cell0.s[2];
-            cell.pos[0] = x;
-            cell.pos[1] = y;
-            cell.pos[2] = z;
-            cell.aff = w;
+            cell.ch = cell0.ch;
             // Calculate distance from center
             double dx = static_cast<double>(x - (double)CENTER);
             double dy = static_cast<double>(y - (double)CENTER);
             double dz = static_cast<double>(z - (double)CENTER);
             double d = sqrt(dx * dx + dy * dy + dz * dz);
-            cell.d = static_cast<unsigned>(LIGHT * d);
-            if (w == 0)
-            	printf("%2u ", cell.d);
-            if (cell.d > RANGE)
-            {
-              RANGE = cell.d;
-            }
-            cell.freq = 1;
-            // Check if the lattice dimensions are big enough
-            assert(cell.freq < FMAX);
-            // Calculate scaled sine value
-            double sin_scaled = SIDE * fabs(sin(2 * M_PI * d / SIDE));
-            assert(sin_scaled >= 0 && sin_scaled <= UINT_MAX);
-            cell.sin = static_cast<unsigned>(sin_scaled);
+            cell.d = static_cast<unsigned>(d);
+            cell.f = 0;
+            i++;
           }
-          if (w == 0)
-            printf("\n");
         }
-        if (w == 0)
-        printf("\n");
       }
     }
     puts("initGeneral ok.");
-    printf("RANGE=%u\n", RANGE);
+  }
+
+  void initializeMask()
+  {
+//    int R_MAX = CENTER; // Máximo raio permitido
+    /*
+    for (int r = 0; r <= R_MAX; ++r)
+    {
+      // Gerar pontos para o raio atual
+      auto points = 0;//generateUniformSpherePoints(r, L, L);
+      for (const auto& point : points)
+      {
+        // Extrair coordenadas relativas do ponto
+        int x, y, z;
+        std::tie(x, y, z) = point;
+        // Calcular posição absoluta com relação ao centro
+        int abs_x = CENTER + x;
+        int abs_y = CENTER + y;
+        int abs_z = CENTER + z;
+        // Verificar se está dentro dos limites
+        if (abs_x >= 0 && abs_x < XXX &&
+            abs_y >= 0 && abs_y < XXX &&
+            abs_z >= 0 && abs_z < XXX)
+        {
+          // Configurar o bit mask na célula correspondente
+          lattice_curr[abs_x][abs_y][abs_z][0].mask = true;
+        }
+      }
+    }
+    */
+  }
+
+  // Function to calculate and print the nearest points to the spiral curve
+  void initSpiral()
+  {
+    // Define the theta range
+    int num_points = 10 * EL;  // Number of points for the curve
+    double theta[num_points];
+    double r[num_points], x_curve[num_points], y_curve[num_points], z_curve[num_points];
+
+    // Fill the theta array
+    for (int i = 0; i < num_points; ++i)
+    {
+      theta[i] = 2 * M_PI * i / num_points;
+    }
+    // Calculate r, x, y, and z for the spiral curve
+    for (int i = 0; i < num_points; ++i)
+    {
+      r[i] = (double)EL / (4 * M_PI) * theta[i];
+      x_curve[i] = r[i] * cos(theta[i]) + EL / 2;
+      y_curve[i] = r[i] * sin(theta[i]) + EL / 2;
+      z_curve[i] = r[i] + EL / 2;  // Centered along the z-axis
+    }
+    // Find the grid points nearest to the curve
+    int nearest_points[EL * EL * EL][3]; // Array to store the nearest points
+    int nearest_point_count = 0;
+    // Debug: Print first few values of x_curve, y_curve, z_curve
+    printf("Debug: First few curve points:\n");
+    for (int i = 0; i < 5; ++i)
+    {
+      printf("x: %.2f, y: %.2f, z: %.2f\n", x_curve[i], y_curve[i], z_curve[i]);
+    }
+    // Iterate through the points on the curve and round to nearest grid points
+    for (int i = 0; i < num_points; ++i)
+    {
+      int x = (int)round(x_curve[i]);
+      int y = (int)round(y_curve[i]);
+      int z = (int)round(z_curve[i]);
+      // Debug: Check the rounded values and bounds
+      if (i < 5)
+      {
+        printf("Rounded point %d: (%d, %d, %d)\n", i, x, y, z);
+      }
+      // Ensure the grid point is within bounds
+      if (x >= 0 && x < EL && y >= 0 && y < EL && z >= 0 && z < EL)
+      {
+        nearest_points[nearest_point_count][0] = x;
+        nearest_points[nearest_point_count][1] = y;
+        nearest_points[nearest_point_count][2] = z;
+        nearest_point_count++;
+      }
+    }
+    // Check if we found any nearest points and print them
+    if (nearest_point_count > 0)
+    {
+        printf("Nearest points to the spiral curve:\n");
+        for (int i = 0; i < nearest_point_count; ++i)
+        {
+            printf("Point %d: (%d, %d, %d)\n", i + 1, nearest_points[i][0], nearest_points[i][1], nearest_points[i][2]);
+        }
+    }
+    else
+    {
+        printf("No nearest points found.\n");
+    }
   }
 
   bool initSimulation(int step)
@@ -211,60 +267,36 @@ namespace automaton
 	switch(step)
 	{
 	  case 0:
-        initCharges();
+    	initCell0();
         break;
 	  case 1:
-        initSpin();
+        initMomentum();
         break;
       case 2:
-        initMomentum();
+        initSpiral();
         break;
       case 3:
         initGeneral();
         break;
-	  case 4:
-        printConstants();
+      case 4:
+        initializeMask();
         break;
-      case 5:
-        initPoincare();
+	  case 5:
+        //printConstants();
         break;
-      case 6:
-        saveState0();
-        break;
-      case 7:
-        checkPoincare();
-        break;
-	  case 8:
-        entropyCalc.collectData();
-        break;
-      case 9:
-      {
-        float H0 = entropyCalc.computeEntropy();
-        Entropy e = entropyCalc.getEntropy();
-        e.setMinEntropy(H0);
-        break;
-      }
-      case 10:
+      case 11:
         std::copy(&lattice_curr[0][0][0][0],
         &lattice_curr[0][0][0][0] + BLOCK,
         &lattice_draft[0][0][0][0]);
         break;
-      case 11:
-        // Check consistency
-        assert(sanityTest1());
-        break;
       case 12:
-        assert(sanityTest2());
-        break;
-      case 13:
-        assert(sanityTest3());
-        break;
-      case 14:
-        assert(sanityTest4());
+        // Check consistency
+        //assert(sanityTest1());
         break;
       default:
     	return true;
 	}
     return false;
   }
+
 }
