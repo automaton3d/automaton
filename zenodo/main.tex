@@ -519,7 +519,7 @@ If any collapse bit \(kB\) is true at the beginning, then by the end all collaps
 When an interaction is detected, the current value of the \(\mathbf{c}\) vector must be propagated to all cells in the layer in preparation for the massive relocation of data. The rule is: check each neighbor until a nontrivial \(\mathbf{c}\) vector is found and copy its value to the draft cell.
 
 \subsection{Relocation} \label{subsec:relocation}
-The final part of the light step addresses bubble relocation itself, building on the diffusion step. It ends at the RELOC tick. Bubbles shift in specific directions (north, west, down) until they have completed their relocation process, including the inertial transport mechanism. The example rule is: if $\textbf{c}_x^{north}>0$, copy the content of the neighbor cell to the draft cell and decrement $\textbf{c}_x$ at the draft cell.
+This part of the light step addresses bubble relocation itself, building on the diffusion step. It ends at the RELOC tick. Bubbles shift in specific directions (north, west, down) until they have completed their relocation process, including the inertial transport mechanism. The example rule is: if $\textbf{c}_x^{north}>0$, copy the content of the neighbor cell to the draft cell and decrement $\textbf{c}_x$ at the draft cell.
 
 Since wavefront propagation is guided by the Euclidean distance information pre-assigned to each cell, when a bubble is re-emitted due to interaction with other bubbles, all pertinent cell information must be shifted, or relocated, to the new position determined by the variable $\textbf{c}$. This ensures that the bubbles are relatively displaced with respect to each other. The final operation sets $t=0$ at the center cell of the relocated pattern. Relocation is the main consequence of an interaction.
 
@@ -537,8 +537,18 @@ When two bubbles interact, four relocation options are possible:
 \item Both are relocated to the contact point.
     \item One is relocated to the contact point, while the other to its $pB$ bit cell.
     \item One is relocated to the contact point, while the other to its $sB$ bit cell.
-    \item Obeying the inertial transport rules described in Sect. \ref{subsec:inertial-transport}.
+    \item Obeying the inertial transport rules described in Sect. \ref{subsec:transport}.
 \end{enumerate}
+
+\subsection{Transport} \label{subsec:transport}
+This final part of the light step addresses bubble the inertia transport mechanism. It is similar to the relocation step.
+
+Inertia is acquired by an inertial transport mechanism. It completes at the TRANSP tick. It happens between two bubbles with the same affinity when the pBit of one bubble hits the surface of the other bubble. One bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
+
+The propeller (see Sect. \ref{subsubsec:propeller}) naturally emerges as a pair in order to avoid static interaction. It represents a fragment of a photon or of a graviton, where the pair exhibits symmetric charges. This symmetry effectively bypasses the priority of interactions mediated by forces such as the Coulomb force. 
+
+Furthermore, when a photon blob interacts in this manner—acting as a propeller, a specific pair detaches from the photon to become a distinct propeller.
+
 
 \subsection{Main lattice updating and mirroring} \label{subsec:updating}
 After each tick of the $k$ clock, with a total duration of FRAME ticks, the modified data in draft must be transferred at once to the main lattice. First, if the $k$ counter is within the $CONVOL$ window, the draft lattices are shifted in the $W$ dimension to disalign them from the current draft lattices to convolute.
@@ -554,14 +564,6 @@ Some aspects of the interactions detected during the convolution step will now b
 \subsection{The role of the sinusoidal sieve}
 
 The $\phi Bits$ cloud, together with the $kB$ bit dictate the harmonic behavior of the model. This sieve mechanism is used in electrical and weak interactions only and is assumed to be used henceforth. It helps to explain why the strong force is stronger than the electroweak force.
-
-\subsection{Inertial transport} \label{subsec:inertial-transport}
-
-Inertia is acquired by an inertial transport mechanism. It completes at the TRANSP tick. It happens between two bubbles with the same affinity when the pBit of one bubble hits the surface of the other bubble. One bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
-
-The propeller (see Sect. \ref{subsubsec:propeller}) naturally emerges as a pair in order to avoid static interaction. It represents a fragment of a photon or of a graviton, where the pair exhibits symmetric charges. This symmetry effectively bypasses the priority of interactions mediated by forces such as the Coulomb force. 
-
-Furthermore, when a photon blob interacts in this manner—acting as a propeller, a specific pair detaches from the photon to become a distinct propeller.
 
 \subsection{Charge combination}
 
