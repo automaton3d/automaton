@@ -510,6 +510,8 @@ If the two singletons share the same affinity, but have different charges, then 
 
 If the charges of two singletons are equal and the pBit of the first bubble hits any point of the active surface of the second bubble, then we have fermionic cohesion. The bubbles receive the same affinity; the first bubble is re-emitted from the contact point, while the second from its active sBit cell.
 
+The inertial transport mechanism is triggered as described now. It happens between two bubbles with the same affinity when the pBit of one bubble hits the surface of the other bubble. One bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
+
 \subsection{Diffusion}
 
 This step propagates information required for the next relocation step, spreading first through the \(W\) dimension and then to all affected layers, ending at the DIFFUSION tick.
