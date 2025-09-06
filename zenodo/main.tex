@@ -343,8 +343,9 @@ d(x,y,z)=int\left(\sqrt{\bigg(x-\frac{L}{2}\bigg)^{2}+\bigg(y-\frac{L}{2}\bigg)^
 This justifies, once again, the need to adopt an odd value for $L$: a central point is necessary for this pattern to be properly defined. 
 
 \subsection{Computing the sine cloud} \label{subsec:sine-cloud}
-In a 3-torus, the sine squared function will wrap around seamlessly in all three dimensions, ensuring that there are no discontinuities. This property allows for a continuous representation of various physical phenomena across the toroidal structure. Each dimension can be thought of as a periodic loop, where values of the sine squared function are confined within a range that recurs indefinitely. The shell of maximum amplitude must be dense, having all its $\phi B$ bits turned on.
+In a 3-torus, the sine squared function will wrap around seamlessly in all three dimensions, ensuring that there are no discontinuities. This property allows for a continuous representation of various physical phenomena across the toroidal structure. The 3D space can be thought of as a periodic loop, where values of the sine squared function are confined within a range that recurs indefinitely. The shell of maximum amplitude must be dense, having all its $\phi B$ bits turned on. The values between $0$ and $\pi$ suffice.
 
+\subsection{Computing pBits and sBits}
 Appendix \ref{sec:pBits-sBits} will compute the pBit and sBit bits—essentially linear and spiral bit patterns with distinct orientations in each layer.
 
 With the full initialization complete—included the setup of spatial coordinates, charge distributions, pBit and sBit vectors, and timing variables—the system is ready to evolve dynamically. The following section introduces the operational heart of the model: the light frame. This framework governs the evolution of bubbles across the lattice through a cyclic sequence of interaction, propagation, and relocation steps. It is within this structured loop that particles begin to move, interact, and display emergent physical behavior.
