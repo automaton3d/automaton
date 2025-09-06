@@ -343,7 +343,7 @@ d(x,y,z)=int\left(\sqrt{\bigg(x-\frac{L}{2}\bigg)^{2}+\bigg(y-\frac{L}{2}\bigg)^
 This justifies, once again, the need to adopt an odd value for $L$: a central point is necessary for this pattern to be properly defined. 
 
 \subsection{Computing the sine cloud} \label{subsec:sine-cloud}
-In a 3-torus, the sine squared function will wrap around seamlessly in all three dimensions, ensuring that there are no discontinuities. This property allows for a continuous representation of various physical phenomena across the toroidal structure. The 3D space can be thought of as a periodic loop, where values of the sine squared function are confined within a range that recurs indefinitely. The shell of maximum amplitude must be dense, having all its $\phi B$ bits turned on. The values between $0$ and $\pi$ suffice.
+Let us continue from Sect. \ref{subsec:Sine}. In a 3-torus, the sine squared function will wrap around seamlessly in all three dimensions, ensuring that there are no discontinuities. This property allows for a continuous representation of various physical phenomena across the toroidal structure. The 3D space can be thought of as a periodic loop, where values of the sine squared function are confined within a range that recurs indefinitely. The shell of maximum amplitude must be dense, having all its $\phi B$ bits turned on. The values between $0$ and $\pi$ suffice.
 
 \subsection{Computing pBits and sBits}
 Appendix \ref{sec:pBits-sBits} will compute the pBit and sBit bits—essentially linear and spiral bit patterns with distinct orientations in each layer.
@@ -406,7 +406,7 @@ Represents the convolution window, defined as $W$. This constant determines the 
 Defined as \(CONVOL + W - 1\), this constant specifies the maximum diffusion range along the \(W\) dimension during a collapse event. It acts as a preparatory step for relocation if any collapse bit is true at the start, then by the end, all layers are aware of an imminent collapse.
 
 \item \textbf{RELOC}\\
-This constant, defined adding $(L-1)$ ticks to the diffusion step, specifies the region dedicated to bubble relocation after initial interactions and diffusion have taken place. It ensures that any necessary adjustments to the positions of particles are made.
+This constant, defined adding $3\cdot(L-1)$ ticks to the diffusion step, specifies the region dedicated to bubble relocation after initial interactions and diffusion have taken place. It ensures that any necessary adjustments to the positions of particles are made.
 
 \item \textbf{TRANSP} \\  
 This constant, defined by adding \(3\cdot (L-1)\) ticks to the relocation step, complement the relocation process in the event of inertial transport.
