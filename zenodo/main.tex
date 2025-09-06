@@ -4,6 +4,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[a4paper]{geometry}
 \geometry{verbose,tmargin=1.5cm,bmargin=2.5cm,lmargin=2.8cm,rmargin=2cm}
+
 \usepackage{verbatim}
 \usepackage{algorithm}
 \usepackage{algpseudocode} % modern replacement for 'algorithmic'
@@ -13,11 +14,18 @@
 \usepackage{array}
 \usepackage[main=english,greek]{babel}
 \usepackage{csquotes}
-\usepackage[backend=biber, style=numeric-comp, sorting=none]{biblatex}
+
+% <<=== Key line: numeric citations in [12] format
+\usepackage[
+  backend=biber,
+  style=numeric-comp,
+  citestyle=numeric,
+  sorting=none
+]{biblatex}
+
 \usepackage{booktabs}
 \usepackage{colortbl}
 \usepackage{enumitem}
-\usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{listingsutf8}
@@ -34,11 +42,13 @@
 \newtheorem{definition}{Definition}[section]
 
 \addbibresource{fsm.bib}
+
 \lstset{basicstyle=\ttfamily}
 \lstset{inputencoding=utf8/latin1}
 
 % Adjust tables row height
 \renewcommand{\arraystretch}{1.5}
+
 % Make COMMENT truly inline, no line break
 \newcommand{\InlineComment}[1]{\quad\texttt{// #1}}
 
