@@ -39,6 +39,9 @@
 \usepackage{epigraph}
 \usepackage{hyperref}
 
+\usepackage{newunicodechar}
+\newunicodechar{𝑊}{W}
+
 \newtheorem{definition}{Definition}[section]
 
 \addbibresource{fsm.bib}
@@ -149,7 +152,7 @@ While not a classical CA, the Wolfram Physics Project, his most recent contribut
 
 \section{The universal fabric \label{sec:space-and-time}}
 
-Let \ensuremath{L} be a huge natural odd number. The fabric is represented as a cluster of cells arranged in a 3-torus topology, creating a finite, closed, and discrete structure. This configuration ensures that each edge of this space seamlessly wraps around to connect with the opposite edge, maintaining continuity across the system. Additionally, an extra, non-spatial dimension forms a layered structure consisting of $W=3\cdot L^2$ layers, an odd number, with each layer containing $L^{3}$ cells. Intuitively, the value $W$ is the 'cross-section' of the discrete torus.
+Let \ensuremath{L} be a huge natural odd number. The fabric is represented as a cluster of cells arranged in a 3-torus topology, creating a finite, closed, and discrete structure. This configuration ensures that each edge of this space seamlessly wraps around to connect with the opposite edge, maintaining continuity across the system. Additionally, an extra, non-spatial dimension forms a layered structure consisting of $W  =3\cdot L^2$ layers, an odd number, with each layer containing $L^{3}$ cells. Intuitively, the value $W  $ is the 'cross-section' of the discrete torus.
 
 \subsection{The cell structure \label{subsec:The-cell-structure}}
 
@@ -284,11 +287,11 @@ $c_{0}$: {[}$R${]}ed, anti{[}$\bar{R}${]}ed (see Sect. \ref{subsec:The-cell-stru
 
 \subsection{The host lattices\label{subsec:The-host-lattice}}
 
-The space described above is occupied by three coexisting \emph{3D}-Euclidean spatial lattices made of $L^{3}$ cells each, repeated in $W$ layers (that is, $3\cdot3\cdot L^{5}$ cells total). All cells within each layer pulsate in unison, incrementing alternately the couple of evolution counters ($k$ and $t$) and exchanging information with their seven neighbors (six in dimensions $x$, $y$, and \ensuremath{z} , and one in dimension $W$, which facilitates the transfer of information between lattices and detects interactions). This exchange occurs alternately, ensuring time homogeneity is recovered every two clock ticks, grouped in four passes (see further details below), thus configuring a cellular automaton. 
+The space described above is occupied by three coexisting \emph{3D}-Euclidean spatial lattices made of $L^{3}$ cells each, repeated in $W  $ layers (that is, $3\cdot3\cdot L^{5}$ cells total). All cells within each layer pulsate in unison, incrementing alternately the couple of evolution counters ($k$ and $t$) and exchanging information with their seven neighbors (six in dimensions $x$, $y$, and \ensuremath{z} , and one in dimension $W  $, which facilitates the transfer of information between lattices and detects interactions). This exchange occurs alternately, ensuring time homogeneity is recovered every two clock ticks, grouped in four passes (see further details below), thus configuring a cellular automaton. 
 
 The distance between cells along the three spatial axes corresponds to the fundamental quantity $X$ in the real world (calculated in Appendix \ref{sec:Calculation-of-X}). The arithmetic employs $L$ as a modulus in most calculations.
 
-The three lattices mentioned above are referred to as \textit{main}, \textit{draft}, and \textit{mirror}. The main lattice is the current lattice used in interactions; draft is the modified data; and mirror is used in comparisons of information in different $W$ addresses, being modifiable too. A cell is capable of modifying its own draft cell, but not itself.
+The three lattices mentioned above are referred to as \textit{main}, \textit{draft}, and \textit{mirror}. The main lattice is the current lattice used in interactions; draft is the modified data; and mirror is used in comparisons of information in different $W  $ addresses, being modifiable too. A cell is capable of modifying its own draft cell, but not itself.
 
 \subsection{Serial computation for the rescue}
 
@@ -404,7 +407,7 @@ Defined as $ \lfloor \sqrt{3} \cdot L \rfloor$, this constant measures the diago
 Defined as $DIAG/2$, it represents half the diagonal length of the lattice, setting a maximum radius a bubble can achieve before wrapping itself.
 
 \item \textbf{CONVOL}\\
-Represents the convolution window, defined as $W$. This constant determines the range in which the initial convolution process is performed during the light cycle.
+Represents the convolution window, defined as $W  $. This constant determines the range in which the initial convolution process is performed during the light cycle.
 
 \item \textbf{DIFFUSION} \\
 Defined as \(CONVOL + W - 1\), this constant specifies the maximum diffusion range along the \(W\) dimension during a collapse event. It acts as a preparatory step for relocation if any collapse bit is true at the start, then by the end, all layers are aware of an imminent collapse.
@@ -479,7 +482,7 @@ An interaction of the form $(pB_1\wedge pB_2)\vee (\overline{sB_1}\wedge\overlin
 If only the pBit of one bubble meets the surface of another bubble, we have an adiabatic interaction: there is no collapse. In this case, the affinity and time properties are exchanged, and the bubbles relocate to the other's center. The values of $a$ and $t$ spread to all layer's cells during this relocation.
 
 \subsection{Convolution} \label{subsec:convolution}
-Convolution is the first step in the light frame. It ends at the CONVOL tick. It contains the main interaction rules. During this phase, the mirrored image of the main lattice generated in the swapping phase (Sect. \ref{subsec:updating}) is used as follows. Each site in the main lattice is compared to a site in the mirror lattice in dimension $W$, in a circular fashion. The algorithm shown in Appendix \ref{sec:algorithms} shows the main logic adopted. Also during this step, as the pairs are being identified and stacked, the angle $f$ that selects the squared sine point density is incremented accordingly (multiple values of $t$). This angle reflects the notion of frequency.
+Convolution is the first step in the light frame. It ends at the CONVOL tick. It contains the main interaction rules. During this phase, the mirrored image of the main lattice generated in the swapping phase (Sect. \ref{subsec:updating}) is used as follows. Each site in the main lattice is compared to a site in the mirror lattice in dimension $W  $, in a circular fashion. The algorithm shown in Appendix \ref{sec:algorithms} shows the main logic adopted. Also during this step, as the pairs are being identified and stacked, the angle $f$ that selects the squared sine point density is incremented accordingly (multiple values of $t$). This angle reflects the notion of frequency.
 
 The formation (or reformation) of particles occurs in the convolution step.
 
@@ -571,9 +574,9 @@ Furthermore, when a photon blob interacts in this manner—acting as a propeller
 
 
 \subsection{Main lattice updating and mirroring} \label{subsec:updating}
-After each tick of the $k$ clock, with a total duration of FRAME ticks, the modified data in draft must be transferred at once to the main lattice. First, if the $k$ counter is within the $CONVOL$ window, the draft lattices are shifted in the $W$ dimension to disalign them from the current draft lattices to convolute.
+After each tick of the $k$ clock, with a total duration of FRAME ticks, the modified data in draft must be transferred at once to the main lattice. First, if the $k$ counter is within the $CONVOL$ window, the draft lattices are shifted in the $W  $ dimension to disalign them from the current draft lattices to convolute.
 
-The current lattices then receive the content of their draft lattices. Also, at the beginning of the evolution step, the mirror lattices are also massively updated with the current lattices' content, thereby preparing the system for comparisons in the $W$ dimension at the next convolution phase (Sect. \ref{subsec:convolution}). The $f$ variable of the mirror lattice receives the same value as $t$, that is, $f_i^{mirror}=t_i^{main}$.
+The current lattices then receive the content of their draft lattices. Also, at the beginning of the evolution step, the mirror lattices are also massively updated with the current lattices' content, thereby preparing the system for comparisons in the $W  $ dimension at the next convolution phase (Sect. \ref{subsec:convolution}). The $f$ variable of the mirror lattice receives the same value as $t$, that is, $f_i^{mirror}=t_i^{main}$.
 
 %%%%%%%% INTERACTIONS %%%%%%%%%%
 
@@ -623,7 +626,7 @@ At the singularity (initial state), all bubbles overlap, necessitating an additi
 
 During the convolution step, if a spatial address contains two overlapping bubbles with fully symmetric charges, the bubbles are reissued from their respective active pBit sites. This process rapidly disperses the singularity, facilitating the separation of Orbis from Umbra. Let us call this \textit{segregation}.
 
-By the simple fact that $W$ is an odd number, if we try to form pairs from different layers, an ultimate singleton will automatically remain. Let's call it the \textit{rebel}.
+By the simple fact that $W  $ is an odd number, if we try to form pairs from different layers, an ultimate singleton will automatically remain. Let's call it the \textit{rebel}.
 
 In the next light step, there will be two large groups of pairs and a single singleton—the rebel—definitively breaking the original symmetry and triggering an initially chaotic evolution.
 
@@ -632,7 +635,7 @@ The counterpart to segregation is singularization. In the distinct case (Sect. \
 
 \subsection{Annihilation and collapse}
 
-The destruction of a particle due to annihilation or collapsing light-matter interaction is also performed during the convolution step, but only in the annihilation case, the affinity properties will be redefined to their default values $a_w=w$, where $w$ represents the index of the $W$ dimension. Bubbles are now raw materials for the formation (or recreation) of new particles in this case.
+The destruction of a particle due to annihilation or collapsing light-matter interaction is also performed during the convolution step, but only in the annihilation case, the affinity properties will be redefined to their default values $a_w=w$, where $w$ represents the index of the $W  $ dimension. Bubbles are now raw materials for the formation (or recreation) of new particles in this case.
 
 One direct consequence of this ontological collapse mechanism is the presence of an arrow of time at the fundamental level, and thereby it reinforces the second law of thermodynamics. This also pushes the occurrence of a Poincaré cycle to the distant future (see Sect. \ref{sec-undecidability}).
 
@@ -678,7 +681,7 @@ Note that specialized pairs, unlike bosons, do not form blobs, giving them a fer
 \subsection{Bosons}\label{bosons}
 A particle is classified as a boson if it is made of one or more blobs. Specific types of pairs that fulfill this criterion include a photon fragment and other gauge-boson fragments. Each of these roles involves a pair structure where some or all charge bits differ except for the $w_{1}$ bit; that is, they are sectorial particles. 
 
-The defining characteristic of a photon is that all its pairs are superposed at the same point, forming a single blob. In contrast, for other bosons, such as the $W^{\pm}$ and $Z$ bosons, in which the pairs form a "punctiform" cloud of multiple blobs sharing the same affinity, somewhat similar to the behavior observed in fermions. At last, the model suggests that the Higgs boson is formed by two $Z^0$ bosons with opposite spins, with no apparent relation to giving mass to other particles.
+The defining characteristic of a photon is that all its pairs are superposed at the same point, forming a single blob. In contrast, for other bosons, such as the $W  ^{\pm}$ and $Z$ bosons, in which the pairs form a "punctiform" cloud of multiple blobs sharing the same affinity, somewhat similar to the behavior observed in fermions. At last, the model suggests that the Higgs boson is formed by two $Z^0$ bosons with opposite spins, with no apparent relation to giving mass to other particles.
 
 An orphan (see Sect. \ref{subsec:relocation}) does not interact with photons, because $a=W$, but interacts with gravitons. Neutral orphan pairs do not interact electromagnetically.
 
@@ -807,7 +810,7 @@ Just a few examples are considered here.
 
 \subsection{Charge quantization} \label{subsec:charge-quantization}
 
-A subtle geometric "defect" emerges during the initialization of the CA model (see Sect.~\ref{initial-state}). When attempting to define the pBit lines and sBit spirals as isotropically distributed within the lattice's discrete, square-like constraints, unavoidable asymmetries arise. Specifically, the mismatch between the chosen $W$ dimension ($3\cdot L^2$) and the number of isotropic directions ($\pi\cdot L^2$) introduces a structural defect. Rather than being problematic, this defect acts as a useful artifact—enabling the emergence of quantization, in a manner reminiscent of electric charge quantization in physical systems.
+A subtle geometric "defect" emerges during the initialization of the CA model (see Sect.~\ref{initial-state}). When attempting to define the pBit lines and sBit spirals as isotropically distributed within the lattice's discrete, square-like constraints, unavoidable asymmetries arise. Specifically, the mismatch between the chosen $W  $ dimension ($3\cdot L^2$) and the number of isotropic directions ($\pi\cdot L^2$) introduces a structural defect. Rather than being problematic, this defect acts as a useful artifact—enabling the emergence of quantization, in a manner reminiscent of electric charge quantization in physical systems.
 
 A key mathematical foundation for this quantization lies in the concept of the winding number—a topological invariant that counts how many times a vector field wraps around a point or axis. In the CA model, the defect-induced asymmetries naturally associate with a nonzero winding number, effectively enforcing the discreteness of the system’s state space.
 
@@ -1178,7 +1181,7 @@ This appendix details the initial state construction, populating the lattices wi
 
 \subsection{Computing all possible directions} \label{subsec:all-dirs}
 
-Since the number of layers is $W$, the maximum number of possible directions is also $W = 3L^2$. On the other hand, the maximum  number of vectors is approximately $\pi L^2$. Thus, some vectors must be ignored when assigning directions to the layers. With an eye on emergent quantization, we must elect one direction as the privileged one to account for the missing directions. Let $z$ be that direction in a spherical coordinate convention. We can use a procedure based on the $sin^{2n}(f)$ function to constrain the vectors along $z$, where $n=1$, tentatively.
+Since the number of layers is $W  $, the maximum number of possible directions is also $W   = 3L^2$. On the other hand, the maximum  number of vectors is approximately $\pi L^2$. Thus, some vectors must be ignored when assigning directions to the layers. With an eye on emergent quantization, we must elect one direction as the privileged one to account for the missing directions. Let $z$ be that direction in a spherical coordinate convention. We can use a procedure based on the $sin^{2n}(f)$ function to constrain the vectors along $z$, where $n=1$, tentatively.
 
 Moreover, the cases where $z > L/2$ will receive $w_1 = 0$, while the cases where $z < L/2$ will receive $w_1 = 1$, ensuring that quantization manifests itself in both \textit{Orbis} and \textit{Umbra}. Each of these vectors will be denoted as $\hat{i}'_x$ in the next section to construct an orthogonal basis for defining motion constraints.
 
@@ -1317,7 +1320,7 @@ Here are shown the convolution rules in two parts. Bubble $1$ is in the current 
                 \State $\triangleright$ Magnetism
                 \State $c1'=c2'=c1$  \Comment{relocate}
             \EndIf   
-        \ElsIf{$F1=1$ \textbf{and} $F2>1$ \textbf{and} $W1=W2$} \Comment{singleton x blob}
+        \ElsIf{$F1=1$ \textbf{and} $F2>1$ \textbf{and} $W  1=W2$} \Comment{singleton x blob}
             \If{$CLR1=\sim CLR2$ \textbf{and}  $CLR1 \neq 000B$ \textbf{and}  $CLR1 \neq 111B$}
                 \State $\triangleright$ Quark x gluon
                 \State $c1'=c2'=c1$  \Comment{relocate}
