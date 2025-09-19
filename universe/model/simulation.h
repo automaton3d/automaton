@@ -85,75 +85,70 @@ namespace automaton
       // Operational variables
       unsigned c[3] = { 0, 0, 0 }; // Relocation offset
       unsigned k;         	// Tick counter
-      bool hB;
+      bool s2B;				// Sieve test result
       // Interaction control
       bool kB;      		// Collapse flag
+      bool bB;              // Blob flag
+      bool hB;              // Hunt flag
       // Default constructor
       Cell()
         : ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
-          k(0), hB(false), kB(false)
+          k(0), s2B(false), kB(false), bB(false), hB(false)
       {
         std::fill(std::begin(x), std::end(x), 0);
         std::fill(std::begin(c), std::end(c), 0);
       }
+      /*
       // Copy constructor
       Cell(const Cell& other)
         : ch(other.ch), pB(other.pB), sB(other.sB), a(other.a),
           d(other.d), phiB(other.phiB), t(other.t), f(other.f),
-          k(other.k), hB(other.hB), kB(other.kB)
+          k(other.k), s2B(other.s2B), kB(other.kB), bB(other.bB), hB(other.hB)
       {
         std::copy(std::begin(other.x), std::end(other.x), std::begin(x));
         std::copy(std::begin(other.c), std::end(other.c), std::begin(c));
-     }      // Serialization functions
-      void serialize(ofstream& out) const;
-      void deserialize(ifstream& in);
+     }
+     */
+     // Serialization functions
+     void serialize(ofstream& out) const;
+     void deserialize(ifstream& in);
 
-      bool Q() { return ch & Q_MASK; }
-      bool W1() { return ch & W1_MASK; }
-      bool W0() { return ch & W0_MASK; }
-      bool C2() { return ch & C2_MASK; }
-      bool C1() { return ch & C1_MASK; }
-      bool C0() { return ch & C0_MASK; }
-      unsigned char COLOR() { return ch & COLOR_MASK; }
-      unsigned char ANTICOLOR() { return ~ch & COLOR_MASK; }
+     bool Q() { return ch & Q_MASK; }
+     bool W1() { return ch & W1_MASK; }
+     bool W0() { return ch & W0_MASK; }
+     bool C2() { return ch & C2_MASK; }
+     bool C1() { return ch & C1_MASK; }
+     bool C0() { return ch & C0_MASK; }
+     unsigned char COLOR() { return ch & COLOR_MASK; }
+     unsigned char ANTICOLOR() { return ~ch & COLOR_MASK; }
 
-      Cell &getNeighbor(int i);
+     Cell &getNeighbor(int i);
   };
 
   /// Function prototypes ///
-  void swap_lattices();
-  bool isColorNeutral(unsigned char c1, unsigned char c2);
-  uint32_t cellState(unsigned x, unsigned y, unsigned z, Cell *cell);
   void* SimulationLoop();
   void DeleteAutomaton();
+  void swap_lattices();
   void update();
   bool initSimulation(int step);
-  void initScreen();
+  void initSpirals();
+  void markPoints(unsigned p[3], int w);
   void simulation();
-  void updateBuffer();
-  void displayLattice();
-  void printLattice();
-  void normalize(double vec[3]);
-  void cross_product(double result[3], const double a[3], const double b[3]);
-  void compileNetCharges(Cell &mirror, Cell &draft);
-  void relocate(Cell& draft, const Cell& nei);
-  void markPoles(unsigned p[3], int w);
-  void markMetaPoles(unsigned p[3], int w);
-  void saveState0();
-  void updateEntropy();
+  bool convolute(Cell& curr, Cell &draft, Cell &mirror);
+  void diffuse(Cell& curr, Cell &draft, Cell &mirror);
+  void relocate(Cell& curr, Cell &draft, Cell &mirror);
   void shiftX(unsigned w);
   void shiftY(unsigned w);
   void shiftZ(unsigned w);
   void shiftW();
-  void executeInteraction(Cell &curr, Cell &draft);
-  bool convolute(Cell& curr, Cell &draft, Cell &mirror);
-  void diffuse(Cell& curr, Cell &draft, Cell &mirror);
-  void relocate(Cell& curr, Cell &draft, Cell &mirror);
-  void transport(Cell& curr, Cell &draft, Cell &mirror);
-  void seggregation(Cell& curr, Cell &draft, Cell &mirror);
-  void testReloc(Cell& curr, Cell &draft, Cell &mirror, unsigned w);
-  //  vector<tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
+  void updateBuffer();
+  std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
+  void normalize(double vec[3]);
+  void cross_product(double result[3], const double a[3], const double b[3]);
+  void printLattice(int w);
+  bool neutralColor(Cell &a, Cell &b);
+  bool neutralWeak(Cell &a, Cell &b);
 
   // Tests
 
@@ -177,6 +172,9 @@ namespace automaton
   extern const unsigned TRANSP;
   extern const unsigned FRAME;
 
+  /**
+   * Tests if two vectors are equal.
+   */
   inline bool EQUAL(unsigned v1[3], unsigned v2[3])
   {
     // Compare elements

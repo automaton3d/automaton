@@ -16,13 +16,11 @@ namespace automaton
 
   // Dynamics constants and variables
   const unsigned DIAG      = (unsigned) EL* sqrt(3);
+  const unsigned RMAX      = DIAG / 2;
   const unsigned CONVOL    = W_DIM;
   const unsigned DIFFUSION = CONVOL + 3 * (EL - 1) + (W_DIM - 1);
   const unsigned RELOC     = DIFFUSION + 3*(EL - 1);
-  const unsigned TRANSP    = RELOC + 3*(EL - 1);
-  const unsigned FRAME     = TRANSP;
-
-  bool reloc = false;
+  const unsigned FRAME     = RELOC;
 
   // The CA lattices
   Cell lattice_curr   [EL][EL][EL][W_DIM];
@@ -66,13 +64,12 @@ namespace automaton
             {
               relocate(curr, draft, mirror);
             }
-            /****** PARALLEL TRANSPORT ******/
-            else if (curr.k < TRANSP)
-            {
-              transport(curr, draft, mirror);
-            }
             // Update tick counter
             draft.k = (curr.k + 1) % FRAME;
+            if (draft.k == 0)
+            {
+              draft.t = (curr.t + 1) % RMAX;
+            }
           }
         }
       }
@@ -146,24 +143,24 @@ namespace automaton
    */
   Cell &Cell::getNeighbor(int i)
   {
-      // Displacements for 8 von Neumann directions (4D)
-      static const int disp[8][4] = {
-          {+1,  0,  0,  0}, // +x
-          {-1,  0,  0,  0}, // -x
-          { 0, +1,  0,  0}, // +y
-          { 0, -1,  0,  0}, // -y
-          { 0,  0, +1,  0}, // +z
-          { 0,  0, -1,  0}, // -z
-          { 0,  0,  0, +1}, // +w
-          { 0,  0,  0, -1}  // -w
-      };
+    // Displacements for 8 von Neumann directions (4D)
+    static const int disp[8][4] =
+    {
+      {+1,  0,  0,  0}, // +x
+      {-1,  0,  0,  0}, // -x
+      { 0, +1,  0,  0}, // +y
+      { 0, -1,  0,  0}, // -y
+      { 0,  0, +1,  0}, // +z
+      { 0,  0, -1,  0}, // -z
+      { 0,  0,  0, +1}, // +w
+      { 0,  0,  0, -1}  // -w
+    };
 
-      int nx = (x[0] + disp[i][0] + EL) % EL;
-      int ny = (x[1] + disp[i][1] + EL) % EL;
-      int nz = (x[2] + disp[i][2] + EL) % EL;
-      int nw = (x[3] + disp[i][3] + W_DIM)  % W_DIM;
-
-      return lattice_curr[nx][ny][nz][nw];
+    int nx = (x[0] + disp[i][0] + EL) % EL;
+    int ny = (x[1] + disp[i][1] + EL) % EL;
+    int nz = (x[2] + disp[i][2] + EL) % EL;
+    int nw = (x[3] + disp[i][3] + W_DIM)  % W_DIM;
+    return lattice_curr[nx][ny][nz][nw];
   }
 
 }

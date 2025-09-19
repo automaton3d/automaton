@@ -9,10 +9,7 @@
 
 namespace automaton
 {
-  extern const unsigned LIGHT;
-
   extern bool reloc_x[W_DIM], reloc_y[W_DIM], reloc_z[W_DIM];
-  extern bool reloc_w;
   extern Cell lattice_curr[EL][EL][EL][W_DIM];
   extern Cell lattice_draft[EL][EL][EL][W_DIM];
   COLORREF *voxels;
@@ -25,14 +22,9 @@ namespace automaton
     // Check if the framework is active and if there are any checkboxes
     if (!framework::active || framework::checkboxes.empty())
       return;
-    // Check if data is not transient
-
-    /* TODO
-    if (lattice_curr[0][0][0][0].k < UPDATE)
-      return;
-      */
     int w = framework::list.getSelected();
     // If no layer is selected, exit the function
+    assert(w >= 0);
     if (w == -1)
       return;
     // Iterate over the 3D grid to update the voxel data
@@ -43,19 +35,11 @@ namespace automaton
       {
         for (int z = 0; z < EL; z++)
         {
-        	/*
           Cell &cell = lattice_curr[x][y][z][w];
-          // Check if 'wv' is a valid property and update the voxel color
-          if (cell.d > cell.t && cell.d <= cell.t + LIGHT)
-//          if (cell.wv)
-          {
+          if (cell.t == cell.d)
             voxels[index3D] = RGB(255, 255, 255);  // White voxel
-            if (cell.t < 3 * LIGHT)
-              voxels[index3D] = RGB(255, 0, 255);//DEBUG
-          }
           else
             voxels[index3D] = RGB(0, 0, 0);        // Black voxel
-            */
           index3D++;
         }
       }
@@ -67,52 +51,39 @@ namespace automaton
    */
   bool isColorNeutral(unsigned char c1, unsigned char c2)
   {
-      unsigned res = (c1 ^ c2) & 7;
-      return ((res == 0 || res == 7) && c1 && c2 && c1 != 7 && c2 != 7);
-  }
-
-  /*
-   * Prints the CA state for test.
-   */
-  void printLattice()
-  {
-      for (unsigned w = 0; w < W_DIM; w++)
-      {
-          Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
-          // Print the 'pole' value of the current cell
-          printf("%d  ", cell.pB);
-      }
+    unsigned res = (c1 ^ c2) & 7;
+    return ((res == 0 || res == 7) && c1 && c2 && c1 != 7 && c2 != 7);
   }
 
   void cross_product(double result[3], const double a[3], const double b[3])
   {
-      result[0] = a[1] * b[2] - a[2] * b[1];
-      result[1] = a[2] * b[0] - a[0] * b[2];
-      result[2] = a[0] * b[1] - a[1] * b[0];
+    result[0] = a[1] * b[2] - a[2] * b[1];
+    result[1] = a[2] * b[0] - a[0] * b[2];
+    result[2] = a[0] * b[1] - a[1] * b[0];
   }
 
   void normalize(double vec[3])
   {
-      double magnitude = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
+    double magnitude = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
 
-      // Avoid division by zero
-      if (magnitude > 0.0)
-      {
-          vec[0] /= magnitude;
-          vec[1] /= magnitude;
-          vec[2] /= magnitude;
-      }
+    // Avoid division by zero
+    if (magnitude > 0.0)
+    {
+      vec[0] /= magnitude;
+      vec[1] /= magnitude;
+      vec[2] /= magnitude;
+    }
   }
 
   /**
-   * Marks the poles of a given momentum.
+   * Marks the momentum points.
    * Uses the Bresenham line algorithm.
    * (used during initialization)
    *
    * @p the current ray
    * @w the shell in the w dimension
    */
-  void markPoles(unsigned p[3], int w)
+  void markPoints(unsigned p[3], int w)
   {
       // Calculate the center of the lattice
       int cx = CENTER, cy = CENTER, cz = CENTER;
@@ -139,7 +110,7 @@ namespace automaton
         int zd = az - dx;
         for (int i = 0; i <= dx; i++)
         {
-          lattice_curr[x][y][z][w].pB = true;
+          lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
           x += sx;
           if (yd >= 0)
           {
@@ -162,7 +133,7 @@ namespace automaton
         int zd = az - dy;
         for (int i = 0; i <= dy; i++)
         {
-          lattice_curr[x][y][z][w].pB = true;
+          lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
           y += sy;
           if (xd >= 0)
           {
@@ -185,7 +156,7 @@ namespace automaton
         int yd = ay - dz;
         for (int i = 0; i <= dz; i++)
         {
-          lattice_curr[x][y][z][w].pB = true;
+          lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
           z += sz;
           if (xd >= 0)
           {
@@ -406,30 +377,58 @@ namespace automaton
   // Function to generate uniformly distributed points on the sphere's surface
   std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int SIDE)
   {
-      std::vector<std::tuple<int, int, int>> points;
-      int offset = SIDE / 2; // Offset to shift coordinates into the range [0, L-1]
+    std::vector<std::tuple<int, int, int>> points;
+    int offset = SIDE / 2; // Offset to shift coordinates into the range [0, L-1]
+    for (int i = 0; i < u; ++i)
+    {
+      double phi = acos(1 - 2.0 * (i + 0.5) / u); // Polar angle
+      double theta = M_PI * (1 + std::sqrt(5)) * i; // Azimuthal angle
+      // Convert to Cartesian coordinates
+      double x = R * sin(phi) * cos(theta);
+      double y = R * sin(phi) * sin(theta);
+      double z = R * cos(phi);
+      // Round to integers and apply offset
+      points.emplace_back(
+          static_cast<int>(round(x)) + offset,
+          static_cast<int>(round(y)) + offset,
+          static_cast<int>(round(z)) + offset
+      );
+    }
+    // Remove duplicates caused by rounding
+    std::sort(points.begin(), points.end());
+    points.erase(std::unique(points.begin(), points.end()), points.end());
+    return points;
+  }
 
-      for (int i = 0; i < u; ++i)
+  /**
+   * Prints the main parameters.
+   */
+  void printConstants()
+  {
+	// TODO
+  }
+
+  /*
+   * Prints the CA state for test.
+   */
+  void printLattice(int w)
+  {
+	puts("Case: phiB");
+    for (unsigned z = 0; z < EL; z++)
+    {
+      for (unsigned y = 0; y < EL; y++)
       {
-          double phi = acos(1 - 2.0 * (i + 0.5) / u); // Polar angle
-          double theta = M_PI * (1 + std::sqrt(5)) * i; // Azimuthal angle
-
-          // Convert to Cartesian coordinates
-          double x = R * sin(phi) * cos(theta);
-          double y = R * sin(phi) * sin(theta);
-          double z = R * cos(phi);
-
-          // Round to integers and apply offset
-          points.emplace_back(
-              static_cast<int>(round(x)) + offset,
-              static_cast<int>(round(y)) + offset,
-              static_cast<int>(round(z)) + offset
-          );
+  	    for (unsigned x = 0; x < EL; x++)
+        {
+          // Reference to the current cell
+          Cell& cell = lattice_curr[x][y][z][w];
+          printf("%d ", cell.phiB);
+        }
+        printf("\n");
       }
-      // Remove duplicates caused by rounding
-      std::sort(points.begin(), points.end());
-      points.erase(std::unique(points.begin(), points.end()), points.end());
-      return points;
+      printf("z=%d\n", z);
+    }
+    printf("\n");
   }
 
 }
