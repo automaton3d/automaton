@@ -54,8 +54,11 @@ public:
   void renderWavefront();
   void renderTextObjects();
   void renderGadgets();
-  void renderEntropy();
-  void renderParticles();
+  void renderMomentum();
+  void renderSpin();
+  void renderSineMask();
+  void renderHunting();
+  void renderCenters();
   void renderProgressBar();
   void renderCenterBox(const char* text);
   void resize(int width, int height);
@@ -133,7 +136,6 @@ void triggerEvent(unsigned long long timer);
 extern bool active;
 extern std::vector<Tickbox> checkboxes;
 extern LayerList list;
-//extern std::vector<Radio> layers;
 extern std::vector<Radio> dataset;
 extern std::vector<Radio> viewpoint;
 

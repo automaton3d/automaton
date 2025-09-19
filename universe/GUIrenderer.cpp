@@ -29,10 +29,9 @@ namespace framework
   random_device rd;
   mt19937 gen(rd());
 
-  bool entropyFlag;
+  bool spinFlag;
   unsigned long tbegin;
-  int barWidths[4];
-  unsigned currentLayer = 0;
+  int barWidths[3];
   // Global flag to control rendering mode: single cube or 27 cubes.
   bool MULTICUBE_MODE = false;
 
@@ -50,12 +49,11 @@ namespace framework
     "Scroll-Wheel: Dolly (zoom)"
   };
 
-  string steps[4] =
+  string steps[3] =
   {
-	"Convolution",
-	"Diffusion",
-	"Relocation",
-	"Transport"
+  "Convolution",
+  "Diffusion",
+  "Relocation"
   };
 
   unsigned lastPos[W_DIM][3];
@@ -90,26 +88,30 @@ namespace framework
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     tbegin = GetTickCount64();
+    //
     checkboxes.push_back(Tickbox(50, 80, "Wavefront"));  // 0
     checkboxes.push_back(Tickbox(50, 110, "Momentum"));  // 1
-    checkboxes.push_back(Tickbox(50, 140, "Plane"));     // 2
-    checkboxes.push_back(Tickbox(50, 170, "Entropy"));   // 3
-    checkboxes.push_back(Tickbox(50, 200, "Lattice"));   // 4
-    checkboxes.push_back(Tickbox(50, 230, "Axes"));      // 5
-    checkboxes.push_back(Tickbox(50, 260, "Particles")); // 6
-    checkboxes[0].setState(true);
-    checkboxes[3].setState(true);
+    checkboxes.push_back(Tickbox(50, 140, "Spin"));      // 2
+    checkboxes.push_back(Tickbox(50, 170, "Sine mask")); // 3
+    checkboxes.push_back(Tickbox(50, 200, "Hunting"));   // 4
+    checkboxes.push_back(Tickbox(50, 230, "Centers"));   // 5
+    checkboxes.push_back(Tickbox(50, 260, "Lattice"));   // 6
+    checkboxes.push_back(Tickbox(50, 290, "Axes"));      // 7
+    checkboxes.push_back(Tickbox(50, 320, "Plane"));     // 8
     checkboxes[5].setState(true);
-    checkboxes[6].setState(true);
-    dataset.push_back(Radio(60, 330, "Single"));
-    dataset.push_back(Radio(60, 360, "Partial"));
-    dataset.push_back(Radio(60, 390, "Full"));
-    dataset.push_back(Radio(60, 420, "Random"));
+    checkboxes[7].setState(true);
+    checkboxes[8].setState(true);
+    //
+    dataset.push_back(Radio(60, 390, "Single"));
+    dataset.push_back(Radio(60, 420, "Partial"));
+    dataset.push_back(Radio(60, 450, "Full"));
+    dataset.push_back(Radio(60, 480, "Random"));
     dataset[3].setSelected(true);
-    viewpoint.push_back(Radio(60, 490, "Isometric"));
-    viewpoint.push_back(Radio(60, 520, "XY"));
-    viewpoint.push_back(Radio(60, 550, "YZ"));
-    viewpoint.push_back(Radio(60, 580, "ZX"));
+    //
+    viewpoint.push_back(Radio(60, 540, "Isometric"));
+    viewpoint.push_back(Radio(60, 570, "XY"));
+    viewpoint.push_back(Radio(60, 600, "YZ"));
+    viewpoint.push_back(Radio(60, 630, "ZX"));
     viewpoint[0].setSelected(true);
     // Initialize entropy
     GLint viewport[4];
@@ -120,7 +122,6 @@ namespace framework
     barWidths[0] = (int)(barWidth * (double) CONVOL / totalRatio);
     barWidths[1] = (int)(barWidth * (double) (DIFFUSION - CONVOL) / totalRatio);
     barWidths[2] = (int)(barWidth * (double) (RELOC - DIFFUSION) / totalRatio);
-    barWidths[3] = (int)(barWidth * (double) (TRANSP - RELOC) / totalRatio);
   }
 
   /**
@@ -131,8 +132,6 @@ namespace framework
     renderClear();
     renderObjects();
     renderTextObjects();
-    if (entropyFlag)
-      renderEntropy();
   }
 
   /**
@@ -170,10 +169,10 @@ namespace framework
     int x0 = barX + barWidth + 22;
     int w = 20;
     int h = 5;
-    int y0 = barY - 35;
+    int y0 = barY - 15;
     // Draw the sections of the bar with proportional widths
     int accumulatedWidth = 0;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 3; i++)
     {
       // Calculate this section's start and end positions
       int sectionStart = accumulatedWidth;
@@ -186,17 +185,15 @@ namespace framework
           case 0: glColor3f(0.3f, 0.3f, 0.0f); break;
           case 1: glColor3f(0.5f, 0.0f, 0.0f); break;
           case 2: glColor3f(0.0f, 0.5f, 0.0f); break;
-          case 3: glColor3f(0.0f, 0.2f, 0.7f); break;
         }
       }
       else
       {
         switch (i)
         {
-          case 0: glColor3f(0.7f, 0.7f, 0.0f); break;
-          case 1: glColor3f(0.7f, 0.0f, 0.0f); break;
-          case 2: glColor3f(0.0f, 0.7f, 0.0f); break;
-          case 3: glColor3f(0.0f, 0.4f, 0.9f); break;
+          case 0: glColor3f(1, 1, 1); break;
+          case 1: glColor3f(1, 1, 1); break;
+          case 2: glColor3f(1, 1, 1); break;
         }
       }
       // Draw the section
@@ -209,11 +206,11 @@ namespace framework
       // Draw legend
       glBegin(GL_TRIANGLES);
         glVertex2f(x0, y0);
-    	glVertex2f(x0 + w, y0);
-    	glVertex2f(x0 + w, y0 + h);
-    	glVertex2f(x0, y0);
-    	glVertex2f(x0 + w, y0 + h);
-    	glVertex2f(x0, y0 + h);
+      glVertex2f(x0 + w, y0);
+      glVertex2f(x0 + w, y0 + h);
+      glVertex2f(x0, y0);
+      glVertex2f(x0 + w, y0 + h);
+      glVertex2f(x0, y0 + h);
       glEnd();
       glColor3f(0.6f, 0.6f, 0.6f);
       drawString12(steps[i], x0 + w + 10, y0 + 7);
@@ -241,50 +238,47 @@ namespace framework
   }
 
   /**
-   * Opens a pause message box.
-   */
-  /**
    * Opens a pause message box with centered text and an outline.
    */
   void GUIrenderer::renderCenterBox(const char* text)
   {
-      GLint viewport[4];
-      glGetIntegerv(GL_VIEWPORT, viewport);
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
 
-      int viewportWidth = viewport[2];
-      int viewportHeight = viewport[3];
+    int viewportWidth = viewport[2];
+    int viewportHeight = viewport[3];
 
-      // Calculate text dimensions dynamically
-      int textWidth = strlen(text) * 10;
-      int textHeight = 10;
+    // Calculate text dimensions dynamically
+    int textWidth = strlen(text) * 10;
+    int textHeight = 10;
 
-      // Center the text in the viewport
-      int textX = (viewportWidth - textWidth) / 2;
-      int textY = (viewportHeight + textHeight) / 2;
+    // Center the text in the viewport
+    int textX = (viewportWidth - textWidth) / 2;
+    int textY = (viewportHeight + textHeight) / 2;
 
-      // Padding for the rectangle
-      int paddingX = 15;
-      int paddingY = 10;
+    // Padding for the rectangle
+    int paddingX = 15;
+    int paddingY = 10;
 
-      // Rectangle dimensions and position
-      int rectX = textX - paddingX;
-      int rectY = textY - textHeight - paddingY;
-      int rectWidth = textWidth + 2 * paddingX;
-      int rectHeight = textHeight + 2 * paddingY;
+    // Rectangle dimensions and position
+    int rectX = textX - paddingX;
+    int rectY = textY - textHeight - paddingY;
+    int rectWidth = textWidth + 2 * paddingX;
+    int rectHeight = textHeight + 2 * paddingY;
 
-      // Draw the text
-      glColor3f(1.0f, 1.0f, 1.0f); // White color for text
-      drawString8(text, textX, textY); // Render the text at the calculated position
+    // Draw the text
+    glColor3f(1.0f, 1.0f, 1.0f); // White color for text
+    drawString8(text, textX, textY); // Render the text at the calculated position
 
-      // Draw the rectangle around the text
-      glColor3f(1.0f, 1.0f, 1.0f); // White color for rectangle
-      glLineWidth(2);
-      glBegin(GL_LINE_LOOP);
-      glVertex2i(rectX, rectY);
-      glVertex2i(rectX + rectWidth, rectY);
-      glVertex2i(rectX + rectWidth, rectY + rectHeight);
-      glVertex2i(rectX, rectY + rectHeight);
-      glEnd();
+    // Draw the rectangle around the text
+    glColor3f(1.0f, 1.0f, 1.0f); // White color for rectangle
+    glLineWidth(2);
+    glBegin(GL_LINE_LOOP);
+    glVertex2i(rectX, rectY);
+    glVertex2i(rectX + rectWidth, rectY);
+    glVertex2i(rectX + rectWidth, rectY + rectHeight);
+    glVertex2i(rectX, rectY + rectHeight);
+    glEnd();
   }
 
   /**
@@ -292,272 +286,359 @@ namespace framework
    */
   void GUIrenderer::renderTextObjects()
   {
-  setOrthographicProjection();
-  glPushMatrix();
-  glLoadIdentity();
-  glColor3f(1.0f, 1.0f, 1.0f);
-  unsigned long millis = GetTickCount64() - tbegin;
-  char s[100];
-  sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
-  drawString8(s, 50, 40);
-  sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
-  render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-  sprintf(s, "SIDE %u", EL);
-  render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-  //
-  // Get the primary monitor
-  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-  // Get the video mode of the monitor
-  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-  // Draw the help text
-  for(int i = 0; i < 10; i++)
-    drawString8(help[i], mode->width - 500, 20 * i + mode->height - 260);
-  // Add the progress bar rendering
-  renderProgressBar();
-  // Add a vertical slider
-  slider.draw();
-  // Handle pause window
-  if (pause)
-    renderCenterBox(" Paused ");
-  //
-  glPopMatrix();
-  list.update();
-  resetPerspectiveProjection();
-}
+    setOrthographicProjection();
+    glPushMatrix();
+    glLoadIdentity();
+    glColor3f(1.0f, 1.0f, 1.0f);
+    unsigned long millis = GetTickCount64() - tbegin;
+    char s[100];
+    sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
+    drawString8(s, 50, 40);
+    sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
+    render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+    sprintf(s, "L = %u", EL);
+    render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+    //
+    // Get the primary monitor
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    // Get the video mode of the monitor
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    // Draw the help text
+    for(int i = 0; i < 10; i++)
+      drawString8(help[i], mode->width - 500, 20 * i + mode->height - 260);
+    // Add the progress bar rendering
+    renderProgressBar();
+    // Add a vertical slider
+    slider.draw();
+    // Handle pause window
+    if (pause)
+      renderCenterBox(" Paused ");
+    //
+    glPopMatrix();
+    list.update();
+    resetPerspectiveProjection();
+  }
 
-/**
- * Renders the dynamic entropy curve.
- */
-void GUIrenderer::renderEntropy()
-{
-  // Set up orthographic projection for 2D rendering
-  GLint viewport[4];
-  glGetIntegerv(GL_VIEWPORT, viewport);
-  int screenWidth = viewport[2];
-  int screenHeight = viewport[3];
-  // Set orthographic projection for 2D graph
-  glMatrixMode(GL_PROJECTION);
-  glPushMatrix();
-  glLoadIdentity();
-  glOrtho(0, screenWidth, 0, screenHeight, -1, 1);
-  glMatrixMode(GL_MODELVIEW);
-  glPushMatrix();
-  glLoadIdentity();
-
-  // TODO DRAW 2D GRAPHICS HERE
-
-  // Restore previous matrices
-  glPopMatrix();
-  glMatrixMode(GL_PROJECTION);
-  glPopMatrix();
-  glMatrixMode(GL_MODELVIEW);
-}
-
-/**
- * Draws the points representing the active wavefront cells of
- * the current layer.
- */
-void GUIrenderer::renderWavefront()
-{
-  // Cell spacing.
-  const float GRID_SIZE =  0.5 / EL;
-  // Size of each lattice point.
-  glPointSize(2.0f);
-
-  // Define offsets for 27 cubes (-1, 0, 1 along each axis)
-  int offsets[3] = {-1, 0, 1};
-  glBegin(GL_POINTS);
-  for (int x = 0; x < EL; x++)
+  /**
+   * Renders momentum line.
+   */
+  void GUIrenderer::renderMomentum()
   {
-    for (int y = 0; y < EL; y++)
+    const float GRID_SIZE = 1.0f / EL;  // Better spacing
+    glPointSize(5.0f);                  // Larger points for visibility
+    glBegin(GL_POINTS);
+    for (int x = 0; x < EL; x++)
     {
-      for (int z = 0; z < EL; z++)
+      for (int y = 0; y < EL; y++)
       {
-        COLORREF color = automaton::voxels[x * L2 + y * EL + z];
-        if (!color)
-          continue;
-        // Extract the R, G, B components.
-        BYTE r = GetRValue(color);
-        BYTE g = GetGValue(color);
-        BYTE b = GetBValue(color);
-
-        // Convert to normalized values between 0.0 and 1.0.
-        GLdouble red   = r / 255.0;
-        GLdouble green = g / 255.0;
-        GLdouble blue  = b / 255.0;
-        float alpha = 0.5;
-        // Set the OpenGL color.
-        glColor4d(red, green, blue, alpha);
-        // Base position of the current voxel.
-        float px = (x - EL / 2) * GRID_SIZE;
-        float py = (y - EL / 2) * GRID_SIZE;
-        float pz = (z - EL / 2) * GRID_SIZE;
-        if (MULTICUBE_MODE)
+        for (int z = 0; z < EL; z++)
         {
-          // Render 27 cubes by translating the base grid position.
-          for (int dx : offsets)
+          if (lattice_curr[x][y][z][list.getSelected()].pB)
           {
-            for (int dy : offsets)
-            {
-              for (int dz : offsets)
-              {
-                glVertex3f(px + dx * 0.5, py + dy * 0.5, pz + dz * 0.5);
-              }
-            }
+            glColor3d(1.0, 1.0, 0);     // Yellow
+            float px = (x - EL / 2) * GRID_SIZE;
+            float py = (y - EL / 2) * GRID_SIZE;
+            float pz = (z - EL / 2) * GRID_SIZE;
+            glVertex3f(px, py, pz);
+            //printf("%f,%f,%f\n", px, py, pz);
           }
-        }
-        else
-        {
-          // Render a single cube.
-          glVertex3f(px, py, pz);
         }
       }
     }
+    glEnd();
   }
-  glEnd();
-  enhanceVoxel();
-}
 
-/*
- * Render the center of the bubbles only.
- * All layers (w dimension) contribute.
+/**
+ * Renders the spiral pattern.
  */
-void GUIrenderer::renderParticles()
-{
-  // Cell spacing.
-  const float GRID_SIZE = 0.5 / EL;
-  // Size of each lattice point.
-  glPointSize(8.0f);
-  glBegin(GL_POINTS);
-  // Calculate the index for the center element
-  for (unsigned w = 0; w < W_DIM; w++)
+  void GUIrenderer::renderSpin()
   {
-    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
-    float alpha = 0.5;
-    // Set the color in OpenGL
-    float r = 0.7 + (w & 1)*0.3;
-    float g = 0.7 + ((w >> 1) & 1)*0.3;
-    float b = 0.7 + ((w >> 2) & 1)*0.3;
-    //
-    float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
-    float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
-    float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
-    glColor4d(r, g, b, alpha);
-    glVertex3f(px, py, pz);
+    const float GRID_SIZE = 1.0f / EL;  // Better spacing
+    glPointSize(5.0f);                  // Larger points for visibility
+    glBegin(GL_POINTS);
+    for (int x = 0; x < EL; x++)
+    {
+      for (int y = 0; y < EL; y++)
+      {
+        for (int z = 0; z < EL; z++)
+        {
+          if (lattice_curr[x][y][z][list.getSelected()].sB)
+          {
+            glColor3d(0, 1.0, 1.0);    // Cyan
+            float px = (x - EL / 2) * GRID_SIZE;
+            float py = (y - EL / 2) * GRID_SIZE;
+            float pz = (z - EL / 2) * GRID_SIZE;
+            glVertex3f(px, py, pz);
+          }
+        }
+      }
+    }
+    glEnd();
   }
-  glEnd();
-  enhanceVoxel();
-}
 
-/*
- * Renders 2D active controls of the GUI.
- */
-void GUIrenderer::renderGadgets()
-{
-  glDisable(GL_DEPTH_TEST);
-  setOrthographicProjection();
-  glPointSize(1);
-  glPushMatrix();
-  for (Tickbox& checkbox : checkboxes)
+  /**
+   * Renders the sine squared mask.
+   */
+  void GUIrenderer::renderSineMask()
   {
-    checkbox.draw();
+    const float GRID_SIZE = 1.0f / EL;  // Better spacing
+    glPointSize(5.0f);                  // Larger points for visibility
+    glBegin(GL_POINTS);
+    for (int x = 0; x < EL; x++)
+    {
+      for (int y = 0; y < EL; y++)
+      {
+        for (int z = 0; z < EL; z++)
+        {
+          if (lattice_curr[x][y][z][list.getSelected()].phiB)
+          {
+            glColor3d(1.0, 1.0, 0);     // Yellow
+            float px = (x - EL / 2) * GRID_SIZE;
+            float py = (y - EL / 2) * GRID_SIZE;
+            float pz = (z - EL / 2) * GRID_SIZE;
+            glVertex3f(px, py, pz);
+          }
+        }
+      }
+    }
+    glEnd();
   }
-  list.render();
+
+  /**
+   * Renders the sine squared mask.
+   */
+  void GUIrenderer::renderHunting()
+  {
+    const float GRID_SIZE = 1.0f / EL;  // Better spacing
+    glPointSize(5.0f);                  // Larger points for visibility
+    glBegin(GL_POINTS);
+    for (int x = 0; x < EL; x++)
+    {
+      for (int y = 0; y < EL; y++)
+      {
+        for (int z = 0; z < EL; z++)
+        {
+          if (lattice_curr[x][y][z][list.getSelected()].hB)
+          {
+            glColor3d(1.0, 1.0, 0);     // Yellow
+            float px = (x - EL / 2) * GRID_SIZE;
+            float py = (y - EL / 2) * GRID_SIZE;
+            float pz = (z - EL / 2) * GRID_SIZE;
+            glVertex3f(px, py, pz);
+          }
+        }
+      }
+    }
+    glEnd();
+  }
+
+  /**
+   * Draws the points representing the active wavefront cells of
+   * the current layer.
+   */
+  void GUIrenderer::renderWavefront()
+  {
+    // Cell spacing.
+    const float GRID_SIZE =  0.5 / EL;
+    // Size of each lattice point.
+    glPointSize(2.0f);
+
+    // Define offsets for 27 cubes (-1, 0, 1 along each axis)
+    int offsets[3] = {-1, 0, 1};
+    glBegin(GL_POINTS);
+    for (int x = 0; x < EL; x++)
+    {
+      for (int y = 0; y < EL; y++)
+      {
+        for (int z = 0; z < EL; z++)
+        {
+          COLORREF color = automaton::voxels[x * L2 + y * EL + z];
+          if (!color)
+            continue;
+          // Extract the R, G, B components.
+          BYTE r = GetRValue(color);
+          BYTE g = GetGValue(color);
+          BYTE b = GetBValue(color);
+
+          // Convert to normalized values between 0.0 and 1.0.
+          GLdouble red   = r / 255.0;
+          GLdouble green = g / 255.0;
+          GLdouble blue  = b / 255.0;
+          float alpha = 0.5;
+          // Set the OpenGL color.
+          glColor4d(red, green, blue, alpha);
+          // Base position of the current voxel.
+          float px = (x - EL / 2) * GRID_SIZE;
+          float py = (y - EL / 2) * GRID_SIZE;
+          float pz = (z - EL / 2) * GRID_SIZE;
+          if (MULTICUBE_MODE)
+          {
+            // Render 27 cubes by translating the base grid position.
+            for (int dx : offsets)
+            {
+              for (int dy : offsets)
+              {
+                for (int dz : offsets)
+                {
+                  glVertex3f(px + dx * 0.5, py + dy * 0.5, pz + dz * 0.5);
+                }
+              }
+            }
+          }
+          else
+          {
+            // Render a single cube.
+            glVertex3f(px, py, pz);
+          }
+        }
+      }
+    }
+    glEnd();
+    enhanceVoxel();
+  }
+
   /*
-  for (Radio& layer : layers)
+   * Render the center of the bubbles only.
+   * All layers (w dimension) contribute.
+   */
+  void GUIrenderer::renderCenters()
   {
-    layer.draw();
+    // Cell spacing.
+    const float GRID_SIZE = 0.5 / EL;
+    // Size of each lattice point.
+    glPointSize(8.0f);
+    glBegin(GL_POINTS);
+    // Calculate the index for the center element
+    for (unsigned w = 0; w < W_DIM; w++)
+    {
+      Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
+      float alpha = 0.5;
+      // Set the color in OpenGL
+      float r = 0.7 + (w & 1)*0.3;
+      float g = 0.7 + ((w >> 1) & 1)*0.3;
+      float b = 0.7 + ((w >> 2) & 1)*0.3;
+      //
+      float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
+      float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
+      float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
+      glColor4d(r, g, b, alpha);
+      glVertex3f(px, py, pz);
+    }
+    glEnd();
+    enhanceVoxel();
   }
-  */
-  for (Radio& radio : dataset)
-  {
-    radio.draw();
-  }
-  for (Radio& radio : viewpoint)
-  {
-    radio.draw();
-  }
-  glFlush();
-  glPopMatrix();
-  resetPerspectiveProjection();
-}
 
-/*
- * Renders 2D and 3D objects controlled by the mouse and keyboard.
- */
-void GUIrenderer::renderObjects()
-{
-  glEnable(GL_DEPTH_TEST);
-  glPushMatrix();
-  glMultMatrixf(glm::value_ptr(mProjection));
-  if (mCamera)
+  /*
+   * Renders 2D active controls of the GUI.
+   */
+  void GUIrenderer::renderGadgets()
   {
+    glDisable(GL_DEPTH_TEST);
+    setOrthographicProjection();
+    glPointSize(1);
     glPushMatrix();
-    glMultMatrixf(mCamera->getMatrixFlat());
-  }
-  // Render the grid
-  if (checkboxes[2].getState())
-    renderPlane();
-  // Render the axes
-  if (checkboxes[5].getState())
-    renderAxes();
-  // TODO ???
-  entropyFlag = checkboxes[3].getState();
-  // Render the lattice outline
-  if (checkboxes[4].getState())
-  {
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Enable wireframe mode.
-    renderCube();
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore fill mode.
-  }
-  // Render the particles (centers of bubbles)
-  if (checkboxes[6].getState())
-    renderParticles();
-  // Render the current layer wavefront
-  if (checkboxes[0].getState() || checkboxes[1].getState())
-    renderWavefront();
-  if (mCamera)
-  {
+    // Properties selection
+    for (Tickbox& checkbox : checkboxes)
+    {
+      checkbox.draw();
+    }
+    // Layer list
+    list.render();
+    // Displayed data set
+    for (Radio& radio : dataset)
+    {
+      radio.draw();
+    }
+    // Camera viewpoint
+    for (Radio& radio : viewpoint)
+    {
+      radio.draw();
+    }
+    glFlush();
     glPopMatrix();
+    resetPerspectiveProjection();
   }
-  glPopMatrix();
-  // Render 2D active objects
-  renderGadgets();
-}
+
+  /*
+   * Renders 2D and 3D objects controlled by the mouse and keyboard.
+   */
+  void GUIrenderer::renderObjects()
+  {
+    glEnable(GL_DEPTH_TEST);
+    glPushMatrix();
+    glMultMatrixf(glm::value_ptr(mProjection));
+    if (mCamera)
+    {
+      glPushMatrix();
+      glMultMatrixf(mCamera->getMatrixFlat());
+    }
+    if (checkboxes[0].getState())
+      renderWavefront();
+    if (checkboxes[1].getState())
+      renderMomentum();
+    if (checkboxes[2].getState())
+      renderSpin();
+    if (checkboxes[3].getState())
+      renderSineMask();
+    if (checkboxes[4].getState())
+      renderHunting();
+    if (checkboxes[5].getState())
+      renderCenters();
+    if (checkboxes[6].getState())
+    {
+      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Enable wireframe mode.
+      renderCube();
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore fill mode.
+    }
+    // Render the axes
+    if (checkboxes[7].getState())
+      renderAxes();
+    // Render plane
+    if (checkboxes[8].getState())
+      renderPlane();
+    //
+    if (mCamera)
+    {
+      glPopMatrix();
+    }
+    glPopMatrix();
+    // Render 2D active objects
+    renderGadgets();
+  }
 
 /*
  * Renders the cartesian positive axes with labels.
  */
 void GUIrenderer::renderAxes()
 {
-    // Render the axes
-    glLineWidth(2);
-    glBegin(GL_LINES);
+  // Render the axes
+  glLineWidth(2);
+  glBegin(GL_LINES);
 
-    // X-axis
-    glColor3f(0.6f, 0.f, 0.f); // Red for the X-axis
-    glVertex3f(0.0f, 0.f, 0.f);
-    glVertex3f(0.5f, 0.f, 0.f);
+  // X-axis
+  glColor3f(0.6f, 0.f, 0.f); // Red for the X-axis
+  glVertex3f(0.0f, 0.f, 0.f);
+  glVertex3f(0.5f, 0.f, 0.f);
 
-    // Y-axis
-    glColor3f(0.f, 0.6f, 0.f); // Green for the Y-axis
-    glVertex3f(0.f, 0.f, 0.f);
-    glVertex3f(0.f, 0.5f, 0.f);
+  // Y-axis
+  glColor3f(0.f, 0.6f, 0.f); // Green for the Y-axis
+  glVertex3f(0.f, 0.f, 0.f);
+  glVertex3f(0.f, 0.5f, 0.f);
 
-    // Z-axis
-    glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
-    glVertex3f(0.0f, 0.f, 0.f);
-    glVertex3f(0.f, 0.f, 0.5f);
+  // Z-axis
+  glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
+  glVertex3f(0.0f, 0.f, 0.f);
+  glVertex3f(0.f, 0.f, 0.5f);
 
-    glEnd();
-    glLineWidth(1);
-    // Add labels
-    glColor3f(1.f, 0.f, 0.f); // Red for "x" label
-    render3Dstring(0.512f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
-    glColor3f(0.f, 1.f, 0.f); // Green for "y" label
-    render3Dstring(-0.02f, 0.512f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
-    glColor3f(0.1f, 0.1f, 1.f); // Blue for "z" label
-    render3Dstring(0.0f, -0.02f, 0.512f, GLUT_BITMAP_HELVETICA_18, "z");
+  glEnd();
+  glLineWidth(1);
+  // Add labels
+  glColor3f(1.f, 0.f, 0.f); // Red for "x" label
+  render3Dstring(0.512f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
+  glColor3f(0.f, 1.f, 0.f); // Green for "y" label
+  render3Dstring(-0.02f, 0.512f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
+  glColor3f(0.3f, 0.3f, 0.8f); // Blue for "z" label
+  render3Dstring(0.0f, -0.02f, 0.512f, GLUT_BITMAP_HELVETICA_18, "z");
 }
 
 /*
@@ -662,24 +743,22 @@ void GUIrenderer::renderCube()
    */
   void GUIrenderer::enhanceVoxel()
   {
-    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][currentLayer];
+    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][list.getSelected()];
     float cx = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
     float cy = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
     float cz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
     glPointSize(1.0f);
     glBegin(GL_POINTS);
     glColor3d(0.7, 0.7, 0.7);
-
     // Generate a random pattern around the center
     const int POINT_COUNT = 12; // Number of random points
     const float MAX_OFFSET = 0.005f; // Maximum offset for random points
     for (int i = 0; i < POINT_COUNT; ++i)
     {
-        float dx = ((std::rand() / (float)RAND_MAX) * 2.0f - 1.0f) * MAX_OFFSET;
-        float dy = ((std::rand() / (float)RAND_MAX) * 2.0f - 1.0f) * MAX_OFFSET;
-        float dz = ((std::rand() / (float)RAND_MAX) * 2.0f - 1.0f) * MAX_OFFSET;
-
-        glVertex3f(cx + dx, cy + dy, cz + dz);
+      float dx = ((std::rand() / (float)RAND_MAX) * 2.0f - 1.0f) * MAX_OFFSET;
+      float dy = ((std::rand() / (float)RAND_MAX) * 2.0f - 1.0f) * MAX_OFFSET;
+      float dz = ((std::rand() / (float)RAND_MAX) * 2.0f - 1.0f) * MAX_OFFSET;
+      glVertex3f(cx + dx, cy + dy, cz + dz);
     }
     glEnd();
   }
