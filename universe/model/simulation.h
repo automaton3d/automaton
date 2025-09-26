@@ -18,12 +18,14 @@
 #include <mmsystem.h>
 #include <algorithm>
 #include <assert.h>
-#include "nvector.h"
+#include <thread>
+#include <chrono>
 
+// Simulation symbols
 #define EL        11                       // An odd number
 #define L2        (EL*EL)
-#define W_DIM     (3*L2+1)              // An even number
-#define ORDER     ((int)round(log2(EL))) // Number of bits
+#define W_DIM     (3*L2+1)                 // An even number
+#define ORDER     ((int)round(log2(EL)))   // Number of bits
 #define CENTER    ((EL-1)/2)
 #define FCENTER   (EL/2.0)
 
@@ -99,31 +101,20 @@ namespace automaton
         std::fill(std::begin(x), std::end(x), 0);
         std::fill(std::begin(c), std::end(c), 0);
       }
-      /*
-      // Copy constructor
-      Cell(const Cell& other)
-        : ch(other.ch), pB(other.pB), sB(other.sB), a(other.a),
-          d(other.d), phiB(other.phiB), t(other.t), f(other.f),
-          k(other.k), s2B(other.s2B), kB(other.kB), bB(other.bB), hB(other.hB)
-      {
-        std::copy(std::begin(other.x), std::end(other.x), std::begin(x));
-        std::copy(std::begin(other.c), std::end(other.c), std::begin(c));
-     }
-     */
-     // Serialization functions
-     void serialize(ofstream& out) const;
-     void deserialize(ifstream& in);
+      // Serialization functions
+      void serialize(ofstream& out) const;
+      void deserialize(ifstream& in);
 
-     bool Q() { return ch & Q_MASK; }
-     bool W1() { return ch & W1_MASK; }
-     bool W0() { return ch & W0_MASK; }
-     bool C2() { return ch & C2_MASK; }
-     bool C1() { return ch & C1_MASK; }
-     bool C0() { return ch & C0_MASK; }
-     unsigned char COLOR() { return ch & COLOR_MASK; }
-     unsigned char ANTICOLOR() { return ~ch & COLOR_MASK; }
+      bool Q() { return ch & Q_MASK; }
+      bool W1() { return ch & W1_MASK; }
+      bool W0() { return ch & W0_MASK; }
+      bool C2() { return ch & C2_MASK; }
+      bool C1() { return ch & C1_MASK; }
+      bool C0() { return ch & C0_MASK; }
+      unsigned char COLOR() { return ch & COLOR_MASK; }
+      unsigned char ANTICOLOR() { return ~ch & COLOR_MASK; }
 
-     Cell &getNeighbor(int i);
+      Cell &getNeighbor(int i);
   };
 
   /// Function prototypes ///
@@ -133,11 +124,12 @@ namespace automaton
   void update();
   bool initSimulation(int step);
   void initSpirals();
+  void replicate();
   void markPoints(unsigned p[3], int w);
   void simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
-  void diffuse(Cell& curr, Cell &draft, Cell &mirror);
-  void relocate(Cell& curr, Cell &draft, Cell &mirror);
+  void diffuse(Cell& curr, Cell &draft);
+  void relocate(Cell& curr, Cell &draft);
   void shiftX(unsigned w);
   void shiftY(unsigned w);
   void shiftZ(unsigned w);
@@ -153,7 +145,7 @@ namespace automaton
   // Tests
 
   void printConstants();
-  bool sanityTest1();
+  bool sanityTest();
 
   /// Cross variables ///
   extern COLORREF* voxels;

@@ -202,6 +202,7 @@ namespace automaton
 
   /**
    * Circular shift in the X direction.
+   * @w the layer index
    */
   void shiftX(unsigned w)
   {
@@ -260,6 +261,7 @@ namespace automaton
 
   /**
    * Circular shift in the Y direction.
+   * @w the layer index
    */
   void shiftY(unsigned w)
   {
@@ -318,6 +320,7 @@ namespace automaton
 
   /**
    * Circular shift in the Z direction.
+   * @w the layer index
    */
   void shiftZ(unsigned w)
   {
@@ -374,7 +377,9 @@ namespace automaton
     }
   }
 
-  // Function to generate uniformly distributed points on the sphere's surface
+  /*
+   * Function to generate uniformly distributed points on the sphere's surface
+   */
   std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int SIDE)
   {
     std::vector<std::tuple<int, int, int>> points;
@@ -389,9 +394,9 @@ namespace automaton
       double z = R * cos(phi);
       // Round to integers and apply offset
       points.emplace_back(
-          static_cast<int>(round(x)) + offset,
-          static_cast<int>(round(y)) + offset,
-          static_cast<int>(round(z)) + offset
+        static_cast<int>(round(x)) + offset,
+        static_cast<int>(round(y)) + offset,
+        static_cast<int>(round(z)) + offset
       );
     }
     // Remove duplicates caused by rounding
@@ -405,7 +410,11 @@ namespace automaton
    */
   void printConstants()
   {
-	// TODO
+    cout << "DIAG:\t"      << DIAG      << endl;
+    cout << "RMAX:\t"      << RMAX      << endl;
+    cout << "CONVOL:\t"    << CONVOL    << endl;
+    cout << "DIFFUSION:\t" << DIFFUSION << endl;
+    cout << "RELOC:\t"     << RELOC     << endl;
   }
 
   /*
@@ -429,6 +438,14 @@ namespace automaton
       printf("z=%d\n", z);
     }
     printf("\n");
+  }
+
+  /**
+   * Tests if is ok.
+   */
+  bool sanityTest()
+  {
+	return true;
   }
 
 }

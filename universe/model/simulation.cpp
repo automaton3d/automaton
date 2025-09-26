@@ -18,7 +18,7 @@ namespace automaton
   const unsigned DIAG      = (unsigned) EL* sqrt(3);
   const unsigned RMAX      = DIAG / 2;
   const unsigned CONVOL    = W_DIM;
-  const unsigned DIFFUSION = CONVOL + 3 * (EL - 1) + (W_DIM - 1);
+  const unsigned DIFFUSION = CONVOL + (W_DIM - 1);
   const unsigned RELOC     = DIFFUSION + 3*(EL - 1);
   const unsigned FRAME     = RELOC;
 
@@ -27,7 +27,14 @@ namespace automaton
   Cell lattice_draft  [EL][EL][EL][W_DIM];
   Cell lattice_mirror [EL][EL][EL][W_DIM];
 
+  // Auxiliary variables to control relocations
   bool reloc_x[W_DIM], reloc_y[W_DIM], reloc_z[W_DIM];
+
+  // Support for visualization delays
+
+  bool convol_delay  = false;
+  bool diffuse_delay = false;
+  bool reloc_delay   = false;
 
   /*
    * Executes a one tick operation in every cell.
@@ -53,16 +60,22 @@ namespace automaton
             if (curr.k < CONVOL)
             {
               convolute(curr, draft, mirror);
+              if (convol_delay)
+                std::this_thread::sleep_for(std::chrono::nanoseconds(500));
             }
             /****** DIFFUSION ******/
             else if (curr.k < DIFFUSION)
             {
-              diffuse(curr, draft, mirror);
+              diffuse(curr, draft);
+              if (diffuse_delay)
+                std::this_thread::sleep_for(std::chrono::nanoseconds(500));
             }
             /****** RELOCATION ******/
             else if (curr.k < RELOC)
             {
-              relocate(curr, draft, mirror);
+              relocate(curr, draft);
+              if (reloc_delay)
+                std::this_thread::sleep_for(std::chrono::nanoseconds(500));
             }
             // Update tick counter
             draft.k = (curr.k + 1) % FRAME;
@@ -93,7 +106,7 @@ namespace automaton
 	// Complete relocation
 	else
 	{
-      // Spatial shifts
+      // Spatial shifts (checked!)
 	  for (unsigned w = 0; w < W_DIM; w++)
       {
         if (reloc_x[w])

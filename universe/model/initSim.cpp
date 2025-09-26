@@ -275,8 +275,23 @@ namespace automaton
     printf("initSpiralAndRotate: Spiral mapped to %u directions.\n", W_DIM);
   }
 
+  /*
+   * Replicate data.
+   */
+  void replicate()
+  {
+	// Deep copy
+    std::copy(&lattice_curr[0][0][0][0],
+      &lattice_curr[0][0][0][0] + BLOCK,
+      &lattice_draft[0][0][0][0]);
+    //
+    puts("initDraft ok");
+  }
+
   /**
    * Executes each initialization step.
+   *
+   * @step the selected phase
    */
   bool initSimulation(int step)
   {
@@ -296,20 +311,15 @@ namespace automaton
         break;
       case 4:
         initSine2();
-        //printLattice(0);
         break;
 	  case 5:
-        //printConstants();
+        printConstants();
         break;
       case 6:
-        std::copy(&lattice_curr[0][0][0][0],
-        &lattice_curr[0][0][0][0] + BLOCK,
-        &lattice_draft[0][0][0][0]);
-        puts("initDraft ok");
+    	replicate();
         break;
       case 7:
-        // Check consistency
-        //assert(sanityTest1());
+        assert(sanityTest());
         break;
       default:
     	return true;

@@ -15,7 +15,7 @@ namespace automaton
 
   extern bool reloc_x[W_DIM], reloc_y[W_DIM], reloc_z[W_DIM];
 
-  /*
+  /**
    * Analizes the cases when the wavefronts cross
    * during the convolution process.
    */
@@ -25,23 +25,48 @@ namespace automaton
     if (curr.t == curr.d && mirror.t == mirror.d)
     {
       // Test superposition
-      if (curr.x[0] == mirror.x[0] && curr.x[1] == mirror.x[1] && curr.x[2] == mirror.x[2])
+      if (curr.x[0] == mirror.x[0] && curr.x[1] == mirror.x[1] &&
+          curr.x[2] == mirror.x[2])
       {
-        // Test single pair
-        if (curr.f == curr.t && mirror.f == mirror.t && !curr.bB && !mirror.bB)
+        if (curr.W1() != mirror.W1() && curr.t == RMAX / 2)
         {
-          // Fully symmetric?
-          if (curr.ch == (~mirror.ch & CHARGE_MASK))
+          // Dispersion
+          if (curr.c[3] > mirror.c[3])
           {
-            // Graviton
-            draft.f += curr.t;
-            draft.s2B &= curr.phiB;
-            draft.a = min(curr.a, mirror.a);
-            draft.bB = true;
+            // Reissue from C.P.
+            draft.c[0] = curr.x[0];
+            draft.c[1] = curr.x[1];
+            draft.c[2] = curr.x[2];
           }
+          else
+          {
+            // Reissue from sB
+            draft.hB = true;
+          }
+        }
+        // Test single pair
+    	else if (curr.f == curr.t && mirror.f == mirror.t)
+        {
+          // Different sectors?
+          if (curr.W1() != mirror.W1())
+          {
+            // Momentum
+            if (curr.pB && mirror.pB)
+            {
+            	if (curr.t > 0)
+            	  printf("pB=pB t=%d\n", curr.t);
+              /*
+              // Graviton
+              draft.f += curr.t;
+              draft.s2B &= curr.phiB;
+              draft.a = min(curr.a, mirror.a);
+              */
+            }
+          }
+          /*
           else if ((curr.Q() ^ mirror.Q()) && (curr.W1() == mirror.W1()) &&
-        		  (curr.W0() ^ mirror.W0()) && (curr.C2() == mirror.C2()) &&
-				  (curr.C1() == mirror.C1()) && (curr.C0() == mirror.C0()))
+                   (curr.W0() ^ mirror.W0()) && (curr.C2() == mirror.C2()) &&
+                   (curr.C1() == mirror.C1()) && (curr.C0() == mirror.C0()))
           {
             // Photon
             draft.f += curr.t;
@@ -49,35 +74,49 @@ namespace automaton
             draft.a = min(curr.a, mirror.a);
             draft.bB = true;
           }
-          else if ((curr.ch == 0 && mirror.ch == 0) || (curr.ch == 63 && mirror.ch == 63))
+          else if ((curr.ch == 0 && mirror.ch == 0) || (curr.ch == 63 &&
+                mirror.ch == 63))
           {
             // Neutrino
             draft.f += curr.t;
             draft.s2B &= curr.phiB;
             draft.a = min(curr.a, mirror.a);
           }
-          else if ((!curr.Q() && !mirror.Q()) && (!curr.W1() && !mirror.W1()) && (curr.W0() && mirror.W0()) && (curr.COLOR() == mirror.COLOR()) && (curr.COLOR() != 0 && curr.COLOR() != 7))
+          else if ((!curr.Q() && !mirror.Q()) && (!curr.W1() &&
+                !mirror.W1()) && (curr.W0() && mirror.W0()) &&
+          (curr.COLOR() == mirror.COLOR()) &&
+                    (curr.COLOR() != 0 && curr.COLOR() != 7))
           {
             // Boson W-
             draft.f += curr.t;
             draft.s2B &= curr.phiB;
             draft.a = min(curr.a, mirror.a);
+            draft.bB = true;
           }
-          else if ((curr.Q() && mirror.Q()) && (curr.W1() && mirror.W1()) && (!curr.W0() && !mirror.W0()) && (curr.COLOR() == mirror.COLOR()) && (curr.COLOR() != 0 && curr.COLOR() != 7))
+          else if ((curr.Q() && mirror.Q()) && (curr.W1() && mirror.W1()) && (!curr.W0() &&
+                   !mirror.W0()) && (curr.COLOR() == mirror.COLOR()) &&
+                   (curr.COLOR() != 0 && curr.COLOR() != 7))
           {
             // Boson W+
             draft.f += curr.t;
             draft.s2B &= curr.phiB;
             draft.a = min(curr.a, mirror.a);
+            draft.bB = true;
           }
-          else if ((curr.Q() == !mirror.Q()) && (curr.W1() && mirror.W1()) && (!curr.W0() && !mirror.W0()) && (curr.COLOR() == mirror.COLOR()) && (curr.COLOR() != 0 && curr.COLOR() != 7))
+          else if ((curr.Q() == !mirror.Q()) && (curr.W1() &&
+                mirror.W1()) && (!curr.W0() && !mirror.W0()) &&
+           (curr.COLOR() == mirror.COLOR()) &&
+                   (curr.COLOR() != 0 && curr.COLOR() != 7))
           {
             // Boson Z
             draft.f += curr.t;
             draft.s2B &= curr.phiB;
             draft.a = min(curr.a, mirror.a);
+            draft.bB = true;
           }
+          */
         }
+        /*
         // Blob formation
         else if(curr.f != curr.t && mirror.f != mirror.t && curr.bB)
         {
@@ -85,24 +124,27 @@ namespace automaton
           draft.s2B &= curr.phiB;
           draft.a = min(curr.a, mirror.a);
         }
+        */
       }
+      /*
       else
       {
         // Distinct:
-    	if (curr.W1() == mirror.W1())
-    	{
-    	  // Same sector
+        if (curr.W1() == mirror.W1())
+        {
+          // Same sector
           // Annihilation?
           if (!curr.kB && !mirror.kB && curr.Q() == !mirror.Q() &&
-        	   curr.W0() == !mirror.W0() && curr.COLOR() == mirror.ANTICOLOR() &&
+               curr.W0() == !mirror.W0() &&
+         curr.COLOR() == mirror.ANTICOLOR() &&
                curr.f == curr.t && mirror.f == mirror.t)
           {
             // Reissue from C.P.
-            draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-            draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-            draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+            draft.c[0] = curr.x[0];
+            draft.c[1] = curr.x[1];
+            draft.c[2] = curr.x[2];
             draft.kB = true;
-            draft.a = curr.x[3];
+            draft.a = curr.x[3];  // TODO: checar se propaga
           }
           // Fermion cohesion?
           else if (curr.ch == mirror.ch && curr.f == curr.t &&
@@ -111,16 +153,16 @@ namespace automaton
             if (curr.c[3] > mirror.c[3])
             {
               // Reissue from C.P.
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+              draft.c[0] = curr.x[0];
+              draft.c[1] = curr.x[1];
+              draft.c[2] = curr.x[2];
               // Entangle
               draft.a = min(curr.a, mirror.a);
             }
             else
             {
               // Reissue from sB
-        	  draft.hB = true;
+              draft.hB = true;
               // Entangle
               draft.a = min(curr.a, mirror.a);
             }
@@ -132,17 +174,16 @@ namespace automaton
             if (curr.pB && !mirror.pB)
             {
               // Reissue from C.P.
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+              draft.c[0] = curr.c[0];
+              draft.c[1] = curr.c[1];
+              draft.c[2] = curr.c[2];
             }
             // Parallel transport?
             else if (!curr.pB && mirror.pB)
             {
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
-              // TODO draft.c[0] = (x1-x2) mod L Cuma???????
+              draft.c[0] = EL + (curr.x[0] - mirror.x[0]) % EL;
+              draft.c[1] = EL + (curr.x[1] - mirror.x[1]) % EL;
+              draft.c[2] = EL + (curr.x[2] - mirror.x[2]) % EL;
             }
           }
           // Strong interaction
@@ -152,17 +193,21 @@ namespace automaton
             if (curr.f > curr.t && mirror.f > mirror.t)
             {
               // Reissue from C.P.
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+              draft.c[0] = curr.x[0];
+              draft.c[1] = curr.x[1];
+              draft.c[2] = curr.x[2];
+              // Exchange colors
+              draft.ch = (curr.ch & ~COLOR_MASK) | (mirror.ch & COLOR_MASK);
             }
             // Quark x gluon
             else if (curr.f == curr.t && mirror.f > mirror.t)
             {
               // Reissue from C.P.
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+              draft.c[0] = curr.x[0];
+              draft.c[1] = curr.x[1];
+              draft.c[2] = curr.x[2];
+              // Exchange colors
+              draft.ch = (curr.ch & ~COLOR_MASK) | (mirror.ch & COLOR_MASK);
             }
           }
           // Electroweak interaction:
@@ -175,9 +220,9 @@ namespace automaton
               if ((curr.pB && !mirror.pB) || (curr.sB && mirror.sB))
               {
                 // Reissue from C.P.
-                draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-                draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-                draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+                draft.c[0] = curr.x[0];  // TODO: checar
+                draft.c[1] = curr.x[1];
+                draft.c[2] = curr.x[2];
                 // Collapse
                 draft.kB = true;
               }
@@ -186,39 +231,71 @@ namespace automaton
             else if (curr.pB)
             {
               // Reissue from C.P.
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+              draft.c[0] = curr.x[0];
+              draft.c[1] = curr.x[1];
+              draft.c[2] = curr.x[2];
               if (mirror.pB)
               {
                 // Collapse
                 draft.kB = true;
+              }
+              else
+              {
+                // Properties exchange
+                draft.a = mirror.a;
+                draft.t = mirror.t;
+                draft.c[0] = mirror.x[0];
+                draft.c[1] = mirror.x[1];
+                draft.c[2] = mirror.x[2];
+                // TODO: The values of $a$ and $t$ spread to all cells in the layer
+                // during this relocation.
               }
             }
             // Magnetic interaction
             else if (curr.sB)
             {
               // Reissue from C.P.
-              draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-              draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-              draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+              draft.c[0] = curr.x[0];
+              draft.c[1] = curr.x[1];
+              draft.c[2] = curr.x[2];
               if (mirror.sB)
               {
                 // Collapse
                 draft.kB = true;
               }
+              else
+              {
+                // Properties exchange
+                draft.a = mirror.a;
+                draft.t = mirror.t;
+                draft.c[0] = mirror.x[0];
+                draft.c[1] = mirror.x[1];
+                draft.c[2] = mirror.x[2];
+                // TODO: The values of $a$ and $t$ spread to all cells in the layer
+                // during this relocation.
+              }
             }
           }
         }
       }
-	}
-	else
-	{
-	  // Different sectors:
-	  // Global annihilation
+      */
+    }
+    /*
+    else
+    {
+      // Different sectors:
+      // Singularization
+      if (curr.ch == (~mirror.ch & CHARGE_MASK))
+      {
+        // Reissue from C.P.
+        draft.c[0] = curr.x[0];
+        draft.c[1] = curr.x[1];
+        draft.c[2] = curr.x[2];
+        draft.a = curr.x[3];
+      }
       // Electroweak interaction:
       // Harmonic?
-      if (curr.phiB && mirror.phiB)
+      else if (curr.phiB && mirror.phiB)
       {
         // Weak interaction
         if (neutralWeak(curr, mirror))
@@ -226,9 +303,9 @@ namespace automaton
           if ((curr.pB && !mirror.pB) || (curr.sB && mirror.sB))
           {
             // Reissue from C.P.
-            draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-            draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-            draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+            draft.c[0] = curr.x[0];
+            draft.c[1] = curr.x[1];
+            draft.c[2] = curr.x[2];
             // Collapse
             draft.kB = true;
           }
@@ -237,9 +314,9 @@ namespace automaton
         else if (curr.pB)
         {
           // Reissue from C.P.
-          draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-          draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-          draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+          draft.c[0] = curr.x[0];
+          draft.c[1] = curr.x[1];
+          draft.c[2] = curr.x[2];
           if (mirror.pB)
           {
             // Collapse
@@ -250,9 +327,9 @@ namespace automaton
         else if (curr.sB)
         {
           // Reissue from C.P.
-          draft.c[0] = EL + (curr.c[0] - mirror.c[0]) % EL;
-          draft.c[1] = EL + (curr.c[1] - mirror.c[1]) % EL;
-          draft.c[2] = EL + (curr.c[2] - mirror.c[2]) % EL;
+          draft.c[0] = curr.x[0];
+          draft.c[1] = curr.x[1];
+          draft.c[2] = curr.x[2];
           if (mirror.sB)
           {
             // Collapse
@@ -260,53 +337,67 @@ namespace automaton
           }
         }
       }
-	}
+    }
+    */
     return false;
   }
 
-  /*
+  /**
    * Complete.
    */
-  void diffuse(Cell& curr, Cell &draft, Cell &mirror)
+  void diffuse(Cell& curr, Cell &draft)
   {
     // Diffuse the collapse flag in W dimension
     Cell &forward = curr.getNeighbor(FORWARD);
     Cell &north   = curr.getNeighbor(NORTH);
     Cell &west    = curr.getNeighbor(WEST);
     Cell &down    = curr.getNeighbor(DOWN);
-
+    // Hunting happens on the active shell
     if (curr.d == curr.t)
     {
       // Propagate hunting
       if (north.kB)
       {
         draft.c[0] = (north.c[0] + 1) % EL;
-        if (curr.d > 0)
-      	  draft.hB = true;
+        if (!curr.sB)
+        {
+          draft.hB = true;
+          draft.kB = north.kB;
+        }
       }
       else if (west.kB)
       {
         draft.c[1] = (west.c[0] + 1) % EL;
-        if (curr.d > 0)
-      	  draft.hB = true;
+        if (!curr.sB)
+        {
+          draft.hB = true;
+          draft.kB = west.kB;
+        }
       }
       else if (down.kB)
       {
         draft.c[2] = (down.c[0] + 1) % EL;
-        if (curr.d > 0)
-      	  draft.hB = true;
+        if (!curr.sB)
+        {
+          draft.hB = true;
+          draft.kB = down.kB;
+        }
       }
     }
-
+    // Diffuse the collapse flag in the W dimension
     if (forward.kB && forward.a == curr.a)
+    {
       draft.kB = true;
+      draft.hB = forward.hB;
+    }
     // Diffuse the collapse flag in 3D space
     else if (north.kB)
     {
       draft.kB = true;
       if (north.a == north.x[3])
       {
-    	draft.a = curr.x[3];
+    	// Dissolve the particle
+        draft.a = curr.x[3];
       }
     }
     else if (west.kB)
@@ -314,7 +405,8 @@ namespace automaton
       draft.kB = true;
       if (west.a == west.x[3])
       {
-    	draft.a = curr.x[3];
+      	// Dissolve the particle
+        draft.a = curr.x[3];
       }
     }
     else if (down.kB)
@@ -322,7 +414,8 @@ namespace automaton
       draft.kB = true;
       if (west.a == west.x[3])
       {
-    	draft.a = curr.x[3];
+      	// Dissolve the particle
+        draft.a = curr.x[3];
       }
     }
     // Diffuse the frequency variable in 3D space
@@ -354,20 +447,23 @@ namespace automaton
       draft.c[2] = down.c[2];
     }
     // Diffuse the time variable
-    for (int dir = 0; dir < 6; dir++)
+    if (curr.k == FRAME - 1)
     {
-      Cell &nei = curr.getNeighbor(dir);
-      if (curr.k == FRAME - 1 && curr.t > nei.t)
+      for (int dir = 0; dir < 6; dir++)
       {
-        draft.t = nei.t;
+        Cell &nei = curr.getNeighbor(dir);
+        if (curr.t > nei.t)
+        {
+          draft.t = nei.t;
+        }
       }
     }
   }
 
-  /*
+  /**
    * Not Complete.
    */
-  void relocate(Cell& curr, Cell &draft, Cell &mirror)
+  void relocate(Cell& curr, Cell &draft)
   {
     Cell &north = curr.getNeighbor(NORTH);
     Cell &west  = curr.getNeighbor(WEST);
@@ -390,6 +486,9 @@ namespace automaton
     }
   }
 
+  /*
+   * Tests color neutrality.
+   */
   bool neutralColor(Cell &a, Cell &b)
   {
     int color_a = a.ch & 0x07;
@@ -397,6 +496,9 @@ namespace automaton
     return (color_a ^ color_b) == 0x07;
   }
 
+  /*
+   * Tests weak neutrality.
+   */
   bool neutralWeak(Cell &a, Cell &b)
   {
     int weak_a = (a.ch >> 3) & 0x03;
