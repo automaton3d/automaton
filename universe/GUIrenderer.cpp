@@ -20,7 +20,7 @@ namespace framework
   extern void resetPerspectiveProjection();
 
   vector<Tickbox> checkboxes;
-  vector<Radio> dataset;
+  vector<Tickbox> delays;
   vector<Radio> viewpoint;
   LayerList list;
 
@@ -98,15 +98,16 @@ namespace framework
     checkboxes.push_back(Tickbox(50, 260, "Lattice"));   // 6
     checkboxes.push_back(Tickbox(50, 290, "Axes"));      // 7
     checkboxes.push_back(Tickbox(50, 320, "Plane"));     // 8
+    checkboxes[0].setState(true);
     checkboxes[5].setState(true);
     checkboxes[7].setState(true);
     checkboxes[8].setState(true);
     //
-    dataset.push_back(Radio(60, 390, "Single"));
-    dataset.push_back(Radio(60, 420, "Partial"));
-    dataset.push_back(Radio(60, 450, "Full"));
-    dataset.push_back(Radio(60, 480, "Random"));
-    dataset[3].setSelected(true);
+//    glColor3f(0.3f, 0.3f, 0.0f);
+ //   drawString12("Delays", 60, 390);
+    delays.push_back(Tickbox(50, 420, "Convolution"));
+    delays.push_back(Tickbox(50, 450, "Diffusion"));
+    delays.push_back(Tickbox(50, 480, "Relocation"));
     //
     viewpoint.push_back(Radio(60, 540, "Isometric"));
     viewpoint.push_back(Radio(60, 570, "XY"));
@@ -294,7 +295,7 @@ namespace framework
     char s[100];
     sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
     drawString8(s, 50, 40);
-    sprintf(s, "Light: %llu tick: %llu", timer / automaton::FRAME, timer);
+    sprintf(s, "Light: %llu   Tick: %llu", timer / automaton::FRAME, timer);
     render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
     sprintf(s, "L = %u", EL);
     render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
@@ -545,9 +546,9 @@ namespace framework
     // Layer list
     list.render();
     // Displayed data set
-    for (Radio& radio : dataset)
+    for (Tickbox& checkbox : delays)
     {
-      radio.draw();
+      checkbox.draw();
     }
     // Camera viewpoint
     for (Radio& radio : viewpoint)

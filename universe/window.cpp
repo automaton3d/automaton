@@ -107,6 +107,7 @@ namespace framework
         ellipsisCount = (ellipsisCount % maxEllipsisCount) + 1;
         lastEllipsisChangeTime = glfwGetTime();
       }
+      // Call all initialization routines.
       glfwSwapBuffers(loadingWindow);
       if (automaton::initSimulation(step++))
         break;
@@ -145,7 +146,7 @@ namespace framework
          {
            // Handle the vertical slider
            slider.onMouseClick(button, action, xpos, ypos, height);
-           //
+           // Handle the lattice features
            for (Tickbox& checkbox : checkboxes)
            {
              if (xpos >= checkbox.getX() && xpos <= checkbox.getX() + 100 && ypos >= checkbox.getY() && ypos <= checkbox.getY() + 40)
@@ -156,33 +157,19 @@ namespace framework
            }
            // Handle the layer list
            list.poll(xpos, ypos);
-           // Handle displayed dataset
-           bool ok = false;
-           for (Radio& radio : dataset)
+           // Handle light frame delays
+           for (Tickbox &checkbox : delays)
            {
-             if (xpos >= radio.getX()-35 && xpos <= radio.getX() + 100 &&
-                 ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
-               ok = true;
-           }
-           if (ok)
-           {
-        	 int layer = 0;
-             for (Radio& radio : dataset)
+             if (xpos >= checkbox.getX() && xpos <= checkbox.getX() + 100 && ypos >= checkbox.getY() && ypos <= checkbox.getY() + 40)
              {
-               if (xpos >= radio.getX()-35 && xpos <= radio.getX() + 100 &&
-                   ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
-               {
-                 radio.setSelected(true);
-               }
-               else
-               {
-                 radio.setSelected(false);
-               }
-               layer++;
+               // Toggle the clicked checkbox
+               checkbox.setState(!checkbox.getState());
+               // Optional: notify that this specific checkbox changed
+               instance().onDelayToggled(&checkbox);
              }
            }
            // Handle view points
-           ok = false;
+           bool ok = false;
            for (Radio& radio : viewpoint)
            {
              if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 && ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)

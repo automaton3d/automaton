@@ -82,44 +82,44 @@ public:
 
     void draw()
     {
-        glColor3f(1.0, 1.0, 1.0);
-        glBegin(GL_LINE_LOOP);
-        glVertex2i(x, y);
-        glVertex2i(x, y+15);
-        glVertex2i(x+15, y+15);
-        glVertex2i(x+15, y);
-        glEnd();
-        glBegin(GL_QUADS);
-        if (state)
-            glColor3f(0.0, 1.0, 0.0);
-        else
-          glColor3f(0.5, 0.5, 0.5);
-        glVertex2i(x, y);
-        glVertex2i(x, y+15);
-        glVertex2i(x+15, y+15);
-        glVertex2i(x+15, y);
-        glEnd();
-        glColor3f(1.0, 1.0, 1.0);
-        drawString8(label, x + 22, y + 11);
-        glFlush();
+      glColor3f(1.0, 1.0, 1.0);
+      glBegin(GL_LINE_LOOP);
+      glVertex2i(x, y);
+      glVertex2i(x, y+15);
+      glVertex2i(x+15, y+15);
+      glVertex2i(x+15, y);
+      glEnd();
+      glBegin(GL_QUADS);
+      if (state)
+        glColor3f(0.0, 1.0, 0.0);
+      else
+        glColor3f(0.5, 0.5, 0.5);
+      glVertex2i(x, y);
+      glVertex2i(x, y+15);
+      glVertex2i(x+15, y+15);
+      glVertex2i(x+15, y);
+      glEnd();
+      glColor3f(1.0, 1.0, 1.0);
+      drawString8(label, x + 22, y + 11);
+      glFlush();
     }
 
     void setState(bool newState)
     {
-        state = newState;
+      state = newState;
     }
 
     bool getState() const
     {
-        return state;
+      return state;
     }
 
-    int getX()
+    int getX() const
     {
       return x;
     }
 
-    int getY()
+    int getY() const
     {
       return y;
     }
@@ -136,7 +136,7 @@ void triggerEvent(unsigned long long timer);
 extern bool active;
 extern std::vector<Tickbox> checkboxes;
 extern LayerList list;
-extern std::vector<Radio> dataset;
+extern std::vector<Tickbox> delays;
 extern std::vector<Radio> viewpoint;
 
 void initText();

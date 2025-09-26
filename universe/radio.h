@@ -17,69 +17,69 @@ namespace framework
 class Radio
 {
 private:
-    bool selected;
-    std::string label;
-    int x, y;
+  bool selected;
+  std::string label;
+  int x, y;
 
 public:
-    Radio(int x, int y, std::string label)
+  Radio(int x, int y, std::string label)
         : selected(false), label(label), x(x), y(y) {}
 
-    void draw()
+  void draw()
+  {
+    glColor3f(1.0, 1.0, 1.0);
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < 360; ++i)
     {
-        glColor3f(1.0, 1.0, 1.0);
-        glBegin(GL_LINE_LOOP);
-        for (int i = 0; i < 360; ++i)
-        {
-            float angle = i * (3.14159 / 180);
-            float dx = x + 8 * cos(angle);
-            float dy = y + 8 * sin(angle);
-            glVertex2f(dx, dy);
-        }
-        glEnd();
-
-        if (selected)
-        {
-            glColor3f(0.0, 1.0, 0.0);
-            glBegin(GL_TRIANGLE_FAN);
-            glVertex2f(x, y);  // Center of the circle
-            for (int i = 0; i <= 360; ++i)
-            {
-                float angle = i * (3.14159 / 180);
-                float dx = x + 8 * cos(angle);
-                float dy = y + 8 * sin(angle);
-                glVertex2f(dx, dy);
-            }
-            glEnd();
-        }
-        glPointSize(2);
-        glBegin(GL_POINTS);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex2f(x, y);
-        glEnd();
-        framework::drawString8(label, x + 8 + 10, y);
-        glFlush();
+      float angle = i * (3.14159 / 180);
+      float dx = x + 8 * cos(angle);
+      float dy = y + 8 * sin(angle);
+      glVertex2f(dx, dy);
     }
+    glEnd();
 
-    void setSelected(bool isSelected)
+    if (selected)
     {
-        selected = isSelected;
+      glColor3f(0.0, 1.0, 0.0);
+      glBegin(GL_TRIANGLE_FAN);
+      glVertex2f(x, y);  // Center of the circle
+      for (int i = 0; i <= 360; ++i)
+      {
+        float angle = i * (3.14159 / 180);
+        float dx = x + 8 * cos(angle);
+        float dy = y + 8 * sin(angle);
+        glVertex2f(dx, dy);
+      }
+      glEnd();
     }
+    glPointSize(2);
+    glBegin(GL_POINTS);
+    glColor3f(1.0, 1.0, 1.0);
+    glVertex2f(x, y);
+    glEnd();
+    framework::drawString8(label, x + 8 + 10, y);
+    glFlush();
+  }
 
-    bool isSelected() const
-    {
-        return selected;
-    }
+  void setSelected(bool isSelected)
+  {
+    selected = isSelected;
+  }
 
-    int getX() const
-    {
-        return x;
-    }
+  bool isSelected() const
+  {
+    return selected;
+  }
 
-    int getY() const
-    {
-        return y;
-    }
+  int getX() const
+  {
+    return x;
+  }
+
+  int getY() const
+  {
+    return y;
+  }
 };
 
 #endif /* RADIO_H_ */
