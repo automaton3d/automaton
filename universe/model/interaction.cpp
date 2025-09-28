@@ -18,6 +18,10 @@ namespace automaton
   /**
    * Analizes the cases when the wavefronts cross
    * during the convolution process.
+   *
+   * @curr the current lattice
+   * @draft the draft lattice
+   * @mirror the mirrored lattice
    */
   bool convolute(Cell& curr, Cell &draft, Cell &mirror)
   {
@@ -28,17 +32,20 @@ namespace automaton
       if (curr.x[0] == mirror.x[0] && curr.x[1] == mirror.x[1] &&
           curr.x[2] == mirror.x[2])
       {
+    	// Test dispersion
         if (curr.W1() != mirror.W1() && curr.t == RMAX / 2)
         {
-          // Dispersion
-          if (curr.c[3] > mirror.c[3])
+          // Who has the pB true interacts once
+          if ((curr.pB && !mirror.pB) &&
+        	  curr.c[0] == 0 && curr.c[1] == 0 && curr.c[2] == 0)
           {
             // Reissue from C.P.
             draft.c[0] = curr.x[0];
             draft.c[1] = curr.x[1];
             draft.c[2] = curr.x[2];
           }
-          else
+          // Who has pB false interacts with the last pB true
+          if (!curr.pB && mirror.pB)
           {
             // Reissue from sB
             draft.hB = true;
@@ -352,6 +359,43 @@ namespace automaton
     Cell &north   = curr.getNeighbor(NORTH);
     Cell &west    = curr.getNeighbor(WEST);
     Cell &down    = curr.getNeighbor(DOWN);
+    Cell &south   = curr.getNeighbor(SOUTH);
+    Cell &east    = curr.getNeighbor(EAST);
+    Cell &up      = curr.getNeighbor(UP);
+    // Bubble contraction
+    if (!curr.cB)
+    {
+   	  if (north.cB && north.d == curr.d + 1)
+      {
+        draft.cB = true;
+    	draft.t = 0;
+      }
+   	  else if (west.cB && west.d == curr.d + 1)
+      {
+        draft.cB = true;
+    	draft.t = 0;
+      }
+   	  else if (down.cB && down.d == curr.d + 1)
+      {
+        draft.cB = true;
+    	draft.t = 0;
+      }
+   	  else if (south.cB && south.d == curr.d + 1)
+      {
+        draft.cB = true;
+    	draft.t = 0;
+      }
+   	  else if (east.cB && east.d == curr.d + 1)
+      {
+        draft.cB = true;
+    	draft.t = 0;
+      }
+   	  else if (up.cB && up.d == curr.d + 1)
+      {
+        draft.cB = true;
+    	draft.t = 0;
+      }
+    }
     // Hunting happens on the active shell
     if (curr.d == curr.t)
     {

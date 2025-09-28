@@ -92,11 +92,12 @@ namespace automaton
       bool kB;      		// Collapse flag
       bool bB;              // Blob flag
       bool hB;              // Hunt flag
+      bool cB;				// Contraction flag
       // Default constructor
       Cell()
         : ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
-          k(0), s2B(false), kB(false), bB(false), hB(false)
+          k(0), s2B(false), kB(false), bB(false), hB(false), cB(false)
       {
         std::fill(std::begin(x), std::end(x), 0);
         std::fill(std::begin(c), std::end(c), 0);

@@ -22,6 +22,8 @@ namespace automaton
   const unsigned RELOC     = DIFFUSION + 3*(EL - 1);
   const unsigned FRAME     = RELOC;
 
+  const unsigned N_steps = static_cast<int>(floor(sqrt(3.0) * CENTER));
+
   // The CA lattices
   Cell lattice_curr   [EL][EL][EL][W_DIM];
   Cell lattice_draft  [EL][EL][EL][W_DIM];
