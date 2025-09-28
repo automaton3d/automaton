@@ -304,6 +304,7 @@ namespace framework
              break;
          case GLFW_KEY_C:
              cout
+			   << "\nCamera view:"
                  << "(" << instance().mCamera.getEye().x
                  << "," << instance().mCamera.getEye().y
                  << "," << instance().mCamera.getEye().z << ") "
@@ -312,7 +313,7 @@ namespace framework
                  << "," << instance().mCamera.getCenter().z << ") "
                  << "(" << instance().mCamera.getUp().x
                  << "," << instance().mCamera.getUp().y
-                 << "," << instance().mCamera.getUp().z  << ")\n";
+                 << "," << instance().mCamera.getUp().z  << ")\n\n";
              break;
          case GLFW_KEY_R:
              // Reset the view.

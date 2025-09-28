@@ -19,6 +19,9 @@ namespace framework
   extern void setOrthographicProjection();
   extern void resetPerspectiveProjection();
 
+  // Global viewport info
+  GLint gViewport[4] = {0, 0, 1920, 1080}; // default values, will be overwritten on resize
+
   vector<Tickbox> checkboxes;
   vector<Tickbox> delays;
   vector<Radio> viewpoint;
@@ -41,8 +44,6 @@ namespace framework
     "           r: Reset view",
     "           t: Toggle right button to do Pan or First-Person",
     "     x, y, z: Snap camera to axis",
-    "   Hold Ctrl: Increase speed",
-    "  Hold Shift: Reduce speed",
     "  Left-Click: Rotate",
     "Middle-Click: Pan or First-Person",
     " Right-Click: Roll",
@@ -51,9 +52,9 @@ namespace framework
 
   string steps[3] =
   {
-  "Convolution",
-  "Diffusion",
-  "Relocation"
+    "Convolution",
+    "Diffusion",
+    "Relocation"
   };
 
   unsigned lastPos[W_DIM][3];
@@ -114,11 +115,8 @@ namespace framework
     viewpoint.push_back(Radio(60, 600, "YZ"));
     viewpoint.push_back(Radio(60, 630, "ZX"));
     viewpoint[0].setSelected(true);
-    // Initialize entropy
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
     // Initialize progress bar data
-    int barWidth = viewport[2] / 4; // Bar is 1/4 of the screen width
+    int barWidth = gViewport[2] / 4; // Bar is 1/4 of the screen width
     double totalRatio = (double) FRAME;
     barWidths[0] = (int)(barWidth * (double) CONVOL / totalRatio);
     barWidths[1] = (int)(barWidth * (double) (DIFFUSION - CONVOL) / totalRatio);
@@ -155,9 +153,7 @@ namespace framework
    */
   void GUIrenderer::renderProgressBar()
   {
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    int screenWidth = viewport[2];
+    int screenWidth = gViewport[2];
     // Progress bar dimensions
     int barWidth = screenWidth / 4;
     int barHeight = 20; // Fixed height
@@ -243,11 +239,8 @@ namespace framework
    */
   void GUIrenderer::renderCenterBox(const char* text)
   {
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-
-    int viewportWidth = viewport[2];
-    int viewportHeight = viewport[3];
+    int viewportWidth = gViewport[2];
+    int viewportHeight = gViewport[3];
 
     // Calculate text dimensions dynamically
     int textWidth = strlen(text) * 10;
@@ -280,6 +273,46 @@ namespace framework
     glVertex2i(rectX + rectWidth, rectY + rectHeight);
     glVertex2i(rectX, rectY + rectHeight);
     glEnd();
+  }
+
+  void GUIrenderer::renderCounts()
+  {
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    // Count duplicates
+    std::map<std::pair<int,int>, int> counts;
+    for (auto &pos : screenPositions)
+    {
+      int x = static_cast<int>(pos[0] + 0.5f);
+      int y = static_cast<int>(pos[1] + 0.5f);
+      counts[{x, y}]++;
+    }
+    // Save matrices
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, viewport[2], 0, viewport[3], -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glDisable(GL_DEPTH_TEST);
+    glColor3f(1.0f, 1.0f, 0.0f); // yellow
+    for (auto &entry : counts)
+    {
+      int x = entry.first.first;
+      int y = entry.first.second;
+      int n = entry.second;
+      char label[16];
+      sprintf(label, " %d", n);
+      glRasterPos2i(x, y); // flip y
+      for (char *c = label; *c; ++c)
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *c);
+    }
+    glEnable(GL_DEPTH_TEST);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
   }
 
   /**
@@ -318,6 +351,7 @@ namespace framework
     glPopMatrix();
     list.update();
     resetPerspectiveProjection();
+    renderCounts();
   }
 
   /**
@@ -502,31 +536,96 @@ namespace framework
    * Render the center of the bubbles only.
    * All layers (w dimension) contribute.
    */
+
+  // Helper function: manually project a 3D point to screen space
+  static bool projectPoint(const float obj[3],
+                         const GLdouble modelview[16],
+                         const GLdouble projection[16],
+                         const GLint viewport[4],
+                         float &winX, float &winY)
+  {
+    // Transform to eye space
+    double eye[4] = {
+        modelview[0]*obj[0] + modelview[4]*obj[1] + modelview[8]*obj[2] + modelview[12],
+        modelview[1]*obj[0] + modelview[5]*obj[1] + modelview[9]*obj[2] + modelview[13],
+        modelview[2]*obj[0] + modelview[6]*obj[1] + modelview[10]*obj[2] + modelview[14],
+        modelview[3]*obj[0] + modelview[7]*obj[1] + modelview[11]*obj[2] + modelview[15]
+    };
+
+    // Transform to clip space
+    double clip[4] = {
+        projection[0]*eye[0] + projection[4]*eye[1] + projection[8]*eye[2] + projection[12]*eye[3],
+        projection[1]*eye[0] + projection[5]*eye[1] + projection[9]*eye[2] + projection[13]*eye[3],
+        projection[2]*eye[0] + projection[6]*eye[1] + projection[10]*eye[2] + projection[14]*eye[3],
+        projection[3]*eye[0] + projection[7]*eye[1] + projection[11]*eye[2] + projection[15]*eye[3]
+    };
+
+    if (clip[3] == 0.0) return false; // Behind camera
+
+    // Perspective division
+    clip[0] /= clip[3];
+    clip[1] /= clip[3];
+
+    // Convert to window coordinates
+    winX = (clip[0] * 0.5f + 0.5f) * viewport[2] + viewport[0];
+    winY = (clip[1] * 0.5f + 0.5f) * viewport[3] + viewport[1];
+    return true;
+  }
+
+  /**
+   * Renders the centers of the bubbles.
+   */
   void GUIrenderer::renderCenters()
   {
-    // Cell spacing.
-    const float GRID_SIZE = 0.5 / EL;
-    // Size of each lattice point.
-    glPointSize(8.0f);
-    glBegin(GL_POINTS);
-    // Calculate the index for the center element
-    for (unsigned w = 0; w < W_DIM; w++)
-    {
-      Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
-      float alpha = 0.5;
-      // Set the color in OpenGL
-      float r = 0.7 + (w & 1)*0.3;
-      float g = 0.7 + ((w >> 1) & 1)*0.3;
-      float b = 0.7 + ((w >> 2) & 1)*0.3;
-      //
-      float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
-      float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
-      float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
-      glColor4d(r, g, b, alpha);
-      glVertex3f(px, py, pz);
-    }
-    glEnd();
-    enhanceVoxel();
+      // Clear previous positions
+      screenPositions.clear();
+
+      // Get matrices and viewport
+      GLint viewport[4];
+      GLdouble modelview[16];
+      GLdouble projection[16];
+      glGetIntegerv(GL_VIEWPORT, viewport);
+      glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+      glGetDoublev(GL_PROJECTION_MATRIX, projection);
+
+      const float GRID_SIZE = 0.5f / EL;
+
+      // --- 3D Points ---
+      glPointSize(8.0f);
+      glBegin(GL_POINTS);
+      for (unsigned w = 0; w < W_DIM; w++)
+      {
+        Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
+        float alpha = 0.5f;
+        float r = 0.7f + (w & 1) * 0.3f;
+        float g = 0.7f + ((w >> 1) & 1) * 0.3f;
+        float b = 0.7f + ((w >> 2) & 1) * 0.3f;
+
+        float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
+        float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
+        float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
+
+        glColor4f(r, g, b, alpha);
+        glVertex3f(px, py, pz);
+
+        // Manual projection
+        float sx, sy;
+        float obj[3] = {px, py, pz};
+        if (projectPoint(obj, modelview, projection, viewport, sx, sy))
+        {
+          screenPositions.push_back({sx, sy});
+        }
+      }
+      glEnd();
+
+      // --- Count duplicates ---
+      std::map<std::pair<int,int>, int> counts;
+      for (auto &pos : screenPositions)
+      {
+        int x = static_cast<int>(pos[0] + 0.5f);
+        int y = static_cast<int>(pos[1] + 0.5f);
+        counts[{x, y}]++;
+      }
   }
 
   /*
@@ -728,12 +827,16 @@ void GUIrenderer::renderCube()
    */
   void GUIrenderer::resize(int width, int height)
   {
-    if (0 == height)
-    {
-      height = 1; // Avoid division by zero.
-    }
+    if (height == 0) height = 1;
     GLfloat ratio = width / (GLfloat) height;
     glViewport(0, 0, width, height);
+
+    // Update global viewport
+    gViewport[0] = 0;
+    gViewport[1] = 0;
+    gViewport[2] = width;
+    gViewport[3] = height;
+
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
@@ -763,4 +866,5 @@ void GUIrenderer::renderCube()
     }
     glEnd();
   }
+
 }

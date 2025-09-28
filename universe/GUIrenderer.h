@@ -22,6 +22,9 @@
 #include <string>
 #include <random>
 #include <algorithm>
+//#include <GL/glu.h>
+#include <array>
+#include <map>
 
 #include "model/simulation.h"
 #include "radio.h"
@@ -36,7 +39,11 @@ namespace framework
 
 class GUIrenderer : public Renderer
 {
+
+private:
   void enhanceVoxel();
+  std::vector<std::array<float, 2>> screenPositions;
+  std::map<std::pair<int,int>, int> counts;
 
 public:
   GUIrenderer();
@@ -45,7 +52,7 @@ public:
   void init();
   virtual void render();
   void renderAxes();
-    void renderCenter();
+  void renderCenter();
   void renderClear();
   void renderList();
   void renderCube();
@@ -53,6 +60,7 @@ public:
   void renderObjects();
   void renderWavefront();
   void renderTextObjects();
+  void renderCounts();
   void renderGadgets();
   void renderMomentum();
   void renderSpin();
