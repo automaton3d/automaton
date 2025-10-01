@@ -456,7 +456,7 @@ namespace automaton
       else if (down.kB)
       {
         draft.kB = true;
-        if (west.a == down.x[3])
+        if (down.a == down.x[3])
         {
           // Dissolve the particle
           draft.a = curr.x[3];
