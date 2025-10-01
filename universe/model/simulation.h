@@ -63,10 +63,6 @@ namespace framework
 
 namespace automaton
 {
-  extern const unsigned LIGHT;
-  extern const unsigned COLLISION;
-  extern const unsigned UPDATE;
-
   using namespace std;
 
   // Cell Class
@@ -157,10 +153,8 @@ namespace automaton
   extern const unsigned long BLOCK;
   extern const unsigned DIAG;
   extern const unsigned RMAX;
-  extern const unsigned FMAX;
   extern const unsigned CONTRACT;
   extern const unsigned CONVOL;
-  extern const unsigned COLLISION;
   extern const unsigned DIFFUSION;
   extern const unsigned RELOC;
   extern const unsigned TRANSP;
