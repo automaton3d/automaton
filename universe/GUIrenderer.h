@@ -22,7 +22,6 @@
 #include <string>
 #include <random>
 #include <algorithm>
-//#include <GL/glu.h>
 #include <array>
 #include <map>
 
@@ -69,6 +68,7 @@ public:
   void renderCenters();
   void renderProgressBar();
   void renderCenterBox(const char* text);
+
   void resize(int width, int height);
 
 protected:

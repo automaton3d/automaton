@@ -39,7 +39,7 @@ namespace framework
 
   bool active = true;
   unsigned long long timer = 0;
-  extern VerticalSlider slider;
+  extern LayerSlider slider;
 
   /**
    * Function to show the loading window
@@ -144,8 +144,8 @@ namespace framework
        {
          case GLFW_MOUSE_BUTTON_LEFT:
          {
-           // Handle the vertical slider
-           slider.onMouseClick(button, action, xpos, ypos, height);
+           // Handle the layer slider
+           slider.onMouseButton(button, action, xpos, ypos, height);
            // Handle the lattice features
            for (Tickbox& checkbox : checkboxes)
            {
@@ -249,7 +249,7 @@ namespace framework
       glfwGetCursorPos(window, &xpos, &ypos);
       ypos += 20;
       instance().mInteractor.setLeftClicked(false);
-      slider.onMouseClick(button, action, xpos, ypos, height);
+      slider.onMouseButton(button, action, xpos, ypos, height);
       break;
      case GLFW_MOUSE_BUTTON_MIDDLE:
       instance().mInteractor.setMiddleClicked(false);
@@ -405,7 +405,7 @@ namespace framework
     ypos = height - ypos;
 
     // Update the slider's thumb position if it's being dragged
-    slider.onMouseDrag(xpos, ypos, height);
+    slider.onMouseDrag((int)xpos, (int)ypos, height);
 
     // Update the trackball
     instance().mInteractor.setClickPoint(xpos, ypos);
@@ -500,6 +500,11 @@ namespace framework
     glfwSetCursorPosCallback(mWindow, & RenderWindowGLFW::moveCallback);
     glfwSetKeyCallback(mWindow, & RenderWindowGLFW::keyCallback);
     glfwSetMouseButtonCallback(mWindow, & RenderWindowGLFW::buttonCallback);
+
+
+    //glfwSetMouseButtonCallback(mWindow, mouse_button_callback);
+    glfwSetCursorPosCallback(mWindow, LayerSlider::onMouseDrag);
+
     glfwSetScrollCallback(mWindow, & RenderWindowGLFW::scrollCallback);
     glfwSetWindowSizeCallback(mWindow, &RenderWindowGLFW::sizeCallback);
     mInteractor.setCamera(& mCamera);

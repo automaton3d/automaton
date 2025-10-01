@@ -27,7 +27,7 @@ namespace framework
   vector<Radio> viewpoint;
   LayerList list;
 
-  VerticalSlider slider(1886, 93, 20.0f, 607.0f, 30.0f);
+  LayerSlider slider(1886, 93, 10.0f, 607.0f, 30.0f);
 
   random_device rd;
   mt19937 gen(rd());
@@ -104,8 +104,6 @@ namespace framework
     checkboxes[7].setState(true);
     checkboxes[8].setState(true);
     //
-//    glColor3f(0.3f, 0.3f, 0.0f);
- //   drawString12("Delays", 60, 390);
     delays.push_back(Tickbox(50, 420, "Convolution"));
     delays.push_back(Tickbox(50, 450, "Diffusion"));
     delays.push_back(Tickbox(50, 480, "Relocation"));

@@ -8,9 +8,10 @@
 #ifndef SLIDER_H_
 #define SLIDER_H_
 
-#include <GL/glut.h>
+#include <GLFW/glfw3.h>
+#include <GL/gl.h>
 
-class VerticalSlider
+class LayerSlider
 {
   private:
     float x, y;           // Bottom-left corner of the track
@@ -20,7 +21,7 @@ class VerticalSlider
     bool dragging;        // Is the thumb being dragged?
 
   public:
-    VerticalSlider(float x, float y, float width, float height, float thumbHeight)
+    LayerSlider(float x, float y, float width, float height, float thumbHeight)
         : x(x), y(y), width(width), height(height),
           thumbY(y), thumbHeight(thumbHeight), dragging(false) {}
 
@@ -29,48 +30,62 @@ class VerticalSlider
       // Draw the track
       glColor3f(0.6f, 0.6f, 0.6f);
       glRectf(x, y, x + width, y + height);
+
       // Draw the thumb
       glColor3f(0.2f, 0.2f, 0.8f);
       glRectf(x, thumbY, x + width, thumbY + thumbHeight);
+
+      // Thumb outline
+      glColor3f(0.0f, 0.7f, 0.9f);
+      glBegin(GL_LINE_LOOP);
+        glVertex2f(x - 1, thumbY - 1);
+        glVertex2f(x + width + 1, thumbY - 1);
+        glVertex2f(x + width + 1, thumbY + thumbHeight + 1);
+        glVertex2f(x - 1, thumbY + thumbHeight + 1);
+      glEnd();
     }
 
-    void onMouseClick(int button, int state, int mouseX, int mouseY, int windowHeight)
+    // GLFW mouse button handler
+    void onMouseButton(int button, int action, int mouseX, int mouseY, int windowHeight)
     {
-      mouseY = windowHeight - mouseY; // Convert to OpenGL coordinates
-      if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+      // Flip Y to OpenGL coordinates
+      mouseY = windowHeight - mouseY;
+
+      if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
       {
-      	//printf("mouseX(%d) >= x(%f) && mouseX(%d) <= x+width(%f) && mouseY(%d) >= thumbY(%f) && mouseY(%d) <= thumbY(%f)+thumbHeight(%f)\t%d\n", mouseX, x, mouseX, x+width, mouseY, thumbY, mouseY, thumbY, thumbHeight, windowHeight);
+        // Check if inside thumb bounds
         if (mouseX >= x && mouseX <= x + width &&
-            mouseY >= windowHeight-thumbY && mouseY <= windowHeight-thumbY - thumbHeight)
+            mouseY >= thumbY && mouseY <= thumbY + thumbHeight)
         {
-          // printf("dragging %d, %d\n", mouseX, mouseY);
           dragging = true;
         }
       }
-      else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP)
+      else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
       {
         dragging = false;
       }
     }
 
+    // GLFW cursor motion handler
     void onMouseDrag(int mouseX, int mouseY, int windowHeight)
     {
       if (dragging)
       {
-        mouseY = windowHeight - mouseY; // Convert to OpenGL coordinates
-        // Update thumb position
+        mouseY = windowHeight - mouseY; // Flip to OpenGL coords
+
+        // Center thumb around mouse Y
         thumbY = mouseY - thumbHeight / 2;
-        // Clamp thumb position within the track
+
+        // Clamp thumb within track
         if (thumbY < y) thumbY = y;
         if (thumbY > y + height - thumbHeight)
-        thumbY = y + height - thumbHeight;
-        //glutPostRedisplay(); // Redraw the screen
+          thumbY = y + height - thumbHeight;
       }
     }
 
     float getValue() const
     {
-      // Map thumb position to a range (e.g., 0 to 1)
+      // Map thumb position to [0..1]
       return (thumbY - y) / (height - thumbHeight);
     }
 };

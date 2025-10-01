@@ -119,9 +119,10 @@ namespace framework
       return w;
     }
 
+    int startLimit = 0;  // Starting index (inclusive)
+    int endLimit = LAYERS; // Ending index (exclusive)
+
     private:
-      int startLimit = 0;  // Starting index (inclusive)
-      int endLimit = LAYERS; // Ending index (exclusive)
       std::vector<Radio> layers;
       unsigned lastPos[W_DIM][3];
 
