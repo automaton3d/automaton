@@ -74,7 +74,7 @@ namespace automaton
       bool pB;            	// Linear motion direction bit
       bool sB;        		// Rotation spiral bit
       unsigned a;           // Affinity
-      unsigned x[4] = { 0, 0, 0, 0 }; // Relative position
+      unsigned x[4];        // Relative position
       // Wavefront
       unsigned d;        	// Euclidean distance
       bool phiB;			// Fixed period mask bit

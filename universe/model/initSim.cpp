@@ -36,7 +36,7 @@ namespace automaton
       char w1 = (w >> 1) % 2;
       char q = w0 ^ w1;
       // Set charge and affinity values
-      cell.ch = (w % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+      cell.ch = (w % 8) | (w0 << 3) | (w1 << 4) | (q << 5);
     }
     puts("initCell0 ok.");
   }
@@ -94,7 +94,7 @@ namespace automaton
       char w1 = (w >> 1) % 2;
       char q = w0 ^ w1;
       // Set charge and affinity values
-      cell.ch = (w % 8) | (w0 << 3) | (1 << 4) | (q << 5);
+      cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
     }
     puts("initCharges ok.");
   }

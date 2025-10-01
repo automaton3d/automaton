@@ -37,9 +37,16 @@ namespace automaton
         {
           Cell &cell = lattice_curr[x][y][z][w];
           if (cell.t == cell.d)
-            voxels[index3D] = RGB(255, 255, 255);  // White voxel
+          {
+            if (cell.a == W_DIM)
+              voxels[index3D] = RGB(255, 0, 255);    // Cyan voxel
+            else
+              voxels[index3D] = RGB(255, 255, 255);  // White voxel
+          }
           else
-            voxels[index3D] = RGB(0, 0, 0);        // Black voxel
+          {
+            voxels[index3D] = RGB(0, 0, 0);          // Black voxel
+          }
           index3D++;
         }
       }
@@ -65,7 +72,6 @@ namespace automaton
   void normalize(double vec[3])
   {
     double magnitude = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
-
     // Avoid division by zero
     if (magnitude > 0.0)
     {
@@ -85,94 +91,94 @@ namespace automaton
    */
   void markPoints(unsigned p[3], int w)
   {
-      // Calculate the center of the lattice
-      int cx = CENTER, cy = CENTER, cz = CENTER;
-      // Calculate the deltas
-      int dx = p[0] - cx;
-      int dy = p[1] - cy;
-      int dz = p[2] - cz;
-      // Determine the step direction
-      int sx = (dx > 0) ? 1 : -1;
-      int sy = (dy > 0) ? 1 : -1;
-      int sz = (dz > 0) ? 1 : -1;
-      dx = abs(dx);
-      dy = abs(dy);
-      dz = abs(dz);
-      // Determine the dominant axis
-      int ax = 2 * dx;
-      int ay = 2 * dy;
-      int az = 2 * dz;
-      int x = cx, y = cy, z = cz;
-      if (dx >= dy && dx >= dz)
+    // Calculate the center of the lattice
+    int cx = CENTER, cy = CENTER, cz = CENTER;
+    // Calculate the deltas
+    int dx = p[0] - cx;
+    int dy = p[1] - cy;
+    int dz = p[2] - cz;
+    // Determine the step direction
+    int sx = (dx > 0) ? 1 : -1;
+    int sy = (dy > 0) ? 1 : -1;
+    int sz = (dz > 0) ? 1 : -1;
+    dx = abs(dx);
+    dy = abs(dy);
+    dz = abs(dz);
+    // Determine the dominant axis
+    int ax = 2 * dx;
+    int ay = 2 * dy;
+    int az = 2 * dz;
+    int x = cx, y = cy, z = cz;
+    if (dx >= dy && dx >= dz)
+    {
+      // X is dominant
+      int yd = ay - dx;
+      int zd = az - dx;
+      for (int i = 0; i <= dx; i++)
       {
-        // X is dominant
-        int yd = ay - dx;
-        int zd = az - dx;
-        for (int i = 0; i <= dx; i++)
+        lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
+        x += sx;
+        if (yd >= 0)
         {
-          lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
-          x += sx;
-          if (yd >= 0)
-          {
-            y += sy;
-            yd -= ax;
-          }
-          if (zd >= 0)
-          {
-            z += sz;
-            zd -= ax;
-          }
-          yd += ay;
-          zd += az;
-        }
-      }
-      else if (dy >= dx && dy >= dz)
-      {
-        // Y is dominant
-        int xd = ax - dy;
-        int zd = az - dy;
-        for (int i = 0; i <= dy; i++)
-        {
-          lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
           y += sy;
-          if (xd >= 0)
-          {
-            x += sx;
-            xd -= ay;
-          }
-          if (zd >= 0)
-          {
-            z += sz;
-            zd -= ay;
-          }
-          xd += ax;
-          zd += az;
+          yd -= ax;
         }
-      }
-      else
-      {
-        // Z is dominant
-        int xd = ax - dz;
-        int yd = ay - dz;
-        for (int i = 0; i <= dz; i++)
+        if (zd >= 0)
         {
-          lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
           z += sz;
-          if (xd >= 0)
-          {
-            x += sx;
-            xd -= az;
-          }
-          if (yd >= 0)
-          {
-            y += sy;
-            yd -= az;
-          }
-          xd += ax;
-          yd += ay;
+          zd -= ax;
         }
+        yd += ay;
+        zd += az;
       }
     }
+    else if (dy >= dx && dy >= dz)
+    {
+      // Y is dominant
+      int xd = ax - dy;
+      int zd = az - dy;
+      for (int i = 0; i <= dy; i++)
+      {
+        lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
+        y += sy;
+        if (xd >= 0)
+        {
+          x += sx;
+          xd -= ay;
+        }
+        if (zd >= 0)
+        {
+          z += sz;
+          zd -= ay;
+        }
+        xd += ax;
+        zd += az;
+      }
+    }
+    else
+    {
+      // Z is dominant
+      int xd = ax - dz;
+      int yd = ay - dz;
+      for (int i = 0; i <= dz; i++)
+      {
+        lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
+        z += sz;
+        if (xd >= 0)
+        {
+          x += sx;
+          xd -= az;
+        }
+        if (yd >= 0)
+        {
+          y += sy;
+          yd -= az;
+        }
+        xd += ax;
+        yd += ay;
+      }
+    }
+  }
 
   /*
    * Circular Shift in the Fourth Dimension W
@@ -226,15 +232,15 @@ namespace automaton
         for (unsigned int z = 0; z < EL; ++z)
         {
           Cell &draft = lattice_draft[x][y][z][w];
-          draft = lattice_draft[((x + EL) - 1) % EL][y][z][w];
+          draft = lattice_draft[(x - 1 + EL) % EL][y][z][w];
           if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
           {
-        	draft.a = w;
+            draft.a = w;
             draft.t = 0;
           }
           else
           {
-          	draft.a = W_DIM;
+            draft.a = W_DIM;
           }
         }
       }
@@ -248,8 +254,8 @@ namespace automaton
         draft = temp[y][z];
         if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
         {
-      	  draft.a = w;
-      	  draft.t = 0;
+          draft.a = w;
+          draft.t = 0;
         }
         else
         {
@@ -285,15 +291,15 @@ namespace automaton
         for (unsigned int z = 0; z < EL; ++z)
         {
           Cell &draft = lattice_draft[x][y][z][w];
-          draft = lattice_draft[x][((y + EL) - 1) % EL][z][w];
+          draft = lattice_draft[x][(y -1 + EL) % EL][z][w];
           if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
           {
-        	draft.a = w;
+            draft.a = w;
             draft.t = 0;
           }
           else
           {
-          	draft.a = W_DIM;
+            draft.a = W_DIM;
           }
         }
       }
@@ -307,8 +313,8 @@ namespace automaton
         draft = temp[x][z];
         if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
         {
-      	  draft.a = w;
-      	  draft.t = 0;
+          draft.a = w;
+          draft.t = 0;
         }
         else
         {
@@ -344,15 +350,15 @@ namespace automaton
         for (unsigned int y = 0; y < EL; ++y)
         {
           Cell &draft = lattice_draft[x][y][z][w];
-          draft = lattice_draft[x][y][((z + EL) - 1) % EL][w];
+          draft = lattice_draft[x][y][(z -1 + EL) % EL][w];
           if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
           {
-        	draft.a = w;
+            draft.a = w;
             draft.t = 0;
           }
           else
           {
-          	draft.a = W_DIM;
+            draft.a = W_DIM;
           }
         }
       }
@@ -366,8 +372,8 @@ namespace automaton
         draft = temp[x][y];
         if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
         {
-      	  draft.a = w;
-      	  draft.t = 0;
+          draft.a = w;
+          draft.t = 0;
         }
         else
         {
@@ -422,12 +428,12 @@ namespace automaton
    */
   void printLattice(int w)
   {
-	puts("Case: phiB");
+    puts("Case: phiB");
     for (unsigned z = 0; z < EL; z++)
     {
       for (unsigned y = 0; y < EL; y++)
       {
-  	    for (unsigned x = 0; x < EL; x++)
+        for (unsigned x = 0; x < EL; x++)
         {
           // Reference to the current cell
           Cell& cell = lattice_curr[x][y][z][w];
@@ -445,7 +451,7 @@ namespace automaton
    */
   bool sanityTest()
   {
-	return true;
+    return true;
   }
 
 }

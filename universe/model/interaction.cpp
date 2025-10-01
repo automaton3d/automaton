@@ -112,7 +112,7 @@ namespace automaton
             draft.a = min(curr.a, mirror.a);
             draft.bB = true;
           }
-          else if ((curr.Q() == !mirror.Q()) && (curr.W1() &&
+          else if ((curr.Q() != mirror.Q()) && (curr.W1() &&
                 mirror.W1()) && (!curr.W0() && !mirror.W0()) &&
            (curr.COLOR() == mirror.COLOR()) &&
                    (curr.COLOR() != 0 && curr.COLOR() != 7))
@@ -294,7 +294,7 @@ namespace automaton
     {
       // Different sectors:
       // Singularization
-      if (curr.ch == (~mirror.ch & CHARGE_MASK))
+      if (curr.ch == ((~mirror.ch) & CHARGE_MASK))
       {
         // Reissue from C.P.
         draft.c[0] = curr.x[0];
@@ -456,7 +456,7 @@ namespace automaton
       else if (down.kB)
       {
         draft.kB = true;
-        if (west.a == west.x[3])
+        if (west.a == down.x[3])
         {
           // Dissolve the particle
           draft.a = curr.x[3];
