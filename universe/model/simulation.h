@@ -78,7 +78,7 @@ namespace automaton
       bool pB;            	// Linear motion direction bit
       bool sB;        		// Rotation spiral bit
       unsigned a;           // Affinity
-      unsigned x[4] = { 0, 0, 0 }; // Relative position
+      unsigned x[4] = { 0, 0, 0, 0 }; // Relative position
       // Wavefront
       unsigned d;        	// Euclidean distance
       bool phiB;			// Fixed period mask bit
@@ -158,6 +158,7 @@ namespace automaton
   extern const unsigned DIAG;
   extern const unsigned RMAX;
   extern const unsigned FMAX;
+  extern const unsigned CONTRACT;
   extern const unsigned CONVOL;
   extern const unsigned COLLISION;
   extern const unsigned DIFFUSION;

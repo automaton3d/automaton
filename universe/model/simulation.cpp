@@ -17,12 +17,12 @@ namespace automaton
   // Dynamics constants and variables
   const unsigned DIAG      = (unsigned) EL* sqrt(3);
   const unsigned RMAX      = DIAG / 2;
+  const unsigned CONTRACT  = static_cast<int>(floor(sqrt(3.0) * CENTER));
   const unsigned CONVOL    = W_DIM;
-  const unsigned DIFFUSION = CONVOL + (W_DIM - 1);
+  const unsigned DIFFUSION = CONVOL + W_DIM + CONTRACT + 9*(EL - 1);
   const unsigned RELOC     = DIFFUSION + 3*(EL - 1);
   const unsigned FRAME     = RELOC;
 
-  const unsigned N_steps = static_cast<int>(floor(sqrt(3.0) * CENTER));
 
   // The CA lattices
   Cell lattice_curr   [EL][EL][EL][W_DIM];
@@ -78,6 +78,11 @@ namespace automaton
               relocate(curr, draft);
               if (reloc_delay)
                 std::this_thread::sleep_for(std::chrono::nanoseconds(500));
+            }
+            else
+            {
+              // Catastrophic error
+              assert(false);
             }
             // Update tick counter
             draft.k = (curr.k + 1) % FRAME;

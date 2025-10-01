@@ -32,45 +32,47 @@ namespace automaton
       if (curr.x[0] == mirror.x[0] && curr.x[1] == mirror.x[1] &&
           curr.x[2] == mirror.x[2])
       {
-    	// Test dispersion
-        if (curr.W1() != mirror.W1() && curr.t == RMAX / 2)
+        // Test dispersion
+        if (curr.W1() != mirror.W1() && curr.t == RMAX / 2 &&
+            curr.c[0] == 0 && curr.c[1] == 0 && curr.c[2] == 0 &&
+			curr.a != W_DIM)
         {
           // Who has the pB true interacts once
-          if ((curr.pB && !mirror.pB) &&
-        	  curr.c[0] == 0 && curr.c[1] == 0 && curr.c[2] == 0)
+          if (curr.pB && !mirror.pB)
           {
             // Reissue from C.P.
             draft.c[0] = curr.x[0];
             draft.c[1] = curr.x[1];
             draft.c[2] = curr.x[2];
+            // Trigger a contraction
+            draft.cB = true;
           }
           // Who has pB false interacts with the last pB true
           if (!curr.pB && mirror.pB)
           {
             // Reissue from sB
             draft.hB = true;
+            draft.cB = true;
           }
         }
         // Test single pair
-    	else if (curr.f == curr.t && mirror.f == mirror.t)
+        else if (curr.f == curr.t && mirror.f == mirror.t)
         {
+          /*
           // Different sectors?
           if (curr.W1() != mirror.W1())
           {
             // Momentum
-            if (curr.pB && mirror.pB)
+            if (curr.pB && mirror.pB)  // Nor correct!!!! never happens
             {
-            	if (curr.t > 0)
-            	  printf("pB=pB t=%d\n", curr.t);
-              /*
+              if (curr.t > 0)
+                printf("pB=pB t=%d\n", curr.t);
               // Graviton
               draft.f += curr.t;
               draft.s2B &= curr.phiB;
               draft.a = min(curr.a, mirror.a);
-              */
             }
           }
-          /*
           else if ((curr.Q() ^ mirror.Q()) && (curr.W1() == mirror.W1()) &&
                    (curr.W0() ^ mirror.W0()) && (curr.C2() == mirror.C2()) &&
                    (curr.C1() == mirror.C1()) && (curr.C0() == mirror.C0()))
@@ -354,7 +356,7 @@ namespace automaton
    */
   void diffuse(Cell& curr, Cell &draft)
   {
-    // Diffuse the collapse flag in W dimension
+    // Calculate neighbors
     Cell &forward = curr.getNeighbor(FORWARD);
     Cell &north   = curr.getNeighbor(NORTH);
     Cell &west    = curr.getNeighbor(WEST);
@@ -362,143 +364,137 @@ namespace automaton
     Cell &south   = curr.getNeighbor(SOUTH);
     Cell &east    = curr.getNeighbor(EAST);
     Cell &up      = curr.getNeighbor(UP);
-    // Bubble contraction
-    if (!curr.cB)
+    // Window for hunting in 3d space
+    if (curr.k < CONVOL + 3 *(EL - 1))
     {
-   	  if (north.cB && north.d == curr.d + 1)
+      // Hunting happens on the active shell
+      if (curr.d == curr.t)
       {
-        draft.cB = true;
-    	draft.t = 0;
-      }
-   	  else if (west.cB && west.d == curr.d + 1)
-      {
-        draft.cB = true;
-    	draft.t = 0;
-      }
-   	  else if (down.cB && down.d == curr.d + 1)
-      {
-        draft.cB = true;
-    	draft.t = 0;
-      }
-   	  else if (south.cB && south.d == curr.d + 1)
-      {
-        draft.cB = true;
-    	draft.t = 0;
-      }
-   	  else if (east.cB && east.d == curr.d + 1)
-      {
-        draft.cB = true;
-    	draft.t = 0;
-      }
-   	  else if (up.cB && up.d == curr.d + 1)
-      {
-        draft.cB = true;
-    	draft.t = 0;
+        // Propagate hunting
+        if (north.hB)
+        {
+          if (curr.sB)
+          {
+        	// Bit sB was found
+            draft.hB = false;
+            draft.cB = true;
+          }
+          else
+          {
+            draft.hB = true;
+            draft.c[0] = (north.c[0] + 1) % EL;
+          }
+        }
+        else if (west.hB)
+        {
+          if (curr.sB)
+          {
+            draft.hB = false;
+            draft.cB = true;
+          }
+          else
+          {
+            draft.hB = true;
+            draft.c[1] = (west.c[1] + 1) % EL;
+          }
+        }
+        else if (down.hB)
+        {
+          if (curr.sB)
+          {
+            draft.hB = false;
+            draft.cB = true;
+          }
+          else
+          {
+            draft.hB = true;
+            draft.c[2] = (down.c[2] + 1) % EL;
+          }
+        }
       }
     }
-    // Hunting happens on the active shell
-    if (curr.d == curr.t)
+    else if (curr.k < CONVOL + 3 * (EL - 1) + W_DIM)
     {
-      // Propagate hunting
+      // Collapse happens in cell with the same affinity
+      if (forward.kB && forward.a == curr.a)
+      {
+    	  puts("propag collapse");
+        // Diffuse the collapse flag
+        draft.kB = true;
+        // Diffuse hunting bit
+        draft.hB = forward.hB;
+        // Diffuse the relocation vector c
+        draft.c[0] = forward.c[0];
+        draft.c[1] = forward.c[1];
+        draft.c[2] = forward.c[2];
+      }
+      // Diffuse the frequency variable
+      draft.f = max(forward.f, curr.f);
+    }
+    // Window for diffusion in 3D space
+    else if (curr.k < CONVOL + W_DIM + 6 * (EL - 1))
+    {
+      // Diffuse the collapse flag in 3D space
       if (north.kB)
       {
-        draft.c[0] = (north.c[0] + 1) % EL;
-        if (!curr.sB)
+        draft.kB = true;
+        if (north.a == north.x[3])
         {
-          draft.hB = true;
-          draft.kB = north.kB;
+          // Dissolve the particle
+          draft.a = curr.x[3];
         }
       }
       else if (west.kB)
       {
-        draft.c[1] = (west.c[0] + 1) % EL;
-        if (!curr.sB)
+        draft.kB = true;
+        if (west.a == west.x[3])
         {
-          draft.hB = true;
-          draft.kB = west.kB;
+          // Dissolve the particle
+          draft.a = curr.x[3];
         }
       }
       else if (down.kB)
       {
-        draft.c[2] = (down.c[0] + 1) % EL;
-        if (!curr.sB)
+        draft.kB = true;
+        if (west.a == west.x[3])
         {
-          draft.hB = true;
-          draft.kB = down.kB;
+          // Dissolve the particle
+          draft.a = curr.x[3];
         }
       }
-    }
-    // Diffuse the collapse flag in the W dimension
-    if (forward.kB && forward.a == curr.a)
-    {
-      draft.kB = true;
-      draft.hB = forward.hB;
-    }
-    // Diffuse the collapse flag in 3D space
-    else if (north.kB)
-    {
-      draft.kB = true;
-      if (north.a == north.x[3])
+      // Diffuse the frequency variable in 3D space
+      draft.f = max(down.f, max(west.f, max(north.f, curr.f)));
+      // Diffuse the relocation vector c in 3D space
+      if ((north.c[0] | north.c[1] | north.c[2]) ||
+    	  (west.c[0] | west.c[1] | west.c[2]) ||
+		  (down.c[0] | down.c[1] | down.c[2]))
       {
-    	// Dissolve the particle
-        draft.a = curr.x[3];
+        // Este código é executado
+        draft.c[0] = north.c[0];
+        draft.c[1] = north.c[1];
+        draft.c[2] = north.c[2];
       }
     }
-    else if (west.kB)
+    else if (curr.k < CONVOL + W_DIM + 9*(EL - 1))
     {
-      draft.kB = true;
-      if (west.a == west.x[3])
+      // All hB bits must be reset for the next cycle
+      draft.hB = false;
+      // Bubble contraction
+      if (!curr.cB)
       {
-      	// Dissolve the particle
-        draft.a = curr.x[3];
-      }
-    }
-    else if (down.kB)
-    {
-      draft.kB = true;
-      if (west.a == west.x[3])
-      {
-      	// Dissolve the particle
-        draft.a = curr.x[3];
-      }
-    }
-    // Diffuse the frequency variable in 3D space
-    draft.f = max(down.f, max(west.f, max(north.f, curr.f)));
-    // Diffuse the relocation vector c in dimension W
-    if (forward.kB && forward.a == curr.a)
-    {
-      draft.c[0] = forward.c[0];
-      draft.c[1] = forward.c[1];
-      draft.c[2] = forward.c[2];
-    }
-    // Diffuse the relocation vector c in 3D space
-    else if (north.kB)
-    {
-      draft.c[0] = north.c[0];
-      draft.c[1] = north.c[1];
-      draft.c[2] = north.c[2];
-    }
-    else if (west.kB)
-    {
-      draft.c[0] = west.c[0];
-      draft.c[1] = west.c[1];
-      draft.c[2] = west.c[2];
-    }
-    else if (down.kB)
-    {
-      draft.c[0] = down.c[0];
-      draft.c[1] = down.c[1];
-      draft.c[2] = down.c[2];
-    }
-    // Diffuse the time variable
-    if (curr.k == FRAME - 1)
-    {
-      for (int dir = 0; dir < 6; dir++)
-      {
-        Cell &nei = curr.getNeighbor(dir);
-        if (curr.t > nei.t)
+        if ((north.cB && north.d == curr.d + 1) ||
+            (west.cB  && west.d  == curr.d + 1) ||
+            (down.cB  && down.d  == curr.d + 1) ||
+            (south.cB && south.d == curr.d + 1) ||
+            (east.cB  && east.d  == curr.d + 1) ||
+            (up.cB    && up.d    == curr.d + 1))
         {
-          draft.t = nei.t;
+          // Código é executado
+          draft.cB = true;
+          draft.t = 0;
+          // Turn the abandoned wavefront an orphan
+          if (curr.d == curr.t)
+            draft.a = W_DIM;
         }
       }
     }
@@ -509,6 +505,9 @@ namespace automaton
    */
   void relocate(Cell& curr, Cell &draft)
   {
+    // All cB bits must be reset;
+    draft.cB = false;
+    // Calculate neighbors
     Cell &north = curr.getNeighbor(NORTH);
     Cell &west  = curr.getNeighbor(WEST);
     Cell &down  = curr.getNeighbor(DOWN);
@@ -528,6 +527,8 @@ namespace automaton
       reloc_z[curr.x[3]] = true;
       draft.c[2] = curr.c[2] - 1;
     }
+    // Reset diffusion variable for the next cycle
+    draft.cB = true;
   }
 
   /*
