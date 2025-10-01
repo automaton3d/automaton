@@ -718,17 +718,17 @@ void GUIrenderer::renderAxes()
   // X-axis
   glColor3f(0.6f, 0.f, 0.f); // Red for the X-axis
   glVertex3f(0.0f, 0.f, 0.f);
-  glVertex3f(0.5f, 0.f, 0.f);
+  glVertex3f(0.45f, 0.f, 0.f);
 
   // Y-axis
   glColor3f(0.f, 0.6f, 0.f); // Green for the Y-axis
   glVertex3f(0.f, 0.f, 0.f);
-  glVertex3f(0.f, 0.5f, 0.f);
+  glVertex3f(0.f, 0.45f, 0.f);
 
   // Z-axis
   glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
   glVertex3f(0.0f, 0.f, 0.f);
-  glVertex3f(0.f, 0.f, 0.5f);
+  glVertex3f(0.f, 0.f, 0.45f);
 
   glEnd();
   glLineWidth(1);
