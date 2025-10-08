@@ -22,22 +22,25 @@ namespace framework
   // Global viewport info
   GLint gViewport[4] = {0, 0, 1920, 1080}; // default values, will be overwritten on resize
 
+  // Gadgets
   vector<Tickbox> checkboxes;
   vector<Tickbox> delays;
   vector<Radio> viewpoint;
   LayerList list;
+  LayerSlider slider(1890, 93, 10.0f, 607.0f, 30.0f);
 
-  LayerSlider slider(1886, 93, 10.0f, 607.0f, 30.0f);
-
+  // Auxiliary
   random_device rd;
   mt19937 gen(rd());
-
   bool spinFlag;
   unsigned long tbegin;
   int barWidths[3];
+  const float GRID_SIZE = 0.5 / EL;
+  unsigned lastPos[W_DIM][3];
   // Global flag to control rendering mode: single cube or 27 cubes.
   bool MULTICUBE_MODE = false;
 
+  // Static text
   string help[10] =
   {
     "           c: Print camera Eye, Center, Up",
@@ -47,7 +50,8 @@ namespace framework
     "  Left-Click: Rotate",
     "Middle-Click: Pan or First-Person",
     " Right-Click: Roll",
-    "Scroll-Wheel: Dolly (zoom)"
+    "Scroll-Wheel: Dolly (zoom)",
+	"      Escape: EXIT"
   };
 
   string steps[3] =
@@ -57,11 +61,7 @@ namespace framework
     "Relocation"
   };
 
-  unsigned lastPos[W_DIM][3];
-
   using namespace automaton;
-
-  const float GRID_SIZE = 0.5 / EL;
 
   /**
    * Default constructor.
@@ -90,15 +90,15 @@ namespace framework
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     tbegin = GetTickCount64();
     //
-    checkboxes.push_back(Tickbox(50, 80, "Wavefront"));  // 0
-    checkboxes.push_back(Tickbox(50, 110, "Momentum"));  // 1
-    checkboxes.push_back(Tickbox(50, 140, "Spin"));      // 2
-    checkboxes.push_back(Tickbox(50, 170, "Sine mask")); // 3
-    checkboxes.push_back(Tickbox(50, 200, "Hunting"));   // 4
-    checkboxes.push_back(Tickbox(50, 230, "Centers"));   // 5
-    checkboxes.push_back(Tickbox(50, 260, "Lattice"));   // 6
-    checkboxes.push_back(Tickbox(50, 290, "Axes"));      // 7
-    checkboxes.push_back(Tickbox(50, 320, "Plane"));     // 8
+    checkboxes.push_back(Tickbox(50, 100, "Wavefront")); // 0
+    checkboxes.push_back(Tickbox(50, 130, "Momentum"));  // 1
+    checkboxes.push_back(Tickbox(50, 160, "Spin"));      // 2
+    checkboxes.push_back(Tickbox(50, 190, "Sine mask")); // 3
+    checkboxes.push_back(Tickbox(50, 220, "Hunting"));   // 4
+    checkboxes.push_back(Tickbox(50, 250, "Centers"));   // 5
+    checkboxes.push_back(Tickbox(50, 280, "Lattice"));   // 6
+    checkboxes.push_back(Tickbox(50, 310, "Axes"));      // 7
+    checkboxes.push_back(Tickbox(50, 350, "Plane"));     // 8
     checkboxes[0].setState(true);
     checkboxes[5].setState(true);
     checkboxes[7].setState(true);
@@ -108,10 +108,10 @@ namespace framework
     delays.push_back(Tickbox(50, 450, "Diffusion"));
     delays.push_back(Tickbox(50, 480, "Relocation"));
     //
-    viewpoint.push_back(Radio(60, 540, "Isometric"));
-    viewpoint.push_back(Radio(60, 570, "XY"));
-    viewpoint.push_back(Radio(60, 600, "YZ"));
-    viewpoint.push_back(Radio(60, 630, "ZX"));
+    viewpoint.push_back(Radio(60, 570, "Isometric"));
+    viewpoint.push_back(Radio(60, 600, "XY"));
+    viewpoint.push_back(Radio(60, 630, "YZ"));
+    viewpoint.push_back(Radio(60, 660, "ZX"));
     viewpoint[0].setSelected(true);
     // Initialize progress bar data
     int barWidth = gViewport[2] / 4; // Bar is 1/4 of the screen width
@@ -128,7 +128,7 @@ namespace framework
   {
     renderClear();
     renderObjects();
-    renderTextObjects();
+    render2DObjects();
   }
 
   /**
@@ -314,9 +314,9 @@ namespace framework
   }
 
   /**
-   * Renders 2D text objects.
+   * Renders 2D objects.
    */
-  void GUIrenderer::renderTextObjects()
+  void GUIrenderer::render2DObjects()
   {
     setOrthographicProjection();
     glPushMatrix();
@@ -330,7 +330,9 @@ namespace framework
     render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
     sprintf(s, "L = %u", EL);
     render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-    //
+    int w = framework::list.getSelected();
+    sprintf(s, "(Current layer = %u)", w);
+    render2Dstring(1730, 78, GLUT_BITMAP_HELVETICA_12, s);
     // Get the primary monitor
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     // Get the video mode of the monitor
@@ -345,7 +347,11 @@ namespace framework
     // Handle pause window
     if (pause)
       renderCenterBox(" Paused ");
-    //
+    // Draw labels
+    glColor3f(1.0f, 1.0f, 0.5f); // Blue
+    drawString12("Data", 50, 85);
+    drawString12("Delays", 50, 405);
+    drawString12("Views", 50, 551);
     glPopMatrix();
     list.update();
     resetPerspectiveProjection();
@@ -534,45 +540,6 @@ namespace framework
    * Render the center of the bubbles only.
    * All layers (w dimension) contribute.
    */
-
-  // Helper function: manually project a 3D point to screen space
-  static bool projectPoint(const float obj[3],
-                         const GLdouble modelview[16],
-                         const GLdouble projection[16],
-                         const GLint viewport[4],
-                         float &winX, float &winY)
-  {
-    // Transform to eye space
-    double eye[4] = {
-        modelview[0]*obj[0] + modelview[4]*obj[1] + modelview[8]*obj[2] + modelview[12],
-        modelview[1]*obj[0] + modelview[5]*obj[1] + modelview[9]*obj[2] + modelview[13],
-        modelview[2]*obj[0] + modelview[6]*obj[1] + modelview[10]*obj[2] + modelview[14],
-        modelview[3]*obj[0] + modelview[7]*obj[1] + modelview[11]*obj[2] + modelview[15]
-    };
-
-    // Transform to clip space
-    double clip[4] = {
-        projection[0]*eye[0] + projection[4]*eye[1] + projection[8]*eye[2] + projection[12]*eye[3],
-        projection[1]*eye[0] + projection[5]*eye[1] + projection[9]*eye[2] + projection[13]*eye[3],
-        projection[2]*eye[0] + projection[6]*eye[1] + projection[10]*eye[2] + projection[14]*eye[3],
-        projection[3]*eye[0] + projection[7]*eye[1] + projection[11]*eye[2] + projection[15]*eye[3]
-    };
-
-    if (clip[3] == 0.0) return false; // Behind camera
-
-    // Perspective division
-    clip[0] /= clip[3];
-    clip[1] /= clip[3];
-
-    // Convert to window coordinates
-    winX = (clip[0] * 0.5f + 0.5f) * viewport[2] + viewport[0];
-    winY = (clip[1] * 0.5f + 0.5f) * viewport[3] + viewport[1];
-    return true;
-  }
-
-  /**
-   * Renders the centers of the bubbles.
-   */
   void GUIrenderer::renderCenters()
   {
       // Clear previous positions
@@ -609,13 +576,12 @@ namespace framework
         // Manual projection
         float sx, sy;
         float obj[3] = {px, py, pz};
-        if (projectPoint(obj, modelview, projection, viewport, sx, sy))
+        if (framework::projectPoint(obj, modelview, projection, viewport, sx, sy))
         {
           screenPositions.push_back({sx, sy});
         }
       }
       glEnd();
-
       // --- Count duplicates ---
       std::map<std::pair<int,int>, int> counts;
       for (auto &pos : screenPositions)
@@ -732,11 +698,11 @@ void GUIrenderer::renderAxes()
   glLineWidth(1);
   // Add labels
   glColor3f(1.f, 0.f, 0.f); // Red for "x" label
-  render3Dstring(0.512f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
+  render3Dstring(0.453f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
   glColor3f(0.f, 1.f, 0.f); // Green for "y" label
-  render3Dstring(-0.02f, 0.512f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
+  render3Dstring(-0.02f, 0.453f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
   glColor3f(0.3f, 0.3f, 0.8f); // Blue for "z" label
-  render3Dstring(0.0f, -0.02f, 0.512f, GLUT_BITMAP_HELVETICA_18, "z");
+  render3Dstring(0.0f, -0.02f, 0.453f, GLUT_BITMAP_HELVETICA_18, "z");
 }
 
 /*
@@ -783,42 +749,28 @@ void GUIrenderer::renderCube()
   /*
    * Renders a reference plane to help in the visualization.
    */
-  void GUIrenderer::renderPlane()
+/*
+ * Renders a reference plane to help in the visualization.
+ */
+void GUIrenderer::renderPlane()
+{
+  float p, d = .1f, mn = -1.f, mx = 1.f, eps = -1e-4f;
+  int i, n = 20;
+  glLineWidth(1);
+  glBegin(GL_LINES);
+  glColor4f(1.f, 1.f, 1.f, .2f); // uniform color for all lines
+  for (i = 0; i <= n; ++i)
   {
-    float p, d = .1, mn = -1.f, mx = 1.f, eps = -1e-4;
-    int i, n = 20;
-    #define WHITE() glColor4f(1.f, 1.f, 1.f, .2f)
-    glLineWidth(1);
-    glBegin(GL_LINES);
-    for (i = 0; i <= n; ++i)
-    {
-      p = mn + i * d;
-      // Draw lines parallel to the x-axis (constant y, varying z)
-      if (i == 0 || i == 10 || i == n)
-      {
-        glColor4f(0.f, 1.f, 0.f, .3f); // Special lines for center and boundaries
-      }
-      else
-      {
-        WHITE();
-      }
-      glVertex3f(p, eps, mn);  // Use 'p' for x, 'mn' for z, keep y = eps (constant height)
-      glVertex3f(p, eps, mx);  // Same, but z = mx for the second point
-      // Draw lines parallel to the z-axis (constant x, varying z)
-      if (i == 0 || i == 10 || i == n)
-      {
-        glColor4f(1.f, 0.f, 0.f, .3f); // Special lines for center and boundaries
-      }
-      else
-      {
-        WHITE();
-      }
-      glVertex3f(mn, eps, p);  // Use 'p' for z, 'mn' for x, y = eps (constant height)
-      glVertex3f(mx, eps, p);  // Same, but x = mx for the second point
-    }
-    glEnd();
-    #undef WHITE
+    p = mn + i * d;
+    // Lines parallel to the x-axis (constant z)
+    glVertex3f(p, eps, mn);
+    glVertex3f(p, eps, mx);
+    // Lines parallel to the z-axis (constant x)
+    glVertex3f(mn, eps, p);
+    glVertex3f(mx, eps, p);
   }
+  glEnd();
+}
 
   /*
    * Resizes the GUI.
@@ -828,13 +780,11 @@ void GUIrenderer::renderCube()
     if (height == 0) height = 1;
     GLfloat ratio = width / (GLfloat) height;
     glViewport(0, 0, width, height);
-
     // Update global viewport
     gViewport[0] = 0;
     gViewport[1] = 0;
     gViewport[2] = width;
     gViewport[3] = height;
-
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);

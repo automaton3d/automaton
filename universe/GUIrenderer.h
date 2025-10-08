@@ -28,6 +28,7 @@
 #include "model/simulation.h"
 #include "radio.h"
 #include "layers.h"
+#include "GLutils.h"
 
 //#define LAYERS	25	// max layers shown
 #define WIDTH	480     // graph width
@@ -58,7 +59,7 @@ public:
   void renderPlane();
   void renderObjects();
   void renderWavefront();
-  void renderTextObjects();
+  void render2DObjects();
   void renderCounts();
   void renderGadgets();
   void renderMomentum();
@@ -68,8 +69,12 @@ public:
   void renderCenters();
   void renderProgressBar();
   void renderCenterBox(const char* text);
-
   void resize(int width, int height);
+  bool projectPoint(const float obj[3],
+                    const GLdouble modelview[16],
+                    const GLdouble projection[16],
+                    const GLint viewport[4],
+                    float &winX, float &winY);
 
 protected:
     glm::mat4 mProjection;

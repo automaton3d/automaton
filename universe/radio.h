@@ -27,13 +27,18 @@ public:
 
   void draw()
   {
+    drawAt(x, y); // reuse the flexible version
+  }
+
+  void drawAt(int xPos, int yPos)
+  {
     glColor3f(1.0, 1.0, 1.0);
     glBegin(GL_LINE_LOOP);
     for (int i = 0; i < 360; ++i)
     {
       float angle = i * (3.14159 / 180);
-      float dx = x + 8 * cos(angle);
-      float dy = y + 8 * sin(angle);
+      float dx = xPos + 8 * cos(angle);
+      float dy = yPos + 8 * sin(angle);
       glVertex2f(dx, dy);
     }
     glEnd();
@@ -42,12 +47,12 @@ public:
     {
       glColor3f(0.0, 1.0, 0.0);
       glBegin(GL_TRIANGLE_FAN);
-      glVertex2f(x, y);  // Center of the circle
+      glVertex2f(xPos, yPos);
       for (int i = 0; i <= 360; ++i)
       {
         float angle = i * (3.14159 / 180);
-        float dx = x + 8 * cos(angle);
-        float dy = y + 8 * sin(angle);
+        float dx = xPos + 8 * cos(angle);
+        float dy = yPos + 8 * sin(angle);
         glVertex2f(dx, dy);
       }
       glEnd();
@@ -55,31 +60,17 @@ public:
     glPointSize(2);
     glBegin(GL_POINTS);
     glColor3f(1.0, 1.0, 1.0);
-    glVertex2f(x, y);
+    glVertex2f(xPos, yPos);
     glEnd();
-    framework::drawString8(label, x + 8 + 10, y);
+    framework::drawString8(label, xPos + 8 + 10, yPos);
     glFlush();
   }
 
-  void setSelected(bool isSelected)
-  {
-    selected = isSelected;
-  }
+  void setSelected(bool isSelected) { selected = isSelected; }
+  bool isSelected() const { return selected; }
 
-  bool isSelected() const
-  {
-    return selected;
-  }
-
-  int getX() const
-  {
-    return x;
-  }
-
-  int getY() const
-  {
-    return y;
-  }
+  int getX() const { return x; }
+  int getY() const { return y; }
 };
 
 #endif /* RADIO_H_ */

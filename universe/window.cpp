@@ -53,13 +53,13 @@ namespace framework
     if (!primaryMonitor)
     {
       glfwTerminate();
-        return 1;
+      return 1;
     }
     const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
     if (!mode)
     {
       glfwTerminate();
-        return 1;
+      return 1;
     }
     // Calculate the position to center the window
     int xPos = (mode->width - 300) / 2;
@@ -132,6 +132,10 @@ namespace framework
   {
 	int width, height;
     glfwGetWindowSize(window, &width, &height);
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    // Convert to OpenGL coordinates consistently
+    ypos = height - ypos;
     switch(action)
     {
       case GLFW_PRESS:
@@ -164,8 +168,8 @@ namespace framework
              {
                // Toggle the clicked checkbox
                checkbox.setState(!checkbox.getState());
-               // Optional: notify that this specific checkbox changed
                instance().onDelayToggled(&checkbox);
+               break;
              }
            }
            // Handle view points
@@ -187,8 +191,8 @@ namespace framework
                  {
                    // Isometric view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                   instance().mCamera.setEye(length, length, length);
-                   instance().mCamera.setUp(0, 1, 0);
+                   instance().mCamera.setEye(glm::vec3(length, length, length));
+                   instance().mCamera.setUp(glm::vec3(0, 1, 0));
                    instance().mCamera.update();
                    instance().mInteractor.setCamera(& instance().mCamera);
                  }
@@ -196,8 +200,8 @@ namespace framework
                  {
                    // XY view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                   instance().mCamera.setEye(0,0,length);
-                   instance().mCamera.setUp(1,0,0);
+                   instance().mCamera.setEye(glm::vec3(0,0,length));
+                   instance().mCamera.setUp(glm::vec3(1,0,0));
                    instance().mCamera.update();
                    instance().mInteractor.setCamera(& instance().mCamera);
                  }
@@ -205,8 +209,8 @@ namespace framework
                  {
                    // YZ view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                   instance().mCamera.setEye(length,0,0);
-                   instance().mCamera.setUp(0,1,0);
+                   instance().mCamera.setEye(glm::vec3(length,0,0));
+                   instance().mCamera.setUp(glm::vec3(0,1,0));
                    instance().mCamera.update();
                    instance().mInteractor.setCamera(& instance().mCamera);
                  }
@@ -214,8 +218,8 @@ namespace framework
                  {
                    // ZX view
                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                   instance().mCamera.setEye(0,length,0);
-                   instance().mCamera.setUp(1,0,0);
+                   instance().mCamera.setEye(glm::vec3(0,length,0));
+                   instance().mCamera.setUp(glm::vec3(1,0,0));
                    instance().mCamera.update();
                    instance().mInteractor.setCamera(& instance().mCamera);
                  }
@@ -337,32 +341,32 @@ namespace framework
              // Snap view to axis.
              length = glm::length(instance().mCamera.getEye() -
                                   instance().mCamera.getCenter());
-             instance().mCamera.setEye(length,0,0);
-             instance().mCamera.setUp(0,1,0);
+             instance().mCamera.setEye(glm::vec3(length,0,0));
+             instance().mCamera.setUp(glm::vec3(0,1,0));
              instance().mCamera.update();
              instance().mInteractor.setCamera(& instance().mCamera);
              break;
          case GLFW_KEY_Y:
              length = glm::length(instance().mCamera.getEye() -
                                   instance().mCamera.getCenter());
-             instance().mCamera.setEye(0,length,0);
-             instance().mCamera.setUp(1,0,0);
+             instance().mCamera.setEye(glm::vec3(0,length,0));
+             instance().mCamera.setUp(glm::vec3(1,0,0));
              instance().mCamera.update();
              instance().mInteractor.setCamera(& instance().mCamera);
              break;
          case GLFW_KEY_Z:
            length = glm::length(instance().mCamera.getEye() -
                                   instance().mCamera.getCenter());
-           instance().mCamera.setEye(0,0,length);
-           instance().mCamera.setUp(1,0,0);
+           instance().mCamera.setEye(glm::vec3(0,0,length));
+           instance().mCamera.setUp(glm::vec3(1,0,0));
            instance().mCamera.update();
            instance().mInteractor.setCamera(& instance().mCamera);
            break;
          case GLFW_KEY_O:
            // Isometric view
            length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-           instance().mCamera.setEye(length, length, length);
-           instance().mCamera.setUp(0, 1, 0);
+           instance().mCamera.setEye(glm::vec3(length, length, length));
+           instance().mCamera.setUp(glm::vec3(0, 1, 0));
            instance().mCamera.update();
            instance().mInteractor.setCamera(& instance().mCamera);
            break;
@@ -442,7 +446,7 @@ namespace framework
         automaton::simulation();
         // Transfer data to the GUI
         automaton::updateBuffer();
-        timer++;
+        framework::timer++;
       }
       else
       {
@@ -502,8 +506,7 @@ namespace framework
     glfwSetMouseButtonCallback(mWindow, & RenderWindowGLFW::buttonCallback);
 
 
-    //glfwSetMouseButtonCallback(mWindow, mouse_button_callback);
-    glfwSetCursorPosCallback(mWindow, LayerSlider::onMouseDrag);
+    glfwSetMouseButtonCallback(mWindow, buttonCallback);
 
     glfwSetScrollCallback(mWindow, & RenderWindowGLFW::scrollCallback);
     glfwSetWindowSizeCallback(mWindow, &RenderWindowGLFW::sizeCallback);
@@ -514,16 +517,14 @@ namespace framework
     sizeCallback(mWindow, width, height); // Set initial size.
     // Isometric view
     int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-    instance().mCamera.setEye(length, length, length);
-    instance().mCamera.setUp(0, 1, 0);
+    instance().mCamera.setEye(glm::vec3(length, length, length));
+    instance().mCamera.setUp(glm::vec3(0, 1, 0));
     instance().mCamera.update();
     instance().mInteractor.setCamera(& instance().mCamera);
     // Launch the simulation thread
     DWORD dwThreadId;
     HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, this, 0, &dwThreadId);
     CloseHandle(hSimulateThread);
-    // Hide the cursor
-//    glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     // Enter the visualization loop
     while (!glfwWindowShouldClose(mWindow))
     {
@@ -551,21 +552,18 @@ namespace framework
 
 /************************************
  *                                  *
- *          Entry point.            *
- *      (Called by the OS)          *
+ *     Simulation entry point.      *
+ *      (Called by the Splash)      *
  *                                  *
  ************************************/
 
 #ifdef GRAPH // Create the graphical version
 
-  int main(int argc, char *argv[])
+  int runSimulation()
   {
-    glutInit(&argc, argv);
-    if (!glfwInit())
-      return EXIT_FAILURE;
     Beep(1000, 80);
     return framework::RenderWindowGLFW::instance().run();
- }
+  }
 
 #else  // Create the text only version
 
