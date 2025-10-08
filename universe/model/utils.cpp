@@ -9,9 +9,8 @@
 
 namespace automaton
 {
-  extern bool reloc_x[W_DIM], reloc_y[W_DIM], reloc_z[W_DIM];
   extern Cell lattice_curr[EL][EL][EL][W_DIM];
-  extern Cell lattice_draft[EL][EL][EL][W_DIM];
+  extern Cell lattice_mirror[EL][EL][EL][W_DIM];
   COLORREF *voxels;
 
   /**
@@ -38,10 +37,22 @@ namespace automaton
           Cell &cell = lattice_curr[x][y][z][w];
           if (cell.t == cell.d)
           {
-            if (cell.a == W_DIM)
-              voxels[index3D] = RGB(255, 0, 255);    // Cyan voxel
+       	    if (cell.a == W_DIM)
+        	{
+        	  voxels[index3D] = RGB(255, 0, 0);
+            }
+            else if (cell.t == cell.d)
+            {
+              voxels[index3D] = RGB(255, 255, 255);
+            }
+            else if (cell.cB)
+            {
+              voxels[index3D] = RGB(0, 0, 255);
+            }
             else
-              voxels[index3D] = RGB(255, 255, 255);  // White voxel
+            {
+              voxels[index3D] = RGB(0, 0, 0);
+            }
           }
           else
           {
@@ -73,7 +84,11 @@ namespace automaton
   {
     double magnitude = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
     // Avoid division by zero
-    if (magnitude > 0.0)
+    if (magnitude <= 1e-12)
+    {
+      vec[0] = 1.0; vec[1] = 0.0; vec[2] = 0.0; // Vetor padrão
+    }
+    else if (magnitude > 0.0)
     {
       vec[0] /= magnitude;
       vec[1] /= magnitude;
@@ -181,209 +196,6 @@ namespace automaton
   }
 
   /*
-   * Circular Shift in the Fourth Dimension W
-   */
-  void shiftW()
-  {
-    // Iterate through each 3D grid position
-    for (int x = 0; x < EL; x++)
-    {
-      for (int y = 0; y < EL; y++)
-      {
-        for (int z = 0; z < EL; z++)
-        {
-          // Save the last element in the 4th dimension for wrapping
-          Cell temp = lattice_draft[x][y][z][W_DIM - 1];
-          // Shift elements in the 4th dimension "up"
-          for (unsigned w = W_DIM - 1; w > 0; w--)
-          {
-            lattice_draft[x][y][z][w] = lattice_draft[x][y][z][w - 1];
-          }
-          // Place the saved last element at the start of the 4th dimension
-          lattice_draft[x][y][z][0] = temp;
-        }
-      }
-    }
-  }
-
-  /**
-   * Circular shift in the X direction.
-   * @w the layer index
-   */
-  void shiftX(unsigned w)
-  {
-    // Reset relocation flag
-    reloc_x[w] = false;
-    // Temporary storage for the rightmost column of each xz plane
-    Cell temp[EL][EL];
-    // Copy the rightmost column to the temporary storage
-    for (unsigned int y = 0; y < EL; ++y)
-    {
-      for (unsigned int z = 0; z < EL; ++z)
-      {
-        temp[y][z] = lattice_draft[EL - 1][y][z][w];
-      }
-    }
-    // Shift all other columns one position to the right
-    for (unsigned int x = EL - 1; x > 0; --x)
-    {
-      for (unsigned int y = 0; y < EL; ++y)
-      {
-        for (unsigned int z = 0; z < EL; ++z)
-        {
-          Cell &draft = lattice_draft[x][y][z][w];
-          draft = lattice_draft[(x - 1 + EL) % EL][y][z][w];
-          if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
-          {
-            draft.a = w;
-            draft.t = 0;
-          }
-          else
-          {
-            draft.a = W_DIM;
-          }
-        }
-      }
-    }
-    // Copy the stored rightmost column to the leftmost column
-    for (unsigned int y = 0; y < EL; ++y)
-    {
-      for (unsigned int z = 0; z < EL; ++z)
-      {
-        Cell &draft = lattice_draft[0][y][z][w];
-        draft = temp[y][z];
-        if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
-        {
-          draft.a = w;
-          draft.t = 0;
-        }
-        else
-        {
-          draft.a = W_DIM;
-        }
-      }
-    }
-  }
-
-  /**
-   * Circular shift in the Y direction.
-   * @w the layer index
-   */
-  void shiftY(unsigned w)
-  {
-    // Reset relocation flag
-    reloc_y[w] = false;
-    // Temporary storage for the topmost row of each xz plane
-    Cell temp[EL][EL];
-    // Copy the topmost row to the temporary storage
-    for (unsigned int x = 0; x < EL; ++x)
-    {
-      for (unsigned int z = 0; z < EL; ++z)
-      {
-        temp[x][z] = lattice_draft[x][EL - 1][z][w];
-      }
-    }
-    // Shift all other rows one position upwards
-    for (unsigned int y = EL - 1; y > 0; --y)
-    {
-      for (unsigned int x = 0; x < EL; ++x)
-      {
-        for (unsigned int z = 0; z < EL; ++z)
-        {
-          Cell &draft = lattice_draft[x][y][z][w];
-          draft = lattice_draft[x][(y -1 + EL) % EL][z][w];
-          if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
-          {
-            draft.a = w;
-            draft.t = 0;
-          }
-          else
-          {
-            draft.a = W_DIM;
-          }
-        }
-      }
-    }
-    // Copy the stored topmost row to the bottommost row
-    for (unsigned int x = 0; x < EL; ++x)
-    {
-      for (unsigned int z = 0; z < EL; ++z)
-      {
-        Cell &draft = lattice_draft[x][0][z][w];
-        draft = temp[x][z];
-        if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
-        {
-          draft.a = w;
-          draft.t = 0;
-        }
-        else
-        {
-          draft.a = W_DIM;
-        }
-      }
-    }
-  }
-
-  /**
-   * Circular shift in the Z direction.
-   * @w the layer index
-   */
-  void shiftZ(unsigned w)
-  {
-    // Reset relocation flag
-    reloc_z[w] = false;
-    // Temporary storage for the frontmost slice of each xy plane
-    Cell temp[EL][EL];
-    // Copy the frontmost slice to the temporary storage
-    for (unsigned int x = 0; x < EL; ++x)
-    {
-      for (unsigned int y = 0; y < EL; ++y)
-      {
-        temp[x][y] = lattice_draft[x][y][EL - 1][w];
-      }
-    }
-    // Shift all other slices one position towards the front
-    for (unsigned int z = EL - 1; z > 0; --z)
-    {
-      for (unsigned int x = 0; x < EL; ++x)
-      {
-        for (unsigned int y = 0; y < EL; ++y)
-        {
-          Cell &draft = lattice_draft[x][y][z][w];
-          draft = lattice_draft[x][y][(z -1 + EL) % EL][w];
-          if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
-          {
-            draft.a = w;
-            draft.t = 0;
-          }
-          else
-          {
-            draft.a = W_DIM;
-          }
-        }
-      }
-    }
-    // Copy the stored frontmost slice to the backmost slice
-    for (unsigned int x = 0; x < EL; ++x)
-    {
-      for (unsigned int y = 0; y < EL; ++y)
-      {
-        Cell &draft = lattice_draft[x][y][0][w];
-        draft = temp[x][y];
-        if (draft.x[0] == CENTER && draft.x[1] == CENTER && draft.x[2] == CENTER)
-        {
-          draft.a = w;
-          draft.t = 0;
-        }
-        else
-        {
-          draft.a = W_DIM;
-        }
-      }
-    }
-  }
-
-  /*
    * Function to generate uniformly distributed points on the sphere's surface
    */
   std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int SIDE)
@@ -409,6 +221,51 @@ namespace automaton
     std::sort(points.begin(), points.end());
     points.erase(std::unique(points.begin(), points.end()), points.end());
     return points;
+  }
+
+  /**
+   * Shifts lattice_mirror slices along w-dimension with periodic boundary conditions
+   */
+  void shiftMirror()
+  {
+    // Temporary storage for the last slice in W (to wrap around)
+    Cell temp[EL][EL][EL]= {};
+    // Save the last W-slice
+    for (int x = 0; x < EL; ++x)
+      for (int y = 0; y < EL; ++y)
+        for (int z = 0; z < EL; ++z)
+          temp[x][y][z] = lattice_mirror[x][y][z][W_DIM - 1];
+    // Shift all slices forward
+    for (int x = 0; x < EL; ++x)
+      for (int y = 0; y < EL; ++y)
+        for (int z = 0; z < EL; ++z)
+          for (int w = W_DIM - 1; w > 0; --w)
+            lattice_mirror[x][y][z][w] = lattice_mirror[x][y][z][w - 1];
+    // Wrap the saved slice into position 0
+    for (int x = 0; x < EL; ++x)
+      for (int y = 0; y < EL; ++y)
+        for (int z = 0; z < EL; ++z)
+            lattice_mirror[x][y][z][0] = temp[x][y][z];
+  }
+
+  /*
+   * Tests color neutrality.
+   */
+  bool neutralColor(Cell &a, Cell &b)
+  {
+    int color_a = a.ch & 0x07;
+    int color_b = b.ch & 0x07;
+    return (color_a ^ color_b) == 0x07;
+  }
+
+  /*
+   * Tests weak neutrality.
+   */
+  bool neutralWeak(Cell &a, Cell &b)
+  {
+    int weak_a = (a.ch >> 3) & 0x03;
+    int weak_b = (b.ch >> 3) & 0x03;
+    return (weak_a ^ weak_b) == 0x03;
   }
 
   /**
@@ -451,6 +308,36 @@ namespace automaton
    */
   bool sanityTest()
   {
+    cout << "RMAX\t" << RMAX << endl;
+    cout << "CONVOL\t" << CONVOL << endl;
+	cout << "SLOT1\t" << SLOT1 << endl;
+	cout << "SLOT2t" << SLOT2 << endl;
+	cout << "SLOT3\t" << SLOT3 << endl;
+	cout << "SLOT4\t" << SLOT4 << endl;
+	cout << "DIFFUSION\t" << DIFFUSION << endl;
+	cout << "RELOC\t" << RELOC << endl;
+    return (CONVOL < SLOT1 && SLOT1 < SLOT2 && SLOT2 < SLOT3 && SLOT3 < SLOT4 && SLOT4 < DIFFUSION && DIFFUSION < RELOC);
+  }
+
+  bool sanityTest2()
+  {
+    for (unsigned w = 0; w < EL; w++)
+    {
+      for (unsigned z = 0; z < EL; z++)
+      {
+        for (unsigned y = 0; y < EL; y++)
+        {
+          for (unsigned x = 0; x < EL; x++)
+          {
+            Cell& cell = lattice_curr[x][y][z][w];
+            if (!ZERO(cell.c))
+            {
+              return false;
+            }
+          }
+        }
+      }
+    }
     return true;
   }
 

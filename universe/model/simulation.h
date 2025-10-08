@@ -21,10 +21,14 @@
 #include <thread>
 #include <chrono>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 // Simulation symbols
-#define EL        11                       // An odd number
+#define EL        31                       // An odd number
 #define L2        (EL*EL)
-#define W_DIM     (3*L2+1)                 // An even number
+#define W_DIM     2//(3*L2+1)                 // An even number
 #define ORDER     ((int)round(log2(EL)))   // Number of bits
 #define CENTER    ((EL-1)/2)
 #define FCENTER   (EL/2.0)
@@ -125,12 +129,9 @@ namespace automaton
   void markPoints(unsigned p[3], int w);
   void simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
-  void diffuse(Cell& curr, Cell &draft);
-  void relocate(Cell& curr, Cell &draft);
-  void shiftX(unsigned w);
-  void shiftY(unsigned w);
-  void shiftZ(unsigned w);
-  void shiftW();
+  void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up);
+  void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down);
+  void reissue(Cell& curr, Cell &draft);
   void updateBuffer();
   std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
   void normalize(double vec[3]);
@@ -138,11 +139,13 @@ namespace automaton
   void printLattice(int w);
   bool neutralColor(Cell &a, Cell &b);
   bool neutralWeak(Cell &a, Cell &b);
+  void shiftMirror();
 
   // Tests
 
   void printConstants();
   bool sanityTest();
+  bool sanityTest2();
 
   /// Cross variables ///
   extern COLORREF* voxels;
@@ -159,6 +162,10 @@ namespace automaton
   extern const unsigned RELOC;
   extern const unsigned TRANSP;
   extern const unsigned FRAME;
+  extern const unsigned SLOT1;
+  extern const unsigned SLOT2;
+  extern const unsigned SLOT3;
+  extern const unsigned SLOT4;
 
   /**
    * Tests if two vectors are equal.

@@ -20,6 +20,7 @@ namespace automaton
   // Global variables for lattice (assuming they're vectors, not functions)
   extern Cell lattice_curr[EL][EL][EL][W_DIM];
   extern Cell lattice_draft[EL][EL][EL][W_DIM];
+  extern Cell lattice_mirror[EL][EL][EL][W_DIM];
 
   unsigned dirs[W_DIM][3];
 
@@ -36,7 +37,7 @@ namespace automaton
       char w1 = (w >> 1) % 2;
       char q = w0 ^ w1;
       // Set charge and affinity values
-      cell.ch = (w % 8) | (w0 << 3) | (w1 << 4) | (q << 5);
+      cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
     }
     puts("initCell0 ok.");
   }
@@ -72,31 +73,14 @@ namespace automaton
             double dz = static_cast<double>(z - (double)CENTER);
             double d = sqrt(dx * dx + dy * dy + dz * dz);
             // Set Euclidean distance
-            cell.d = static_cast<unsigned>(d);
+            cell.d = static_cast<unsigned>(std::ceil(d));
           }
         }
       }
     }
+    // Inicializar lattice_mirror for safety
+    std::fill(&lattice_mirror[0][0][0][0], &lattice_mirror[0][0][0][0] + BLOCK, Cell());
     puts("initGeneral ok.");
-  }
-
-  /*
-   * Initializes charges and affinity in the central
-   * cell of every layer.
-   */
-  void initCharges()
-  {
-    for (unsigned w = 0; w < W_DIM; w++)
-    {
-      // Access the central cell in the current layer (w-slice)
-      Cell& cell = lattice_curr[CENTER][CENTER][CENTER][w];
-      char w0 = w % 2;
-      char w1 = (w >> 1) % 2;
-      char q = w0 ^ w1;
-      // Set charge and affinity values
-      cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
-    }
-    puts("initCharges ok.");
   }
 
   void initMomentum()
@@ -119,39 +103,55 @@ namespace automaton
       struct WeightedPoint { Point p; double weight; };
       std::vector<WeightedPoint> wpoints;
       wpoints.reserve(points.size());
+
+      // Adjustable bias parameter (0.3 = mild, 0.5 = moderate, 1.0 = strong)
+      const double BIAS_STRENGTH = 0.3;  // Small bias for monopoles
       for (const auto& pt : points)
       {
         const double dz = pt.z - cz;
-        const double theta = M_PI/2.0 + (dz / R) * M_PI; // [-R,R] -> [pi/2,3pi/2]
-        const double w = std::sin(theta);
-        wpoints.push_back({pt, w*w}); // sin^2
+        // Polar angle from z-axis: 0 at north pole, π at south pole
+        const double cos_polar = dz / R;  // Ranges from -1 (south) to +1 (north)
+        // Weight favors poles: high weight at |cos_polar| ≈ 1, low at equator
+        // Use cos²(polar_angle) raised to BIAS_STRENGTH
+        const double w = std::pow(cos_polar * cos_polar, BIAS_STRENGTH);
+        wpoints.push_back({pt, w});
       }
+      // Sort by weight (descending - highest weight first = polar points)
       std::sort(wpoints.begin(), wpoints.end(),
            [](const WeightedPoint& a, const WeightedPoint& b){ return a.weight > b.weight; });
-      // --- Clamp to the number we actually need/have ---
+      // Keep the highest-weighted points (polar bias for monopoles)
       const size_t target = std::min<size_t>(wpoints.size(), static_cast<size_t>(W_DIM));
-      size_t N = (wpoints.size() > target) ? (wpoints.size() - target) : 0;
-      // Safe erase range
-      wpoints.erase(wpoints.begin(), wpoints.begin() + static_cast<std::ptrdiff_t>(N));
+
+      // Keep high-weight (polar) points by removing from END
+      if (wpoints.size() > target)
+      {
+        wpoints.erase(wpoints.begin() + target, wpoints.end());
+      }
       std::cout << "W_DIM (requested): " << W_DIM << "\n";
       std::cout << "Shell points: " << points.size() << "\n";
-      std::cout << "Remaining points (available): " << wpoints.size() << "\n";
-      // Use the min to avoid out-of-bounds
+      std::cout << "Selected points: " << wpoints.size() << "\n";
+      std::cout << "Polar bias strength: " << BIAS_STRENGTH
+                << " (0.3=mild, 0.5=moderate, 1.0=strong)\n";
+      std::cout << "Distribution: favors north/south poles for monopole simulation\n";
+      // 5) Assign to dirs[] and mark lattice
       const size_t count = std::min<size_t>(W_DIM, wpoints.size());
       for (size_t w = 0; w < count; ++w)
       {
         dirs[w][0] = wpoints[w].p.x;
         dirs[w][1] = wpoints[w].p.y;
         dirs[w][2] = wpoints[w].p.z;
-        unsigned p[3] =
+        if (wpoints[w].p.x >= 0 && wpoints[w].p.x < EL && wpoints[w].p.y >= 0 && wpoints[w].p.y < EL && wpoints[w].p.z >= 0 && wpoints[w].p.z < EL)
         {
-          static_cast<unsigned>(wpoints[w].p.x),
-          static_cast<unsigned>(wpoints[w].p.y),
-          static_cast<unsigned>(wpoints[w].p.z)
-        };
-        markPoints(p, static_cast<unsigned>(w));
+          unsigned p[3] =
+          {
+            static_cast<unsigned>(wpoints[w].p.x),
+            static_cast<unsigned>(wpoints[w].p.y),
+            static_cast<unsigned>(wpoints[w].p.z)
+          };
+          markPoints(p, static_cast<unsigned>(w));
+        }
       }
-      puts("initMomentum ok");
+      puts("initMomentum ok (polar bias for monopole simulation)");
   }
 
   void initSine2()
@@ -317,6 +317,9 @@ namespace automaton
         break;
       case 6:
     	replicate();
+        std::copy(&lattice_curr[0][0][0][0],
+                  &lattice_curr[0][0][0][0] + BLOCK,
+                  &lattice_mirror[0][0][0][0]);
         break;
       case 7:
         assert(sanityTest());
