@@ -26,9 +26,9 @@
 #endif
 
 // Simulation symbols
-#define EL        31                       // An odd number
+#define EL        17                       // An odd number
 #define L2        (EL*EL)
-#define W_DIM     2//(3*L2+1)                 // An even number
+#define W_DIM     EL	//(3*L2+1)                 // An even number
 #define ORDER     ((int)round(log2(EL)))   // Number of bits
 #define CENTER    ((EL-1)/2)
 #define FCENTER   (EL/2.0)
@@ -131,7 +131,9 @@ namespace automaton
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
   void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up);
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down);
-  void reissue(Cell& curr, Cell &draft);
+  void reissue(Cell& curr, Cell &draft, Cell &forward,
+		       Cell &north, Cell &west, Cell &down,
+		       Cell &south, Cell &east, Cell &up);
   void updateBuffer();
   std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
   void normalize(double vec[3]);
@@ -140,6 +142,7 @@ namespace automaton
   bool neutralColor(Cell &a, Cell &b);
   bool neutralWeak(Cell &a, Cell &b);
   void shiftMirror();
+  bool sanityTest3();
 
   // Tests
 
@@ -166,6 +169,9 @@ namespace automaton
   extern const unsigned SLOT2;
   extern const unsigned SLOT3;
   extern const unsigned SLOT4;
+  extern const unsigned SLOT5;
+  extern const unsigned SLOT6;
+  extern const unsigned SLOT7;
 
   /**
    * Tests if two vectors are equal.

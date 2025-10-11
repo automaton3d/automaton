@@ -6,7 +6,7 @@
  */
 
 #include "simulation.h"
-
+bool ctrl = true;
 namespace automaton
 {
 
@@ -14,12 +14,16 @@ namespace automaton
   {
     if (curr.t == curr.d)
     {
-      if (curr.t == RMAX / 2 && curr.pB)
+      // Assure it is unique
+      if (curr.t == RMAX / 2 && curr.pB && curr.x[3] == 0 &&
+    	 !curr.cB && curr.a != W_DIM && ctrl)
       {
     	draft.c[0] = curr.x[0];  // This is the pBit location
         draft.c[1] = curr.x[1];
         draft.c[2] = curr.x[2];
         draft.cB = true;
+        draft.a = W_DIM;
+        ctrl = false;
       }
     }
     return false;
@@ -74,8 +78,6 @@ namespace automaton
           // Momentum
           if (curr.pB && mirror.pB)  // Nor correct!!!! never happens
           {
-            if (curr.t > 0)
-              printf("pB=pB t=%d\n", curr.t);
             // Graviton
             draft.f += curr.t;
             draft.s2B &= curr.phiB;
@@ -361,132 +363,81 @@ namespace automaton
     return false;
   }
 
-  void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up)
+  int count = 0;
+
+  void diffuse(Cell& curr, Cell &draft, Cell &forward,
+		       Cell &north, Cell &west, Cell &down,
+		       Cell &south, Cell &east, Cell &up)
   {
-    if (curr.k < SLOT1)
-    {
-      // Free the cell occupied by the orphan
-      if ((north.a == W_DIM && north.d < curr.d) ||
-    	  (west.a == W_DIM && west.d < curr.d) ||
-		  (down.a == W_DIM && down.d < curr.d) ||
-          (south.a == W_DIM && south.d < curr.d) ||
-          (east.a == W_DIM && east.d < curr.d) ||
-          (up.a == W_DIM && up.d < curr.d))
+    /****** SLOT I ******/
+	if (curr.k < SLOT1)
+	{
+	  // Propagate orphans outward (inclusive)
+      if ((north.a == W_DIM && curr.d >= north.d) ||
+	      (west.a == W_DIM && curr.d >= west.d)   ||
+	      (down.a == W_DIM && curr.d >= down.d)   ||
+	      (south.a == W_DIM && curr.d >= south.d) ||
+	      (east.a == W_DIM && curr.d >= east.d)   ||
+	      (up.a == W_DIM && curr.d >= up.d))
       {
-    	if (curr.a == W_DIM)
-          draft.a = curr.x[3];
+        draft.a = W_DIM;
       }
-      // Patch
-      if ((north.a == W_DIM && north.d > curr.d) ||
-    	  (west.a == W_DIM && west.d > curr.d) ||
-		  (down.a == W_DIM && down.d > curr.d) ||
-          (south.a == W_DIM && south.d > curr.d) ||
-          (east.a == W_DIM && east.d > curr.d) ||
-          (up.a == W_DIM && up.d > curr.d))
-      {
-    	draft.a = W_DIM;
-      }
+      // Propagate cB inward (inclusive)
+      draft.cB = (north.cB && curr.d <= north.d) ||
+                 (west.cB && curr.d <= west.d)   ||
+                 (down.cB && curr.d <= down.d)   ||
+                 (south.cB && curr.d <= south.d) ||
+                 (east.cB && curr.d <= east.d)   ||
+                 (up.cB && curr.d <= up.d);
       // Hunting using hB
       if (curr.d == curr.t)
       {
         if (north.hB)
         {
-          // Update vector c
           draft.c[0] = (north.c[0] + 1) % EL;
-          if (curr.sB)
-          {
-            draft.hB = false;
-            draft.cB = true;
-          }
-          else
-          {
-            draft.hB = true;
-          }
+          curr.sB = !draft.hB;
         }
         else if (west.hB)
         {
-          // Update vector c
           draft.c[1] = (west.c[1] + 1) % EL;
-          if (curr.sB)
-          {
-            draft.hB = false;
-            draft.cB = true;
-          }
-          else
-          {
-            draft.hB = true;
-          }
+          curr.sB = !draft.hB;
         }
         else if (down.hB)
         {
-          // Update vector c
           draft.c[2] = (down.c[2] + 1) % EL;
-          if (curr.sB)
-          {
-            draft.hB = false;
-            draft.cB = true;
-          }
-          else
-          {
-            draft.hB = true;
-          }
+          curr.sB = !draft.hB;
         }
         else if (south.hB)
         {
-          // Update vector c
           draft.c[0] = (south.c[0] + 1) % EL;
-          if (curr.sB)
-          {
-            draft.hB = false;
-            draft.cB = true;
-          }
-          else
-          {
-            draft.hB = true;
-          }
+          curr.sB = !draft.hB;
         }
         else if (east.hB)
         {
-          // Update vector c
           draft.c[1] = (east.c[1] + 1) % EL;
-          if (curr.sB)
-          {
-            draft.hB = false;
-            draft.cB = true;
-          }
-          else
-          {
-            draft.hB = true;
-          }
+          curr.sB = !draft.hB;
         }
         else if (up.hB)
         {
-          // Update vector c
           draft.c[2] = (up.c[2] + 1) % EL;
-          if (curr.sB)
-          {
-            draft.hB = false;
-            draft.cB = true;
-          }
-          else
-          {
-            draft.hB = true;
-          }
+          curr.sB = !draft.hB;
         }
       }
-    }
+	}
+    /****** SLOT II ******/
     else if (curr.k < SLOT2)
     {
       // Diffuse c vector in 3D
-      if (north.c[0] || north.c[1] || north.c[2])
+      if (!ZERO(north.c))
       {
         draft.c[0] = north.c[0];
     	draft.c[1] = north.c[1];
-    	draft.c[2] = north.c[2];
-    	if (north.kB)
-    	  draft.kB = north.kB;
+      	draft.c[2] = north.c[2];
+        // Diffuse collapse
+      	if (north.kB)
+      	  draft.kB = north.kB;
       }
-      if (west.c[0] || west.c[1] || west.c[2])
+      if (!ZERO(west.c))
       {
         draft.c[0] = west.c[0];
         draft.c[1] = west.c[1];
@@ -495,7 +446,7 @@ namespace automaton
         if (west.kB)
           draft.kB = west.kB;
       }
-      if (down.c[0] || down.c[1] || down.c[2])
+      if (!ZERO(down.c))
       {
         draft.c[0] = down.c[0];
         draft.c[1] = down.c[1];
@@ -504,35 +455,10 @@ namespace automaton
         if (down.kB)
           draft.kB = down.kB;
       }
-      if (south.c[0] || south.c[1] || south.c[2])
-      {
-        draft.c[0] = south.c[0];
-    	draft.c[1] = south.c[1];
-    	draft.c[2] = south.c[2];
-    	if (south.kB)
-    	  draft.kB = south.kB;
-      }
-      if (east.c[0] || east.c[1] || east.c[2])
-      {
-        draft.c[0] = east.c[0];
-        draft.c[1] = east.c[1];
-        draft.c[2] = east.c[2];
-        // Diffuse collapse
-        if (east.kB)
-          draft.kB = east.kB;
-      }
-      if (up.c[0] || up.c[1] || up.c[2])
-      {
-        draft.c[0] = up.c[0];
-        draft.c[1] = up.c[1];
-        draft.c[2] = up.c[2];
-        // Diffuse collapse
-        if (up.kB)
-          draft.kB = up.kB;
-      }
       // Propagate frequency
       draft.f = max(down.f, max(west.f, max(north.f, max(south.f, max(east.f, up.f)))));
     }
+    /****** SLOT III ******/
     else if (curr.k < SLOT3)
     {
       // Propagate kB in W dimension
@@ -541,7 +467,6 @@ namespace automaton
         // Calculate delta: difference between bubble centers
         // If forward.c points to forward's reissue point,
         // we need to adjust it relative to curr's position
-
         // The delta is the offset between where forward is centered
         // versus where curr is centered
         int delta_x = (curr.x[0] - forward.x[0] + EL) % EL;
@@ -557,38 +482,19 @@ namespace automaton
       }
       draft.f = max(forward.f, curr.f);
     }
+    /****** SLOT IV ******/
     else if (curr.k < SLOT4)
     {
-      draft.hB = false;
-      if (curr.d == curr.t && curr.cB)
+      // Erase all cB's	and change time to the last tick, so in the next FRAME cycle
+      // it will be t=0.
+      if (curr.cB)
       {
-    	draft.a = W_DIM; // Mark as orphan
-      }
-      else if (curr.a == W_DIM)
-      {
-    	draft.a = W_DIM; // Preserve orphan
-      }
-      if (curr.d == curr.t && curr.t == RMAX / 2 && !curr.cB)
-      {
-    	if (north.cB || west.cB || down.cB || south.cB || east.cB || up.cB)
-    	{
-    	  draft.cB = true; // Propagate cB across shell
-    	}
-      }
-      if (curr.d < curr.t)
-      {
-    	if (!curr.cB)
-    	{
-    	  if ((north.cB && north.d == curr.d + 1) ||
-    	      (west.cB && west.d == curr.d + 1) ||
-    	      (down.cB && down.d == curr.d + 1) ||
-    	      (south.cB && south.d == curr.d + 1) ||
-    	      (east.cB && east.d == curr.d + 1) ||
-    	      (up.cB && up.d == curr.d + 1))
-    	  {
-    	    draft.cB = true; // Inward propagation
-    	  }
-    	}
+   	    draft.cB = false;
+        draft.t = RMAX - 1;
+        // Reset propagation status
+        draft.kB = false;
+        draft.hB = false;
+        draft.bB = false;
       }
     }
   }
@@ -598,17 +504,20 @@ namespace automaton
    */
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
   {
-    if (curr.k < DIFFUSION + (EL - 1) && north.c[0] > 0)
+    /****** SLOT V ******/
+    if (curr.k < SLOT5 && north.c[0] > 0)
     {
       draft = north;
       draft.c[0]--;
     }
-    else if (curr.k < DIFFUSION + 2*(EL - 1) && west.c[1] > 0)
+    /****** SLOT VI ******/
+    else if (curr.k < SLOT6 && west.c[1] > 0)
     {
       draft = west;
       draft.c[1]--;
     }
-    else if (curr.k < DIFFUSION + 3*(EL - 1) && down.c[2] > 0)
+    /****** SLOT VII ******/
+    else if (curr.k < SLOT7 && down.c[2] > 0)
     {
       draft = down;
       draft.c[2]--;
@@ -616,27 +525,40 @@ namespace automaton
   }
 
   /**
-   * Reset time for all marked cells.
+   * Prepares new wavefront.
    */
-  void reissue2(Cell& curr, Cell &draft)
+  void reissue(Cell& curr, Cell &draft, Cell &forward,
+		       Cell &north, Cell &west, Cell &down,
+		       Cell &south, Cell &east, Cell &up)
   {
-    if (curr.cB)
+    assert(!curr.cB);
+    // Propagate normal affinity outward, overwriting normal or orphan
+    if (curr.t == curr.d)
     {
-      draft.cB = false;
-      draft.t = 0;
+      if (north.d == curr.d + 1)
+      {
+        draft.a = north.a; // Copy a from inner to outer cell
+      }
+      if (south.d == curr.d + 1)
+      {
+        draft.a = south.a; // Copy a from inner to outer cell
+      }
+      if (east.d == curr.d + 1)
+      {
+        draft.a = east.a; // Copy a from inner to outer cell
+      }
+      if (west.d == curr.d + 1)
+      {
+        draft.a = west.a; // Copy a from inner to outer cell
+      }
+      if (up.d == curr.d + 1)
+      {
+        draft.a = up.a; // Copy a from inner to outer cell
+      }
+      if (down.d == curr.d + 1)
+      {
+        draft.a = down.a; // Copy a from inner to outer cell
+      }
     }
-  }
-
-  // In interaction.cpp: Modify reissue()
-  void reissue(Cell& curr, Cell &draft)
-  {
-    // Only reset the cell if it has completed its propagation (t == d)
-    if (curr.cB && curr.t == curr.d)
-    {
-      draft.cB = false;
-      draft.t = 0;
-      // You may also want to set draft.d = 0 here if you want the cell to fully revert to white
-    }
-    // If curr.cB is true, but t < d, the wave should continue, so we do nothing here.
   }
 }

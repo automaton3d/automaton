@@ -18,14 +18,7 @@ namespace automaton
    */
   void updateBuffer()
   {
-    // Check if the framework is active and if there are any checkboxes
-    if (!framework::active || framework::checkboxes.empty())
-      return;
     int w = framework::list.getSelected();
-    // If no layer is selected, exit the function
-    assert(w >= 0);
-    if (w == -1)
-      return;
     // Iterate over the 3D grid to update the voxel data
     unsigned index3D = 0;
     for (int x = 0; x < EL; x++)
@@ -37,27 +30,30 @@ namespace automaton
           Cell &cell = lattice_curr[x][y][z][w];
           if (cell.t == cell.d)
           {
-       	    if (cell.a == W_DIM)
-        	{
-        	  voxels[index3D] = RGB(255, 0, 0);
-            }
-            else if (cell.t == cell.d)
+            if (cell.a == W_DIM)
             {
-              voxels[index3D] = RGB(255, 255, 255);
-            }
-            else if (cell.cB)
-            {
-              voxels[index3D] = RGB(0, 0, 255);
+              voxels[index3D] = RGB(255, 0, 0); // Red (orphan)
             }
             else
             {
-              voxels[index3D] = RGB(0, 0, 0);
+              voxels[index3D] = RGB(255, 255, 255); // White (wavefront match)
             }
+          }
+          else if (cell.cB)
+          {
+            voxels[index3D] = RGB(0, 0, 255); // Blue (contraction/reissue)
           }
           else
           {
-            voxels[index3D] = RGB(0, 0, 0);          // Black voxel
+            voxels[index3D] = RGB(0, 0, 0); // Black
           }
+          // DEBUG
+          /*
+          if (cell.a == W_DIM && cell.t != cell.d)
+          {
+            voxels[index3D] = RGB(255, 255, 0); //
+          }
+          */
           index3D++;
         }
       }
@@ -319,6 +315,9 @@ namespace automaton
     return (CONVOL < SLOT1 && SLOT1 < SLOT2 && SLOT2 < SLOT3 && SLOT3 < SLOT4 && SLOT4 < DIFFUSION && DIFFUSION < RELOC);
   }
 
+  /**
+   * Check if all c vectors are null.
+   */
   bool sanityTest2()
   {
     for (unsigned w = 0; w < EL; w++)
@@ -331,6 +330,30 @@ namespace automaton
           {
             Cell& cell = lattice_curr[x][y][z][w];
             if (!ZERO(cell.c))
+            {
+              return false;
+            }
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  bool sanityTest3()
+  {
+    for (unsigned w = 0; w < EL; w++)
+    {
+
+      Cell& seed = lattice_curr[0][0][0][w];
+      for (unsigned z = 0; z < EL; z++)
+      {
+        for (unsigned y = 0; y < EL; y++)
+        {
+          for (unsigned x = 0; x < EL; x++)
+          {
+            Cell& cell = lattice_curr[x][y][z][w];
+            if (seed.c[0] != cell.c[0] || seed.c[1] != cell.c[1] || seed.c[2] != cell.c[2])
             {
               return false;
             }
