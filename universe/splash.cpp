@@ -54,7 +54,7 @@ bool loadLogo(const char* filename)
 void drawLogo()
 {
   if (logoTexture == 0)
-	return;
+    return;
   glEnable(GL_TEXTURE_2D);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -73,7 +73,7 @@ void drawLogo()
 }
 
 // Draw a button
-void drawButton(const Button& b)
+void drawButton(const Button& b, bool isDefault = false)
 {
   // Button shadow
   glColor3f(0.1f, 0.1f, 0.1f);
@@ -84,17 +84,17 @@ void drawButton(const Button& b)
     glVertex2f(b.x + b.w + offset, b.y + b.h - offset);
     glVertex2f(b.x + offset,     b.y + b.h - offset);
   glEnd();
-  // Button background
-  glColor3f(0.2f, 0.6f, 0.8f);
+  // Button background (highlight Simulation button if default)
+  glColor3f(isDefault ? 0.3f : 0.2f, isDefault ? 0.7f : 0.6f, isDefault ? 0.9f : 0.8f);
   glBegin(GL_QUADS);
     glVertex2f(b.x,       b.y);
     glVertex2f(b.x + b.w,   b.y);
     glVertex2f(b.x + b.w,   b.y + b.h);
     glVertex2f(b.x,       b.y + b.h);
   glEnd();
-  // Button border
-  glColor3f(0.3f, 0.7f, 0.9f);
-  glLineWidth(2.0f);
+  // Button border (thicker and brighter for default button)
+  glColor3f(isDefault ? 0.5f : 0.3f, isDefault ? 0.9f : 0.7f, isDefault ? 1.0f : 0.9f);
+  glLineWidth(isDefault ? 3.0f : 2.0f);
   glBegin(GL_LINE_LOOP);
     glVertex2f(b.x,       b.y);
     glVertex2f(b.x + b.w,   b.y);
@@ -102,7 +102,7 @@ void drawButton(const Button& b)
     glVertex2f(b.x,       b.y + b.h);
   glEnd();
   // Draw label text (centered)
-  glColor3f(1, 1, 1);
+  glColor3f(1.0f, 1.0f, 1.0f);
   const char* c = b.label;
   int textWidth = 0;
   while (*c)
@@ -110,8 +110,8 @@ void drawButton(const Button& b)
     textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *c);
     c++;
   }
-  float tx = b.x + b.w/2 - (textWidth * 2.0f / glutGet(GLUT_WINDOW_WIDTH));
-  float ty = b.y + b.h/2 - 0.05f;
+  float tx = b.x + b.w/2 - (textWidth * 1.0f / glutGet(GLUT_WINDOW_WIDTH));
+  float ty = b.y + b.h/2 - 0.015f; // Adjusted for better vertical centering
   glRasterPos2f(tx, ty);
   c = b.label;
   while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c++);
@@ -131,8 +131,8 @@ void drawTitle()
   for (float dx = -0.001f; dx <= 0.001f; dx += 0.001f) {
     for (float dy = -0.001f; dy <= 0.001f; dy += 0.001f) {
       glRasterPos2f(tx + dx, ty + dy);
-        c = title;
-        while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c++);
+      c = title;
+      while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c++);
     }
   }
 }
@@ -144,8 +144,8 @@ void display()
   glClear(GL_COLOR_BUFFER_BIT);
   drawTitle();
   drawLogo();
-  drawButton(btn1);
-  drawButton(btn2);
+  drawButton(btn1, true); // Simulation button is default
+  drawButton(btn2, false);
   glutSwapBuffers();
 }
 
@@ -186,6 +186,16 @@ void mouse(int button, int state, int x, int y)
       selection = 2;
       shouldExit = true;
     }
+  }
+}
+
+// Keyboard callback for Enter key
+void keyboard(unsigned char key, int x, int y)
+{
+  if (key == 13) // Enter key
+  {
+    selection = 1; // Select Simulation (default button)
+    shouldExit = true;
   }
 }
 
@@ -288,6 +298,7 @@ int main(int argc, char** argv)
 
   glutDisplayFunc(display);
   glutMouseFunc(mouse);
+  glutKeyboardFunc(keyboard); // Register keyboard callback
   glutIdleFunc(idle);
   glutCloseFunc(closeFunc);
 
@@ -307,10 +318,7 @@ int main(int argc, char** argv)
   // Give time for window to close
   Sleep(100);
 
-
-
   glutInit(&argc, argv);
-
 
   // After glutMainLoop() returns, launch the selected application
   if (selection == 1)

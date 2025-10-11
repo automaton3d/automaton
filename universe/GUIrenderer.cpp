@@ -101,8 +101,8 @@ namespace framework
     checkboxes.push_back(Tickbox(50, 350, "Plane"));     // 8
     checkboxes[0].setState(true);
     checkboxes[5].setState(true);
-    checkboxes[7].setState(true);
-    checkboxes[8].setState(true);
+//    checkboxes[7].setState(true);
+  //  checkboxes[8].setState(true);
     //
     delays.push_back(Tickbox(50, 420, "Convolution"));
     delays.push_back(Tickbox(50, 450, "Diffusion"));
