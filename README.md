@@ -21,8 +21,6 @@ I am passionately dedicated to achieving ambitious goals with my GitHub project,
 
 ## 💚 Support this project via PIX
 
-If you prefer, you can also support via PIX to help cover computational resources:
-
 [![PIX QR Code](pix.jpg)](pix.jpg)  
 **PIX key:** *(scan the QR code above)*  
 
@@ -31,4 +29,5 @@ Your contribution — of any amount — directly helps me continue developing an
 ---
 
 Last update: 10/10/2025
+
 
