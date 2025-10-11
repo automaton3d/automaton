@@ -1,4 +1,5 @@
 # It from bit — a concrete attempt
+
 Hi all,
 
 I'm developing a toy model of the universe using the cellular automaton paradigm. The detailed research ideas are contained in this <A HREF="https://doi.org/10.5281/zenodo.3818302">pdf</A> file.
@@ -16,4 +17,17 @@ The immediate goals of this computational implementation are
 
 I am passionately dedicated to achieving ambitious goals with my GitHub project, and to make this a reality, I require substantial computational power that exceeds my current budget. As an independent developer without funding from any university or organization, I rely on the generous support of <a href="https://patreon.com/user?u=60332830">contributors</a> like you. Your valuable assistance will play a crucial role in propelling this project forward and unlocking its full potential. By becoming a Patreon, you'll be directly empowering advancements and innovations in this project, making a tangible impact on its success. Join me on this exciting journey, and together, we can shape the future of this project and make a lasting difference.
 
-Last update: 4/12/2024
+---
+
+## 💚 Support this project via PIX
+
+If you prefer, you can also support via PIX to help cover computational resources:
+
+[![PIX QR Code](pix.jpg)](pix.jpg)  
+**PIX key:** *(scan the QR code above)*  
+
+Your contribution — of any amount — directly helps me continue developing and testing the universe model at higher computational scales.
+
+---
+
+Last update: 10/10/2025
