@@ -16,7 +16,9 @@
 
 namespace automaton
 {
-  extern Cell lattice_curr[EL][EL][EL][W_DIM];
+  extern unsigned CENTER;
+  extern unsigned W_DIM;
+  extern std::vector<Cell> lattice_curr;
 }
 
 namespace framework
@@ -30,26 +32,40 @@ namespace framework
   class LayerList
   {
     public:
-    LayerList()
-    {
+	LayerList(unsigned wDim) : wDim(wDim), lastFirstIndex(-1)
+	{
+	  lastPositions.resize(wDim);
+
+      // Inicializa lastPos com zeros
+      for (unsigned w = 0; w < wDim; w++)
+      {
+   	    lastPositions[w][0] = 0;
+    	lastPositions[w][1] = 0;
+    	lastPositions[w][2] = 0;
+      }
       char s[100];
-      for (unsigned w = 0; w < W_DIM; w++)
+      for (unsigned w = 0; w < wDim; w++)
       {
         sprintf(s, "Layer %2d", w);
         layers.push_back(Radio(1700, 100 + 25 * w, s));
       }
       layers[0].setSelected(true);
-
-      // Inicializa o rastreador de posição do slider
-      lastFirstIndex = -1;
     }
+
+    ~LayerList()
+    {
+    }
+
+    // Desabilita cópia para evitar problemas com ponteiros
+    LayerList(const LayerList&) = delete;
+    LayerList& operator=(const LayerList&) = delete;
 
     void update()
     {
-	  for (unsigned w = 0; w < W_DIM && w < LAYERS; w++)
+	  for (unsigned w = 0; w < wDim && w < LAYERS; w++)
 	  {
-	    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
-	    if (cell.x[0] != lastPos[w][0] || cell.x[1] != lastPos[w][1] || cell.x[2] != lastPos[w][2])
+	    Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
+	    if (cell.x[0] != lastPositions[w][0] || cell.x[1] != lastPositions[w][1] || cell.x[2] != lastPositions[w][2])
 	    {
 	      glColor3f(1.0f, 0.0f, 1.0f);
 	    }
@@ -60,15 +76,15 @@ namespace framework
         char s[100];
 	    sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
 	    drawString8(s, 1800, 100 + 25 * w);
-	    lastPos[w][0] = cell.x[0];
-	    lastPos[w][1] = cell.x[1];
-	    lastPos[w][2] = cell.x[2];
+	    lastPositions[w][0] = cell.x[0];
+  	    lastPositions[w][1] = cell.x[1];
+   	    lastPositions[w][2] = cell.x[2];
 	  }
     }
 
     void render()
     {
-      int first = slider.getFirstIndex(W_DIM);
+      int first = slider.getFirstIndex(wDim);
       glDisable(GL_DEPTH_TEST);
       setOrthographicProjection();
       glPointSize(1);
@@ -76,7 +92,7 @@ namespace framework
       for (int i = startLimit; i < endLimit; ++i)
       {
         int logicalIndex = i + first;
-        if (logicalIndex >= W_DIM) break;
+        if (logicalIndex >= (int)wDim) break;
         int displayY = 100 + 25 * i;
         layers[logicalIndex].drawAt(1700, displayY);
       }
@@ -89,7 +105,7 @@ namespace framework
     void poll(int xpos, int ypos)
     {
       Radio *clickedOption = nullptr;
-      int first = slider.getFirstIndex(W_DIM);
+      int first = slider.getFirstIndex(wDim);
 
       // PASSO 1: Encontra a layer atualmente selecionada (GLOBALMENTE)
       int selectedIndex = this->getSelected();
@@ -98,8 +114,8 @@ namespace framework
       // PASSO 2: Percorre APENAS as layers visíveis para encontrar o clique
       for (int i = startLimit; i < endLimit; ++i)
       {
-        int logicalIndex = i + first;
-        if (logicalIndex >= W_DIM) break;
+        unsigned logicalIndex = i + first;
+        if (logicalIndex >= wDim) break;
         int displayY = 100 + 25 * i;
 
         // Verifica se houve clique na área de visualização atual
@@ -127,7 +143,7 @@ namespace framework
       else if (first != this->lastFirstIndex)
       {
           // Se o novo índice principal (first) é diferente do selecionado
-          if (first >= 0 && (unsigned)first < W_DIM && first != selectedIndex)
+          if (first >= 0 && (unsigned)first < wDim && first != selectedIndex)
           {
               // Desseleciona a anterior (que pode estar fora da tela)
               if (currentSelected) currentSelected->setSelected(false);
@@ -142,9 +158,9 @@ namespace framework
 
     int getSelected()
     {
-      // Procura a layer selecionada em TODAS as layers (W_DIM)
+      // Procura a layer selecionada em TODAS as layers (wDim)
       int w = -1;
-      for (unsigned i = 0; i < W_DIM; i++)
+      for (unsigned i = 0; i < wDim; i++)
       {
         if (layers[i].isSelected())
         {
@@ -159,9 +175,10 @@ namespace framework
     int endLimit = LAYERS;
 
     private:
+      unsigned wDim;
       std::vector<Radio> layers;
-      unsigned lastPos[W_DIM][3];
-      int lastFirstIndex; // Membro privado para rastrear o movimento do slider
+      std::vector<std::array<unsigned, 3>> lastPositions; // Vector of arrays for dynamic last positions
+      int lastFirstIndex;
   };
 }
 #endif /* LAYERS_H_ */

@@ -10,6 +10,13 @@
 #include "layers.h"
 #include "slider.h"
 
+namespace automaton
+{
+  extern unsigned EL;
+  extern unsigned W_DIM;
+  extern unsigned L2;
+}
+
 namespace framework
 {
   using namespace std;
@@ -26,7 +33,7 @@ namespace framework
   vector<Tickbox> checkboxes;
   vector<Tickbox> delays;
   vector<Radio> viewpoint;
-  LayerList list;
+  std::unique_ptr<LayerList> list; // Global definition as a smart pointer
   LayerSlider slider(1890, 93, 10.0f, 607.0f, 30.0f);
 
   // Auxiliary
@@ -36,7 +43,6 @@ namespace framework
   unsigned long tbegin;
   int barWidths[3];
   const float GRID_SIZE = 0.5 / EL;
-  unsigned lastPos[W_DIM][3];
   // Global flag to control rendering mode: single cube or 27 cubes.
   bool MULTICUBE_MODE = false;
 
@@ -89,6 +95,8 @@ namespace framework
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     tbegin = GetTickCount64();
+    lastPositions.resize(W_DIM);
+    list = std::make_unique<LayerList>(W_DIM); // W_DIM is now the constructor argument
     //
     checkboxes.push_back(Tickbox(50, 100, "Wavefront")); // 0
     checkboxes.push_back(Tickbox(50, 130, "Momentum"));  // 1
@@ -101,7 +109,7 @@ namespace framework
     checkboxes.push_back(Tickbox(50, 350, "Plane"));     // 8
     checkboxes[0].setState(true);
     checkboxes[5].setState(true);
-//    checkboxes[7].setState(true);
+    checkboxes[7].setState(true);
   //  checkboxes[8].setState(true);
     //
     delays.push_back(Tickbox(50, 420, "Convolution"));
@@ -143,7 +151,6 @@ namespace framework
 
   void GUIrenderer::renderList()
   {
-
   }
 
   /*
@@ -330,7 +337,7 @@ namespace framework
     render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
     sprintf(s, "L = %u", EL);
     render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-    int w = framework::list.getSelected();
+    int w = framework::list->getSelected();
     sprintf(s, "(Current layer = %u)", w);
     render2Dstring(1730, 78, GLUT_BITMAP_HELVETICA_12, s);
     // Get the primary monitor
@@ -353,7 +360,7 @@ namespace framework
     drawString12("Delays", 50, 405);
     drawString12("Views", 50, 551);
     glPopMatrix();
-    list.update();
+    list->update();
     resetPerspectiveProjection();
     renderCounts();
   }
@@ -366,20 +373,19 @@ namespace framework
     const float GRID_SIZE = 1.0f / EL;  // Better spacing
     glPointSize(5.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
-    for (int x = 0; x < EL; x++)
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (int y = 0; y < EL; y++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        for (int z = 0; z < EL; z++)
+        for (unsigned z = 0; z < EL; z++)
         {
-          if (lattice_curr[x][y][z][list.getSelected()].pB)
+          if (getCell(lattice_curr, x, y, z, list->getSelected()).pB)
           {
             glColor3d(1.0, 1.0, 0);     // Yellow
             float px = (x - EL / 2) * GRID_SIZE;
             float py = (y - EL / 2) * GRID_SIZE;
             float pz = (z - EL / 2) * GRID_SIZE;
             glVertex3f(px, py, pz);
-            //printf("%f,%f,%f\n", px, py, pz);
           }
         }
       }
@@ -395,13 +401,13 @@ namespace framework
     const float GRID_SIZE = 1.0f / EL;  // Better spacing
     glPointSize(5.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
-    for (int x = 0; x < EL; x++)
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (int y = 0; y < EL; y++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        for (int z = 0; z < EL; z++)
+        for (unsigned z = 0; z < EL; z++)
         {
-          if (lattice_curr[x][y][z][list.getSelected()].sB)
+          if (getCell(lattice_curr, x, y, z, list->getSelected()).sB)
           {
             glColor3d(0, 1.0, 1.0);    // Cyan
             float px = (x - EL / 2) * GRID_SIZE;
@@ -423,13 +429,13 @@ namespace framework
     const float GRID_SIZE = 1.0f / EL;  // Better spacing
     glPointSize(5.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
-    for (int x = 0; x < EL; x++)
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (int y = 0; y < EL; y++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        for (int z = 0; z < EL; z++)
+        for (unsigned z = 0; z < EL; z++)
         {
-          if (lattice_curr[x][y][z][list.getSelected()].phiB)
+          if (getCell(lattice_curr, x, y, z, list->getSelected()).phiB)
           {
             glColor3d(1.0, 1.0, 0);     // Yellow
             float px = (x - EL / 2) * GRID_SIZE;
@@ -451,13 +457,13 @@ namespace framework
     const float GRID_SIZE = 1.0f / EL;  // Better spacing
     glPointSize(5.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
-    for (int x = 0; x < EL; x++)
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (int y = 0; y < EL; y++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        for (int z = 0; z < EL; z++)
+        for (unsigned z = 0; z < EL; z++)
         {
-          if (lattice_curr[x][y][z][list.getSelected()].hB)
+          if (getCell(lattice_curr, x, y, z, list->getSelected()).hB)
           {
             glColor3d(1.0, 1.0, 0);     // Yellow
             float px = (x - EL / 2) * GRID_SIZE;
@@ -485,13 +491,13 @@ namespace framework
     // Define offsets for 27 cubes (-1, 0, 1 along each axis)
     int offsets[3] = {-1, 0, 1};
     glBegin(GL_POINTS);
-    for (int x = 0; x < EL; x++)
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (int y = 0; y < EL; y++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        for (int z = 0; z < EL; z++)
+        for (unsigned z = 0; z < EL; z++)
         {
-          COLORREF color = automaton::voxels[x * L2 + y * EL + z];
+          COLORREF color = automaton::voxels[x * automaton::L2 + y * EL + z];
           if (!color)
             continue;
           // Extract the R, G, B components.
@@ -560,7 +566,7 @@ namespace framework
       glBegin(GL_POINTS);
       for (unsigned w = 0; w < W_DIM; w++)
       {
-        Cell &cell = lattice_curr[CENTER][CENTER][CENTER][w];
+        Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
         float alpha = 0.5f;
         float r = 0.7f + (w & 1) * 0.3f;
         float g = 0.7f + ((w >> 1) & 1) * 0.3f;
@@ -607,7 +613,7 @@ namespace framework
       checkbox.draw();
     }
     // Layer list
-    list.render();
+    list->render();
     // Displayed data set
     for (Tickbox& checkbox : delays)
     {
@@ -795,7 +801,7 @@ void GUIrenderer::renderPlane()
    */
   void GUIrenderer::enhanceVoxel()
   {
-    Cell &cell = lattice_curr[CENTER][CENTER][CENTER][list.getSelected()];
+    Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, list->getSelected());
     float cx = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
     float cy = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
     float cz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;

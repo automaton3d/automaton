@@ -18,7 +18,6 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
-
 namespace framework
 {
   using namespace std;
@@ -160,7 +159,7 @@ namespace framework
              }
            }
            // Handle the layer list
-           list.poll(xpos, ypos);
+           list->poll(xpos, ypos);
            // Handle light frame delays
            for (Tickbox &checkbox : delays)
            {
@@ -559,11 +558,24 @@ namespace framework
 
 #ifdef GRAPH // Create the graphical version
 
-  int runSimulation()
+  int runSimulation(unsigned L, unsigned W)
   {
     Beep(1000, 80);
+    // Check if parameters changed
+    automaton::calculateParameters(L, W);
+    automaton::allocate_lattices(L, W);
+    // Initialize
+    for (int step = 0; step < 8; step++)
+    {
+      automaton::initSimulation(step);
+    }
+    char arg0[] = "test";
+    char *argv[] = { arg0, NULL };
+    int argc = 1;
+    glutInit(&argc, argv);
     return framework::RenderWindowGLFW::instance().run();
   }
+
 
 #else  // Create the text only version
 
@@ -571,7 +583,7 @@ namespace framework
   {
     printf("SIDE=%d, PERIOD=%d,\n", SIDE, automaton::RMAX);
     fflush(stdout);
- //   automaton::initSimulation();
+    automaton::initSimulation();
     while (true)
     {
       automaton::displayLattice();

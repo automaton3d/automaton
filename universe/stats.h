@@ -11,6 +11,8 @@
 namespace stats
 {
   void collectData();
+  int run();
+  int runStatistics(unsigned W);
 }
 
 #endif /* STATS_H_ */

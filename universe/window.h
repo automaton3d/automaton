@@ -78,7 +78,6 @@ namespace framework
 
 	void sound();
     void renderCenterBox(const char* text);
-    int runSimulation();
 
 } // end namespace framework
 

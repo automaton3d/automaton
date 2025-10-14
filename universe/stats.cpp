@@ -1,6 +1,7 @@
 /*
 * stats_glut.cpp
 */
+#include <GLFW/glfw3.h>
 #include <GL/freeglut.h>
 #include <iostream>
 #include <windows.h>
@@ -14,10 +15,11 @@
 // Forward declarations from your simulation
 namespace automaton
 {
+  extern unsigned EL;
   void swap_lattices();
   void simulation();
   bool initSimulation(int step);
-  extern Cell lattice_curr[EL][EL][EL][W_DIM];
+  extern std::vector<Cell> lattice_curr;
 }
 
 namespace framework
@@ -410,13 +412,13 @@ void collectData()
 {
   // Iterate over the 3D grid to update the voxel data
   unsigned index3D = 0;
-  for (int x = 0; x < EL; x++)
+  for (unsigned x = 0; x < automaton::EL; x++)
   {
-    for (int y = 0; y < EL; y++)
+    for (unsigned y = 0; y < automaton::EL; y++)
     {
-      for (int z = 0; z < EL; z++)
+      for (unsigned z = 0; z < automaton::EL; z++)
       {
-        automaton::Cell &cell = automaton::lattice_curr[x][y][z][0];
+        automaton::Cell &cell = automaton::getCell(automaton::lattice_curr, x, y, z, 0);
         if (cell.t == cell.d)
         {
         }
@@ -429,7 +431,12 @@ void collectData()
 } // namespace stats
 
 // Global wrapper for splash.cpp linkage
-int runStatistics()
+int runStatistics(unsigned EL, unsigned W)
 {
-  return stats::run();
+	printf("%d\n", W);
+	char arg0[] = "test";
+	char *argv[] = { arg0, NULL };
+	int argc = 1;
+	glutInit(&argc, argv);
+    return stats::run();
 }

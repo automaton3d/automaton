@@ -8,15 +8,11 @@
 #define RSMZ_RENDEREROPENGL1_H
 
 #include "renderer.h"
+#include <GL/glut.h>
+// Inclusões de bibliotecas C++ padrão
 #include <cstdlib>
-#include <GL/gl.h>
 #include <math.h>
 #include <iostream>
-#define GLM_FORCE_RADIANS
-#include <glm/gtc/type_ptr.hpp> // value_ptr
-#include <glm/gtc/matrix_transform.hpp> // perspective
-#include <GLFW/glfw3.h>
-#include <GL/glut.h>
 #include <cstdio>
 #include <vector>
 #include <string>
@@ -24,7 +20,20 @@
 #include <algorithm>
 #include <array>
 #include <map>
+#include <memory>
 
+// --- INCLUSÕES DE OPENGL E EXTENSÕES (ORDEM CRÍTICA) ---
+//#include <GL/glew.h> // <-- AGORA EM PRIMEIRO!
+
+// Inclusões de outras bibliotecas de janela/contexto que dependem do GL
+//#include <GLFW/glfw3.h>
+
+// Inclusões GLM (Seu projeto)
+#define GLM_FORCE_RADIANS
+#include <glm/gtc/type_ptr.hpp> // value_ptr
+#include <glm/gtc/matrix_transform.hpp> // perspective
+
+// Inclusões de headers internos/do projeto
 #include "model/simulation.h"
 #include "radio.h"
 #include "layers.h"
@@ -78,6 +87,7 @@ public:
 
 protected:
     glm::mat4 mProjection;
+    std::vector<std::array<unsigned, 3>> lastPositions;
 
 };
 
@@ -148,7 +158,7 @@ void triggerEvent(unsigned long long timer);
 
 extern bool active;
 extern std::vector<Tickbox> checkboxes;
-extern LayerList list;
+extern std::unique_ptr<LayerList> list;
 extern std::vector<Tickbox> delays;
 extern std::vector<Radio> viewpoint;
 
