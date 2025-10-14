@@ -82,7 +82,10 @@ DWORD WINAPI SimulationThread(LPVOID lpParam)
 {
   consolePrintf("Statistics simulation thread launched...\n");
   // Initialize simulation
-  for (int step = 0; !automaton::initSimulation(step); step++);
+  for (int step = 0; step < 8; step++)
+  {
+    automaton::initSimulation(step);
+  }
   consolePrintf("Simulation initialized, starting loop...\n");
   // Prepare the mirror grid before starting
   automaton::swap_lattices();
@@ -433,10 +436,11 @@ void collectData()
 // Global wrapper for splash.cpp linkage
 int runStatistics(unsigned EL, unsigned W)
 {
-	printf("%d\n", W);
-	char arg0[] = "test";
-	char *argv[] = { arg0, NULL };
-	int argc = 1;
-	glutInit(&argc, argv);
-    return stats::run();
+  automaton::calculateParameters(EL, W);
+  automaton::allocate_lattices(EL, W);
+  char arg0[] = "test";
+  char *argv[] = { arg0, NULL };
+  int argc = 1;
+  glutInit(&argc, argv);
+  return stats::run();
 }
