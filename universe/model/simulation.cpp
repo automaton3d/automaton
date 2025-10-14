@@ -9,31 +9,38 @@ namespace automaton
   using namespace std;
 
   // Grid constants
-  const unsigned L3 = L2 * EL;
-  const unsigned long BLOCK = L3 * W_DIM;
+  unsigned EL;
+  unsigned L2;
+  unsigned L3;
+  unsigned W_DIM;
 
+  unsigned long BLOCK;
   // Dynamics constants and variables
-  const unsigned DIAG      = (unsigned) EL* sqrt(3);
-  const unsigned RMAX      = DIAG / 2;
-  const unsigned CONTRACT  = static_cast<int>(floor(sqrt(3.0) * CENTER));
-  const unsigned CONVOL    = W_DIM;
-  const unsigned SLOT4 = SLOT3 + 4*(EL - 1);
-  const unsigned DIFFUSION = SLOT4 + (EL - 1);
-  const unsigned RELOC     = DIFFUSION + 3*(EL - 1);
-  const unsigned REISSUE   = RELOC + 1;
-  const unsigned FRAME     = REISSUE;
+  unsigned DIAG;
+  unsigned RMAX;
+  unsigned CONTRACT;
+  unsigned CONVOL;
+  unsigned DIFFUSION;
+  unsigned RELOC;
+  unsigned REISSUE;
+  unsigned FRAME;
 
-  const unsigned SLOT1 = CONVOL + 4 * (EL - 1);
-  const unsigned SLOT2 = SLOT1 + 3*(EL - 1);
-  const unsigned SLOT3 = SLOT2 + 2*W_DIM;
-  const unsigned SLOT5 = DIFFUSION + (EL - 1);
-  const unsigned SLOT6 = SLOT5 + (EL - 1);
-  const unsigned SLOT7 = SLOT6 + (EL - 1);
+  unsigned SLOT1;
+  unsigned SLOT2;
+  unsigned SLOT3;
+  unsigned SLOT4;
+  unsigned SLOT5;
+  unsigned SLOT6;
+  unsigned SLOT7;
+
+  unsigned ORDER;
+  unsigned CENTER;
+  unsigned FCENTER;
 
   // The CA lattices
-  Cell lattice_curr   [EL][EL][EL][W_DIM];
-  Cell lattice_draft  [EL][EL][EL][W_DIM];
-  Cell lattice_mirror [EL][EL][EL][W_DIM];
+  std::vector<Cell> lattice_curr;
+  std::vector<Cell> lattice_draft;
+  std::vector<Cell> lattice_mirror;
 
   // Support for visualization delays
 
@@ -57,10 +64,10 @@ namespace automaton
         {
           for (unsigned z = 0; z < EL; ++z)
           {
-        	// Generate references to the working cells
-            Cell &curr   = lattice_curr[x][y][z][w];
-            Cell &draft  = lattice_draft[x][y][z][w];
-            Cell &mirror = lattice_mirror[x][y][z][w];
+          // Generate references to the working cells
+            Cell &curr   = getCell(lattice_curr, x, y, z, w);
+            Cell &draft  = getCell(lattice_draft, x, y, z, w);
+            Cell &mirror = getCell(lattice_mirror, x, y, z, w);
             draft = curr;
             // Calculate neighbors
             Cell &forward = curr.getNeighbor(FORWARD);
@@ -87,7 +94,7 @@ namespace automaton
             /****** RELOCATION ******/
             else if (curr.k < RELOC)
             {
-          	  relocate(curr, draft, north, west, down);
+              relocate(curr, draft, north, west, down);
               if (reloc_delay)
                 std::this_thread::sleep_for(std::chrono::nanoseconds(500));
             }
@@ -116,11 +123,13 @@ namespace automaton
         }
       }
     }
+    /*
     if (lattice_curr[0][0][0][0].k == 0)
     {
       assert(sanityTest2());
       assert(sanityTest3());
     }
+    */
   }
 
   /**
@@ -131,11 +140,11 @@ namespace automaton
   {
     // Update the current lattice
     std::copy(
-          &lattice_draft[0][0][0][0],
-          &lattice_draft[0][0][0][0] + BLOCK,
-          &lattice_curr[0][0][0][0]);
+        lattice_draft.begin(),
+        lattice_draft.begin() + BLOCK,
+        lattice_curr.begin());
     // Take the first cell to represent the others
-    Cell &repr = lattice_curr[0][0][0][0];
+    Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
     if (repr.k == 0)
     {
       for (unsigned w = 0; w < W_DIM; ++w)
@@ -146,8 +155,8 @@ namespace automaton
           {
             for (unsigned z = 0; z < EL; ++z)
             {
-              Cell &curr = lattice_curr[x][y][z][w];
-              Cell &mirror = lattice_mirror[x][y][z][w];
+              Cell &curr = getCell(lattice_curr, x, y, z, w);
+              Cell &mirror = getCell(lattice_mirror, x, y, z, w);
               mirror = curr;
               // Reset f for the next convolution
               mirror.f = mirror.t;
@@ -180,7 +189,7 @@ namespace automaton
   Cell &Cell::getNeighbor(int i)
   {
     // Displacements for 8 von Neumann directions (4D)
-    static const int disp[8][4] =
+    static int disp[8][4] =
     {
       {+1,  0,  0,  0}, // +x
       {-1,  0,  0,  0}, // -x
@@ -196,8 +205,39 @@ namespace automaton
     int ny = (x[1] + disp[i][1] + EL) % EL;
     int nz = (x[2] + disp[i][2] + EL) % EL;
     int nw = (x[3] + disp[i][3] + W_DIM)  % W_DIM;
-    return lattice_curr[nx][ny][nz][nw];
+    return getCell(lattice_curr, nx, ny, nz, nw);
+  }
+
+  /**
+   * Calculates the simulation parameters.
+   */
+  void calculateParameters(unsigned L, unsigned W)
+  {
+    // Grid constants
+    EL        = L;
+    W_DIM     = W; //     26//(3*L2+1)                 // An even number
+    L2        = (EL*EL);
+    L3        = L2 * EL;
+    ORDER     = ((int)round(log2(EL)));   // Number of bits
+    CENTER    = ((EL-1)/2);
+    FCENTER   = (EL/2.0);
+    BLOCK     = L3 * W_DIM;
+    DIAG      = (unsigned) EL* sqrt(3);
+    RMAX      = DIAG / 2;
+    CONTRACT  = static_cast<int>(floor(sqrt(3.0) * CENTER));
+    // Time windows
+    CONVOL    = W_DIM;
+    SLOT1     = CONVOL + 4 * (EL - 1);
+    SLOT2     = SLOT1 + 3*(EL - 1);
+    SLOT3     = SLOT2 + 2*W_DIM;
+    SLOT4     = SLOT3 + 1;
+    DIFFUSION = SLOT4 + (EL - 1);
+    SLOT5     = DIFFUSION + (EL - 1);
+    SLOT6     = SLOT5 + (EL - 1);
+    SLOT7     = SLOT6 + (EL - 1);
+    RELOC     = DIFFUSION + 3*(EL - 1);
+    REISSUE   = RELOC + 1;
+    FRAME     = REISSUE;
   }
 
 }
-

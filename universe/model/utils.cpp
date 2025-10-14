@@ -9,8 +9,12 @@
 
 namespace automaton
 {
-  extern Cell lattice_curr[EL][EL][EL][W_DIM];
-  extern Cell lattice_mirror[EL][EL][EL][W_DIM];
+  extern unsigned EL;
+  extern unsigned W_DIM;
+  extern unsigned CENTER;
+  extern std::vector<Cell> lattice_curr;
+  extern std::vector<Cell> lattice_mirror;
+
   COLORREF *voxels;
 
   /**
@@ -18,16 +22,16 @@ namespace automaton
    */
   void updateBuffer()
   {
-    int w = framework::list.getSelected();
+    int w = framework::list->getSelected();
     // Iterate over the 3D grid to update the voxel data
     unsigned index3D = 0;
-    for (int x = 0; x < EL; x++)
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (int y = 0; y < EL; y++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        for (int z = 0; z < EL; z++)
+        for (unsigned z = 0; z < EL; z++)
         {
-          Cell &cell = lattice_curr[x][y][z][w];
+          Cell &cell = getCell(lattice_curr, x, y, z, w);
           if (cell.t == cell.d)
           {
             if (cell.a == W_DIM)
@@ -47,13 +51,6 @@ namespace automaton
           {
             voxels[index3D] = RGB(0, 0, 0); // Black
           }
-          // DEBUG
-          /*
-          if (cell.a == W_DIM && cell.t != cell.d)
-          {
-            voxels[index3D] = RGB(255, 255, 0); //
-          }
-          */
           index3D++;
         }
       }
@@ -127,7 +124,7 @@ namespace automaton
       int zd = az - dx;
       for (int i = 0; i <= dx; i++)
       {
-        lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
+        getCell(lattice_curr, x, y, z, w).pB = true;
         x += sx;
         if (yd >= 0)
         {
@@ -150,7 +147,7 @@ namespace automaton
       int zd = az - dy;
       for (int i = 0; i <= dy; i++)
       {
-        lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
+        getCell(lattice_curr, x, y, z, w).pB = true;
         y += sy;
         if (xd >= 0)
         {
@@ -173,7 +170,7 @@ namespace automaton
       int yd = ay - dz;
       for (int i = 0; i <= dz; i++)
       {
-        lattice_curr[x][y][z][w].pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
+        getCell(lattice_curr, x, y, z, w).pB = true; //printf("\t%d,%d,%d:%d\n", x, y, z, w);
         z += sz;
         if (xd >= 0)
         {
@@ -224,24 +221,27 @@ namespace automaton
    */
   void shiftMirror()
   {
-    // Temporary storage for the last slice in W (to wrap around)
-    Cell temp[EL][EL][EL]= {};
-    // Save the last W-slice
-    for (int x = 0; x < EL; ++x)
-      for (int y = 0; y < EL; ++y)
-        for (int z = 0; z < EL; ++z)
-          temp[x][y][z] = lattice_mirror[x][y][z][W_DIM - 1];
-    // Shift all slices forward
-    for (int x = 0; x < EL; ++x)
-      for (int y = 0; y < EL; ++y)
-        for (int z = 0; z < EL; ++z)
-          for (int w = W_DIM - 1; w > 0; --w)
-            lattice_mirror[x][y][z][w] = lattice_mirror[x][y][z][w - 1];
-    // Wrap the saved slice into position 0
-    for (int x = 0; x < EL; ++x)
-      for (int y = 0; y < EL; ++y)
-        for (int z = 0; z < EL; ++z)
-            lattice_mirror[x][y][z][0] = temp[x][y][z];
+      // Temporary storage for one W-slice
+      std::vector<Cell> temp(static_cast<size_t>(EL) * EL * EL);
+
+      // Save the last W-slice
+      for (unsigned x = 0; x < EL; ++x)
+          for (unsigned y = 0; y < EL; ++y)
+              for (unsigned z = 0; z < EL; ++z)
+                  temp[(x * EL + y) * EL + z] = getCell(lattice_mirror, x, y, z, W_DIM - 1);
+
+      // Shift all slices forward
+      for (unsigned x = 0; x < EL; ++x)
+          for (unsigned y = 0; y < EL; ++y)
+              for (unsigned z = 0; z < EL; ++z)
+                  for (int w = W_DIM - 1; w > 0; --w)
+                    getCell(lattice_mirror, x, y, z, w) = getCell(lattice_mirror, x, y, z, w - 1);
+
+      // Wrap saved slice to position 0
+      for (unsigned x = 0; x < EL; ++x)
+          for (unsigned y = 0; y < EL; ++y)
+              for (unsigned z = 0; z < EL; ++z)
+                getCell(lattice_mirror, x, y, z, 0) = temp[(x * EL + y) * EL + z];
   }
 
   /*
@@ -272,8 +272,16 @@ namespace automaton
     cout << "DIAG:\t"      << DIAG      << endl;
     cout << "RMAX:\t"      << RMAX      << endl;
     cout << "CONVOL:\t"    << CONVOL    << endl;
+    cout << "SLOT1:\t"     << SLOT1     << endl;
+    cout << "SLOT2:\t"     << SLOT2     << endl;
+    cout << "SLOT3:\t"     << SLOT3     << endl;
+    cout << "SLOT4:\t"     << SLOT4     << endl;
     cout << "DIFFUSION:\t" << DIFFUSION << endl;
+    cout << "SLOT5:\t"     << SLOT5     << endl;
+    cout << "SLOT6:\t"     << SLOT6     << endl;
+    cout << "SLOT7:\t"     << SLOT7     << endl;
     cout << "RELOC:\t"     << RELOC     << endl;
+    cout << "REISSUE:\t"   << REISSUE   << endl;
   }
 
   /*
@@ -289,7 +297,7 @@ namespace automaton
         for (unsigned x = 0; x < EL; x++)
         {
           // Reference to the current cell
-          Cell& cell = lattice_curr[x][y][z][w];
+          Cell& cell = getCell(lattice_curr, x, y, z, w);
           printf("%d ", cell.phiB);
         }
         printf("\n");
@@ -306,13 +314,13 @@ namespace automaton
   {
     cout << "RMAX\t" << RMAX << endl;
     cout << "CONVOL\t" << CONVOL << endl;
-	cout << "SLOT1\t" << SLOT1 << endl;
-	cout << "SLOT2t" << SLOT2 << endl;
-	cout << "SLOT3\t" << SLOT3 << endl;
-	cout << "SLOT4\t" << SLOT4 << endl;
-	cout << "DIFFUSION\t" << DIFFUSION << endl;
-	cout << "RELOC\t" << RELOC << endl;
-    return (CONVOL < SLOT1 && SLOT1 < SLOT2 && SLOT2 < SLOT3 && SLOT3 < SLOT4 && SLOT4 < DIFFUSION && DIFFUSION < RELOC);
+    cout << "SLOT1\t" << SLOT1 << endl;
+    cout << "SLOT2t" << SLOT2 << endl;
+    cout << "SLOT3\t" << SLOT3 << endl;
+    cout << "SLOT4\t" << SLOT4 << endl;
+    cout << "DIFFUSION\t" << DIFFUSION << endl;
+    cout << "RELOC\t" << RELOC << endl;
+    return (CONVOL < SLOT1 && SLOT1 < SLOT2 && SLOT2 < SLOT3 && SLOT3 < SLOT4 && SLOT4 < DIFFUSION && DIFFUSION < RELOC && RELOC < REISSUE);
   }
 
   /**
@@ -328,7 +336,7 @@ namespace automaton
         {
           for (unsigned x = 0; x < EL; x++)
           {
-            Cell& cell = lattice_curr[x][y][z][w];
+            Cell& cell = getCell(lattice_curr, x, y, z, w);
             if (!ZERO(cell.c))
             {
               return false;
@@ -345,14 +353,14 @@ namespace automaton
     for (unsigned w = 0; w < EL; w++)
     {
 
-      Cell& seed = lattice_curr[0][0][0][w];
+      Cell& seed = getCell(lattice_curr, 0, 0, 0, w);
       for (unsigned z = 0; z < EL; z++)
       {
         for (unsigned y = 0; y < EL; y++)
         {
           for (unsigned x = 0; x < EL; x++)
           {
-            Cell& cell = lattice_curr[x][y][z][w];
+            Cell& cell = getCell(lattice_curr, x, y, z, w);
             if (seed.c[0] != cell.c[0] || seed.c[1] != cell.c[1] || seed.c[2] != cell.c[2])
             {
               return false;
@@ -363,5 +371,4 @@ namespace automaton
     }
     return true;
   }
-
 }

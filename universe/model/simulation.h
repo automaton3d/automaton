@@ -26,13 +26,6 @@
 #endif
 
 // Simulation symbols
-#define EL        17                       // An odd number
-#define L2        (EL*EL)
-#define W_DIM     EL	//(3*L2+1)                 // An even number
-#define ORDER     ((int)round(log2(EL)))   // Number of bits
-#define CENTER    ((EL-1)/2)
-#define FCENTER   (EL/2.0)
-
 #define NORTH     0
 #define EAST      1
 #define SOUTH     2
@@ -69,30 +62,41 @@ namespace automaton
 {
   using namespace std;
 
+  extern unsigned EL;
+  extern unsigned W_DIM;
+
+  struct Point { unsigned x, y, z; };
+
+  // Define the outer structure
+  struct WPoint
+  {
+    Point p;
+  };
+
   // Cell Class
   class Cell
   {
     public:
       // Physical properties
-      unsigned char ch; 	// Charge bits q, w1, w0, c2, c1, c0
-      bool pB;            	// Linear motion direction bit
-      bool sB;        		// Rotation spiral bit
+      unsigned char ch;   // Charge bits q, w1, w0, c2, c1, c0
+      bool pB;              // Linear motion direction bit
+      bool sB;            // Rotation spiral bit
       unsigned a;           // Affinity
       unsigned x[4];        // Relative position
       // Wavefront
-      unsigned d;        	// Euclidean distance
-      bool phiB;			// Fixed period mask bit
-      unsigned t;         	// Light frame counter
-      unsigned f;      		// Sine phase parameter
+      unsigned d;          // Euclidean distance
+      bool phiB;      // Fixed period mask bit
+      unsigned t;           // Light frame counter
+      unsigned f;          // Sine phase parameter
       // Operational variables
       unsigned c[3] = { 0, 0, 0 }; // Relocation offset
-      unsigned k;         	// Tick counter
-      bool s2B;				// Sieve test result
+      unsigned k;           // Tick counter
+      bool s2B;        // Sieve test result
       // Interaction control
-      bool kB;      		// Collapse flag
+      bool kB;          // Collapse flag
       bool bB;              // Blob flag
       bool hB;              // Hunt flag
-      bool cB;				// Contraction flag
+      bool cB;        // Contraction flag
       // Default constructor
       Cell()
         : ch(0), pB(false), sB(false), a(0),
@@ -114,11 +118,19 @@ namespace automaton
       bool C0() { return ch & C0_MASK; }
       unsigned char COLOR() { return ch & COLOR_MASK; }
       unsigned char ANTICOLOR() { return ~ch & COLOR_MASK; }
-
       Cell &getNeighbor(int i);
   };
 
+
+  // Inline accessor for 4D indexing
+  inline Cell& getCell(std::vector<Cell>& lattice, int x, int y, int z, int w)
+  {
+    return lattice[((x * EL + y) * EL + z) * W_DIM + w];
+  }
+
   /// Function prototypes ///
+  void calculateParameters(unsigned L, unsigned W);
+  void allocate_lattices(int EL, int W_DIM);
   void* SimulationLoop();
   void DeleteAutomaton();
   void swap_lattices();
@@ -129,11 +141,14 @@ namespace automaton
   void markPoints(unsigned p[3], int w);
   void simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
+  bool convolute1(Cell& curr, Cell &draft, Cell &mirror);
+  bool convolute2(Cell& curr, Cell &draft, Cell &mirror);
+  bool convolute3(Cell& curr, Cell &draft, Cell &mirror);
   void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up);
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down);
   void reissue(Cell& curr, Cell &draft, Cell &forward,
-		       Cell &north, Cell &west, Cell &down,
-		       Cell &south, Cell &east, Cell &up);
+               Cell &north, Cell &west, Cell &down,
+               Cell &south, Cell &east, Cell &up);
   void updateBuffer();
   std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
   void normalize(double vec[3]);
@@ -152,26 +167,26 @@ namespace automaton
 
   /// Cross variables ///
   extern COLORREF* voxels;
-  extern Cell lattice_curr[EL][EL][EL][W_DIM];
+  extern std::vector<Cell> lattice_curr;
 
   /// Cross constants ///
-  extern const unsigned L3;
-  extern const unsigned long BLOCK;
-  extern const unsigned DIAG;
-  extern const unsigned RMAX;
-  extern const unsigned CONTRACT;
-  extern const unsigned CONVOL;
-  extern const unsigned DIFFUSION;
-  extern const unsigned RELOC;
-  extern const unsigned TRANSP;
-  extern const unsigned FRAME;
-  extern const unsigned SLOT1;
-  extern const unsigned SLOT2;
-  extern const unsigned SLOT3;
-  extern const unsigned SLOT4;
-  extern const unsigned SLOT5;
-  extern const unsigned SLOT6;
-  extern const unsigned SLOT7;
+  extern unsigned L3;
+  extern unsigned long BLOCK;
+  extern unsigned DIAG;
+  extern unsigned RMAX;
+  extern unsigned CONTRACT;
+  extern unsigned CONVOL;
+  extern unsigned SLOT1;
+  extern unsigned SLOT2;
+  extern unsigned SLOT3;
+  extern unsigned SLOT4;
+  extern unsigned DIFFUSION;
+  extern unsigned SLOT5;
+  extern unsigned SLOT6;
+  extern unsigned SLOT7;
+  extern unsigned RELOC;
+  extern unsigned REISSUE;
+  extern unsigned FRAME;
 
   /**
    * Tests if two vectors are equal.
