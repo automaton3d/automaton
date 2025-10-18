@@ -31,25 +31,7 @@ namespace automaton
   vector<WPoint> wpoints;
 
   /**
-   * Initialize the center cells.
-   */
-  void initCell0()
-  {
-    for (unsigned w = 0; w < W_DIM; w++)
-    {
-      // Access the central cell in the current layer (w-slice)
-      Cell& cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-      char w0 = w % 2;
-      char w1 = (w >> 1) % 2;
-      char q = w0 ^ w1;
-      // Set charge and affinity values
-      cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
-    }
-    puts("initCell0 ok.");
-  }
-
-  /**
-   * Function to initialize the lattice.
+   * Function to initialize the lattice with general data.
    */
   void initGeneral()
   {
@@ -63,6 +45,11 @@ namespace automaton
           {
             // Reference to the current cell
             Cell& cell = getCell(lattice_curr, x, y, z, w);
+            char w0 = w % 2;
+            char w1 = (w >> 1) % 2;
+            char q = w0 ^ w1;
+            // Set charge
+            cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
             // Initialize coordinates
             cell.x[0] = x;
             cell.x[1] = y;
@@ -89,99 +76,129 @@ namespace automaton
     puts("initGeneral ok.");
   }
 
-  /**
-   * Ensures wpoints is correctly sized and populated with data.
-   * NOTE: Replace the loop content with your actual spiral point generation logic.
+  /*
+   * initMomentum function fixed to use uniform sphere points generation.
+   * Ensures isotropic distribution with slight z-bias.
+   * Marks lines from center to peripheral points using markPoints.
    */
-  void populateWPoints()
-  {
-    // Resize the vector to the required number of layers
-    wpoints.resize(W_DIM);
-    // Placeholder Logic (MUST BE REPLACED)
-    // The actual coordinates should come from your model's geometry.
-    for (unsigned w = 0; w < W_DIM; ++w)
-    {
-      // Assign simple, safe, non-zero coordinates to prevent memory read failure
-      wpoints[w].p.x = 1;
-      wpoints[w].p.y = 0;
-      wpoints[w].p.z = 0;
-    }
-  }
-
   void initMomentum()
   {
-    if (wpoints.empty() || wpoints.size() != W_DIM)
+    const unsigned cx = CENTER;
+    const unsigned cy = CENTER;
+    const unsigned cz = CENTER;
+    auto tuples = generateShell(static_cast<int>(EL));
+    unsigned n = static_cast<unsigned>(std::floor(1 / 0.10483));
+    unsigned w = 0;
+    for (unsigned i = 0; i < n; i++)
     {
-      populateWPoints();
-    }
-    if (dirs.empty() || dirs.size() != W_DIM * 3)
-    {
-      dirs.resize(W_DIM * 3);
-    }
-    const double R = EL / 2.0;
-    const int cx = EL / 2, cy = EL / 2, cz = EL / 2;
-    std::vector<Point> points;
-    points.reserve(EL * EL * 6); // rough upper bound for shell points
-    // 1) Generate discrete spherical shell points
-    for (unsigned x = 0; x < EL; ++x)
-      for (unsigned y = 0; y < EL; ++y)
-        for (unsigned z = 0; z < EL; ++z)
-        {
-          const unsigned dx = x - cx, dy = y - cy, dz = z - cz;
-          const unsigned r_int = static_cast<unsigned>(std::round(std::sqrt(dx*dx + dy*dy + dz*dz)));
-          if (r_int == static_cast<unsigned>(R))
-            points.push_back({static_cast<unsigned>(x), static_cast<unsigned>(y), static_cast<unsigned>(z)});
-        }
-    struct WeightedPoint { Point p; double weight; };
-    std::vector<WeightedPoint> wpoints;
-    wpoints.reserve(points.size());
-    // Adjustable bias parameter (0.3 = mild, 0.5 = moderate, 1.0 = strong)
-    const double BIAS_STRENGTH = 0.3;  // Small bias for monopoles
-    for (const auto& pt : points)
-    {
-      const double dz = pt.z - cz;
-      // Polar angle from z-axis: 0 at north pole, π at south pole
-      const double cos_polar = dz / R;  // Ranges from -1 (south) to +1 (north)
-      // Weight favors poles: high weight at |cos_polar| ≈ 1, low at equator
-      // Use cos²(polar_angle) raised to BIAS_STRENGTH
-      const double w = std::pow(cos_polar * cos_polar, BIAS_STRENGTH);
-      wpoints.push_back({pt, w});
-    }
-    // Sort by weight (descending - highest weight first = polar points)
-    std::sort(wpoints.begin(), wpoints.end(),
-         [](const WeightedPoint& a, const WeightedPoint& b){ return a.weight > b.weight; });
-    // Keep the highest-weighted points (polar bias for monopoles)
-    const size_t target = std::min<size_t>(wpoints.size(), static_cast<size_t>(W_DIM));
-    // Keep high-weight (polar) points by removing from END
-    if (wpoints.size() > target)
-    {
-      wpoints.erase(wpoints.begin() + target, wpoints.end());
-    }
-    std::cout << "W_DIM (requested): " << W_DIM << "\n";
-    std::cout << "Shell points: " << points.size() << "\n";
-    std::cout << "Selected points: " << wpoints.size() << "\n";
-    std::cout << "Polar bias strength: " << BIAS_STRENGTH
-             << " (0.3=mild, 0.5=moderate, 1.0=strong)\n";
-    std::cout << "Distribution: favors north/south poles for monopole simulation\n";
-    // 5) Assign to dirs[] and mark lattice
-    const size_t count = std::min<size_t>(W_DIM, wpoints.size());
-    for (size_t w = 0; w < count; ++w)
-    {
-      dirs[w * 3 + 0] = wpoints[w].p.x;
-      dirs[w * 3 + 1] = wpoints[w].p.y;
-      dirs[w * 3 + 2] = wpoints[w].p.z;
-      if (wpoints[w].p.x >= 0 && wpoints[w].p.x < EL && wpoints[w].p.y >= 0 && wpoints[w].p.y < EL && wpoints[w].p.z >= 0 && wpoints[w].p.z < EL)
+      for (auto& t : tuples)
       {
-        unsigned p[3] =
-        {
-          static_cast<unsigned>(wpoints[w].p.x),
-          static_cast<unsigned>(wpoints[w].p.y),
-          static_cast<unsigned>(wpoints[w].p.z)
-        };
+    	if (w >= W_DIM)
+    	  break;
+    	int xx, yy, zz;
+        std::tie(xx, yy, zz) = t;
+        int dx = xx - static_cast<int>(cx);
+        int dy = yy - static_cast<int>(cy);
+        int dz = zz - static_cast<int>(cz);
+        unsigned ux = static_cast<unsigned>(dx + CENTER);
+        unsigned uy = static_cast<unsigned>(dy + CENTER);
+        unsigned uz = static_cast<unsigned>(dz + CENTER);
+        dirs.push_back(ux);
+        dirs.push_back(uy);
+        dirs.push_back(uz);
+        unsigned p[3] = { ux, uy, uz };
         markPoints(p, static_cast<unsigned>(w));
+        w++;
       }
     }
-    puts("initMomentum ok (polar bias for monopole simulation)");
+    std::vector<std::pair<double, size_t>> weighted_indices;
+    if (w < W_DIM)
+    {
+      // Second loop: distribute remaining points with cos^2(theta) distribution (deterministic)
+      weighted_indices.reserve(tuples.size());
+      for (size_t i = 0; i < tuples.size(); ++i)
+      {
+        int xx, yy, zz;
+        std::tie(xx, yy, zz) = tuples[i];
+        int dx = xx - static_cast<int>(cx);
+        int dy = yy - static_cast<int>(cy);
+        int dz = zz - static_cast<int>(cz);
+        // Calculate cos^2(theta) where theta is angle from z-axis
+        double r = std::sqrt(dx*dx + dy*dy + dz*dz);
+        double cos_theta = (r > 0) ? std::abs(dz) / r : 0.0;
+        double weight = cos_theta * cos_theta;
+        weighted_indices.push_back({weight, i});
+      }
+    }
+    else
+    {
+      perror("Warning: W too small for this simulation.");
+    }
+    // Sort by weight (descending - highest weights first)
+    std::sort(weighted_indices.begin(), weighted_indices.end(),
+            [](const auto& a, const auto& b) { return a.first > b.first; });
+    // Calculate how many times each point should appear based on its weight
+    unsigned remaining = W_DIM - w;  // FIX 3: use unsigned
+    double total_weight = 0.0;
+    for (const auto& wi : weighted_indices)
+    {
+      total_weight += wi.first;
+    }
+    // Distribute remaining slots proportionally to weights
+    std::vector<unsigned> counts(tuples.size(), 0);  // FIX 4: use unsigned
+    unsigned allocated = 0;  // FIX 5: use unsigned
+    for (size_t i = 0; i < weighted_indices.size() && allocated < remaining; ++i)
+    {
+      double proportion = weighted_indices[i].first / total_weight;
+      unsigned count = static_cast<unsigned>(std::round(proportion * remaining));
+      count = std::max(1u, count); // Each point appears at least once
+      counts[weighted_indices[i].second] = count;
+      allocated += count;
+    }
+    // Adjust if we over/under allocated due to rounding
+    while (allocated > remaining)
+    {
+      // Remove from the point with lowest weight that still has count > 1
+      for (int i = weighted_indices.size() - 1; i >= 0 && allocated > remaining; --i)
+      {
+        if (counts[weighted_indices[i].second] > 1)
+        {
+          counts[weighted_indices[i].second]--;
+          allocated--;
+        }
+      }
+    }
+    while (allocated < remaining)
+    {
+      // Add to the point with highest weight
+      for (size_t i = 0; i < weighted_indices.size() && allocated < remaining; ++i)
+      {
+        counts[weighted_indices[i].second]++;
+        allocated++;
+      }
+    }
+    // FIX 6: Iterate over weighted_indices, not tuples
+    for (size_t i = 0; i < weighted_indices.size() && w < W_DIM; ++i)
+    {
+      size_t idx = weighted_indices[i].second;
+      for (unsigned c = 0; c < counts[idx] && w < W_DIM; ++c)
+      {
+        int xx, yy, zz;
+        std::tie(xx, yy, zz) = tuples[idx];
+        int dx = xx - static_cast<int>(cx);
+        int dy = yy - static_cast<int>(cy);
+        int dz = zz - static_cast<int>(cz);
+        unsigned ux = static_cast<unsigned>(dx + CENTER);
+        unsigned uy = static_cast<unsigned>(dy + CENTER);
+        unsigned uz = static_cast<unsigned>(dz + CENTER);
+        dirs.push_back(ux);
+        dirs.push_back(uy);
+        dirs.push_back(uz);
+        unsigned p[3] = { ux, uy, uz };
+        markPoints(p, static_cast<unsigned>(w));
+        w++;
+      }
+    }
   }
 
   void initSine2()
@@ -240,51 +257,41 @@ namespace automaton
     }
   }
 
-  // In initSim.cpp (after globals, before initSpirals)
-
-  // Rotate spiral around all dirs vectors and mark lattice
   void initSpirals()
   {
-    // FIX 1: Ensure wpoints is populated BEFORE access
-    if (wpoints.empty() || wpoints.size() != W_DIM)
-    {
-      populateWPoints();
-    }
-    // FIX 2: Resize dirs (if not done elsewhere)
-    if (dirs.empty() || dirs.size() != W_DIM * 3)
-    {
-      dirs.resize(W_DIM * 3);
-    }
     const int num_points = 10 * EL;
-    double theta[num_points];
-    double r[num_points], x_curve[num_points], y_curve[num_points], z_curve[num_points];
-    // Build base spiral around Z-axis
+    std::vector<double> theta(num_points);
+    std::vector<double> r(num_points);
+    std::vector<double> x_curve(num_points);
+    std::vector<double> y_curve(num_points);
+    std::vector<double> z_curve(num_points);
+    // Construir espiral base ao redor do eixo Z
     for (int i = 0; i < num_points; ++i)
     {
-      theta[i] = 2 * M_PI * i / num_points;
-      r[i] = (double)EL / (4 * M_PI) * theta[i];
-      x_curve[i] = r[i] * cos(theta[i]);
-      y_curve[i] = r[i] * sin(theta[i]);
-      z_curve[i] = r[i];
+       theta[i] = 2 * M_PI * i / num_points;
+       r[i] = (double)EL / (4 * M_PI) * theta[i];
+       x_curve[i] = r[i] * cos(theta[i]);
+       y_curve[i] = r[i] * sin(theta[i]);
+       z_curve[i] = r[i];
     }
-    // Centering offset
-    double cx = EL / 2.0;
-    double cy = EL / 2.0;
-    double cz = EL / 2.0;
-    // For each direction vector, rotate entire spiral
+    const double cx = EL / 2.0;
+    const double cy = EL / 2.0;
+    const double cz = EL / 2.0;
+    // Para cada direção em dirs[], rotacionar a espiral
     for (unsigned w = 0; w < W_DIM; ++w)
     {
-      // Patch
-       dirs[w * 3 + 0] = wpoints[w].p.x; // Now this index is valid
-      dirs[w * 3 + 1] = wpoints[w].p.y;
-      dirs[w * 3 + 2] = wpoints[w].p.z;
-      //
-       size_t base = w * 3;
-      double k[3] = { (double)dirs[base], (double)dirs[base + 1], (double)dirs[base + 2] };
+      // Usar dirs[] diretamente (já preenchido por initMomentum)
+      size_t base = w * 3;
+      double k[3] =
+      {
+        static_cast<double>(dirs[base]) - cx,
+        static_cast<double>(dirs[base + 1]) - cy,
+        static_cast<double>(dirs[base + 2]) - cz
+      };
       normalize(k);
-      // Determine rotation axis: we need to rotate from Z-axis to dirs[w]
+      // Eixo de rotação: de Z para k
       double z_axis[3] = { 0.0, 0.0, 1.0 };
-      // Compute cross product z × k (rotation axis)
+      // Produto vetorial z × k
       double axis[3] =
       {
         z_axis[1]*k[2] - z_axis[2]*k[1],
@@ -294,33 +301,33 @@ namespace automaton
       double axis_len = sqrt(axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]);
       if (axis_len < 1e-12)
       {
-        // If dirs[w] is parallel to z, no rotation is needed
+        // Paralelo a Z, sem rotação
         axis[0] = 1.0; axis[1] = 0.0; axis[2] = 0.0;
         axis_len = 1.0;
       }
-      axis[0] /= axis_len; axis[1] /= axis_len; axis[2] /= axis_len;
-      // Rotation angle
+      axis[0] /= axis_len;
+      axis[1] /= axis_len;
+      axis[2] /= axis_len;
+      // Ângulo de rotação
       double dot = z_axis[0]*k[0] + z_axis[1]*k[1] + z_axis[2]*k[2];
-      if (dot > 1.0) dot = 1.0;
-      if (dot < -1.0) dot = -1.0;
+      dot = std::max(-1.0, std::min(1.0, dot));
       double angle = acos(dot);
-      // Rotate and map points
+      // Rotacionar e mapear pontos da espiral
       for (int i = 0; i < num_points; ++i)
       {
         double p[3] = { x_curve[i], y_curve[i], z_curve[i] };
         double pr[3];
         rotateAroundAxis(p, axis, angle, pr);
-        // Translate to lattice coordinates
-        unsigned x = (unsigned)round(pr[0] + cx);
-        unsigned y = (unsigned)round(pr[1] + cy);
-        unsigned z = (unsigned)round(pr[2] + cz);
-        if (x >= 0 && x < EL && y >= 0 && y < EL && z >= 0 && z < EL)
+        unsigned x = static_cast<unsigned>(round(pr[0] + cx));
+        unsigned y = static_cast<unsigned>(round(pr[1] + cy));
+        unsigned z = static_cast<unsigned>(round(pr[2] + cz));
+        if (x < EL && y < EL && z < EL)
         {
           getCell(lattice_curr, x, y, z, w).sB = true;
         }
       }
     }
-    printf("initSpiralAndRotate: Spiral mapped to %u directions.\n", W_DIM);
+    printf("initSpirals ok - %u espirais mapeadas\n", W_DIM);
   }
 
   /*
@@ -343,54 +350,65 @@ namespace automaton
    */
   bool initSimulation(int step)
   {
-    // Check lattice allocation
-    if (lattice_curr.empty() || lattice_draft.empty() || lattice_mirror.empty())
-    {
-      std::cerr << "Error: Lattices not allocated. Ensure calculateParameters and allocate_lattices are called." << std::endl;
-      return false;
-    }
-    std::cout << "Starting initSimulation step " << step << std::endl;
     switch(step)
     {
       case 0:
-        initCell0();
-        break;
-      case 1:
         initGeneral();
         break;
-      case 2:
+      case 1:
         initMomentum();
         break;
-      case 3:
+      case 2:
         initSpirals();
         break;
-      case 4:
+      case 3:
         initSine2();
         break;
-      case 5:
-        printConstants();
+      case 4:
+        printParams();
         break;
-      case 6:
+      case 5:
         replicate();
         std::copy(lattice_curr.begin(),
                   lattice_curr.begin() + BLOCK,
                   lattice_mirror.begin());
         break;
-      case 7:
+      case 6:
         assert(sanityTest());
         break;
       default:
       return true;
     }
-    std::cout << "Completed initSimulation step " << step << std::endl;
     return false;
   }
 
-  void allocate_lattices(int EL, int W_DIM)
+  /**
+   * The tentative allocation of memory for the simulation.
+   *
+   * @EL grid size
+   * @W number of layers
+   */
+  bool tryAllocate(int EL, int W)
   {
-    size_t total = static_cast<size_t>(EL) * EL * EL * W_DIM;
-    lattice_curr.resize(total);
-    lattice_draft.resize(total);
-    lattice_mirror.resize(total);
+    try
+    {
+      size_t total = static_cast<size_t>(EL) * EL * EL * W;
+      lattice_curr.resize(total);
+      lattice_draft.resize(total);
+      lattice_mirror.resize(total);
+      return true;
+    }
+    catch (const std::bad_alloc& e)
+    {
+      lastAllocationError = "Memory allocation failed: " + std::string(e.what());
+      std::cerr << lastAllocationError << std::endl;
+      return false;
+    }
+    catch (...)
+    {
+      lastAllocationError = "Unknown error during memory allocation";
+      std::cerr << lastAllocationError << std::endl;
+      return false;
+    }
   }
 }

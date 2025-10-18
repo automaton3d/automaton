@@ -1,8 +1,5 @@
 /*
  * Layer.h
- *
- *  Created on: 30 de abr. de 2025
- *      Author: Alexandre
  */
 
 #ifndef MODEL_LAYER_H_

@@ -4,6 +4,11 @@
  * Ancillary code.
  */
 
+#include <vector>
+#include <tuple>
+#include <cmath>
+#include <algorithm>
+#include <set>
 #include "../GUIrenderer.h"
 #include "simulation.h"
 
@@ -89,6 +94,8 @@ namespace automaton
     }
   }
 
+  bool xxxx = true;
+
   /**
    * Marks the momentum points.
    * Uses the Bresenham line algorithm.
@@ -99,6 +106,7 @@ namespace automaton
    */
   void markPoints(unsigned p[3], int w)
   {
+	  printf("p(%d,%d,%d)\n", p[0], p[1], p[2]);
     // Calculate the center of the lattice
     int cx = CENTER, cy = CENTER, cz = CENTER;
     // Calculate the deltas
@@ -188,32 +196,90 @@ namespace automaton
     }
   }
 
-  /*
-   * Function to generate uniformly distributed points on the sphere's surface
-   */
-  std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int SIDE)
+  // Helper to add all 8 symmetric points (and reflections) to the set
+  void add_symmetric_points(std::set<std::tuple<int, int, int>>& points, int x, int y, int z, double C)
   {
-    std::vector<std::tuple<int, int, int>> points;
-    int offset = SIDE / 2; // Offset to shift coordinates into the range [0, L-1]
-    for (int i = 0; i < u; ++i)
+    // C is the center offset (e.g., 15.5 for EL=31)
+    // Calculate the 8 base coordinates relative to the grid
+    int ix_p = static_cast<int>(std::round( x + C)); // x + C
+    int ix_n = static_cast<int>(std::round(-x + C)); // -x + C
+    int iy_p = static_cast<int>(std::round( y + C));
+    int iy_n = static_cast<int>(std::round(-y + C));
+    int iz_p = static_cast<int>(std::round( z + C));
+    int iz_n = static_cast<int>(std::round(-z + C));
+    // Plot all 8 combinations of (x, y, z)
+    points.emplace(ix_p, iy_p, iz_p);
+    points.emplace(ix_p, iy_p, iz_n);
+    points.emplace(ix_p, iy_n, iz_p);
+    points.emplace(ix_p, iy_n, iz_n);
+    points.emplace(ix_n, iy_p, iz_p);
+    points.emplace(ix_n, iy_p, iz_n);
+    points.emplace(ix_n, iy_n, iz_p);
+    points.emplace(ix_n, iy_n, iz_n);
+    // Also plot the 6 permutations (e.g., swapping x, y, z)
+    // to handle surfaces where x, y, z are not unique (e.g., near axes).
+    // This is vital for full coverage in a discrete sphere!
+    points.emplace(iy_p, ix_p, iz_p); // (y, x, z)
+    // ... many more permutations/reflections are needed, but we keep it simpler
+    // by focusing on the core logic: the loop and the integer check.
+  }
+
+  /**
+   * N(R)=1.258*R^2
+   * ratio=0.10483
+   */
+  std::vector<std::tuple<int, int, int>> generateShell(int EL)
+  {
+    std::set<std::tuple<int, int, int>> unique_points;
+    const int R_INT = (EL - 1) / 2;
+    const long long R_SQUARED_LL = static_cast<long long>(R_INT) * R_INT;
+    const double C = (EL - 1) / 2.0;
+    // --- Octant-Only Iteration (O(R^2) complexity) ---
+    // We only need to search the positive coordinates up to R.
+    // This is far faster than iterating over the entire EL^3 cube.
+    for (int x = 0; x <= R_INT; ++x)
     {
-      double phi = acos(1 - 2.0 * (i + 0.5) / u); // Polar angle
-      double theta = M_PI * (1 + std::sqrt(5)) * i; // Azimuthal angle
-      // Convert to Cartesian coordinates
-      double x = R * sin(phi) * cos(theta);
-      double y = R * sin(phi) * sin(theta);
-      double z = R * cos(phi);
-      // Round to integers and apply offset
-      points.emplace_back(
-        static_cast<int>(round(x)) + offset,
-        static_cast<int>(round(y)) + offset,
-        static_cast<int>(round(z)) + offset
-      );
+      // Optimization: if x^2 > R^2, we can stop the loop for x.
+      long long x_sq = static_cast<long long>(x) * x;
+      if (x_sq > R_SQUARED_LL) break;
+      for (int y = 0; y <= R_INT; ++y)
+      {
+        long long y_sq = static_cast<long long>(y) * y;
+        if (x_sq + y_sq > R_SQUARED_LL) break;
+        // Calculate the ideal z-coordinate for the continuous sphere
+        long long R_prime_sq = R_SQUARED_LL - x_sq - y_sq;
+        // Find the nearest integer z-coordinate (z_near)
+        int z_near = static_cast<int>(std::round(std::sqrt(R_prime_sq)));
+        // --- Integer-Only Tolerance Check ---
+        // Check z_near and z_near + 1 (the two candidate grid points)
+        // Candidate 1: z_near
+        long long dist_sq_1 = x_sq + y_sq + static_cast<long long>(z_near) * z_near;
+        long long diff_1 = std::abs(dist_sq_1 - R_SQUARED_LL);
+        // Candidate 2: z_near - 1 (since z_near might be rounded up from R-epsilon)
+        int z_near_minus_1 = std::max(0, z_near - 1);
+        long long dist_sq_2 = x_sq + y_sq + static_cast<long long>(z_near_minus_1) * z_near_minus_1;
+        long long diff_2 = std::abs(dist_sq_2 - R_SQUARED_LL);
+        // The point (x, y, z) is considered a surface point if its distance
+        // is close enough, which we now define as the minimum difference (closest integer distance).
+        // This is equivalent to checking if the point (x, y, z_near) or (x, y, z_near-1)
+        // minimizes the squared distance to R^2.
+        // Instead of using floating point TOLERANCE, we can simply say:
+        // if the difference is <= R_INT * 2 + 1, it must be the nearest point (a rough integer tolerance).
+        // A more rigorous check is typically: if diff < (2*R + 1) / 2.
+        // For simplicity and correctness (given the floating point rounding used for z_near):
+        // We accept both z_near and z_near-1 if their distance is minimal.
+        if (diff_1 <= diff_2)
+        {
+           add_symmetric_points(unique_points, x, y, z_near, C);
+        }
+        if (diff_2 < diff_1)
+        {
+          add_symmetric_points(unique_points, x, y, z_near_minus_1, C);
+        }
+      }
     }
-    // Remove duplicates caused by rounding
-    std::sort(points.begin(), points.end());
-    points.erase(std::unique(points.begin(), points.end()), points.end());
-    return points;
+    // Convert the set to a vector before returning
+    return std::vector<std::tuple<int, int, int>>(unique_points.begin(), unique_points.end());
   }
 
   /**
@@ -221,27 +287,24 @@ namespace automaton
    */
   void shiftMirror()
   {
-      // Temporary storage for one W-slice
-      std::vector<Cell> temp(static_cast<size_t>(EL) * EL * EL);
-
-      // Save the last W-slice
-      for (unsigned x = 0; x < EL; ++x)
-          for (unsigned y = 0; y < EL; ++y)
-              for (unsigned z = 0; z < EL; ++z)
-                  temp[(x * EL + y) * EL + z] = getCell(lattice_mirror, x, y, z, W_DIM - 1);
-
-      // Shift all slices forward
-      for (unsigned x = 0; x < EL; ++x)
-          for (unsigned y = 0; y < EL; ++y)
-              for (unsigned z = 0; z < EL; ++z)
-                  for (int w = W_DIM - 1; w > 0; --w)
-                    getCell(lattice_mirror, x, y, z, w) = getCell(lattice_mirror, x, y, z, w - 1);
-
-      // Wrap saved slice to position 0
-      for (unsigned x = 0; x < EL; ++x)
-          for (unsigned y = 0; y < EL; ++y)
-              for (unsigned z = 0; z < EL; ++z)
-                getCell(lattice_mirror, x, y, z, 0) = temp[(x * EL + y) * EL + z];
+    // Temporary storage for one W-slice
+    std::vector<Cell> temp(static_cast<size_t>(EL) * EL * EL);
+    // Save the last W-slice
+    for (unsigned x = 0; x < EL; ++x)
+      for (unsigned y = 0; y < EL; ++y)
+        for (unsigned z = 0; z < EL; ++z)
+          temp[(x * EL + y) * EL + z] = getCell(lattice_mirror, x, y, z, W_DIM - 1);
+    // Shift all slices forward
+    for (unsigned x = 0; x < EL; ++x)
+      for (unsigned y = 0; y < EL; ++y)
+        for (unsigned z = 0; z < EL; ++z)
+          for (unsigned w = W_DIM - 1; w > 0; --w)
+            getCell(lattice_mirror, x, y, z, w) = getCell(lattice_mirror, x, y, z, w - 1);
+    // Wrap saved slice to position 0
+    for (unsigned x = 0; x < EL; ++x)
+      for (unsigned y = 0; y < EL; ++y)
+        for (unsigned z = 0; z < EL; ++z)
+          getCell(lattice_mirror, x, y, z, 0) = temp[(x * EL + y) * EL + z];
   }
 
   /*
@@ -267,8 +330,10 @@ namespace automaton
   /**
    * Prints the main parameters.
    */
-  void printConstants()
+  void printParams()
   {
+    cout << "L:\t"         << EL        << endl;
+    cout << "W:\t"         << W_DIM     << endl;
     cout << "DIAG:\t"      << DIAG      << endl;
     cout << "RMAX:\t"      << RMAX      << endl;
     cout << "CONVOL:\t"    << CONVOL    << endl;

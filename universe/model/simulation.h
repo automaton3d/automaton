@@ -65,7 +65,14 @@ namespace automaton
   extern unsigned EL;
   extern unsigned W_DIM;
 
-  struct Point { unsigned x, y, z; };
+  struct Point
+  {
+	unsigned x, y, z;
+	bool operator==(const Point& other) const
+	{
+	  return x == other.x && y == other.y && z == other.z;
+	}
+  };
 
   // Define the outer structure
   struct WPoint
@@ -73,30 +80,32 @@ namespace automaton
     Point p;
   };
 
+  extern string lastAllocationError;
+
   // Cell Class
   class Cell
   {
     public:
       // Physical properties
       unsigned char ch;   // Charge bits q, w1, w0, c2, c1, c0
-      bool pB;              // Linear motion direction bit
+      bool pB;            // Linear motion direction bit
       bool sB;            // Rotation spiral bit
-      unsigned a;           // Affinity
-      unsigned x[4];        // Relative position
+      unsigned a;         // Affinity
+      unsigned x[4];      // Relative position
       // Wavefront
-      unsigned d;          // Euclidean distance
-      bool phiB;      // Fixed period mask bit
-      unsigned t;           // Light frame counter
-      unsigned f;          // Sine phase parameter
+      unsigned d;         // Euclidean distance
+      bool phiB;          // Fixed period mask bit
+      unsigned t;         // Light frame counter
+      unsigned f;         // Sine phase parameter
       // Operational variables
       unsigned c[3] = { 0, 0, 0 }; // Relocation offset
-      unsigned k;           // Tick counter
-      bool s2B;        // Sieve test result
+      unsigned k;         // Tick counter
+      bool s2B;           // Sieve test result
       // Interaction control
-      bool kB;          // Collapse flag
-      bool bB;              // Blob flag
-      bool hB;              // Hunt flag
-      bool cB;        // Contraction flag
+      bool kB;            // Collapse flag
+      bool bB;            // Blob flag
+      bool hB;            // Hunt flag
+      bool cB;            // Contraction flag
       // Default constructor
       Cell()
         : ch(0), pB(false), sB(false), a(0),
@@ -130,7 +139,6 @@ namespace automaton
 
   /// Function prototypes ///
   void calculateParameters(unsigned L, unsigned W);
-  void allocate_lattices(int EL, int W_DIM);
   void* SimulationLoop();
   void DeleteAutomaton();
   void swap_lattices();
@@ -150,7 +158,7 @@ namespace automaton
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up);
   void updateBuffer();
-  std::vector<std::tuple<int, int, int>> generateUniformSpherePoints(int R, int u, int L);
+  std::vector<std::tuple<int, int, int>> generateShell(int L);
   void normalize(double vec[3]);
   void cross_product(double result[3], const double a[3], const double b[3]);
   void printLattice(int w);
@@ -158,10 +166,11 @@ namespace automaton
   bool neutralWeak(Cell &a, Cell &b);
   void shiftMirror();
   bool sanityTest3();
+  bool tryAllocate(int EL, int W);
 
   // Tests
 
-  void printConstants();
+  void printParams();
   bool sanityTest();
   bool sanityTest2();
 

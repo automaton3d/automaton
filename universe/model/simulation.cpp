@@ -48,6 +48,8 @@ namespace automaton
   bool diffuse_delay = false;
   bool reloc_delay   = false;
 
+  string lastAllocationError;
+
   /*
    * Executes a one tick operation in every cell.
    */
@@ -109,6 +111,20 @@ namespace automaton
               assert(false && "zebra!");
             }
             /****** UPDATE COUNTERS ******/
+
+            /****** UPDATE COUNTERS ******/
+            // Update tick counter
+            draft.k = (curr.k + 1) % FRAME;
+            // Update light counter
+            if (draft.k == 0)
+            {
+              if (curr.a == W_DIM)
+                draft.t = min(curr.t + 1, RMAX+1);
+              else if (!curr.cB)  // Added: skip increment if cB is being consumed (allows t=0 to stick)
+                draft.t = (curr.t + 1) % RMAX;
+            }
+
+            /*
             // Update tick counter
             draft.k = (curr.k + 1) % FRAME;
             // Update light counter
@@ -119,6 +135,7 @@ namespace automaton
               else
                 draft.t = (curr.t + 1) % RMAX;
             }
+            */
           }
         }
       }

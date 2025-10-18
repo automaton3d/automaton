@@ -7,7 +7,7 @@
 
 #include "simulation.h"
 
-#define SCENARIO 2
+#define SCENARIO 1
 
 namespace automaton
 {
@@ -17,7 +17,7 @@ namespace automaton
   int count = 0;
 
   /**
-   * Analizes the cases when the wavefronts cross
+   * Analyzes the cases when the wavefronts cross
    * during the convolution process.
    *
    * @curr the current lattice
@@ -62,12 +62,32 @@ namespace automaton
         draft.a = W_DIM;
       }
       // Propagate cB inward (inclusive)
-      draft.cB = (north.cB && curr.d <= north.d) ||
-                 (west.cB && curr.d <= west.d)   ||
-                 (down.cB && curr.d <= down.d)   ||
-                 (south.cB && curr.d <= south.d) ||
-                 (east.cB && curr.d <= east.d)   ||
-                 (up.cB && curr.d <= up.d);
+      // This marks all cells inside the contraction sphere
+      bool neighbor_cB = (north.cB && curr.d <= north.d) ||
+                        (west.cB && curr.d <= west.d)   ||
+                        (down.cB && curr.d <= down.d)   ||
+                        (south.cB && curr.d <= south.d) ||
+                        (east.cB && curr.d <= east.d)   ||
+                        (up.cB && curr.d <= up.d);
+
+      if (neighbor_cB)
+      {
+        draft.cB = true;
+        // CRITICAL: Don't mark interior cells as orphans during contraction
+        // Only the wavefront shell becomes orphan
+        if (curr.a == W_DIM)
+        {
+          // Already orphan, keep it
+        	assert(curr.t > 0);
+          draft.a = W_DIM;
+        }
+        else if (curr.t == curr.d)
+        {
+          // On the wavefront being converted to orphan
+          draft.a = W_DIM;
+        }
+        // else: interior cells stay as normal (a = w)
+      }
       // Hunting using hB
       if (curr.d == curr.t)
       {
@@ -165,15 +185,26 @@ namespace automaton
     else if (curr.k < SLOT4)
     {
       // Consume the contraction bit
+      // FIXED: Only reset time for cells inside the contraction radius
       if (curr.cB)
       {
-        // Adjust time, so in the next FRAME cycle so it will be t=0.
-        draft.t = RMAX - 1;
-        // Reset propagation status
-         draft.cB = false;
-        draft.kB = false;
-        draft.hB = false;
-        draft.bB = false;
+        // For orphan cells, keep their time advancing normally
+        if (curr.a == W_DIM)
+        {
+          // Orphan: just clear the cB flag, don't reset time
+          draft.cB = false;
+        }
+        else
+        {
+          // Normal cells inside contraction: reset to t=0 in next frame
+          // This creates the fresh wavefront at the center
+          draft.t = 0;  // Changed from RMAX - 1 to set t=0 immediately
+          // Reset propagation status
+          draft.cB = false;
+          draft.kB = false;
+          draft.hB = false;
+          draft.bB = false;
+        }
       }
     }
   }
@@ -183,6 +214,11 @@ namespace automaton
    */
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
   {
+	// Save the 3D address
+	unsigned x, y, z;
+	x = curr.x[0];
+	y = curr.x[1];
+	z = curr.x[2];
     /****** SLOT V ******/
     if (curr.k < SLOT5)
     {
@@ -210,6 +246,10 @@ namespace automaton
         draft.c[2]--;
       }
     }
+    // Recover 3D address
+	draft.x[0] = x;
+	draft.x[1] = y;
+	draft.x[2] = z;
   }
 
   /**

@@ -24,6 +24,7 @@ namespace automaton
     	draft.c[0] = curr.x[0];  // This is the pBit location
         draft.c[1] = curr.x[1];
         draft.c[2] = curr.x[2];
+        //draft.c[0] = 0; draft.c[1] = 0; draft.c[2] = 0;  // Optional: for no shift in this test
         draft.cB = true;
         draft.a = W_DIM;
         ctrl = false;
