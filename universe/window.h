@@ -22,62 +22,63 @@ namespace automaton
 
 namespace framework
 {
-	/**
-	 * Only one window instance is supported, but this could be extended by
-	 * using a registry class to scale the static callback handlers.
-	 */
-	class RenderWindowGLFW
-	{
-	public:
-	    RenderWindowGLFW();
-	    ~RenderWindowGLFW();
+  /**
+   * Only one window instance is supported, but this could be extended by
+   * using a registry class to scale the static callback handlers.
+   */
+  class RenderWindowGLFW
+  {
+  public:
+      RenderWindowGLFW();
+      ~RenderWindowGLFW();
 
-	  static RenderWindowGLFW & instance();
-	  int run();
+    static RenderWindowGLFW & instance();
+    int run();
 
-	  static void buttonCallback(GLFWwindow *window, int button, int action,
-	                               int mods);
-	  static void errorCallback(int error, const char* description);
-	  static void keyCallback(GLFWwindow *window, int key, int scancode,
-	                            int action, int mods);
-	  static void moveCallback(GLFWwindow *window, double xpos, double ypos);
-	  static void scrollCallback(GLFWwindow *window, double xpos, double ypos);
-	  static void sizeCallback(GLFWwindow *window, int width, int height);
+    static void buttonCallback(GLFWwindow *window, int button, int action,
+                                 int mods);
+    static void errorCallback(int error, const char* description);
+    static void keyCallback(GLFWwindow *window, int key, int scancode,
+                              int action, int mods);
+    static void moveCallback(GLFWwindow *window, double xpos, double ypos);
+    static void scrollCallback(GLFWwindow *window, double xpos, double ypos);
+    static void sizeCallback(GLFWwindow *window, int width, int height);
 
-	  void onDelayToggled(Tickbox* toggled)
-	  {
-		int i = 0;
-	    for (const auto &box : delays)
-	    {
-	      switch (i)
-	      {
-	        case 0:
-	          automaton::convol_delay = box.getState();
-	    	  break;
-	        case 1:
-        	  automaton::diffuse_delay = box.getState();
-	    	  break;
-	        case 2:
-	          automaton::reloc_delay = box.getState();
-	    	  break;
-	      }
-	      i++;
-	    }
-	    // Optionally update renderer, animation speed, etc.
-	  }
+    void onDelayToggled(Tickbox* toggled)
+    {
+    int i = 0;
+      for (const auto &box : delays)
+      {
+        switch (i)
+        {
+          case 0:
+            automaton::convol_delay = box.getState();
+          break;
+          case 1:
+            automaton::diffuse_delay = box.getState();
+          break;
+          case 2:
+            automaton::reloc_delay = box.getState();
+          break;
+        }
+        i++;
+      }
+      // Optionally update renderer, animation speed, etc.
+    }
 
-	private:
-	  Animator mAnimator;
-	  Camera mCamera;
-	  TrackBallInteractor mInteractor;
-	  GUIrenderer mRenderer;
-	  GLFWwindow *mWindow;
-	  static DWORD WINAPI SimulateThread(LPVOID lpParam);
-	  volatile bool isThreadReady = false;
-	};
+  private:
+    Animator mAnimator;
+    Camera mCamera;
+    TrackBallInteractor mInteractor;
+    GUIrenderer mRenderer;
+    GLFWwindow *mWindow;
+    static DWORD WINAPI SimulateThread(LPVOID lpParam);
+    volatile bool isThreadReady = false;
+      void updateProjection();
+  };
 
-	void sound();
-    void renderCenterBox(const char* text);
+  void sound();
+  void renderCenterBox(const char* text);
 
 } // end namespace framework
 

@@ -5,9 +5,9 @@
 #ifndef RADIO_H_
 #define RADIO_H_
 
-#include <string>
 #include <GL/gl.h>
 #include <math.h>
+#include <string>
 
 namespace framework
 {
@@ -67,8 +67,11 @@ public:
   }
 
   void setSelected(bool isSelected) { selected = isSelected; }
-  bool isSelected() const { return selected; }
 
+  bool isSelected() const
+  {
+    return selected;
+  }
   int getX() const { return x; }
   int getY() const { return y; }
 };

@@ -10,22 +10,22 @@
 namespace framework
 {
 
-	Renderer::Renderer() : mCamera(0)
-	{
-	}
+  Renderer::Renderer() : mCamera(0)
+  {
+  }
 
-	Renderer::~Renderer()
-	{
-	}
+  Renderer::~Renderer()
+  {
+  }
 
-	const Camera* Renderer::getCamera()
-	{
-	    return mCamera;
-	}
+  const Camera* Renderer::getCamera()
+  {
+      return mCamera;
+  }
 
-	void Renderer::setCamera(Camera *c)
-	{
-	  mCamera = c;
-	}
+  void Renderer::setCamera(Camera *c)
+  {
+    mCamera = c;
+  }
 
 } // end namespace framework

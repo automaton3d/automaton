@@ -33,6 +33,7 @@ namespace framework
   vector<Tickbox> checkboxes;
   vector<Tickbox> delays;
   vector<Radio> viewpoint;
+  vector<Radio> projection;
   std::unique_ptr<LayerList> list; // Global definition as a smart pointer
   LayerSlider slider(1890, 93, 10.0f, 607.0f, 30.0f);
 
@@ -45,6 +46,7 @@ namespace framework
   const float GRID_SIZE = 0.5 / EL;
   // Global flag to control rendering mode: single cube or 27 cubes.
   bool MULTICUBE_MODE = false;
+  bool helpHover = false;
 
   // Static text
   string help[10] =
@@ -57,7 +59,7 @@ namespace framework
     "Middle-Click: Pan or First-Person",
     " Right-Click: Roll",
     "Scroll-Wheel: Dolly (zoom)",
-	"      Escape: EXIT"
+  "      Escape: EXIT"
   };
 
   string steps[3] =
@@ -88,6 +90,8 @@ namespace framework
    */
   void GUIrenderer::init()
   {
+    assert(L3 > 0);
+
     voxels = (COLORREF*) malloc(L3 * sizeof(COLORREF));
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -121,6 +125,10 @@ namespace framework
     viewpoint.push_back(Radio(60, 630, "YZ"));
     viewpoint.push_back(Radio(60, 660, "ZX"));
     viewpoint[0].setSelected(true);
+    //
+    projection.push_back(Radio(60, 740, "Ortho"));
+    projection.push_back(Radio(60, 770, "Perspective"));
+    projection[1].setSelected(true);
     // Initialize progress bar data
     int barWidth = gViewport[2] / 4; // Bar is 1/4 of the screen width
     double totalRatio = (double) FRAME;
@@ -359,6 +367,12 @@ namespace framework
     drawString12("Data", 50, 85);
     drawString12("Delays", 50, 405);
     drawString12("Views", 50, 551);
+    drawString12("Projection", 50, 721);
+
+
+    // Draw hyperlink ← ADD THIS
+     renderHyperlink();
+
     glPopMatrix();
     list->update();
     resetPerspectiveProjection();
@@ -370,9 +384,10 @@ namespace framework
    */
   void GUIrenderer::renderMomentum()
   {
-    const float GRID_SIZE = 1.0f / EL;  // Better spacing
-    glPointSize(5.0f);                  // Larger points for visibility
+    const float GRID_SIZE = 0.5f / EL;
+    glPointSize(4.0f);      // Larger points for visibility
     glBegin(GL_POINTS);
+    glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
     for (unsigned x = 0; x < EL; x++)
     {
       for (unsigned y = 0; y < EL; y++)
@@ -381,10 +396,9 @@ namespace framework
         {
           if (getCell(lattice_curr, x, y, z, list->getSelected()).pB)
           {
-            glColor3d(1.0, 1.0, 0);     // Yellow
-            float px = (x - EL / 2) * GRID_SIZE;
-            float py = (y - EL / 2) * GRID_SIZE;
-            float pz = (z - EL / 2) * GRID_SIZE;
+          float px = (x - EL / 2.0) * GRID_SIZE;
+            float py = (y - EL / 2.0) * GRID_SIZE;
+            float pz = (z - EL / 2.0) * GRID_SIZE;
             glVertex3f(px, py, pz);
           }
         }
@@ -393,13 +407,13 @@ namespace framework
     glEnd();
   }
 
-/**
- * Renders the spiral pattern.
- */
+  /**
+   * Renders the spiral pattern.
+   */
   void GUIrenderer::renderSpin()
   {
-    const float GRID_SIZE = 1.0f / EL;  // Better spacing
-    glPointSize(5.0f);                  // Larger points for visibility
+    const float GRID_SIZE = 0.5f / EL;  // Better spacing
+    glPointSize(4.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
     for (unsigned x = 0; x < EL; x++)
     {
@@ -410,9 +424,9 @@ namespace framework
           if (getCell(lattice_curr, x, y, z, list->getSelected()).sB)
           {
             glColor3d(0, 1.0, 1.0);    // Cyan
-            float px = (x - EL / 2) * GRID_SIZE;
-            float py = (y - EL / 2) * GRID_SIZE;
-            float pz = (z - EL / 2) * GRID_SIZE;
+            float px = (x - EL / 2.0) * GRID_SIZE;
+            float py = (y - EL / 2.0) * GRID_SIZE;
+            float pz = (z - EL / 2.0) * GRID_SIZE;
             glVertex3f(px, py, pz);
           }
         }
@@ -426,8 +440,8 @@ namespace framework
    */
   void GUIrenderer::renderSineMask()
   {
-    const float GRID_SIZE = 1.0f / EL;  // Better spacing
-    glPointSize(5.0f);                  // Larger points for visibility
+    const float GRID_SIZE = 0.5f / EL;  // Better spacing
+    glPointSize(1.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
     for (unsigned x = 0; x < EL; x++)
     {
@@ -438,9 +452,9 @@ namespace framework
           if (getCell(lattice_curr, x, y, z, list->getSelected()).phiB)
           {
             glColor3d(1.0, 1.0, 0);     // Yellow
-            float px = (x - EL / 2) * GRID_SIZE;
-            float py = (y - EL / 2) * GRID_SIZE;
-            float pz = (z - EL / 2) * GRID_SIZE;
+            float px = (x - EL / 2.0) * GRID_SIZE;
+            float py = (y - EL / 2.0) * GRID_SIZE;
+            float pz = (z - EL / 2.0) * GRID_SIZE;
             glVertex3f(px, py, pz);
           }
         }
@@ -454,7 +468,7 @@ namespace framework
    */
   void GUIrenderer::renderHunting()
   {
-    const float GRID_SIZE = 1.0f / EL;  // Better spacing
+    const float GRID_SIZE = 0.5f / EL;  // Better spacing
     glPointSize(5.0f);                  // Larger points for visibility
     glBegin(GL_POINTS);
     for (unsigned x = 0; x < EL; x++)
@@ -466,9 +480,9 @@ namespace framework
           if (getCell(lattice_curr, x, y, z, list->getSelected()).hB)
           {
             glColor3d(1.0, 1.0, 0);     // Yellow
-            float px = (x - EL / 2) * GRID_SIZE;
-            float py = (y - EL / 2) * GRID_SIZE;
-            float pz = (z - EL / 2) * GRID_SIZE;
+            float px = (x - EL / 2.0) * GRID_SIZE;
+            float py = (y - EL / 2.0) * GRID_SIZE;
+            float pz = (z - EL / 2.0) * GRID_SIZE;
             glVertex3f(px, py, pz);
           }
         }
@@ -486,7 +500,7 @@ namespace framework
     // Cell spacing.
     const float GRID_SIZE =  0.5 / EL;
     // Size of each lattice point.
-    glPointSize(2.0f);
+    glPointSize(2.5f);
 
     // Define offsets for 27 cubes (-1, 0, 1 along each axis)
     int offsets[3] = {-1, 0, 1};
@@ -513,9 +527,9 @@ namespace framework
           // Set the OpenGL color.
           glColor4d(red, green, blue, alpha);
           // Base position of the current voxel.
-          float px = (x - EL / 2) * GRID_SIZE;
-          float py = (y - EL / 2) * GRID_SIZE;
-          float pz = (z - EL / 2) * GRID_SIZE;
+          float px = (x - EL / 2.0) * GRID_SIZE;
+          float py = (y - EL / 2.0) * GRID_SIZE;
+          float pz = (z - EL / 2.0) * GRID_SIZE;
           if (MULTICUBE_MODE)
           {
             // Render 27 cubes by translating the base grid position.
@@ -548,54 +562,54 @@ namespace framework
    */
   void GUIrenderer::renderCenters()
   {
-      // Clear previous positions
-      screenPositions.clear();
+    // Clear previous positions
+    screenPositions.clear();
 
-      // Get matrices and viewport
-      GLint viewport[4];
-      GLdouble modelview[16];
-      GLdouble projection[16];
-      glGetIntegerv(GL_VIEWPORT, viewport);
-      glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-      glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    // Get matrices and viewport
+    GLint viewport[4];
+    GLdouble modelview[16];
+    GLdouble projection[16];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
 
-      const float GRID_SIZE = 0.5f / EL;
+    const float GRID_SIZE = 0.5f / EL;
 
-      // --- 3D Points ---
-      glPointSize(8.0f);
-      glBegin(GL_POINTS);
-      for (unsigned w = 0; w < W_DIM; w++)
+    // --- 3D Points ---
+    glPointSize(8.0f);
+    glBegin(GL_POINTS);
+    for (unsigned w = 0; w < W_DIM; w++)
+    {
+      Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
+      float alpha = 0.5f;
+      float r = 0.7f + (w & 1) * 0.3f;
+      float g = 0.7f + ((w >> 1) & 1) * 0.3f;
+      float b = 0.7f + ((w >> 2) & 1) * 0.3f;
+
+      float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
+      float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
+      float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
+
+      glColor4f(r, g, b, alpha);
+      glVertex3f(px, py, pz);
+
+      // Manual projection
+      float sx, sy;
+      float obj[3] = {px, py, pz};
+      if (framework::projectPoint(obj, modelview, projection, viewport, sx, sy))
       {
-        Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-        float alpha = 0.5f;
-        float r = 0.7f + (w & 1) * 0.3f;
-        float g = 0.7f + ((w >> 1) & 1) * 0.3f;
-        float b = 0.7f + ((w >> 2) & 1) * 0.3f;
-
-        float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
-        float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
-        float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
-
-        glColor4f(r, g, b, alpha);
-        glVertex3f(px, py, pz);
-
-        // Manual projection
-        float sx, sy;
-        float obj[3] = {px, py, pz};
-        if (framework::projectPoint(obj, modelview, projection, viewport, sx, sy))
-        {
-          screenPositions.push_back({sx, sy});
-        }
+        screenPositions.push_back({sx, sy});
       }
-      glEnd();
-      // --- Count duplicates ---
-      std::map<std::pair<int,int>, int> counts;
-      for (auto &pos : screenPositions)
-      {
-        int x = static_cast<int>(pos[0] + 0.5f);
-        int y = static_cast<int>(pos[1] + 0.5f);
-        counts[{x, y}]++;
-      }
+    }
+    glEnd();
+    // --- Count duplicates ---
+    std::map<std::pair<int,int>, int> counts;
+    for (auto &pos : screenPositions)
+    {
+      int x = static_cast<int>(pos[0] + 0.5f);
+      int y = static_cast<int>(pos[1] + 0.5f);
+      counts[{x, y}]++;
+    }
   }
 
   /*
@@ -624,12 +638,17 @@ namespace framework
     {
       radio.draw();
     }
+    // Camera projection
+    for (Radio& radio : projection)
+    {
+      radio.draw();
+    }
     glFlush();
     glPopMatrix();
     resetPerspectiveProjection();
   }
 
-  /*
+  /**
    * Renders 2D and 3D objects controlled by the mouse and keyboard.
    */
   void GUIrenderer::renderObjects()
@@ -676,111 +695,101 @@ namespace framework
     renderGadgets();
   }
 
-/*
- * Renders the cartesian positive axes with labels.
- */
-void GUIrenderer::renderAxes()
-{
-  // Render the axes
-  glLineWidth(2);
-  glBegin(GL_LINES);
+  /**
+   * Renders the cartesian positive axes with labels.
+   */
+  void GUIrenderer::renderAxes()
+  {
+    // Render the axes
+    glLineWidth(2);
+    glBegin(GL_LINES);
+    // X-axis
+    glColor3f(0.6f, 0.f, 0.f); // Red for the X-axis
+    glVertex3f(0.0f, 0.f, 0.f);
+    glVertex3f(0.45f, 0.f, 0.f);
+    // Y-axis
+    glColor3f(0.f, 0.6f, 0.f); // Green for the Y-axis
+    glVertex3f(0.f, 0.f, 0.f);
+    glVertex3f(0.f, 0.45f, 0.f);
+    // Z-axis
+    glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
+    glVertex3f(0.0f, 0.f, 0.f);
+    glVertex3f(0.f, 0.f, 0.45f);
+    glEnd();
+    glLineWidth(1);
+    // Add labels
+    glColor3f(1.f, 0.f, 0.f); // Red for "x" label
+    render3Dstring(0.453f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
+    glColor3f(0.f, 1.f, 0.f); // Green for "y" label
+    render3Dstring(-0.02f, 0.453f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
+    glColor3f(0.3f, 0.3f, 0.8f); // Blue for "z" label
+    render3Dstring(0.0f, -0.02f, 0.453f, GLUT_BITMAP_HELVETICA_18, "z");
+  }
 
-  // X-axis
-  glColor3f(0.6f, 0.f, 0.f); // Red for the X-axis
-  glVertex3f(0.0f, 0.f, 0.f);
-  glVertex3f(0.45f, 0.f, 0.f);
-
-  // Y-axis
-  glColor3f(0.f, 0.6f, 0.f); // Green for the Y-axis
-  glVertex3f(0.f, 0.f, 0.f);
-  glVertex3f(0.f, 0.45f, 0.f);
-
-  // Z-axis
-  glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
-  glVertex3f(0.0f, 0.f, 0.f);
-  glVertex3f(0.f, 0.f, 0.45f);
-
-  glEnd();
-  glLineWidth(1);
-  // Add labels
-  glColor3f(1.f, 0.f, 0.f); // Red for "x" label
-  render3Dstring(0.453f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
-  glColor3f(0.f, 1.f, 0.f); // Green for "y" label
-  render3Dstring(-0.02f, 0.453f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
-  glColor3f(0.3f, 0.3f, 0.8f); // Blue for "z" label
-  render3Dstring(0.0f, -0.02f, 0.453f, GLUT_BITMAP_HELVETICA_18, "z");
-}
-
-/*
- * Renders the 3D space outline.
- */
-void GUIrenderer::renderCube()
-{
-  GLfloat alpha = 0.6f;
-  glBegin(GL_QUADS);
-  glColor4f(0.45f, 0.13f, 0.13f, alpha);
-  // Right face
-  glVertex3f( 0.25f, -0.25f, -0.25f);
-  glVertex3f( 0.25f,  0.25f, -0.25f);
-  glVertex3f( 0.25f,  0.25f,  0.25f);
-  glVertex3f( 0.25f, -0.25f,  0.25f);
-  // Left face
-  glVertex3f(-0.25f, -0.25f, -0.25f);
-  glVertex3f(-0.25f,  0.25f, -0.25f);
-  glVertex3f(-0.25f,  0.25f,  0.25f);
-  glVertex3f(-0.25f, -0.25f,  0.25f);
-  // Top face
-  glVertex3f(-0.25f,  0.25f, -0.25f);
-  glVertex3f( 0.25f,  0.25f, -0.25f);
-  glVertex3f( 0.25f,  0.25f,  0.25f);
-  glVertex3f(-0.25f,  0.25f,  0.25f);
-  // Bottom face
-  glVertex3f(-0.25f, -0.25f, -0.25f);
-  glVertex3f( 0.25f, -0.25f, -0.25f);
-  glVertex3f( 0.25f, -0.25f,  0.25f);
-  glVertex3f(-0.25f, -0.25f,  0.25f);
-  // Front face
-  glVertex3f(-0.25f, -0.25f,  0.25f);
-  glVertex3f( 0.25f, -0.25f,  0.25f);
-  glVertex3f( 0.25f,  0.25f,  0.25f);
-  glVertex3f(-0.25f,  0.25f,  0.25f);
-  // Back face
-  glVertex3f(-0.25f, -0.25f, -0.25f);
-  glVertex3f( 0.25f, -0.25f, -0.25f);
-  glVertex3f( 0.25f,  0.25f, -0.25f);
-  glVertex3f(-0.25f,  0.25f, -0.25f);
-  glEnd();
-}
+  /**
+   * Renders the 3D space outline.
+   */
+  void GUIrenderer::renderCube()
+  {
+    GLfloat alpha = 0.6f;
+    glBegin(GL_QUADS);
+    glColor4f(0.45f, 0.13f, 0.13f, alpha);
+    // Right face
+    glVertex3f( 0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f,  0.25f);
+    glVertex3f( 0.25f, -0.25f,  0.25f);
+    // Left face
+    glVertex3f(-0.25f, -0.25f, -0.25f);
+    glVertex3f(-0.25f,  0.25f, -0.25f);
+    glVertex3f(-0.25f,  0.25f,  0.25f);
+    glVertex3f(-0.25f, -0.25f,  0.25f);
+    // Top face
+    glVertex3f(-0.25f,  0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f,  0.25f);
+    glVertex3f(-0.25f,  0.25f,  0.25f);
+    // Bottom face
+    glVertex3f(-0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f, -0.25f,  0.25f);
+    glVertex3f(-0.25f, -0.25f,  0.25f);
+    // Front face
+    glVertex3f(-0.25f, -0.25f,  0.25f);
+    glVertex3f( 0.25f, -0.25f,  0.25f);
+    glVertex3f( 0.25f,  0.25f,  0.25f);
+    glVertex3f(-0.25f,  0.25f,  0.25f);
+    // Back face
+    glVertex3f(-0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f, -0.25f, -0.25f);
+    glVertex3f( 0.25f,  0.25f, -0.25f);
+    glVertex3f(-0.25f,  0.25f, -0.25f);
+    glEnd();
+  }
 
   /*
    * Renders a reference plane to help in the visualization.
    */
-/*
- * Renders a reference plane to help in the visualization.
- */
-void GUIrenderer::renderPlane()
-{
-  float p, d = .1f, mn = -1.f, mx = 1.f, eps = -1e-4f;
-  int i, n = 20;
-  glLineWidth(1);
-  glBegin(GL_LINES);
-  glColor4f(1.f, 1.f, 1.f, .2f); // uniform color for all lines
-  for (i = 0; i <= n; ++i)
+  void GUIrenderer::renderPlane()
   {
-    p = mn + i * d;
-    // Lines parallel to the x-axis (constant z)
-    glVertex3f(p, eps, mn);
-    glVertex3f(p, eps, mx);
-    // Lines parallel to the z-axis (constant x)
-    glVertex3f(mn, eps, p);
-    glVertex3f(mx, eps, p);
+    float p, d = .1f, mn = -1.f, mx = 1.f, eps = -1e-4f;
+    int i, n = 20;
+    glLineWidth(1);
+    glBegin(GL_LINES);
+    glColor4f(1.f, 1.f, 1.f, .2f); // uniform color for all lines
+    for (i = 0; i <= n; ++i)
+    {
+      p = mn + i * d;
+      // Lines parallel to the x-axis (constant z)
+      glVertex3f(p, eps, mn);
+      glVertex3f(p, eps, mx);
+      // Lines parallel to the z-axis (constant x)
+      glVertex3f(mn, eps, p);
+      glVertex3f(mx, eps, p);
+    }
+    glEnd();
   }
-  glEnd();
-}
 
-  /*
-   * Resizes the GUI.
-   */
   void GUIrenderer::resize(int width, int height)
   {
     if (height == 0) height = 1;
@@ -793,8 +802,25 @@ void GUIrenderer::renderPlane()
     gViewport[3] = height;
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
+
+    // Check which projection mode is selected
+    if (projection[0].isSelected())
+    {
+      // Orthographic
+      float orthoSize = 0.6f;
+      mProjection = glm::ortho(
+        -orthoSize * ratio, orthoSize * ratio,
+        -orthoSize, orthoSize,
+        0.01f, 100.0f
+      );
+    }
+    else
+    {
+      // Perspective
+      mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
+    }
   }
+
 
   /*
    * Used to enhance the particle belonging the current layer.
@@ -821,4 +847,35 @@ void GUIrenderer::renderPlane()
     glEnd();
   }
 
+  /**
+   * Renders a help hyperlink at the bottom of the screen.
+   */
+  void GUIrenderer::renderHyperlink()
+  {
+    const char* linkText = "Help";
+
+    // Use brighter color if hovered
+    if (helpHover)
+      glColor3f(0.3f, 0.6f, 1.0f);  // lighter blue
+    else
+      glColor3f(1.0f, 0.0f, 1.0f);  // normal blue
+    // Calculate text width
+    int textWidth = 0;
+    const char* c = linkText;
+    while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
+    // Position at bottom center
+    int x = (gViewport[2] - textWidth) / 2;
+    int y = gViewport[3] - 30;  // 30 pixels from bottom
+
+    // Draw text
+    glRasterPos2i(x, y);
+    c = linkText;
+    while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c++);
+    // Draw underline
+    glLineWidth(1.0f);
+    glBegin(GL_LINES);
+      glVertex2i(x, y + 4);
+      glVertex2i(x + textWidth, y + 4);
+    glEnd();
+  }
 }

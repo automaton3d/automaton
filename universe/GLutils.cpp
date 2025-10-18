@@ -11,43 +11,43 @@ namespace framework
 
   void renderCenterBox(const char* text)
   {
-      GLint viewport[4];
-      glGetIntegerv(GL_VIEWPORT, viewport);
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
 
-      int viewportWidth = viewport[2];
-      int viewportHeight = viewport[3];
+    int viewportWidth = viewport[2];
+    int viewportHeight = viewport[3];
 
-      // Calculate text dimensions dynamically
-      int textWidth = strlen(text) * 10;
-      int textHeight = 10;
+    // Calculate text dimensions dynamically
+    int textWidth = strlen(text) * 10;
+    int textHeight = 10;
 
-      // Center the text in the viewport
-      int textX = (viewportWidth - textWidth) / 2;
-      int textY = (viewportHeight + textHeight) / 2;
+    // Center the text in the viewport
+    int textX = (viewportWidth - textWidth) / 2;
+    int textY = (viewportHeight + textHeight) / 2;
 
-      // Padding for the rectangle
-      int paddingX = 15;
-      int paddingY = 10;
+    // Padding for the rectangle
+    int paddingX = 15;
+    int paddingY = 10;
 
-      // Rectangle dimensions and position
-      int rectX = textX - paddingX;
-      int rectY = textY - textHeight - paddingY;
-      int rectWidth = textWidth + 2 * paddingX;
-      int rectHeight = textHeight + 2 * paddingY;
+    // Rectangle dimensions and position
+    int rectX = textX - paddingX;
+    int rectY = textY - textHeight - paddingY;
+    int rectWidth = textWidth + 2 * paddingX;
+    int rectHeight = textHeight + 2 * paddingY;
 
-      // Draw the text
-      glColor3f(1.0f, 1.0f, 1.0f); // White color for text
-      drawString8(text, textX, textY); // Render the text at the calculated position
+    // Draw the text
+    glColor3f(1.0f, 1.0f, 1.0f); // White color for text
+    drawString8(text, textX, textY); // Render the text at the calculated position
 
-      // Draw the rectangle around the text
-      glColor3f(1.0f, 1.0f, 1.0f); // White color for rectangle
-      glLineWidth(2);
-      glBegin(GL_LINE_LOOP);
-      glVertex2i(rectX, rectY);
-      glVertex2i(rectX + rectWidth, rectY);
-      glVertex2i(rectX + rectWidth, rectY + rectHeight);
-      glVertex2i(rectX, rectY + rectHeight);
-      glEnd();
+    // Draw the rectangle around the text
+    glColor3f(1.0f, 1.0f, 1.0f); // White color for rectangle
+    glLineWidth(2);
+    glBegin(GL_LINE_LOOP);
+    glVertex2i(rectX, rectY);
+    glVertex2i(rectX + rectWidth, rectY);
+    glVertex2i(rectX + rectWidth, rectY + rectHeight);
+    glVertex2i(rectX, rectY + rectHeight);
+    glEnd();
   }
 
   void render2Dstring(float x, float y, void *font, const char *string)
@@ -62,9 +62,9 @@ namespace framework
    */
   void render3Dstring(float x, float y, float z, void *font, const char *string)
   {
-      glRasterPos3f(x, y, z);  // Set raster position in 3D space
-      for (int i = 0; string[i] != '\0'; i++)  // Loop through the string
-          glutBitmapCharacter(font, string[i]);
+    glRasterPos3f(x, y, z);  // Set raster position in 3D space
+    for (int i = 0; string[i] != '\0'; i++)  // Loop through the string
+      glutBitmapCharacter(font, string[i]);
   }
 
   void drawString8(string s, int x, int y)
@@ -134,25 +134,27 @@ namespace framework
 
   // Helper function: manually project a 3D point to screen space
   bool projectPoint(const float obj[3],
-                         const GLdouble modelview[16],
-                         const GLdouble projection[16],
-                         const GLint viewport[4],
-                         float &winX, float &winY)
+                    const GLdouble modelview[16],
+                    const GLdouble projection[16],
+                    const GLint viewport[4],
+                    float &winX, float &winY)
   {
     // Transform to eye space
-    double eye[4] = {
-        modelview[0]*obj[0] + modelview[4]*obj[1] + modelview[8]*obj[2] + modelview[12],
-        modelview[1]*obj[0] + modelview[5]*obj[1] + modelview[9]*obj[2] + modelview[13],
-        modelview[2]*obj[0] + modelview[6]*obj[1] + modelview[10]*obj[2] + modelview[14],
-        modelview[3]*obj[0] + modelview[7]*obj[1] + modelview[11]*obj[2] + modelview[15]
+    double eye[4] =
+    {
+      modelview[0]*obj[0] + modelview[4]*obj[1] + modelview[8]*obj[2] + modelview[12],
+      modelview[1]*obj[0] + modelview[5]*obj[1] + modelview[9]*obj[2] + modelview[13],
+      modelview[2]*obj[0] + modelview[6]*obj[1] + modelview[10]*obj[2] + modelview[14],
+      modelview[3]*obj[0] + modelview[7]*obj[1] + modelview[11]*obj[2] + modelview[15]
     };
 
     // Transform to clip space
-    double clip[4] = {
-        projection[0]*eye[0] + projection[4]*eye[1] + projection[8]*eye[2] + projection[12]*eye[3],
-        projection[1]*eye[0] + projection[5]*eye[1] + projection[9]*eye[2] + projection[13]*eye[3],
-        projection[2]*eye[0] + projection[6]*eye[1] + projection[10]*eye[2] + projection[14]*eye[3],
-        projection[3]*eye[0] + projection[7]*eye[1] + projection[11]*eye[2] + projection[15]*eye[3]
+    double clip[4] =
+    {
+      projection[0]*eye[0] + projection[4]*eye[1] + projection[8]*eye[2] + projection[12]*eye[3],
+      projection[1]*eye[0] + projection[5]*eye[1] + projection[9]*eye[2] + projection[13]*eye[3],
+      projection[2]*eye[0] + projection[6]*eye[1] + projection[10]*eye[2] + projection[14]*eye[3],
+      projection[3]*eye[0] + projection[7]*eye[1] + projection[11]*eye[2] + projection[15]*eye[3]
     };
 
     if (clip[3] == 0.0) return false; // Behind camera

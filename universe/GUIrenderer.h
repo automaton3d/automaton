@@ -9,7 +9,6 @@
 
 #include "renderer.h"
 #include <GL/glut.h>
-// Inclusões de bibliotecas C++ padrão
 #include <cstdlib>
 #include <math.h>
 #include <iostream>
@@ -84,6 +83,9 @@ public:
                     const GLdouble projection[16],
                     const GLint viewport[4],
                     float &winX, float &winY);
+  void setProjection(const glm::mat4& proj) { mProjection = proj; }
+  // In the GUIrenderer class public methods:
+  void renderHyperlink();
 
 protected:
     glm::mat4 mProjection;
@@ -146,6 +148,7 @@ public:
     {
       return y;
     }
+
 };
 
 void drawString12(const string& text, int x, int y);
@@ -161,9 +164,13 @@ extern std::vector<Tickbox> checkboxes;
 extern std::unique_ptr<LayerList> list;
 extern std::vector<Tickbox> delays;
 extern std::vector<Radio> viewpoint;
+extern std::vector<Radio> projection;
 
 void initText();
 void reshape(GLFWwindow* window, int width, int height);
+
+// In the framework namespace, with other extern declarations:
+extern bool helpHover;
 
 } // end namespace framework
 

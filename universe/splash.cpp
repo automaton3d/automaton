@@ -1,89 +1,50 @@
 /*
  * splash.cpp
  */
-#include <GLFW/glfw3.h>
-#include <GL/freeglut.h>
-#include <iostream>
-#include <windows.h>
-#include <shellapi.h>
-#include <cstdio>
-#include <vector>
+#include "splash.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-// ----------------------------------------------------------
-// Button structure
-struct Button
-{
-  float x, y, w, h;
-  const char* label;
-};
-
-// ----------------------------------------------------------
 // Selection buttons (positioned at bottom)
 Button btn1 = { -0.5f, -0.65f, 1.0f, 0.12f, "Simulation" };
 Button btn2 = { -0.5f, -0.82f, 1.0f, 0.12f, "Statistics" };
 Button helpLink = { -0.15f, -0.90f, 0.3f, 0.05f, "Help" }; // Hyperlink button, centered
-
-// ----------------------------------------------------------
 // Size selection controls
-const int sizes[] = {3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
+const int sizes[] = {5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89};
 const int numSizes = sizeof(sizes) / sizeof(sizes[0]);
-int lattice_size = 11;
-int sizeIndex = 4;
+int lattice_size = 21;
 bool sizeDropdownOpen = false;
 Button sizeDropBox = { -0.85f, -0.25f, 0.4f, 0.08f, "11" };
 // New scroll variables for Size Dropdown
 float sizeScrollOffset = 0.0f; // Stores the vertical scroll offset (0.0 means no scroll)
 const float MAX_DROPDOWN_HEIGHT = 0.5f; // Max visual height of the dropdown list
-
-// ----------------------------------------------------------
 // Layer selection controls - even numbers 2 to 364
-const int layers[] = {
-  2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38,
-  40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78,
-  80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118,
-  120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152, 154, 156, 158,
-  160, 162, 164, 166, 168, 170, 172, 174, 176, 178, 180, 182, 184, 186, 188, 190, 192, 194, 196, 198,
-  200, 202, 204, 206, 208, 210, 212, 214, 216, 218, 220, 222, 224, 226, 228, 230, 232, 234, 236, 238,
-  240, 242, 244, 246, 248, 250, 252, 254, 256, 258, 260, 262, 264, 266, 268, 270, 272, 274, 276, 278,
-  280, 282, 284, 286, 288, 290, 292, 294, 296, 298, 300, 302, 304, 306, 308, 310, 312, 314, 316, 318,
-  320, 322, 324, 326, 328, 330, 332, 334, 336, 338, 340, 342, 344, 346, 348, 350, 352, 354, 356, 358,
-  360, 362, 364
+const int layers[] =
+{
+  10, 12, 14, 16, 18, 20, 24, 28, 32, 38, 44,
+  52, 60, 70, 82, 96, 112, 130, 150, 174,
+  200, 230, 264, 300, 320, 340, 360, 364
 };
 const int numLayersAvailable = sizeof(layers) / sizeof(layers[0]);
-int numLayers = 4;
-const int maxLayers = 364;
+int numLayers = 10;
 bool useStandard = false;
 bool dropdownOpen = false;
 Button dropBox = { -0.85f, -0.40f, 0.4f, 0.08f, "4" };
 Button chkStandard = { 0.15f, -0.40f, 0.08f, 0.08f, "" };
-
 // New scroll variables for Layers Dropdown
 float layersScrollOffset = 0.0f;
 const float MAX_LAYERS_DROPDOWN_HEIGHT = MAX_DROPDOWN_HEIGHT; // Use same height as Size
-
-// ----------------------------------------------------------
 // Logo texture
 GLuint logoTexture = 0;
 int logoWidth = 0, logoHeight = 0;
-
-// ----------------------------------------------------------
 // Window dimensions
 const int WINDOW_WIDTH = 600;
-const int WINDOW_HEIGHT = 700;
+const int WINDOW_HEIGHT = 650;
+int selection = 0;
+bool shouldExit = false;
+bool helpHover = false;
 
-// ----------------------------------------------------------
-volatile int selection = 0;
-volatile bool shouldExit = false;
-
-// Forward declarations
-int runSimulation(unsigned EL, unsigned W);
-int runStatistics(unsigned EL, unsigned W);
-
-// ----------------------------------------------------------
-// Helper function for button detection
+/*
+ * Helper function for button detection.
+ */
 bool insideButton(int mx, int my, int w, int h, const Button& b)
 {
   float x = (float)mx / w * 2.0f - 1.0f;
@@ -91,8 +52,9 @@ bool insideButton(int mx, int my, int w, int h, const Button& b)
   return (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 }
 
-// ----------------------------------------------------------
-// Load PNG image and create texture
+/*
+ * Load PNG image and create texture.
+ */
 bool loadLogo(const char* filename)
 {
   int channels;
@@ -114,8 +76,9 @@ bool loadLogo(const char* filename)
   return true;
 }
 
-// ----------------------------------------------------------
-// Draw logo (moved down 30 pixels)
+/*
+ * Draw logo.
+ */
 void drawLogo()
 {
   if (logoTexture == 0) return;
@@ -136,8 +99,9 @@ void drawLogo()
   glDisable(GL_TEXTURE_2D);
 }
 
-// ----------------------------------------------------------
-// Draw a button
+/*
+ * Draw a button.
+ */
 void drawButton(const Button& b, bool isDefault = false)
 {
   glColor3f(0.1f, 0.1f, 0.1f);
@@ -177,22 +141,27 @@ void drawButton(const Button& b, bool isDefault = false)
   while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c++);
 }
 
-// ----------------------------------------------------------
-// Draw hyperlink text
+/*
+ * Draw hyperlink text.
+ */
 void drawHyperlink(const Button& b)
 {
-  glColor3f(0.0f, 0.0f, 1.0f);  // Blue text
+  // Use brighter color if hovered
+  if (helpHover)
+    glColor3f(0.1f, 0.4f, 1.0f);  // lighter blue
+  else
+    glColor3f(0.0f, 0.0f, 1.0f);  // normal blue
+
   const char* c = b.label;
   int textWidth = 0;
   while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
-  float tx = b.x + (b.w - (textWidth * 2.0f / WINDOW_WIDTH)) / 2;  // Center text
+  float tx = b.x + (b.w - (textWidth * 2.0f / WINDOW_WIDTH)) / 2;
   float ty = b.y + 0.015f;
   glRasterPos2f(tx, ty);
   c = b.label;
   while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c++);
 
-  // Draw underline
-  glColor3f(0.0f, 0.0f, 1.0f);
+  // Draw underline (color depends on hover too)
   glLineWidth(1.0f);
   glBegin(GL_LINES);
     glVertex2f(b.x + (b.w - (textWidth * 2.0f / WINDOW_WIDTH)) / 2, b.y + 0.005f);
@@ -200,8 +169,9 @@ void drawHyperlink(const Button& b)
   glEnd();
 }
 
-// ----------------------------------------------------------
-// Checkbox drawing
+/*
+ * Checkbox drawing.
+ */
 void drawCheckbox(const Button& b, bool checked, const char* label)
 {
   glColor3f(0.9f, 0.9f, 0.9f);
@@ -211,7 +181,6 @@ void drawCheckbox(const Button& b, bool checked, const char* label)
     glVertex2f(b.x + b.w, b.y + b.h);
     glVertex2f(b.x, b.y + b.h);
   glEnd();
-
   if (checked)
   {
     glColor3f(0.2f, 0.6f, 1.0f);
@@ -222,15 +191,15 @@ void drawCheckbox(const Button& b, bool checked, const char* label)
       glVertex2f(b.x + 0.015f, b.y + b.h - 0.015f);
     glEnd();
   }
-
   glColor3f(0, 0, 0);
   glRasterPos2f(b.x + b.w + 0.02f, b.y + 0.015f);
   const char* ch = label;
   while (*ch) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *ch++);
 }
 
-// ----------------------------------------------------------
-// Main dropdown box (no expanded items)
+/*
+ * Main dropdown box (no expanded items).
+ */
 void drawSizeDropdown(const Button& b)
 {
   glColor3f(0.2f, 0.2f, 0.2f);
@@ -266,22 +235,20 @@ void drawSizeDropdown(const Button& b)
   while (*ch) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *ch++);
 }
 
-// ----------------------------------------------------------
-// Expanded size dropdown - NOW WITH CLIPPING AND SCROLLING
+/*
+ * Expanded size dropdown - NOW WITH CLIPPING AND SCROLLING.
+ */
 void drawExpandedSizeDropdown(const Button& b)
 {
   float itemHeight = b.h;
   float spacing = 0.015f;
-
   // --- Scroll calculation and Scissoring setup ---
   float totalListHeight = numSizes * itemHeight + (numSizes - 1) * spacing;
   float visibleHeight = totalListHeight > MAX_DROPDOWN_HEIGHT ? MAX_DROPDOWN_HEIGHT : totalListHeight;
   float maxScrollOffset = totalListHeight > MAX_DROPDOWN_HEIGHT ? totalListHeight - MAX_DROPDOWN_HEIGHT : 0.0f;
-
   if (sizeScrollOffset < 0.0f) sizeScrollOffset = 0.0f;
   if (sizeScrollOffset > maxScrollOffset) sizeScrollOffset = maxScrollOffset;
   // --- End Scroll Setup ---
-
   // Calculate the y-positions for visible items
   std::vector<float> itemYPositions;
   for (int i = 0; i < numSizes; i++)
@@ -290,15 +257,12 @@ void drawExpandedSizeDropdown(const Button& b)
     float yItem = b.y - (i + 1) * itemHeight - i * spacing + sizeScrollOffset;
     itemYPositions.push_back(yItem);
   }
-
   if (itemYPositions.empty()) return;
-
   // --- Define Clipping Area ---
   float borderTop = b.y - 0.005f;
   float borderBottom = borderTop - visibleHeight - 0.01f; // Account for small border padding
   float borderLeft = b.x - 0.015f;
   float borderRight = b.x + b.w + 0.015f;
-
   // --- Set Scissor Test to clip the list ---
   glEnable(GL_SCISSOR_TEST);
   // Convert normalized coordinates [-1, 1] to screen coordinates [0, w]
@@ -308,10 +272,8 @@ void drawExpandedSizeDropdown(const Button& b)
   int scissorH = (int)((borderTop - borderBottom) * WINDOW_HEIGHT / 2.0f); // HEIGHT
   glScissor(scissorX, scissorY, scissorW, scissorH);
   // --- End Scissor Setup ---
-
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
   // Background box (Drawn large enough to cover the total list height, clipped by glScissor)
   glColor4f(1.0f, 1.0f, 1.0f, 0.95f);
   glBegin(GL_QUADS);
@@ -320,7 +282,6 @@ void drawExpandedSizeDropdown(const Button& b)
     glVertex2f(borderRight, borderTop);
     glVertex2f(borderLeft, borderTop);
   glEnd();
-
   // Draw list items
   for (size_t i = 0; i < itemYPositions.size(); i++)
   {
@@ -338,7 +299,6 @@ void drawExpandedSizeDropdown(const Button& b)
         glVertex2f(b.x, yItem + itemHeight);
       glEnd();
     }
-
     glColor3f(0, 0, 0);
     char itemLabel[8];
     sprintf(itemLabel, "%d", sizeValue);
@@ -346,11 +306,9 @@ void drawExpandedSizeDropdown(const Button& b)
     const char* ch = itemLabel;
     while (*ch) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *ch++);
   }
-
   glDisable(GL_BLEND);
   // --- FIX: Disable Scissor Test before drawing the border ---
   glDisable(GL_SCISSOR_TEST);
-
   // Draw the border *after* disabling Scissor Test to ensure it's not clipped
   glColor3f(0.2f, 0.2f, 0.2f);
   glLineWidth(2.5f);
@@ -362,8 +320,9 @@ void drawExpandedSizeDropdown(const Button& b)
   glEnd();
 }
 
-// ----------------------------------------------------------
-// Main layers dropdown box
+/*
+ * Main layers dropdown box.
+ */
 void drawLayersDropdown(const Button& b)
 {
   glColor3f(0.2f, 0.2f, 0.2f);
@@ -373,7 +332,6 @@ void drawLayersDropdown(const Button& b)
     glVertex2f(b.x + b.w, b.y + b.h);
     glVertex2f(b.x, b.y + b.h);
   glEnd();
-
   glColor3f(0.95f, 0.95f, 0.95f);
   glBegin(GL_QUADS);
     glVertex2f(b.x + 0.005f, b.y + 0.005f);
@@ -381,7 +339,6 @@ void drawLayersDropdown(const Button& b)
     glVertex2f(b.x + b.w - 0.005f, b.y + b.h - 0.005f);
     glVertex2f(b.x + 0.005f, b.y + b.h - 0.005f);
   glEnd();
-
   glColor3f(0, 0, 0);
   glLineWidth(2.0f);
   glBegin(GL_LINE_LOOP);
@@ -390,31 +347,28 @@ void drawLayersDropdown(const Button& b)
     glVertex2f(b.x + b.w, b.y + b.h);
     glVertex2f(b.x, b.y + b.h);
   glEnd();
-
   glColor3f(0, 0, 0);
   char label[8];
-  sprintf(label, "%d", useStandard ? maxLayers : numLayers);
+  sprintf(label, "%d", useStandard ? layers[numLayersAvailable - 1] : numLayers);
   glRasterPos2f(b.x + 0.02f, b.y + 0.02f);
   const char* ch = label;
   while (*ch) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *ch++);
 }
 
-// ----------------------------------------------------------
-// Expanded layers dropdown - NOW WITH CLIPPING AND SCROLLING
+/*
+ * Expanded layers dropdown - NOW WITH CLIPPING AND SCROLLING.
+ */
 void drawExpandedLayersDropdown(const Button& b)
 {
   float itemHeight = b.h;
   float spacing = 0.015f;
-
   // --- Scroll calculation and Scissoring setup ---
   float totalListHeight = numLayersAvailable * itemHeight + (numLayersAvailable - 1) * spacing;
   float visibleHeight = totalListHeight > MAX_LAYERS_DROPDOWN_HEIGHT ? MAX_LAYERS_DROPDOWN_HEIGHT : totalListHeight;
   float maxScrollOffset = totalListHeight > MAX_LAYERS_DROPDOWN_HEIGHT ? totalListHeight - MAX_LAYERS_DROPDOWN_HEIGHT : 0.0f;
-
   if (layersScrollOffset < 0.0f) layersScrollOffset = 0.0f;
   if (layersScrollOffset > maxScrollOffset) layersScrollOffset = maxScrollOffset;
   // --- End Scroll Setup ---
-
   // Calculate the y-positions for all items, applying scroll offset
   std::vector<float> itemYPositions;
   for (int i = 0; i < numLayersAvailable; i++)
@@ -423,15 +377,12 @@ void drawExpandedLayersDropdown(const Button& b)
     float yItem = b.y - (i + 1) * itemHeight - i * spacing + layersScrollOffset;
     itemYPositions.push_back(yItem);
   }
-
   if (itemYPositions.empty()) return;
-
   // --- Define Clipping Area ---
   float borderTop = b.y - 0.005f;
   float borderBottom = borderTop - visibleHeight - 0.01f;
   float borderLeft = b.x - 0.015f;
   float borderRight = b.x + b.w + 0.015f;
-
   // --- Set Scissor Test to clip the list ---
   glEnable(GL_SCISSOR_TEST);
   int scissorX = (int)((borderLeft + 1.0f) * WINDOW_WIDTH / 2.0f);
@@ -440,10 +391,8 @@ void drawExpandedLayersDropdown(const Button& b)
   int scissorH = (int)((borderTop - borderBottom) * WINDOW_HEIGHT / 2.0f);
   glScissor(scissorX, scissorY, scissorW, scissorH);
   // --- End Scissor Setup ---
-
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
   // Background box (Clipped by glScissor)
   glColor4f(1.0f, 1.0f, 1.0f, 0.95f);
   glBegin(GL_QUADS);
@@ -452,14 +401,12 @@ void drawExpandedLayersDropdown(const Button& b)
     glVertex2f(borderRight, borderTop);
     glVertex2f(borderLeft, borderTop);
   glEnd();
-
   // Draw list items
   for (size_t idx = 0; idx < itemYPositions.size(); idx++)
   {
     float yItem = itemYPositions[idx];
     int layerValue = layers[idx];
     bool isSelected = (layerValue == numLayers);
-
     if (isSelected)
     {
       glColor4f(0.7f, 0.9f, 1.0f, 0.8f);
@@ -470,7 +417,6 @@ void drawExpandedLayersDropdown(const Button& b)
         glVertex2f(b.x, yItem + itemHeight);
       glEnd();
     }
-
     glColor3f(0, 0, 0);
     char itemLabel[8];
     sprintf(itemLabel, "%d", layerValue);
@@ -478,10 +424,8 @@ void drawExpandedLayersDropdown(const Button& b)
     const char* ch = itemLabel;
     while (*ch) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *ch++);
   }
-
   glDisable(GL_BLEND);
   glDisable(GL_SCISSOR_TEST);
-
   // Draw the border *after* disabling Scissor Test
   glColor3f(0.2f, 0.2f, 0.2f);
   glLineWidth(2.5f);
@@ -493,26 +437,33 @@ void drawExpandedLayersDropdown(const Button& b)
   glEnd();
 }
 
-// ----------------------------------------------------------
-// Draw controls (main boxes only)
+/*
+ * Draws a label.
+ */
+void drawLabel(const char* text, float x, float y)
+{
+  glColor3f(0.0f, 0.0f, 0.0f); // black text
+  glRasterPos2f(x, y);
+  for (const char* c = text; *c; ++c)
+    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c); // larger font
+}
+
+/*
+ * Draw controls (main boxes only).
+ */
 void drawControls()
 {
-  glColor3f(0, 0, 0);
-  glRasterPos2f(-0.85f, -0.15f);
-  const char* sizeLbl = "Size:";
-  while (*sizeLbl) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *sizeLbl++);
+  // --- Dropdown labels ---
+  drawLabel("Size", sizeDropBox.x, sizeDropBox.y + sizeDropBox.h + 0.01f);
   drawSizeDropdown(sizeDropBox);
-
-  glColor3f(0, 0, 0);
-  glRasterPos2f(-0.85f, -0.30f);
-  const char* layerLbl = "Layers:";
-  while (*layerLbl) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *layerLbl++);
+  drawLabel("Layers", dropBox.x, dropBox.y + dropBox.h + 0.01f);
   drawLayersDropdown(dropBox);
   drawCheckbox(chkStandard, useStandard, "Use standard (max)");
 }
 
-// ----------------------------------------------------------
-// Draw title
+/*
+ * Draw title.
+ */
 void drawTitle()
 {
   const char* title = "It from bit: a concrete attempt";
@@ -531,65 +482,80 @@ void drawTitle()
     }
 }
 
-// ----------------------------------------------------------
-// Main display function
+/*
+ * Main display function.
+ */
 void display()
 {
   if (shouldExit) return;
-
   glClearColor(0.95f, 0.95f, 0.97f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
-
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
   drawTitle();
   drawLogo();
   drawControls();
   drawButton(btn1, true);
   drawButton(btn2, false);
   drawHyperlink(helpLink);  // Draw hyperlink last
-
   // Draw expanded dropdowns last so they are on top of other elements
   if (dropdownOpen && !useStandard)
   {
     drawExpandedLayersDropdown(dropBox);
   }
-
   // Size dropdown is drawn after layers dropdown to ensure it's on top if they overlap
   if (sizeDropdownOpen)
   {
     drawExpandedSizeDropdown(sizeDropBox);
   }
-
   glutSwapBuffers();
 }
 
-// ----------------------------------------------------------
-// Mouse handling
+/*
+ * Mouse handling.
+ */
 void mouse(int button, int state, int x, int y)
 {
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
   {
     int w = WINDOW_WIDTH;
     int h = WINDOW_HEIGHT;
-
-    if (insideButton(x, y, w, h, btn1)) {
-      selection = 1;
-      shouldExit = true;
+    if (insideButton(x, y, w, h, btn1))
+    {
+      automaton::calculateParameters(lattice_size, numLayers);
+      if (!automaton::tryAllocate(lattice_size, numLayers))
+      {
+        MessageBox(NULL, "Memory allocation failed. Please try a smaller lattice size or fewer layers.", "Allocation Error", MB_OK | MB_ICONWARNING);
+      }
+      else
+      {
+        selection = 1;
+        shouldExit = true;
+      }
     }
-    else if (insideButton(x, y, w, h, btn2)) {
-      selection = 2;
-      shouldExit = true;
+    else if (insideButton(x, y, w, h, btn2))
+    {
+      automaton::calculateParameters(lattice_size, numLayers);
+      if (!automaton::tryAllocate(lattice_size, numLayers))
+      {
+        MessageBox(NULL, "Memory allocation failed. Please try a smaller lattice size or fewer layers.", "Allocation Error", MB_OK | MB_ICONWARNING);
+      }
+      else
+      {
+        selection = 2;
+        shouldExit = true;
+      }
     }
-    else if (insideButton(x, y, w, h, helpLink)) {
+    else if (insideButton(x, y, w, h, helpLink))
+    {
       ShellExecuteA(NULL, "open", "https://github.com/automaton3d/automaton/blob/master/help.md", NULL, NULL, SW_SHOWNORMAL);
     }
     else if (insideButton(x, y, w, h, chkStandard))
     {
       useStandard = !useStandard;
-      if (useStandard) {
-        numLayers = maxLayers;
+      if (useStandard)
+      {
+        numLayers = layers[numLayersAvailable - 1];
         dropdownOpen = false;
         sizeDropdownOpen = false;
       }
@@ -606,11 +572,6 @@ void mouse(int button, int state, int x, int y)
       float yN = 1.0f - (float)y / h * 2.0f;
       float itemHeight = sizeDropBox.h;
       float spacing = 0.015f;
-
-      // Calculate total height and max scroll
-      float totalListHeight = numSizes * itemHeight + (numSizes - 1) * spacing;
-      float maxScrollOffset = totalListHeight > MAX_DROPDOWN_HEIGHT ? totalListHeight - MAX_DROPDOWN_HEIGHT : 0.0f;
-
       // Check if click is outside the visible dropdown area (using MAX_DROPDOWN_HEIGHT for clipping)
       if (xN < sizeDropBox.x - 0.015f || xN > sizeDropBox.x + sizeDropBox.w + 0.015f ||
               yN > sizeDropBox.y + 0.005f || yN < sizeDropBox.y - MAX_DROPDOWN_HEIGHT - 0.015f)
@@ -618,7 +579,6 @@ void mouse(int button, int state, int x, int y)
         sizeDropdownOpen = false; // Clicked outside the bounds
         return; // CORRECTED: Use return to exit the function, resolving the 'break' error
       }
-
       // Iterate all items, applying scroll offset to their position
       for (int i = 0; i < numSizes; i++)
       {
@@ -628,7 +588,6 @@ void mouse(int button, int state, int x, int y)
             yN >= yItem && yN <= yItem + itemHeight)
         {
           lattice_size = sizes[i];
-          sizeIndex = i;
           sizeDropdownOpen = false;
           // Reset scroll offset on selection
           sizeScrollOffset = 0.0f;
@@ -649,11 +608,6 @@ void mouse(int button, int state, int x, int y)
       float yN = 1.0f - (float)y / h * 2.0f;
       float itemHeight = dropBox.h;
       float spacing = 0.015f;
-
-      // Calculate total height and max scroll for Layers
-      float totalListHeight = numLayersAvailable * itemHeight + (numLayersAvailable - 1) * spacing;
-      float maxScrollOffset = totalListHeight > MAX_LAYERS_DROPDOWN_HEIGHT ? totalListHeight - MAX_LAYERS_DROPDOWN_HEIGHT : 0.0f;
-
       // Check if click is outside the visible dropdown area
       if (xN < dropBox.x - 0.015f || xN > dropBox.x + dropBox.w + 0.015f ||
           yN > dropBox.y + 0.005f || yN < dropBox.y - MAX_LAYERS_DROPDOWN_HEIGHT - 0.015f)
@@ -680,15 +634,17 @@ void mouse(int button, int state, int x, int y)
       }
     }
     // --- Close All ---
-    else {
+    else
+    {
       sizeDropdownOpen = false;
       dropdownOpen = false;
     }
   }
 }
 
-// ----------------------------------------------------------
-// Mouse wheel handling (Requires FreeGLUT) - UPDATED FOR LAYERS
+/*
+ * Mouse wheel handling (Requires FreeGLUT) - UPDATED FOR LAYERS.
+ */
 void mouseWheel(int button, int dir, int x, int y)
 {
   int w = WINDOW_WIDTH;
@@ -732,15 +688,31 @@ void mouseWheel(int button, int dir, int x, int y)
     }
   }
 }
-// ----------------------------------------------------------
-// Keyboard handling
+
+/*
+ * Keyboard handling.
+ */
 void keyboard(unsigned char key, int, int)
 {
-  if (key == 13) { selection = 1; shouldExit = true; }
+  if (key == 13)
+  {
+    automaton::calculateParameters(lattice_size, numLayers);
+    if (automaton::tryAllocate(lattice_size, numLayers))
+    {
+      selection = 1;
+      shouldExit = true;
+    }
+    else
+    {
+      std::cerr << "Allocation failed: " << automaton::lastAllocationError << std::endl;
+      MessageBox(NULL, "Memory allocation failed. Please try a smaller lattice size or fewer layers.", "Error", MB_OK | MB_ICONERROR);
+    }
+  }
 }
 
-// ----------------------------------------------------------
-// Reshape callback
+/*
+ * Reshape callback.
+ */
 void reshape(int w, int h)
 {
   static bool resizing = false;
@@ -754,8 +726,9 @@ void reshape(int w, int h)
   glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
-// ----------------------------------------------------------
-// Idle callback
+/*
+ * Idle callback.
+ */
 void idle()
 {
   if (shouldExit)
@@ -767,53 +740,59 @@ void idle()
   glutPostRedisplay();
 }
 
-// ----------------------------------------------------------
-// Close callback
+/*
+ * Close callback.
+ */
 void closeFunc() { shouldExit = true; }
 
-// ----------------------------------------------------------
-// Main function
+/*
+ * Passive motion.
+ */
+void passiveMotion(int x, int y)
+{
+    int w = WINDOW_WIDTH;
+    int h = WINDOW_HEIGHT;
+
+    // Check if mouse is over the Help hyperlink
+    helpHover = insideButton(x, y, w, h, helpLink);
+    glutPostRedisplay(); // request redraw so color updates immediately
+}
+
+/**
+ * Main function.
+ */
 int main(int argc, char** argv)
 {
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_ALPHA);
   glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-
   int screenWidth = GetSystemMetrics(SM_CXSCREEN);
   int screenHeight = GetSystemMetrics(SM_CYSCREEN);
   glutInitWindowPosition((screenWidth - WINDOW_WIDTH) / 2, (screenHeight - WINDOW_HEIGHT) / 2);
-  int window = glutCreateWindow("Toy Universe");
-
+  glutCreateWindow("Toy Universe");
   glutReshapeFunc(reshape);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-  if (!loadLogo("logo.png")) std::cerr << "Warning: Could not load logo.png\n";
-
+  if (!loadLogo("logo.png"))
+	std::cerr << "Warning: Could not load logo.png\n";
   glutDisplayFunc(display);
   glutMouseFunc(mouse);
   glutKeyboardFunc(keyboard);
   glutIdleFunc(idle);
   glutCloseFunc(closeFunc);
-
+  glutPassiveMotionFunc(passiveMotion);
   glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
   // This line is needed for mouse wheel support (FreeGLUT)
   #ifdef __FREEGLUT_EXT_H__
   glutMouseWheelFunc(mouseWheel);
   #endif
   glutMainLoop();
-
-  if (glutGetWindow() > 0) glutDestroyWindow(window);
-
   if (selection == 1)
   {
-    glfwInit();
-    int r = runSimulation(lattice_size, numLayers);
-    glfwTerminate();
-    return r;
+    shouldExit = true;
+    return runSimulation(lattice_size, numLayers);
   }
   if (selection == 2)
     return runStatistics(lattice_size, numLayers);
-
   return 0;
 }
