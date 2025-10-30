@@ -1,5 +1,5 @@
 /*
- * mygl.h
+ * GUIrenderer.h
  *
  * Declares the OpenGL rendering routines.
  */
@@ -21,12 +21,7 @@
 #include <map>
 #include <memory>
 
-// --- INCLUSÕES DE OPENGL E EXTENSÕES (ORDEM CRÍTICA) ---
-//#include <GL/glew.h> // <-- AGORA EM PRIMEIRO!
-
-// Inclusões de outras bibliotecas de janela/contexto que dependem do GL
-//#include <GLFW/glfw3.h>
-
+#undef DEBUG
 // Inclusões GLM (Seu projeto)
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/type_ptr.hpp> // value_ptr
@@ -37,6 +32,8 @@
 #include "radio.h"
 #include "layers.h"
 #include "GLutils.h"
+#include "tickbox.h"
+#include "progress.h"
 
 //#define LAYERS	25	// max layers shown
 #define WIDTH	480     // graph width
@@ -44,6 +41,8 @@
 namespace framework
 {
   using namespace std;
+
+extern ProgressBar *progress;
 
 class GUIrenderer : public Renderer
 {
@@ -67,15 +66,12 @@ public:
   void renderPlane();
   void renderObjects();
   void renderWavefront();
-  void render2DObjects();
   void renderCounts();
-  void renderGadgets();
   void renderMomentum();
   void renderSpin();
   void renderSineMask();
   void renderHunting();
   void renderCenters();
-  void renderProgressBar();
   void renderCenterBox(const char* text);
   void resize(int width, int height);
   bool projectPoint(const float obj[3],
@@ -84,8 +80,25 @@ public:
                     const GLint viewport[4],
                     float &winX, float &winY);
   void setProjection(const glm::mat4& proj) { mProjection = proj; }
-  // In the GUIrenderer class public methods:
+  void renderUI();
+  void renderElapsedTime();
+  void renderSimulationStats();
+  void renderLayerInfo();
+  void renderHelpText();
+//  void renderProgressBar();
+  void renderSliders();
+  void renderTomoControls();
+  void renderPauseOverlay();
+  void renderSectionLabels();
+  void renderCheckboxes();
+  void renderDelays();
+  void renderViewpointRadios();
+  void renderProjectionRadios();
+  void renderTomoRadios();
   void renderHyperlink();
+  void renderSlice();
+  inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
+  void renderTomoPlane();
 
 protected:
     glm::mat4 mProjection;
@@ -93,67 +106,9 @@ protected:
 
 };
 
-void drawString8(std::string s, int x, int y);
-
-class Tickbox
-{
-private:
-    bool state;
-    std::string label;
-    int x, y;
-
-public:
-    Tickbox(int x, int y, std::string label) : state(false), label(label), x(x), y(y) {}
-
-    void draw()
-    {
-      glColor3f(1.0, 1.0, 1.0);
-      glBegin(GL_LINE_LOOP);
-      glVertex2i(x, y);
-      glVertex2i(x, y+15);
-      glVertex2i(x+15, y+15);
-      glVertex2i(x+15, y);
-      glEnd();
-      glBegin(GL_QUADS);
-      if (state)
-        glColor3f(0.0, 1.0, 0.0);
-      else
-        glColor3f(0.5, 0.5, 0.5);
-      glVertex2i(x, y);
-      glVertex2i(x, y+15);
-      glVertex2i(x+15, y+15);
-      glVertex2i(x+15, y);
-      glEnd();
-      glColor3f(1.0, 1.0, 1.0);
-      drawString8(label, x + 22, y + 11);
-      glFlush();
-    }
-
-    void setState(bool newState)
-    {
-      state = newState;
-    }
-
-    bool getState() const
-    {
-      return state;
-    }
-
-    int getX() const
-    {
-      return x;
-    }
-
-    int getY() const
-    {
-      return y;
-    }
-
-};
-
+void drawString8(string s, int x, int y);
 void drawString12(const string& text, int x, int y);
 void drawBoldText(const string& text, int x, int y, float offset = 0.5f);
-void drawString8(string s, int x, int y);
 void render2Dstring(float x, float y, void *font, const char *string);
 void render3Dstring(float x, float y, float z, void *font, const char *string);
 void blinkText(unsigned long long timer);

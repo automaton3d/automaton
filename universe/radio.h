@@ -63,7 +63,6 @@ public:
     glVertex2f(xPos, yPos);
     glEnd();
     framework::drawString8(label, xPos + 8 + 10, yPos);
-    glFlush();
   }
 
   void setSelected(bool isSelected) { selected = isSelected; }
@@ -72,6 +71,20 @@ public:
   {
     return selected;
   }
+
+  bool clicked(double xpos, double ypos) const
+  {
+    return xpos >= x - 2 && xpos <= x + 100 &&
+           ypos >= y - 5 && ypos <= y + 25;
+  }
+
+  bool clicked(double xpos, double ypos, int windowHeight) const
+  {
+      double yGL = ypos;//windowHeight - ypos;
+      return xpos >= x - 2 && xpos <= x + 100 &&
+             yGL >= y - 5 && yGL <= y + 25;
+  }
+
   int getX() const { return x; }
   int getY() const { return y; }
 };

@@ -393,24 +393,28 @@ namespace framework
 
 	void TrackBallInteractor::update()
 	{
+	    // Prevent camera interaction if a slider is being dragged
 	    const bool isClick = mIsLeftClick || mIsMiddleClick || mIsRightClick;
-
-	    if (! mIsDragging)
+	    if (!mIsDragging)
 	    {
 	        if (isClick)
 	        {
-	      mIsDragging = true;
+	            mIsDragging = true;
 	            computePointOnSphere(mClickPoint, mStartVector);
-	        } else if (mIsScrolling) {
+	        }
+	        else if (mIsScrolling)
+	        {
 	            scroll();
 	            mIsScrolling = false;
 	        }
-	    } else
+	    }
+	    else
 	    {
 	        if (isClick)
 	        {
 	            drag();
-	        } else
+	        }
+	        else
 	        {
 	            mIsDragging = false;
 	        }

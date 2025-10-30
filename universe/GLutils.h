@@ -8,6 +8,9 @@
 #ifndef GLUTILS_H_
 #define GLUTILS_H_
 
+#include <string>
+#include <GL/gl.h>
+
 namespace framework
 {
   void setOrthographicProjection();
@@ -20,6 +23,11 @@ namespace framework
                     const GLint viewport[4],
                     float &winX, float &winY);
 
+  double toGLY(double ypos, int windowHeight);
+
+  void drawString8(std::string s, int x, int y);
+  void drawString12(const std::string& text, int x, int y);
 }
+
 
 #endif /* GLUTILS_H_ */

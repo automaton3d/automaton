@@ -44,27 +44,7 @@ namespace framework
     static void scrollCallback(GLFWwindow *window, double xpos, double ypos);
     static void sizeCallback(GLFWwindow *window, int width, int height);
 
-    void onDelayToggled(Tickbox* toggled)
-    {
-    int i = 0;
-      for (const auto &box : delays)
-      {
-        switch (i)
-        {
-          case 0:
-            automaton::convol_delay = box.getState();
-          break;
-          case 1:
-            automaton::diffuse_delay = box.getState();
-          break;
-          case 2:
-            automaton::reloc_delay = box.getState();
-          break;
-        }
-        i++;
-      }
-      // Optionally update renderer, animation speed, etc.
-    }
+    void onDelayToggled(Tickbox* toggled);
 
   private:
     Animator mAnimator;
@@ -74,7 +54,8 @@ namespace framework
     GLFWwindow *mWindow;
     static DWORD WINAPI SimulateThread(LPVOID lpParam);
     volatile bool isThreadReady = false;
-      void updateProjection();
+    void updateProjection();
+
   };
 
   void sound();

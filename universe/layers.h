@@ -7,12 +7,12 @@
 #ifndef LAYERS_H_
 #define LAYERS_H_
 
+#include <vslider.h>
 #include <vector>
 #include <cstdio>
 #include "radio.h"
 #include "model/simulation.h"
 #include "GLutils.h"
-#include "slider.h"
 
 #define LAYERS 25  // Maximum number of visible layers at once
 
@@ -29,7 +29,7 @@ namespace framework
   using namespace automaton;
 
   extern void drawString8(string s, int x, int y);
-  extern LayerSlider slider;
+  extern VSlider vslider;
 
   class LayerList
   {
@@ -98,7 +98,7 @@ namespace framework
        */
       void render()
       {
-        int first = slider.getFirstIndex(wDim);
+        int first = vslider.getFirstIndex(wDim);
         glDisable(GL_DEPTH_TEST);
         setOrthographicProjection();
         glPointSize(1);
@@ -127,10 +127,16 @@ namespace framework
        * - If neither a click nor slider movement occurs, the current selection
        *   is maintained.
        */
-      void poll(int xpos, int ypos)
+      bool poll(int xpos, int ypos)
       {
+    	  /*
+    	  // Check if click is within list bounds
+    	    if (xpos >= listX && xpos <= listX + listWidth &&
+    	        ypos >= listY && ypos <= listY + listHeight)
+    	    {
+    	    */
         Radio *clickedOption = nullptr;
-        int first = slider.getFirstIndex(wDim);
+        int first = vslider.getFirstIndex(wDim);
 
         // Step 1: Identify the currently selected layer (globally)
         int selectedIndex = this->getSelected();
@@ -172,6 +178,9 @@ namespace framework
           }
           this->lastFirstIndex = first;
         }
+//        return false;
+  //  	    }
+        return false;
       }
 
       /**

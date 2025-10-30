@@ -168,4 +168,10 @@ namespace framework
     winY = (clip[1] * 0.5f + 0.5f) * viewport[3] + viewport[1];
     return true;
   }
+
+  double toGLY(double ypos, int windowHeight)
+  {
+    return windowHeight - ypos;
+  }
+
 }

@@ -13,14 +13,23 @@
 #include <thread>
 #include <chrono>
 #include "GUIrenderer.h"
+#include "GLutils.h"
 #include "model/simulation.h"
-#include "slider.h"
+#include "hslider.h"
+#include "vslider.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
 namespace framework
 {
+
+  #ifdef DEBUG
+  double debugClickX = -1;
+  double debugClickY = -1;
+  bool showDebugClick = false;
+  #endif
+
   using namespace std;
   GLFWwindow* loadingWindow = nullptr;
   bool pause = false;
@@ -39,7 +48,13 @@ namespace framework
 
   bool active = true;
   unsigned long long timer = 0;
-  extern LayerSlider slider;
+  extern VSlider vslider;
+  extern HSlider hslider;
+  extern Tickbox *tomo;
+  extern vector<Radio> tomoDirs;
+
+
+  extern bool showHelp;
 
   /**
    * Function to show the loading window
@@ -162,183 +177,270 @@ namespace framework
       ));
     }
   }
+///////////////////
 
   /*
    * Processes the mouse buttons.
    */
-  void RenderWindowGLFW::buttonCallback(GLFWwindow *window, int button, int action, int mods)
-  {
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
-    double xpos, ypos;
-    glfwGetCursorPos(window, &xpos, &ypos);
-    // Convert to OpenGL coordinates consistently (y=0 at bottom)
-    ypos += 30;
+  // Boundary constants to prevent 3D interaction conflicts
+    const int BOTTOM_UI_ZONE = 120;  // Reserve bottom 120 pixels for UI (horizontal slider area)
+    const int LEFT_UI_ZONE = 200;    // Reserve left 200 pixels for UI (vertical slider, checkboxes)
 
-    switch(action)
+    /*
+     * Helper function to check if click is in 3D interaction zone
+     */
+    bool isIn3DZone(double xpos, double ypos, int windowWidth, int windowHeight)
     {
-      case GLFW_PRESS:
+      // Convert ypos to bottom-origin coordinates
+      double bottomY = windowHeight - ypos;
+
+      // Check if we're outside the UI zones
+      return (bottomY > BOTTOM_UI_ZONE && xpos > LEFT_UI_ZONE);
+    }
+
+    /*
+     * Processes the mouse buttons - IMPROVED VERSION
+     */
+    void RenderWindowGLFW::buttonCallback(GLFWwindow *window, int button, int action, int mods)
+    {
+      int width, height;
+      glfwGetWindowSize(window, &width, &height);
+      double xpos, ypos;
+      glfwGetCursorPos(window, &xpos, &ypos);
+      // Convert to OpenGL coordinates consistently (y=0 at bottom)
+      switch(action)
       {
-        switch(button)
+        case GLFW_PRESS:
         {
-          case GLFW_MOUSE_BUTTON_LEFT:
+          switch(button)
           {
-            // Handle the layer slider
-            slider.onMouseButton(button, action, xpos, ypos, height);
-            // Handle the lattice features
-            for (Tickbox& checkbox : checkboxes)
+            case GLFW_MOUSE_BUTTON_LEFT:
             {
-              if (xpos >= checkbox.getX() && xpos <= checkbox.getX() + 100 && ypos >= checkbox.getY() && ypos <= checkbox.getY() + 40)
+              #ifdef DEBUG
+              // Store the click position for debug rendering
+              debugClickX = xpos;
+              debugClickY = ypos;
+              showDebugClick = true;
+              #endif
+              // ==========================================
+              // STEP 1: Handle sliders FIRST and check immediately
+              // ==========================================
+              vslider.onMouseButton(button, action, xpos, ypos, height);
+              hslider.onMouseButton(button, action, xpos, ypos, height);
+              // If either slider started dragging, don't process anything else TODO
+              if (hslider.isDragging() || vslider.isDragging())
+                return;
+              // ==========================================
+              // STEP 2: Handle other UI elements
+              // ==========================================
+              // Handle checkboxes
+              for (Tickbox& checkbox : checkboxes)
               {
-                checkbox.setState(!checkbox.getState());
-                break;
+                if (checkbox.clicked(xpos, ypos, height))
+           	    {
+           	      checkbox.setState(!checkbox.getState());
+           	      return;
+           	    }
               }
-            }
-            // Handle the layer list
-            list->poll(xpos, ypos);
-            // Handle light frame delays
-            for (Tickbox &checkbox : delays)
-            {
-              if (xpos >= checkbox.getX() && xpos <= checkbox.getX() + 100 && ypos >= checkbox.getY() && ypos <= checkbox.getY() + 40)
+              // Handle the layer list
+              list->poll(xpos, ypos);
+              // Handle light frame delays
+              for (Tickbox &checkbox : delays)
               {
-                // Toggle the clicked checkbox
-                checkbox.setState(!checkbox.getState());
-                instance().onDelayToggled(&checkbox);
-                break;
+                if (xpos >= checkbox.getX() && xpos <= checkbox.getX() + 100 &&
+                    ypos >= checkbox.getY() && ypos <= checkbox.getY() + 40)
+                {
+                  checkbox.setState(!checkbox.getState());
+                  instance().onDelayToggled(&checkbox);
+                  return;  // Don't activate 3D interactor
+                }
               }
-            }
-            // Handle view points
-            bool ok = false;
-            for (Radio& radio : viewpoint)
-            {
-              if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 && ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
-                ok = true;
-            }
-            if (ok)
-            {
+              // Handle view points
+              bool ok = false;
               for (Radio& radio : viewpoint)
               {
                 if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
                     ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
-                {
-                  radio.setSelected(true);
-                  if (viewpoint[0].isSelected())
-                  {
-                    // Isometric view
-                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                    instance().mCamera.setEye(glm::vec3(length, length, length));
-                    instance().mCamera.setUp(glm::vec3(0, 1, 0));
-                    instance().mCamera.update();
-                    instance().mInteractor.setCamera(& instance().mCamera);
-                  }
-                  else if (viewpoint[1].isSelected())
-                  {
-                    // XY view
-                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                    instance().mCamera.setEye(glm::vec3(0,0,length));
-                    instance().mCamera.setUp(glm::vec3(1,0,0));
-                    instance().mCamera.update();
-                    instance().mInteractor.setCamera(& instance().mCamera);
-                  }
-                  else if (viewpoint[2].isSelected())
-                  {
-                    // YZ view
-                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                    instance().mCamera.setEye(glm::vec3(length,0,0));
-                    instance().mCamera.setUp(glm::vec3(0,1,0));
-                    instance().mCamera.update();
-                    instance().mInteractor.setCamera(& instance().mCamera);
-                  }
-                  else if (viewpoint[3].isSelected())
-                  {
-                    // ZX view
-                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                    instance().mCamera.setEye(glm::vec3(0,length,0));
-                    instance().mCamera.setUp(glm::vec3(1,0,0));
-                    instance().mCamera.update();
-                    instance().mInteractor.setCamera(& instance().mCamera);
-                  }
-                }
-                else
-                {
-                  radio.setSelected(false);
-                }
+                  ok = true;
               }
-            }
-            // Handle projection types
-            bool projOk = false;
-            for (Radio& radio : projection)
-            {
-              if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
-                  ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
-                projOk = true;
-            }
-            if (projOk)
-            {
+              if (ok)
+              {
+                for (Radio& radio : viewpoint)
+                {
+                  if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
+                      ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+                  {
+                    radio.setSelected(true);
+                    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                    if (viewpoint[0].isSelected())
+                    {
+                      // Isometric view
+                      instance().mCamera.setEye(glm::vec3(length, length, length));
+                      instance().mCamera.setUp(glm::vec3(0, 1, 0));
+                    }
+                    else if (viewpoint[1].isSelected())
+                    {
+                      // XY view
+                      instance().mCamera.setEye(glm::vec3(0,0,length));
+                      instance().mCamera.setUp(glm::vec3(1,0,0));
+                    }
+                    else if (viewpoint[2].isSelected())
+                    {
+                      // YZ view
+                      instance().mCamera.setEye(glm::vec3(length,0,0));
+                      instance().mCamera.setUp(glm::vec3(0,1,0));
+                    }
+                    else if (viewpoint[3].isSelected())
+                    {
+                      // ZX view
+                      instance().mCamera.setEye(glm::vec3(0,length,0));
+                      instance().mCamera.setUp(glm::vec3(1,0,0));
+                    }
+
+                    instance().mCamera.update();
+                    instance().mInteractor.setCamera(&instance().mCamera);
+                  }
+                  else
+                  {
+                    radio.setSelected(false);
+                  }
+                }
+                return;  // Don't activate 3D interactor
+              }
+              // Handle projection types
+              bool projOk = false;
               for (Radio& radio : projection)
               {
                 if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
                     ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+                  projOk = true;
+              }
+              if (projOk)
+              {
+                for (Radio& radio : projection)
                 {
-                  radio.setSelected(true);
-                  // Update the projection matrix
-                  instance().updateProjection();
+                  if (xpos >= radio.getX()-2 && xpos <= radio.getX() + 100 &&
+                      ypos >= radio.getY()-5 && ypos <= radio.getY() + 25)
+                  {
+                    radio.setSelected(true);
+                    instance().updateProjection();
+                  }
+                  else
+                  {
+                    radio.setSelected(false);
+                  }
                 }
-                else
-                {
+                return;  // Don't activate 3D interactor
+              }
+              // Handle tomography
+              if (tomo->clicked(xpos, ypos, height))
+              {
+                // Toggle tomography mode
+                tomo->flipState();
+                for (Radio& radio : tomoDirs)
                   radio.setSelected(false);
+                // Optionally reset directions when turning off tomography
+                if (tomo->getState())
+                {
+                  tomoDirs[0].setSelected(true);
                 }
               }
-            }
-            instance().mInteractor.setLeftClicked(true);
-            instance().mInteractor.setClickPoint(xpos, ypos);
-            break;
-          }
-          case GLFW_MOUSE_BUTTON_MIDDLE:
-            instance().mInteractor.setMiddleClicked(true);
-            break;
-          case GLFW_MOUSE_BUTTON_RIGHT:
-            instance().mInteractor.setRightClicked(true);
-            break;
-        }
-        instance().mInteractor.setClickPoint(xpos, ypos);
-        // Handle help hyperlink click
-        const char* linkText = "Help";
-        int textWidth = 0;
-        const char* c = linkText;
-        while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
-        int linkX = (width - textWidth) / 2;
-        int linkY = height - 30;
-        int linkHeight = 15;
-        if (button == GLFW_MOUSE_BUTTON_LEFT &&
-            xpos >= linkX && xpos <= linkX + textWidth &&
-            ypos >= linkY - linkHeight && ypos-30 <= linkY + 5)
-        {
-          ShellExecuteA(NULL, "open", "https://github.com/automaton3d/automaton/blob/master/help.md", NULL, NULL, SW_SHOWNORMAL);
-        }
-        break;
-      }
-      case GLFW_RELEASE:
-      {
-        switch(button)
-        {
-          case GLFW_MOUSE_BUTTON_LEFT:
-            instance().mInteractor.setLeftClicked(false);
-            slider.onMouseButton(button, action, xpos, ypos, height);
-            break;
-          case GLFW_MOUSE_BUTTON_MIDDLE:
-            instance().mInteractor.setMiddleClicked(false);
-            break;
-          case GLFW_MOUSE_BUTTON_RIGHT:
-            instance().mInteractor.setRightClicked(false);
-            break;
-        }
-        break;
-      }
-      default: break;
-    }
-  }
+              else if (tomo->getState())
+              {
+                // Only handle direction selection if tomography mode is active
+                for (Radio& radio : tomoDirs)
+                {
+                  if (radio.clicked(xpos, ypos, height))
+                  {
+                    // Select this direction and deselect others
+                    for (Radio& r : tomoDirs)
+                      r.setSelected(false);
+                    radio.setSelected(true);
+                    // TODO: call any tomography-related update logic here, e.g.:
+                    // instance().onTomoDirectionChanged(&radio);
+                    break;
+                  }
+                }
+              }
+              // Handle help hyperlink
+              const char* linkText = "Help";
+              int textWidth = 0;
+              const char* c = linkText;
+              while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
+              int linkX = (width - textWidth) / 2;
+              int linkY = height - 30;
+              int linkHeight = 15;
 
+              if (xpos >= linkX && xpos <= linkX + textWidth &&
+                  ypos >= linkY - linkHeight && ypos-30 <= linkY + 5)
+              {
+                ShellExecuteA(NULL, "open",
+                             "https://github.com/automaton3d/automaton/blob/master/help.md",
+                             NULL, NULL, SW_SHOWNORMAL);
+                return;  // Don't activate 3D interactor
+              }
+              // ==========================================
+              // STEP 3: Only activate 3D interactor if in valid zone
+              // ==========================================
+              if (isIn3DZone(xpos, ypos, width, height))
+              {
+                instance().mInteractor.setLeftClicked(true);
+                instance().mInteractor.setClickPoint(xpos, ypos);
+              }
+              break;
+            }
+            case GLFW_MOUSE_BUTTON_MIDDLE:
+              // Only activate if in 3D zone and no slider dragging
+              if (isIn3DZone(xpos, ypos, width, height) &&
+                  !hslider.isDragging() && !vslider.isDragging())
+              {
+                instance().mInteractor.setMiddleClicked(true);
+                instance().mInteractor.setClickPoint(xpos, ypos);
+              }
+              break;
+            case GLFW_MOUSE_BUTTON_RIGHT:
+              // Only activate if in 3D zone and no slider dragging
+              if (isIn3DZone(xpos, ypos, width, height) &&
+                  !hslider.isDragging() && !vslider.isDragging())
+              {
+                instance().mInteractor.setRightClicked(true);
+                instance().mInteractor.setClickPoint(xpos, ypos);
+              }
+              break;
+          }
+          break;
+        }
+        case GLFW_RELEASE:
+        {
+          switch(button)
+          {
+            case GLFW_MOUSE_BUTTON_LEFT:
+            {
+              // Store state before release
+              bool wasSliderDragging = hslider.isDragging() || vslider.isDragging();
+              // Release sliders
+              hslider.onMouseButton(button, action, xpos, ypos, height);
+              vslider.onMouseButton(button, action, xpos, ypos, height);
+
+              // Only release 3D interactor if slider wasn't being dragged
+              if (!wasSliderDragging)
+              {
+                instance().mInteractor.setLeftClicked(false);
+              }
+              break;
+            }
+            case GLFW_MOUSE_BUTTON_MIDDLE:
+              instance().mInteractor.setMiddleClicked(false);
+              break;
+            case GLFW_MOUSE_BUTTON_RIGHT:
+              instance().mInteractor.setRightClicked(false);
+              break;
+          }
+          break;
+        }
+        default: break;
+      }
+    }
    void RenderWindowGLFW::errorCallback(int error, const char* description)
    {
      cerr << description << endl;
@@ -350,153 +452,183 @@ namespace framework
      return i;
    }
 
-   /*
-    * Processes the keyboard.
-    */
-   void RenderWindowGLFW::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+   void RenderWindowGLFW::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
    {
      float length;
-     switch(action)
+
+     switch (action)
      {
-     case GLFW_PRESS:
-       switch(key)
-       {
-         case GLFW_KEY_ESCAPE:
-           // Exit app on ESC key.
-           if (enable)
-             glfwSetWindowShouldClose(window, GL_TRUE);
-           break;
-         case GLFW_KEY_LEFT_CONTROL:
-         case GLFW_KEY_RIGHT_CONTROL:
+       case GLFW_PRESS:
+         switch (key)
+         {
+           case GLFW_KEY_ESCAPE:
+             if (enable)
+               glfwSetWindowShouldClose(window, GL_TRUE);
+             break;
+
+           case GLFW_KEY_LEFT_CONTROL:
+           case GLFW_KEY_RIGHT_CONTROL:
              instance().mInteractor.setSpeed(5.f);
              break;
-         case GLFW_KEY_LEFT_SHIFT:
-         case GLFW_KEY_RIGHT_SHIFT:
-             instance().mInteractor.setSpeed(.1f);
+
+           case GLFW_KEY_LEFT_SHIFT:
+           case GLFW_KEY_RIGHT_SHIFT:
+             instance().mInteractor.setSpeed(0.1f);
              break;
-         case GLFW_KEY_F1:
+
+           case GLFW_KEY_F2:
              instance().mAnimator.setAnimation(Animator::ORBIT);
              break;
-         case GLFW_KEY_C:
-             cout
-			   << "\nCamera view:"
-                 << "(" << instance().mCamera.getEye().x
-                 << "," << instance().mCamera.getEye().y
-                 << "," << instance().mCamera.getEye().z << ") "
-                 << "(" << instance().mCamera.getCenter().x
-                 << "," << instance().mCamera.getCenter().y
-                 << "," << instance().mCamera.getCenter().z << ") "
-                 << "(" << instance().mCamera.getUp().x
-                 << "," << instance().mCamera.getUp().y
-                 << "," << instance().mCamera.getUp().z  << ")\n\n";
+
+           case GLFW_KEY_C:
+             std::cout << "\nCamera view:"
+                       << " (" << instance().mCamera.getEye().x
+                       << "," << instance().mCamera.getEye().y
+                       << "," << instance().mCamera.getEye().z << ") "
+                       << "(" << instance().mCamera.getCenter().x
+                       << "," << instance().mCamera.getCenter().y
+                       << "," << instance().mCamera.getCenter().z << ") "
+                       << "(" << instance().mCamera.getUp().x
+                       << "," << instance().mCamera.getUp().y
+                       << "," << instance().mCamera.getUp().z << ")\n\n";
              break;
-         case GLFW_KEY_R:
-             // Reset the view.
+
+           case GLFW_KEY_R:
              instance().mCamera.reset();
-             instance().mInteractor.setCamera(& instance().mCamera);
+             instance().mInteractor.setCamera(&instance().mCamera);
              break;
-         case GLFW_KEY_T:
-             // Toogle motion type.
-             if (instance().mInteractor.getMotionRightClick() ==
-                     TrackBallInteractor::FIRSTPERSON) {
-                 instance().mInteractor.setMotionRightClick(
-                         TrackBallInteractor::PAN);
-             }
+
+           case GLFW_KEY_T:
+             if (instance().mInteractor.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
+               instance().mInteractor.setMotionRightClick(TrackBallInteractor::PAN);
              else
-             {
-               instance().mInteractor.setMotionRightClick(
-                         TrackBallInteractor::FIRSTPERSON);
-             }
+               instance().mInteractor.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
              break;
-         case GLFW_KEY_X:
-             // Snap view to axis.
-             length = glm::length(instance().mCamera.getEye() -
-                                  instance().mCamera.getCenter());
-             instance().mCamera.setEye(glm::vec3(length,0,0));
-             instance().mCamera.setUp(glm::vec3(0,1,0));
+
+           case GLFW_KEY_X:
+             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+             instance().mCamera.setEye(glm::vec3(length, 0, 0));
+             instance().mCamera.setUp(glm::vec3(0, 1, 0));
              instance().mCamera.update();
-             instance().mInteractor.setCamera(& instance().mCamera);
+             instance().mInteractor.setCamera(&instance().mCamera);
              break;
-         case GLFW_KEY_Y:
-             length = glm::length(instance().mCamera.getEye() -
-                                  instance().mCamera.getCenter());
-             instance().mCamera.setEye(glm::vec3(0,length,0));
-             instance().mCamera.setUp(glm::vec3(1,0,0));
+
+           case GLFW_KEY_Y:
+             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+             instance().mCamera.setEye(glm::vec3(0, length, 0));
+             instance().mCamera.setUp(glm::vec3(1, 0, 0));
              instance().mCamera.update();
-             instance().mInteractor.setCamera(& instance().mCamera);
+             instance().mInteractor.setCamera(&instance().mCamera);
              break;
-         case GLFW_KEY_Z:
-           length = glm::length(instance().mCamera.getEye() -
-                                  instance().mCamera.getCenter());
-           instance().mCamera.setEye(glm::vec3(0,0,length));
-           instance().mCamera.setUp(glm::vec3(1,0,0));
-           instance().mCamera.update();
-           instance().mInteractor.setCamera(& instance().mCamera);
-           break;
-         case GLFW_KEY_O:
-           // Isometric view
-           length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-           instance().mCamera.setEye(glm::vec3(length, length, length));
-           instance().mCamera.setUp(glm::vec3(0, 1, 0));
-           instance().mCamera.update();
-           instance().mInteractor.setCamera(& instance().mCamera);
-           break;
-         case GLFW_KEY_M:
-           // Test jingle
-           sound(false);
-           break;
-         case GLFW_KEY_P:
-           if (enable)
-        	   pause = !pause;
-           break;
-         case GLFW_KEY_H:
-           if (!pause)
-             enable = !enable;
-           break;
-         default: break;
-             }
+
+           case GLFW_KEY_Z:
+             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+             instance().mCamera.setEye(glm::vec3(0, 0, length));
+             instance().mCamera.setUp(glm::vec3(1, 0, 0));
+             instance().mCamera.update();
+             instance().mInteractor.setCamera(&instance().mCamera);
              break;
-         case GLFW_RELEASE:
-           switch(key)
-           {
-             case GLFW_KEY_LEFT_CONTROL:
-             case GLFW_KEY_RIGHT_CONTROL:
-             case GLFW_KEY_LEFT_SHIFT:
-             case GLFW_KEY_RIGHT_SHIFT:
-               instance().mInteractor.setSpeed(1.f);
-               break;
-           }
-           break;
-         default: break;
+
+           case GLFW_KEY_O:
+             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+             instance().mCamera.setEye(glm::vec3(length, length, length));
+             instance().mCamera.setUp(glm::vec3(0, 1, 0));
+             instance().mCamera.update();
+             instance().mInteractor.setCamera(&instance().mCamera);
+             break;
+
+           case GLFW_KEY_M:
+             sound(false);
+             break;
+
+           case GLFW_KEY_P:
+             if (enable)
+               pause = !pause;
+             break;
+
+           case GLFW_KEY_H:
+             if (!pause)
+               enable = !enable;
+             break;
+
+           case GLFW_KEY_F1:
+             showHelp = !showHelp;
+             break;
+
+           default:
+             break;
+         }
+         break;
+
+       case GLFW_RELEASE:
+         switch (key)
+         {
+           case GLFW_KEY_LEFT_CONTROL:
+           case GLFW_KEY_RIGHT_CONTROL:
+           case GLFW_KEY_LEFT_SHIFT:
+           case GLFW_KEY_RIGHT_SHIFT:
+             instance().mInteractor.setSpeed(1.f);
+             break;
+
+           default:
+             break;
+         }
+         break;
+
+       default:
+         break;
      }
-  }
+   }
 
-  void RenderWindowGLFW::moveCallback(GLFWwindow* window, double xpos, double ypos)
-  {
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
-    // Update the slider's thumb position if it's being dragged
-    slider.onMouseDrag((int)xpos, (int)ypos, height);
-    // Check if mouse is over the Help hyperlink
-    const char* linkText = "Help";
-    int textWidth = 0;
-    const char* c = linkText;
-    while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
-    int linkX = (width - textWidth) / 2;
-    int linkY = height - 30;
-    int linkHeight = 15;
-    helpHover = (xpos >= linkX && xpos <= linkX + textWidth &&
-                 ypos >= linkY - linkHeight && ypos <= linkY + 5);
 
-    // Update the trackball
-    instance().mInteractor.setClickPoint(xpos, ypos);
-  }
+   /*
+      * Processes mouse movement - IMPROVED VERSION
+      */
+     void RenderWindowGLFW::moveCallback(GLFWwindow* window, double xpos, double ypos)
+     {
+       int width, height;
+       glfwGetWindowSize(window, &width, &height);
 
-  void RenderWindowGLFW::scrollCallback(GLFWwindow *window, double xpos, double ypos)
-  {
-    instance().mInteractor.setScrollDirection(xpos + ypos > 0 ? true : false);
-  }
+       // Always update sliders if they're being dragged
+       hslider.onMouseDrag((int)xpos, (int)ypos, height);
+       vslider.onMouseDrag((int)xpos, (int)ypos, height);
 
+       // Check if mouse is over the Help hyperlink
+       const char* linkText = "Help";
+       int textWidth = 0;
+       const char* c = linkText;
+       while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
+       int linkX = (width - textWidth) / 2;
+       int linkY = height - 30;
+       int linkHeight = 15;
+       helpHover = (xpos >= linkX && xpos <= linkX + textWidth &&
+                    ypos >= linkY - linkHeight && ypos <= linkY + 5);
+
+       // Only update trackball if NOT dragging sliders AND in 3D zone
+       if (!hslider.isDragging() && !vslider.isDragging() &&
+           isIn3DZone(xpos, ypos, width, height))
+       {
+         instance().mInteractor.setClickPoint(xpos, ypos);
+       }
+     }
+
+     /*
+       * Processes scroll wheel - IMPROVED VERSION
+       */
+      void RenderWindowGLFW::scrollCallback(GLFWwindow *window, double xpos, double ypos)
+      {
+        int width, height;
+        glfwGetWindowSize(window, &width, &height);
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        // Only allow scroll zoom if in 3D zone and no sliders being dragged
+        if (!hslider.isDragging() && !vslider.isDragging() &&
+            isIn3DZone(mouseX, mouseY, width, height))
+        {
+          instance().mInteractor.setScrollDirection(xpos + ypos > 0 ? true : false);
+        }
+      }
   void RenderWindowGLFW::sizeCallback(GLFWwindow *window, int width, int height)
   {
     instance().mRenderer.resize(width, height);
@@ -581,10 +713,6 @@ namespace framework
     glfwSetCursorPosCallback(mWindow, & RenderWindowGLFW::moveCallback);
     glfwSetKeyCallback(mWindow, & RenderWindowGLFW::keyCallback);
     glfwSetMouseButtonCallback(mWindow, & RenderWindowGLFW::buttonCallback);
-
-
-    glfwSetMouseButtonCallback(mWindow, buttonCallback);
-
     glfwSetScrollCallback(mWindow, & RenderWindowGLFW::scrollCallback);
     glfwSetWindowSizeCallback(mWindow, &RenderWindowGLFW::sizeCallback);
     mInteractor.setCamera(& mCamera);
@@ -623,6 +751,28 @@ namespace framework
     glfwDestroyWindow(mWindow);
     glfwTerminate();
     return EXIT_SUCCESS;
+  }
+
+  void RenderWindowGLFW::onDelayToggled(Tickbox* toggled)
+  {
+  int i = 0;
+    for (const auto &box : delays)
+    {
+      switch (i)
+      {
+        case 0:
+          automaton::convol_delay = box.getState();
+        break;
+        case 1:
+          automaton::diffuse_delay = box.getState();
+        break;
+        case 2:
+          automaton::reloc_delay = box.getState();
+        break;
+      }
+      i++;
+    }
+    // Optionally update renderer, animation speed, etc.
   }
 
 } // end namespace framework

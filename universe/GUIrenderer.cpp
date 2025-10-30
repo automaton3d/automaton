@@ -1,14 +1,14 @@
 /*
- * mygl.cpp
+ * GUIrendere.cpp
  *
  * Implements the OpenGL rendering routines.
  */
 
 #include "GUIrenderer.h"
-
 #include "GLutils.h"
 #include "layers.h"
-#include "slider.h"
+#include "hslider.h"
+#include "vslider.h"
 
 namespace automaton
 {
@@ -20,6 +20,12 @@ namespace automaton
 namespace framework
 {
   using namespace std;
+
+  #ifdef DEBUG
+  extern bool showDebugClick;
+  extern double debugClickX;
+  extern double debugClickY;
+  #endif
 
   extern unsigned long long timer;
   extern bool pause;
@@ -35,7 +41,10 @@ namespace framework
   vector<Radio> viewpoint;
   vector<Radio> projection;
   std::unique_ptr<LayerList> list; // Global definition as a smart pointer
-  LayerSlider slider(1890, 93, 10.0f, 607.0f, 30.0f);
+  HSlider hslider(0, 0, 0, 0, 0);
+  VSlider vslider(1890, 93, 10.0f, 607.0f, 30.0f);
+  Tickbox *tomo = new Tickbox(50, 840, "Enable");
+  vector<Radio> tomoDirs;
 
   // Auxiliary
   random_device rd;
@@ -62,12 +71,17 @@ namespace framework
   "      Escape: EXIT"
   };
 
+  bool showHelp = true;  // Default is ON
+
   string steps[3] =
   {
     "Convolution",
     "Diffusion",
     "Relocation"
   };
+
+  unsigned tomo_x, tomo_y, tomo_z;
+  ProgressBar *progress = nullptr;
 
   using namespace automaton;
 
@@ -91,13 +105,24 @@ namespace framework
   void GUIrenderer::init()
   {
     assert(L3 > 0);
-
     voxels = (COLORREF*) malloc(L3 * sizeof(COLORREF));
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    int screenWidth = viewport[2];
+    int screenHeight = viewport[3];
+    float sliderWidth = 400.0f;
+    float sliderHeight = 20.0f;
+    float thumbWidth = 30.0f;
+    float x = (screenWidth - sliderWidth) / 2.0f;
+    float y = screenHeight - 80.0f;
+    hslider = framework::HSlider(x, y, sliderWidth, sliderHeight, thumbWidth);
+    hslider.setThumbPosition(0.5f);
+    progress = new ProgressBar(screenWidth);
     tbegin = GetTickCount64();
     lastPositions.resize(W_DIM);
     list = std::make_unique<LayerList>(W_DIM); // W_DIM is now the constructor argument
@@ -114,7 +139,7 @@ namespace framework
     checkboxes[0].setState(true);
     checkboxes[5].setState(true);
     checkboxes[7].setState(true);
-  //  checkboxes[8].setState(true);
+    //  checkboxes[8].setState(true);
     //
     delays.push_back(Tickbox(50, 420, "Convolution"));
     delays.push_back(Tickbox(50, 450, "Diffusion"));
@@ -129,6 +154,15 @@ namespace framework
     projection.push_back(Radio(60, 740, "Ortho"));
     projection.push_back(Radio(60, 770, "Perspective"));
     projection[1].setSelected(true);
+    // Initialize tomo data
+    if (!tomo)
+    {
+      tomo = new Tickbox(50, 840, "Enable");
+    }
+    tomoDirs.clear();
+    tomoDirs.push_back(Radio(80, 875, "XY"));
+    tomoDirs.push_back(Radio(80, 905, "YZ"));
+    tomoDirs.push_back(Radio(80, 935, "ZX"));
     // Initialize progress bar data
     int barWidth = gViewport[2] / 4; // Bar is 1/4 of the screen width
     double totalRatio = (double) FRAME;
@@ -144,7 +178,7 @@ namespace framework
   {
     renderClear();
     renderObjects();
-    render2DObjects();
+    renderUI();
   }
 
   /**
@@ -164,6 +198,7 @@ namespace framework
   /*
    * Renders a progress bar showing a complete light step.
    */
+  /*
   void GUIrenderer::renderProgressBar()
   {
     int screenWidth = gViewport[2];
@@ -246,6 +281,7 @@ namespace framework
     glVertex2i(pointerX - 2, barY + barHeight - 2);
     glEnd();
   }
+  */
 
   /**
    * Opens a pause message box with centered text and an outline.
@@ -328,66 +364,27 @@ namespace framework
     glMatrixMode(GL_MODELVIEW);
   }
 
-  /**
-   * Renders 2D objects.
-   */
-  void GUIrenderer::render2DObjects()
-  {
-    setOrthographicProjection();
-    glPushMatrix();
-    glLoadIdentity();
-    glColor3f(1.0f, 1.0f, 1.0f);
-    unsigned long millis = GetTickCount64() - tbegin;
-    char s[100];
-    sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
-    drawString8(s, 50, 40);
-    sprintf(s, "Light: %llu   Tick: %llu", timer / automaton::FRAME, timer);
-    render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-    sprintf(s, "L = %u", EL);
-    render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
-    int w = framework::list->getSelected();
-    sprintf(s, "(Current layer = %u)", w);
-    render2Dstring(1730, 78, GLUT_BITMAP_HELVETICA_12, s);
-    // Get the primary monitor
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    // Get the video mode of the monitor
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    // Draw the help text
-    for(int i = 0; i < 10; i++)
-      drawString8(help[i], mode->width - 500, 20 * i + mode->height - 260);
-    // Add the progress bar rendering
-    renderProgressBar();
-    // Add a vertical slider
-    slider.draw();
-    // Handle pause window
-    if (pause)
-      renderCenterBox(" Paused ");
-    // Draw labels
-    glColor3f(1.0f, 1.0f, 0.5f); // Blue
-    drawString12("Data", 50, 85);
-    drawString12("Delays", 50, 405);
-    drawString12("Views", 50, 551);
-    drawString12("Projection", 50, 721);
 
-
-    // Draw hyperlink ← ADD THIS
-     renderHyperlink();
-
-    glPopMatrix();
-    list->update();
-    resetPerspectiveProjection();
-    renderCounts();
-  }
-
+/*
+    #ifdef DEBUG
+    if (showDebugClick)
+    {
+      glColor3f(1.0f, 0.0f, 0.0f);
+      glPointSize(6.0f);
+      glBegin(GL_POINTS);
+      glVertex2f(debugClickX, debugClickY);
+      glEnd();
+    }
+    #endif
+*/
   /**
    * Renders momentum line.
    */
   void GUIrenderer::renderMomentum()
   {
     const float GRID_SIZE = 0.5f / EL;
-    glPointSize(4.0f);      // Larger points for visibility
+    glPointSize(4.0f);        // Larger points for visibility
     glBegin(GL_POINTS);
-    glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
     for (unsigned x = 0; x < EL; x++)
     {
       for (unsigned y = 0; y < EL; y++)
@@ -396,7 +393,15 @@ namespace framework
         {
           if (getCell(lattice_curr, x, y, z, list->getSelected()).pB)
           {
-          float px = (x - EL / 2.0) * GRID_SIZE;
+            if (isVoxelVisible(x, y, z))
+            {
+              glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
+            }
+            else
+            {
+              glColor3d(0.4, 0.4, 0.4);
+            }
+            float px = (x - EL / 2.0) * GRID_SIZE;
             float py = (y - EL / 2.0) * GRID_SIZE;
             float pz = (z - EL / 2.0) * GRID_SIZE;
             glVertex3f(px, py, pz);
@@ -413,7 +418,7 @@ namespace framework
   void GUIrenderer::renderSpin()
   {
     const float GRID_SIZE = 0.5f / EL;  // Better spacing
-    glPointSize(4.0f);                  // Larger points for visibility
+    glPointSize(4.0f);        // Larger points for visibility
     glBegin(GL_POINTS);
     for (unsigned x = 0; x < EL; x++)
     {
@@ -423,7 +428,10 @@ namespace framework
         {
           if (getCell(lattice_curr, x, y, z, list->getSelected()).sB)
           {
-            glColor3d(0, 1.0, 1.0);    // Cyan
+            if (isVoxelVisible(x, y, z))
+              glColor3d(0, 1.0, 1.0);   // Cyan
+            else
+              glColor3d(0.4, 0.4, 0.4);
             float px = (x - EL / 2.0) * GRID_SIZE;
             float py = (y - EL / 2.0) * GRID_SIZE;
             float pz = (z - EL / 2.0) * GRID_SIZE;
@@ -449,6 +457,8 @@ namespace framework
       {
         for (unsigned z = 0; z < EL; z++)
         {
+          if (!isVoxelVisible(x, y, z))
+            continue;
           if (getCell(lattice_curr, x, y, z, list->getSelected()).phiB)
           {
             glColor3d(1.0, 1.0, 0);     // Yellow
@@ -612,41 +622,6 @@ namespace framework
     }
   }
 
-  /*
-   * Renders 2D active controls of the GUI.
-   */
-  void GUIrenderer::renderGadgets()
-  {
-    glDisable(GL_DEPTH_TEST);
-    setOrthographicProjection();
-    glPointSize(1);
-    glPushMatrix();
-    // Properties selection
-    for (Tickbox& checkbox : checkboxes)
-    {
-      checkbox.draw();
-    }
-    // Layer list
-    list->render();
-    // Displayed data set
-    for (Tickbox& checkbox : delays)
-    {
-      checkbox.draw();
-    }
-    // Camera viewpoint
-    for (Radio& radio : viewpoint)
-    {
-      radio.draw();
-    }
-    // Camera projection
-    for (Radio& radio : projection)
-    {
-      radio.draw();
-    }
-    glFlush();
-    glPopMatrix();
-    resetPerspectiveProjection();
-  }
 
   /**
    * Renders 2D and 3D objects controlled by the mouse and keyboard.
@@ -663,6 +638,8 @@ namespace framework
     }
     if (checkboxes[0].getState())
       renderWavefront();
+//    if (tomo && tomo->getState())
+  //    renderSlice();
     if (checkboxes[1].getState())
       renderMomentum();
     if (checkboxes[2].getState())
@@ -685,14 +662,14 @@ namespace framework
     // Render plane
     if (checkboxes[8].getState())
       renderPlane();
+    if (tomo && tomo->getState())
+      renderTomoPlane();
     //
     if (mCamera)
     {
       glPopMatrix();
     }
     glPopMatrix();
-    // Render 2D active objects
-    renderGadgets();
   }
 
   /**
@@ -700,30 +677,36 @@ namespace framework
    */
   void GUIrenderer::renderAxes()
   {
-    // Render the axes
+    const float fullSize = 0.5f;              // Cube spans from -0.25 to +0.25
+    const float axisLength = fullSize * 0.75f; // ¾ of the cube
+    const float labelOffset = 0.02f;          // Small offset for label placement
+
     glLineWidth(2);
     glBegin(GL_LINES);
     // X-axis
-    glColor3f(0.6f, 0.f, 0.f); // Red for the X-axis
+    glColor3f(0.6f, 0.f, 0.f); // Red
     glVertex3f(0.0f, 0.f, 0.f);
-    glVertex3f(0.45f, 0.f, 0.f);
+    glVertex3f(axisLength, 0.f, 0.f);
     // Y-axis
-    glColor3f(0.f, 0.6f, 0.f); // Green for the Y-axis
+    glColor3f(0.f, 0.6f, 0.f); // Green
     glVertex3f(0.f, 0.f, 0.f);
-    glVertex3f(0.f, 0.45f, 0.f);
+    glVertex3f(0.f, axisLength, 0.f);
     // Z-axis
-    glColor3f(0.3f, 0.3f, 0.8f); // Blue for the Z-axis
+    glColor3f(0.3f, 0.3f, 0.8f); // Blue
     glVertex3f(0.0f, 0.f, 0.f);
-    glVertex3f(0.f, 0.f, 0.45f);
+    glVertex3f(0.f, 0.f, axisLength);
     glEnd();
     glLineWidth(1);
-    // Add labels
-    glColor3f(1.f, 0.f, 0.f); // Red for "x" label
-    render3Dstring(0.453f, -0.02f, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
-    glColor3f(0.f, 1.f, 0.f); // Green for "y" label
-    render3Dstring(-0.02f, 0.453f, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
-    glColor3f(0.3f, 0.3f, 0.8f); // Blue for "z" label
-    render3Dstring(0.0f, -0.02f, 0.453f, GLUT_BITMAP_HELVETICA_18, "z");
+
+    // Axis labels
+    glColor3f(1.f, 0.f, 0.f); // Red for "x"
+    render3Dstring(axisLength + labelOffset, -labelOffset, 0.0f, GLUT_BITMAP_HELVETICA_18, "x");
+
+    glColor3f(0.f, 1.f, 0.f); // Green for "y"
+    render3Dstring(-labelOffset, axisLength + labelOffset, 0.0f, GLUT_BITMAP_HELVETICA_18, "y");
+
+    glColor3f(0.3f, 0.3f, 0.8f); // Blue for "z"
+    render3Dstring(0.0f, -labelOffset, axisLength + labelOffset, GLUT_BITMAP_HELVETICA_18, "z");
   }
 
   /**
@@ -772,20 +755,25 @@ namespace framework
    */
   void GUIrenderer::renderPlane()
   {
-    float p, d = .1f, mn = -1.f, mx = 1.f, eps = -1e-4f;
-    int i, n = 20;
-    glLineWidth(1);
+    const float GRID_SIZE = 0.5f / EL;
+    const float half = EL * GRID_SIZE / 2.0f;
+    const float eps = -1e-4f;  // Slight offset to avoid z-fighting
+
+    glLineWidth(1.0f);
+    glColor4f(1.f, 1.f, 1.f, 0.2f);  // Light white lines with transparency
+
     glBegin(GL_LINES);
-    glColor4f(1.f, 1.f, 1.f, .2f); // uniform color for all lines
-    for (i = 0; i <= n; ++i)
+    for (unsigned i = 0; i <= EL; ++i)
     {
-      p = mn + i * d;
-      // Lines parallel to the x-axis (constant z)
-      glVertex3f(p, eps, mn);
-      glVertex3f(p, eps, mx);
-      // Lines parallel to the z-axis (constant x)
-      glVertex3f(mn, eps, p);
-      glVertex3f(mx, eps, p);
+      float p = -half + i * GRID_SIZE;
+
+      // Lines parallel to X (constant Z)
+      glVertex3f(p, eps, -half);
+      glVertex3f(p, eps,  half);
+
+      // Lines parallel to Z (constant X)
+      glVertex3f(-half, eps, p);
+      glVertex3f( half, eps, p);
     }
     glEnd();
   }
@@ -878,4 +866,294 @@ namespace framework
       glVertex2i(x + textWidth, y + 4);
     glEnd();
   }
+
+  void GUIrenderer::renderUI()
+  {
+    glDisable(GL_DEPTH_TEST);  // 🔹 Disable depth testing for 2D UI
+
+    setOrthographicProjection();
+    glPushMatrix();
+    glLoadIdentity();
+
+    renderElapsedTime();
+    renderSimulationStats();
+    renderLayerInfo();
+    renderHelpText();
+//    renderProgressBar();
+    renderSliders();
+    renderTomoControls();
+    renderPauseOverlay();
+    renderSectionLabels();
+    renderCheckboxes();
+    renderDelays();
+    renderViewpointRadios();
+    renderProjectionRadios();
+    renderTomoRadios();
+    renderHyperlink();
+
+    progress->update(timer);
+    progress->render();
+
+
+    #ifdef DEBUG
+    if (showDebugClick)
+    {
+      glColor3f(1.0f, 0.0f, 0.0f);
+      glPointSize(6.0f);
+      glBegin(GL_POINTS);
+      glVertex2f(debugClickX, debugClickY);
+      glEnd();
+    }
+    #endif
+
+    glPopMatrix();
+    list->update();
+    list->render();
+    resetPerspectiveProjection();
+
+    glEnable(GL_DEPTH_TEST);  // 🔹 Re-enable depth testing for 3D rendering
+    renderCounts();
+  }
+
+  void GUIrenderer::renderElapsedTime()
+  {
+    unsigned long millis = GetTickCount64() - tbegin;
+    char s[64];
+    sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawString8(s, 50, 40);
+  }
+
+  void GUIrenderer::renderSimulationStats()
+  {
+    char s[64];
+    sprintf(s, "Light: %llu   Tick: %llu", timer / automaton::FRAME, timer);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+  }
+
+  void GUIrenderer::renderLayerInfo()
+  {
+    char s[64];
+    sprintf(s, "L = %u", EL);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    render2Dstring(1750, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+    int w = framework::list->getSelected();
+    sprintf(s, "(Current layer = %u)", w);
+    render2Dstring(1730, 78, GLUT_BITMAP_HELVETICA_12, s);
+  }
+
+  void GUIrenderer::renderHelpText()
+  {
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+    if (showHelp)
+    {
+      for (int i = 0; i < 10; ++i)
+        drawString8(help[i], mode->width - 500, 20 * i + mode->height - 260);
+    }
+  }
+
+  void GUIrenderer::renderSliders()
+  {
+    // Draw vertical slider
+    vslider.draw();
+
+    // Draw horizontal slider only if tomography is enabled
+    if (tomo && tomo->getState())
+    {
+      hslider.draw();
+
+      // Display current slice index
+      int sliceNum = hslider.getSliceIndex(automaton::EL);
+      char sliceText[32];
+      snprintf(sliceText, sizeof(sliceText), "Slice: %d / %d", sliceNum, automaton::EL - 1);
+
+      // Set text color and render label above the slider
+      glColor3f(1.0f, 1.0f, 1.0f);
+      render2Dstring(hslider.getX(), hslider.getY() - 20, GLUT_BITMAP_HELVETICA_12, sliceText);
+      ////////
+      if (tomo && tomo->getState())
+      {
+        int sliceNum = hslider.getSliceIndex(automaton::EL);
+
+        if (tomoDirs[0].isSelected())      // XY
+        {
+          tomo_z = sliceNum;
+        }
+        else if (tomoDirs[1].isSelected()) // YZ
+        {
+          tomo_x = sliceNum;
+        }
+        else if (tomoDirs[2].isSelected()) // ZX
+        {
+          tomo_y = sliceNum;
+        }
+      }
+
+    }
+  }
+
+  void GUIrenderer::renderTomoControls()
+  {
+    tomo->draw();
+  }
+
+  void GUIrenderer::renderPauseOverlay()
+  {
+    if (pause)
+      renderCenterBox(" Paused ");
+  }
+
+  void GUIrenderer::renderSectionLabels()
+  {
+    glColor3f(1.0f, 1.0f, 0.5f);
+    drawString12("Data", 50, 85);
+    drawString12("Delays", 50, 405);
+    drawString12("Views", 50, 551);
+    drawString12("Projection", 50, 721);
+    drawString12("Tomo", 50, 830);
+  }
+
+  void GUIrenderer::renderCheckboxes()
+  {
+    for (Tickbox& checkbox : checkboxes)
+      checkbox.draw();
+  }
+
+  void GUIrenderer::renderDelays()
+  {
+    for (Tickbox& checkbox : delays)
+      checkbox.draw();
+  }
+
+  void GUIrenderer::renderViewpointRadios()
+  {
+    for (Radio& radio : viewpoint)
+      radio.draw();
+  }
+
+  void GUIrenderer::renderProjectionRadios()
+  {
+    for (Radio& radio : projection)
+      radio.draw();
+  }
+
+  void GUIrenderer::renderTomoRadios()
+  {
+    for (Radio& radio : tomoDirs)
+      radio.draw();
+  }
+
+  void GUIrenderer::renderSlice()
+  {
+    if (!tomo || !tomo->getState()) return;
+
+    const float GRID_SIZE = 0.5f / EL;
+    unsigned sliceIndex = hslider.getSliceIndex(EL);
+    glPointSize(3.0f);
+    glBegin(GL_POINTS);
+    for (unsigned x = 0; x < EL; ++x)
+    {
+      for (unsigned y = 0; y < EL; ++y)
+      {
+        for (unsigned z = 0; z < EL; ++z)
+        {
+          // Determine which axis is fixed based on selected direction
+          bool match = false;
+          if (tomoDirs[0].isSelected())      // XY → fix Z
+            match = (z == sliceIndex);
+          else if (tomoDirs[1].isSelected()) // YZ → fix X
+            match = (x == sliceIndex);
+          else if (tomoDirs[2].isSelected()) // ZX → fix Y
+            match = (y == sliceIndex);
+          if (!match) continue;
+          COLORREF color = automaton::voxels[x * automaton::L2 + y * EL + z];
+          if (!color) continue;
+          // Extract RGB and normalize
+          BYTE r = GetRValue(color);
+          BYTE g = GetGValue(color);
+          BYTE b = GetBValue(color);
+          glColor4f(r / 255.0f, g / 255.0f, b / 255.0f, 0.6f);
+          // Compute position
+          float px = (x - EL / 2.0f) * GRID_SIZE;
+          float py = (y - EL / 2.0f) * GRID_SIZE;
+          float pz = (z - EL / 2.0f) * GRID_SIZE;
+          glVertex3f(px, py, pz);
+        }
+      }
+    }
+    glEnd();
+  }
+
+  inline bool GUIrenderer::isVoxelVisible(unsigned x, unsigned y, unsigned z)
+  {
+    if (!framework::tomo || !framework::tomo->getState())
+      return true;
+
+    if (framework::tomoDirs[0].isSelected())      // XY → fix Z
+      return z == framework::tomo_z;
+    if (framework::tomoDirs[1].isSelected())      // YZ → fix X
+      return x == framework::tomo_x;
+    if (framework::tomoDirs[2].isSelected())      // ZX → fix Y
+      return y == framework::tomo_y;
+
+    return true;
+  }
+
+  void GUIrenderer::renderTomoPlane()
+  {
+    if (!tomo || !tomo->getState()) return;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    const float GRID_SIZE = 0.5f / EL;
+    const float HALF = EL / 2.0f;
+
+    // Compute world-space coordinate of the selected slice
+    float coord = (hslider.getSliceIndex(EL) - HALF + 0.5f) * GRID_SIZE;
+
+    // Draw the semitransparent plane
+    glColor4f(0.3f, 0.8f, 1.0f, 0.2f);  // Light blue, 20% opacity
+    glBegin(GL_QUADS);
+    if (tomoDirs[0].isSelected()) // XY → fix Z
+    {
+      glVertex3f(-0.25f, -0.25f, coord);
+      glVertex3f( 0.25f, -0.25f, coord);
+      glVertex3f( 0.25f,  0.25f, coord);
+      glVertex3f(-0.25f,  0.25f, coord);
+    }
+    else if (tomoDirs[1].isSelected()) // YZ → fix X
+    {
+      glVertex3f(coord, -0.25f, -0.25f);
+      glVertex3f(coord,  0.25f, -0.25f);
+      glVertex3f(coord,  0.25f,  0.25f);
+      glVertex3f(coord, -0.25f,  0.25f);
+    }
+    else if (tomoDirs[2].isSelected()) // ZX → fix Y
+    {
+      glVertex3f(-0.25f, coord, -0.25f);
+      glVertex3f( 0.25f, coord, -0.25f);
+      glVertex3f( 0.25f, coord,  0.25f);
+      glVertex3f(-0.25f, coord,  0.25f);
+    }
+    glEnd();
+
+    // Draw a brighter point at the axis-plane intersection
+    glPointSize(8.0f);
+    glColor4f(0.5f, 1.0f, 1.0f, 0.6f);  // Brighter cyan, 60% opacity
+    glBegin(GL_POINTS);
+    if (tomoDirs[0].isSelected())      // XY → fix Z
+      glVertex3f(0.0f, 0.0f, coord);
+    else if (tomoDirs[1].isSelected()) // YZ → fix X
+      glVertex3f(coord, 0.0f, 0.0f);
+    else if (tomoDirs[2].isSelected()) // ZX → fix Y
+      glVertex3f(0.0f, coord, 0.0f);
+    glEnd();
+
+    glDisable(GL_BLEND);
+  }
+
 }
