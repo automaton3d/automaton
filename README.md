@@ -29,5 +29,3 @@ Your contribution — of any amount — directly helps me continue developing an
 ---
 
 Last update: 06/11/2025
-
-
