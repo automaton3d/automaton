@@ -125,6 +125,11 @@ namespace automaton
     return lattice[((x * EL + y) * EL + z) * W_USED + w];
   }
 
+  inline const Cell& getCell(const std::vector<Cell>& lattice, int x, int y, int z, int w)
+  {
+    return lattice[((x * EL + y) * EL + z) * W_USED + w];
+  }
+
   /// Function prototypes ///
   void calculateParameters(unsigned L, unsigned W);
   void* SimulationLoop();

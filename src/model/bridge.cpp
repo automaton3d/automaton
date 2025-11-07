@@ -20,6 +20,7 @@ namespace framework
   extern Tickbox* tomo;
   extern std::vector<Radio> tomoDirs;
   extern unsigned tomo_x, tomo_y, tomo_z;
+  extern bool replayFrames;
 }
 
 namespace automaton
@@ -35,7 +36,7 @@ namespace automaton
    */
   void updateBuffer()
   {
-    int w = framework::list->getSelected();
+	int w = framework::list->getSelected();
     unsigned index3D = 0;
     for (unsigned x = 0; x < EL; x++)
     {

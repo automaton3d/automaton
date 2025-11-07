@@ -25,16 +25,34 @@ private:
     std::string label;
     int x, y;
 
+    // Color members (initialized to original defaults)
+    float borderColor[3] = {1.0f, 1.0f, 1.0f};   // white border
+    float labelColor[3]  = {1.0f, 1.0f, 1.0f};   // white text
+    float fillOnColor[3] = {0.0f, 1.0f, 0.0f};   // green when ON
+    float fillOffColor[3]= {0.5f, 0.5f, 0.5f};   // gray when OFF
+
 public:
     std::function<void(bool)> onToggle;  // Optional callback
 
     Tickbox(int x, int y, const std::string& label)
         : state(false), label(label), x(x), y(y) {}
 
+    // ✅ NEW: setColor() with optional parameters
+    void setColor(const float* border = nullptr,
+                  const float* labelC = nullptr,
+                  const float* fillOn = nullptr,
+                  const float* fillOff = nullptr)
+    {
+        if (border)   std::copy(border, border + 3, borderColor);
+        if (labelC)   std::copy(labelC, labelC + 3, labelColor);
+        if (fillOn)   std::copy(fillOn, fillOn + 3, fillOnColor);
+        if (fillOff)  std::copy(fillOff, fillOff + 3, fillOffColor);
+    }
+
     void draw() const
     {
         // Draw border
-        glColor3f(1.0f, 1.0f, 1.0f);
+        glColor3fv(borderColor);
         glBegin(GL_LINE_LOOP);
         glVertex2i(x, y);
         glVertex2i(x, y + BOX_HEIGHT);
@@ -43,7 +61,7 @@ public:
         glEnd();
 
         // Fill box
-        glColor3f(state ? 0.0f : 0.5f, state ? 1.0f : 0.5f, state ? 0.0f : 0.5f);
+        glColor3fv(state ? fillOnColor : fillOffColor);
         glBegin(GL_QUADS);
         glVertex2i(x, y);
         glVertex2i(x, y + BOX_HEIGHT);
@@ -52,7 +70,7 @@ public:
         glEnd();
 
         // Draw label
-        glColor3f(1.0f, 1.0f, 1.0f);
+        glColor3fv(labelColor);
         framework::drawString8(label, x + LABEL_OFFSET_X, y + LABEL_OFFSET_Y);
     }
 
@@ -67,10 +85,7 @@ public:
 
     bool getState() const { return state; }
 
-    void toggle()
-    {
-        setState(!state);
-    }
+    void toggle() { setState(!state); }
 
     bool contains(int mx, int my) const
     {

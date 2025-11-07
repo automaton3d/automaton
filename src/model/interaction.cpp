@@ -43,6 +43,15 @@ namespace automaton
         return convolute4(curr, draft, mirror);
       case 5:
         return convolute5(curr, draft, mirror);
+      case 6:
+        return convolute6(curr, draft, mirror);
+      case 7:
+        return convolute7(curr, draft, mirror);
+      default:
+      {
+    	std::cerr << "Option unavailable: scenario " << (scenario + 1) << "\n";
+    	exit(1);
+      }
     }
     return false;
   }

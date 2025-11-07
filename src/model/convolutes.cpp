@@ -120,13 +120,11 @@ namespace automaton
     // Cells awaken?
     if (curr.t == curr.d && mirror.t == mirror.d)
     {
-  	  puts("awaken");
       // Test superposition
       if (curr.x[0] == mirror.x[0] &&
     	  curr.x[1] == mirror.x[1] &&
           curr.x[2] == mirror.x[2])
       {
-    	  puts("superpose");
         // Test dispersion
         if (curr.a != W_USED &&
         	curr.W1() != mirror.W1() &&
@@ -143,7 +141,7 @@ namespace automaton
             draft.cB = true;
             // Orphan seed
             draft.a = W_USED;
-            printf("k=%d: (%d,%d,%d) pB L=%d M=%d\n", curr.x[0],curr.x[1],curr.x[2], curr.k, curr.x[3], mirror.x[3]); fflush(stdout);
+            printf("pB [k=%d: (%d,%d,%d) pB L=%d M=%d]\n", curr.x[0],curr.x[1],curr.x[2], curr.k, curr.x[3], mirror.x[3]); fflush(stdout);
           }
           else if (curr.sB && !mirror.pB)
           {
@@ -152,7 +150,7 @@ namespace automaton
             draft.cB = true;
             // Orphan seed
             draft.a = W_USED;
-            printf("k=%d: (%d,%d,%d) NOT pB L=%d M=%d\n", curr.x[0],curr.x[1],curr.x[2], curr.k, curr.x[3], mirror.x[3]); fflush(stdout);
+            printf("sB [k=%d: (%d,%d,%d) NOT pB L=%d M=%d}\n", curr.x[0],curr.x[1],curr.x[2], curr.k, curr.x[3], mirror.x[3]); fflush(stdout);
           }
         }
       }

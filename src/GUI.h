@@ -35,7 +35,6 @@
 #include "tickbox.h"
 #include "progress.h"
 
-//#define LAYERS	25	// max layers shown
 #define WIDTH	480     // graph width
 
 namespace framework
@@ -43,6 +42,9 @@ namespace framework
   using namespace std;
 
 extern ProgressBar *progress;
+
+extern bool replayFrames;
+extern unsigned long long replayTimer;
 
 class GUIrenderer : public Renderer
 {
@@ -99,6 +101,7 @@ public:
   inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
   void renderTomoPlane();
   void drawPanel(int x, int y, int width, int height);
+  void clearVoxels();
 
 protected:
     glm::mat4 mProjection;
@@ -123,7 +126,6 @@ extern std::vector<Radio> projection;
 
 void initText();
 void reshape(GLFWwindow* window, int width, int height);
-//extern splash::Logo guiLogo;
 
 // In the framework namespace, with other extern declarations:
 extern bool helpHover;

@@ -42,6 +42,8 @@ namespace framework
   extern bool pause;
   extern void setOrthographicProjection();
   extern void resetPerspectiveProjection();
+  extern bool recordFrames;
+  extern bool showExitDialog;
 
   // Global viewport info
   GLint gViewport[4] = {0, 0, 1920, 1080}; // default values, will be overwritten on resize
@@ -59,7 +61,8 @@ namespace framework
   ProgressBar *progress = nullptr;
 
   // Static text
-  extern string help[11];
+  extern string ui_help[11];
+  extern string record_help[11];
   bool showHelp = true;
   string steps[3] =
   {
@@ -78,7 +81,7 @@ namespace framework
 
   extern std::vector<std::string> scenarioHelpTexts;
 
-  bool showScenarioHelp = true;
+  bool showScenarioHelp = false;
   Tickbox* scenarioHelpToggle = nullptr;
 
   using namespace automaton;
@@ -231,7 +234,7 @@ namespace framework
       glPointSize(6.0f);
       glBegin(GL_POINTS);
       glVertex2f(debugClickX, debugClickY);
-       glEnd();
+      glEnd();
     }
     #endif
   }
@@ -573,8 +576,6 @@ namespace framework
     }
     if (data3D[0].getState())
       renderWavefront();
-//    if (tomo && tomo->getState())
-  //    renderSlice();
     if (data3D[1].getState())
       renderMomentum();
     if (data3D[2].getState())
@@ -824,10 +825,47 @@ namespace framework
     renderProjectionRadios();
     renderTomoRadios();
     renderHyperlink();
-    progress->update(timer);
+    unsigned long long displayTimer = replayFrames ? replayTimer : timer;
+    progress->update(displayTimer);
     progress->render();
     if (showScenarioHelp)
       renderScenarioHelpPane();
+
+
+    if (showExitDialog)
+    {
+      const int boxWidth = 400;
+      const int boxHeight = 120;
+      int boxLeft = (gViewport[2] - boxWidth) / 2;
+      int boxBottom = (gViewport[3] - boxHeight) / 2;
+
+      // Background
+      glColor3f(0.1f, 0.1f, 0.1f);
+      glBegin(GL_QUADS);
+        glVertex2i(boxLeft, boxBottom);
+        glVertex2i(boxLeft + boxWidth, boxBottom);
+        glVertex2i(boxLeft + boxWidth, boxBottom + boxHeight);
+        glVertex2i(boxLeft, boxBottom + boxHeight);
+      glEnd();
+
+      // Border
+      glColor3f(1.0f, 1.0f, 1.0f);
+      glLineWidth(2);
+      glBegin(GL_LINE_LOOP);
+        glVertex2i(boxLeft, boxBottom);
+        glVertex2i(boxLeft + boxWidth, boxBottom);
+        glVertex2i(boxLeft + boxWidth, boxBottom + boxHeight);
+        glVertex2i(boxLeft, boxBottom + boxHeight);
+      glEnd();
+
+      // Text
+      glColor3f(1.0f, 1.0f, 0.0f);
+      drawString8("Are you sure you want to exit?", boxLeft + 40, boxBottom + 80);
+      drawString8("[Y] Yes     [N] No", boxLeft + 40, boxBottom + 40);
+    }
+
+
+
 
     glColor3f(0.5f, 0.5f, 0.5f);
     glBegin(GL_QUADS);
@@ -852,6 +890,46 @@ namespace framework
     }
     #endif
     scenarioHelpToggle->draw();
+
+    if (recordFrames)
+    {
+      static bool blink = true;
+      static double lastToggle = glfwGetTime();
+      double now = glfwGetTime();
+      if (now - lastToggle > 0.5) {  // Toggle every 0.5 seconds
+        blink = !blink;
+        lastToggle = now;
+      }
+      if (blink)
+      {
+    	int ypos = gViewport[3] - 115;
+        // Red background box at (230, 620) to (330, 650)
+        glColor3f(1.0f, 0.0f, 0.0f);  // Red
+        glRectf(230.0f, ypos, 326.0f, ypos + 30);  // (left, bottom, right, top)
+
+        // White "RECORD" text centered inside the box
+        glColor3f(1.0f, 1.0f, 1.0f);  // White
+        drawString8("RECORD F5", 240, ypos + 20);  // Adjusted to fit inside the box
+      }
+    }
+    if (replayFrames)
+    {
+      static bool blinkReplay = true;
+      static double lastReplayToggle = glfwGetTime();
+      double now = glfwGetTime();
+      if (now - lastReplayToggle > 0.5) {
+        blinkReplay = !blinkReplay;
+        lastReplayToggle = now;
+      }
+      if (blinkReplay)
+      {
+        int ypos = gViewport[3] - 155;  // Slightly above RECORD box
+        glColor3f(0.0f, 0.4f, 1.0f);    // Blue
+        glRectf(230.0f, ypos, 326.0f, ypos + 30);
+        glColor3f(1.0f, 1.0f, 1.0f);    // White
+        drawString8("REPLAY F6", 240, ypos + 20);
+      }
+    }
     glPopMatrix();
     list->update();
     list->render();
@@ -872,8 +950,9 @@ namespace framework
 
   void GUIrenderer::renderSimulationStats()
   {
+    unsigned long long displayTimer = replayFrames ? replayTimer : timer;
     char s[64];
-    sprintf(s, "Light: %llu   Tick: %llu", timer / automaton::FRAME, timer);
+    sprintf(s, "Light: %llu   Tick: %llu", displayTimer / automaton::FRAME, displayTimer);
     glColor3f(1.0f, 1.0f, 1.0f);
     render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
   }
@@ -899,7 +978,9 @@ namespace framework
     if (showHelp)
     {
       for (int i = 0; i < 11; ++i)
-        drawString8(help[i], mode->width - 630, 20 * i + mode->height - 250);
+        drawString8(ui_help[i], mode->width - 630, 20 * i + mode->height - 250);
+      for (int i = 0; i < 4; ++i)
+        drawString8(record_help[i], 230, 20 * i + mode->height - 250);
     }
   }
 
@@ -1144,7 +1225,7 @@ namespace framework
     const int paneX = 230;
     const int paneY = 90;
     const int paneWidth = 400;
-    const int paneHeight = 400;
+    const int paneHeight = 450;
     // Use the same panel style as other UI panes
     drawPanel(paneX, paneY, paneWidth, paneHeight);
     glColor3f(1.0f, 1.0f, 1.0f);
@@ -1157,6 +1238,12 @@ namespace framework
       drawString12(line.c_str(), paneX + 20, lineY);
       lineY += 20;
     }
+  }
+
+  void GUIrenderer::clearVoxels()
+  {
+    for (unsigned i = 0; i < EL * EL * EL; ++i)
+      voxels[i] = RGB(0, 0, 0);  // Black background
   }
 
 }

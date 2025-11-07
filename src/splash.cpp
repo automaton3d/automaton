@@ -12,6 +12,7 @@
 #include "splash.h"
 #include "model/simulation.h"
 #include "logo.h"
+#include "tickbox.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -40,15 +41,16 @@ namespace splash
   Dropdown sizeDropdown(-0.85f, -0.25f, 0.4f, 0.08f, sizeOptions);
   Dropdown layerDropdown(-0.85f, -0.40f, 0.4f, 0.08f, layerOptions);
 
-  std::vector<std::string> scenarioOptions = {
-      "Wrapping test",
-      "Relocate test",
-      "Orphan test",
-      "Contraction test",
-      "Hunting test",
-      "Reissue test",
-      "Dispersion test",
-      "Full simulation"
+  std::vector<std::string> scenarioOptions =
+  {
+    "Wrapping test",
+    "Relocate test",
+    "Orphan test",
+    "Contraction test",
+    "Hunting test",
+    "Reissue test",
+    "Dispersion test",
+    "Full simulation"
   };
 
   float scenarioWidth = 0.6f;
@@ -60,6 +62,15 @@ namespace splash
                             scenarioWidth,
                             0.08f,
                             scenarioOptions);
+  // Calculate position in NDC, then convert for bottom-left origin
+  float ndcX = scenarioDropdown.x;
+  float ndcY = scenarioDropdown.y - 0.12f;
+
+  // Convert NDC to pixel (bottom-left origin)
+  int tickX = (int)((ndcX + 1.0f) * WINDOW_WIDTH / 2.0f);
+  int tickY = (int)((ndcY + 1.0f) * WINDOW_HEIGHT / 2.0f);
+
+  Tickbox startPausedBox(tickX, tickY, "Start paused");
 
   XButton btn1 = { -0.5f, -0.65f, 1.0f, 0.12f, "Simulation" };
   XButton btn2 = { -0.5f, -0.82f, 1.0f, 0.12f, "Statistics" };
@@ -156,6 +167,21 @@ namespace splash
         layerDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
     else if (scenarioOpen)
         scenarioDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
+    //
+    // Draw the "Start paused" tickbox
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glColor3f(1.0f, 1.0f, 1.0f);
+    startPausedBox.draw();
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
   }
 
   void drawTitle()
@@ -204,6 +230,16 @@ namespace splash
   {
     if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN)
       return;
+
+    // Handle "Start paused" checkbox click
+    int mx = x;
+    int my = WINDOW_HEIGHT - y; // convert to bottom-left origin
+    if (startPausedBox.onMouseButton(mx, my, true))
+    {
+        glutPostRedisplay();
+        return; // prevent other UI from also reacting to this click
+    }
+
     bool clickedOnUI = isClickOnUI(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
     // Handle dropdown selections
     bool sizeSelected     = sizeDropdown.handleClick(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -217,16 +253,13 @@ namespace splash
         numLayers = std::stoi(layerDropdown.getSelectedItem());
     if (scenarioSelected)
       std::cout << "Scenario selected: " << scenarioDropdown.getSelectedItem() << std::endl;
-
     // Close other dropdowns when one is opened
     if (sizeDropdown.isOpen && !layerDropdown.containsHeader(x, y, WINDOW_WIDTH, WINDOW_HEIGHT)
         && !scenarioDropdown.containsHeader(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
         layerDropdown.close(), scenarioDropdown.close();
-
     if (layerDropdown.isOpen && !sizeDropdown.containsHeader(x, y, WINDOW_WIDTH, WINDOW_HEIGHT)
         && !scenarioDropdown.containsHeader(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
         sizeDropdown.close(), scenarioDropdown.close();
-
     if (scenarioDropdown.isOpen && !sizeDropdown.containsHeader(x, y, WINDOW_WIDTH, WINDOW_HEIGHT)
         && !layerDropdown.containsHeader(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
         sizeDropdown.close(), layerDropdown.close();
@@ -344,6 +377,12 @@ int main(int argc, char** argv)
   glutMouseWheelFunc(splash::mouseWheel);
   #endif
   splash::logo_splash = new framework::Logo("logo_bar.png");
+  float border[3] = {0.0f, 0.0f, 0.0f};
+  float label[3]  = {0.1f, 0.1f, 0.1f};
+  float fillOn[3] = {0.0f, 0.7f, 0.0f};
+  float fillOff[3]= {0.7f, 0.7f, 0.7f};
+  splash::startPausedBox.setColor(border, label, fillOn, fillOff);
+
   glutMainLoop();
   if (splash::selection == 1)
       return runSimulation(splash::scenarioDropdown.selectedIndex);

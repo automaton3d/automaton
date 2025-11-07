@@ -46,6 +46,7 @@ namespace framework
 
     void onDelayToggled(Tickbox* toggled);
     bool pendingExit = false;
+    GLFWwindow* getWindow() const { return mWindow; }
 
   private:
     Animator mAnimator;

@@ -20,6 +20,7 @@
 #include "hslider.h"
 #include "vslider.h"
 #include "logo.h"
+#include "recorder.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -61,11 +62,90 @@ namespace framework
   extern vector<Radio> tomoDirs;
   extern bool showHelp;
   extern Tickbox* scenarioHelpToggle;
+  extern unsigned tomo_x, tomo_y, tomo_z;
 
   // Logo
 
   Logo *logo = nullptr;
   bool logoCreated = false;
+
+  // Frame recorder
+
+  FrameRecorder recorder;
+  bool recordFrames = false;
+  bool replayFrames = false;
+  size_t replayIndex = 0;
+
+  bool savePopup = false;
+  bool loadPopup = false;
+
+  bool toastActive = false;
+  double toastStartTime = 0.0;
+  std::string toastMessage;
+  unsigned long long replayTimer = 0;
+  bool showExitDialog = false;
+
+  void updateReplay()
+  {
+    using namespace automaton;
+
+    if (replayIndex < recorder.frames.size())
+    {
+      const Frame& currentFrame = recorder.frames[replayIndex];
+      currentFrame.apply(lattice_curr);
+      std::fill(voxels, voxels + EL * EL * EL, RGB(0, 0, 0));
+      int selectedLayer = list->getSelected();
+      for (const FrameCell& fc : currentFrame.cells)
+      {
+        if (fc.w != selectedLayer)
+          continue;
+
+        bool visible = true;
+        if (tomo && tomo->getState())
+        {
+          if (tomoDirs[0].isSelected())      visible = (fc.z == tomo_z);
+          else if (tomoDirs[1].isSelected()) visible = (fc.x == tomo_x);
+          else if (tomoDirs[2].isSelected()) visible = (fc.y == tomo_y);
+        }
+        if (!visible) continue;
+        unsigned index3D = fc.x * EL * EL + fc.y * EL + fc.z;
+        if (index3D >= EL * EL * EL) continue;
+
+        if (fc.flags & 0x01)
+        {
+          if (!(fc.flags & 0x02)) voxels[index3D] = RGB(255, 0, 0);
+          else if (fc.flags & 0x10) voxels[index3D] = RGB(0, 255, 0);
+          else voxels[index3D] = RGB(255, 255, 255);
+        }
+        else
+        {
+          voxels[index3D] = RGB(0, 0, 0);
+        }
+
+        if (data3D[2].getState())
+        {
+          if (fc.flags & 0x04)  // sB
+            voxels[index3D] = RGB(0, 255, 255);     // Cyan (spin)
+        }
+        if (data3D[1].getState())
+        {
+          if (fc.flags & 0x08)  // pB
+            voxels[index3D] = RGB(255, 255, 0);     // Yellow (momentum)
+        }
+      }
+      ++replayIndex;
+      if (replayIndex >= recorder.frames.size())
+      {
+        replayIndex = 0;
+        replayTimer -= recorder.frames.size();  // Loop reset
+      }
+      else
+      {
+        ++replayTimer;
+      }
+    }
+//    std::this_thread::sleep_for(std::chrono::milliseconds(33));
+  }
 
   /**
    * Function to show the loading window
@@ -160,10 +240,8 @@ namespace framework
     glGetIntegerv(GL_VIEWPORT, viewport);
     int width = viewport[2];
     int height = viewport[3];
-
     if (height == 0) height = 1;
     GLfloat ratio = width / (GLfloat) height;
-
     if (projection[0].isSelected())
     {
       // Orthographic projection
@@ -208,6 +286,8 @@ namespace framework
    */
   void CAWindow::buttonCallback(GLFWwindow *window, int button, int action, int mods)
   {
+	if (showExitDialog)
+	  return;  // ⛔ Ignore mouse input while dialog is active
     int width, height;
     glfwGetWindowSize(window, &width, &height);
     double xpos, ypos;
@@ -430,123 +510,176 @@ namespace framework
 
   void CAWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
   {
-    float length;
-    switch (action)
-    {
-      case GLFW_PRESS:
-        switch (key)
-        {
-           case GLFW_KEY_ESCAPE:
-             // Defer showing the MessageBox to the main loop.
-        	 instance().pendingExit = true;
-        	 break;
+      // Debounce timer to prevent double-trigger from GLFW key repeat
+      static double lastKeyTime = 0.0;
+      double now = glfwGetTime();
+      if (now - lastKeyTime < 0.2)
+          return;
+      lastKeyTime = now;
 
-           case GLFW_KEY_LEFT_CONTROL:
-           case GLFW_KEY_RIGHT_CONTROL:
-             instance().mInteractor.setSpeed(5.f);
-             break;
+      // === EXIT POPUP LOGIC ===
+      if (showExitDialog)
+      {
+          if (action == GLFW_PRESS)
+          {
+              if (key == GLFW_KEY_Y)
+              {
+                  // Confirm exit
+                  glfwSetWindowShouldClose(window, GL_TRUE);
+                  showExitDialog = false;
+              }
+              else if (key == GLFW_KEY_N || key == GLFW_KEY_ESCAPE)
+              {
+                  // Cancel exit
+                  showExitDialog = false;
+              }
+          }
+          return; // ⛔ Block all other key input when popup is active
+      }
 
-           case GLFW_KEY_LEFT_SHIFT:
-           case GLFW_KEY_RIGHT_SHIFT:
-             instance().mInteractor.setSpeed(0.1f);
-             break;
+      // === NORMAL KEY HANDLING ===
+      if (action == GLFW_PRESS)
+      {
+          float length;
+          switch (key)
+          {
+              case GLFW_KEY_ESCAPE:
+                  // Show the popup immediately
+                  showExitDialog = true;
+                  instance().pendingExit = false;
+                  break;
 
-           case GLFW_KEY_F2:
-             instance().mAnimator.setAnimation(Animator::ORBIT);
-             break;
+              case GLFW_KEY_LEFT_CONTROL:
+              case GLFW_KEY_RIGHT_CONTROL:
+                  instance().mInteractor.setSpeed(5.f);
+                  break;
 
-           case GLFW_KEY_C:
-             std::cout << "\nCamera view:"
-                       << " (" << instance().mCamera.getEye().x
-                       << "," << instance().mCamera.getEye().y
-                       << "," << instance().mCamera.getEye().z << ") "
-                       << "(" << instance().mCamera.getCenter().x
-                       << "," << instance().mCamera.getCenter().y
-                       << "," << instance().mCamera.getCenter().z << ") "
-                       << "(" << instance().mCamera.getUp().x
-                       << "," << instance().mCamera.getUp().y
-                       << "," << instance().mCamera.getUp().z << ")\n\n";
-             break;
+              case GLFW_KEY_LEFT_SHIFT:
+              case GLFW_KEY_RIGHT_SHIFT:
+                  instance().mInteractor.setSpeed(0.1f);
+                  break;
 
-           case GLFW_KEY_R:
-             instance().mCamera.reset();
-             instance().mInteractor.setCamera(&instance().mCamera);
-             break;
+              case GLFW_KEY_F2:
+                  instance().mAnimator.setAnimation(Animator::ORBIT);
+                  break;
 
-           case GLFW_KEY_T:
-             if (instance().mInteractor.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
-               instance().mInteractor.setMotionRightClick(TrackBallInteractor::PAN);
-             else
-               instance().mInteractor.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
-             break;
+              case GLFW_KEY_F5:
+                  if (!replayFrames)
+                      recordFrames = !recordFrames;
+                  break;
 
-           case GLFW_KEY_X:
-             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-             instance().mCamera.setEye(glm::vec3(length, 0, 0));
-             instance().mCamera.setUp(glm::vec3(0, 1, 0));
-             instance().mCamera.update();
-             instance().mInteractor.setCamera(&instance().mCamera);
-             break;
+              case GLFW_KEY_F6:
+                  replayFrames = !replayFrames;
+                  replayIndex = 0;
+                  recordFrames = false;
+                  break;
 
-           case GLFW_KEY_Y:
-             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-             instance().mCamera.setEye(glm::vec3(0, length, 0));
-             instance().mCamera.setUp(glm::vec3(1, 0, 0));
-             instance().mCamera.update();
-             instance().mInteractor.setCamera(&instance().mCamera);
-             break;
+              case GLFW_KEY_F7:
+                  if (!recordFrames && !replayFrames)
+                  {
+                      recorder.saveToFile("frames.dat");
+                      savePopup = true;
+                  }
+                  break;
 
-           case GLFW_KEY_Z:
-             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-             instance().mCamera.setEye(glm::vec3(0, 0, length));
-             instance().mCamera.setUp(glm::vec3(1, 0, 0));
-             instance().mCamera.update();
-             instance().mInteractor.setCamera(&instance().mCamera);
-             break;
+              case GLFW_KEY_F8:
+                  if (!recordFrames && !replayFrames)
+                  {
+                      recorder.loadFromFile("frames.dat");
+                      timer = recorder.savedTimer;
+                      automaton::scenario = recorder.savedScenario;
+                      loadPopup = true;
+                  }
+                  break;
 
-           case GLFW_KEY_O:
-             length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-             instance().mCamera.setEye(glm::vec3(length, length, length));
-             instance().mCamera.setUp(glm::vec3(0, 1, 0));
-             instance().mCamera.update();
-             instance().mInteractor.setCamera(&instance().mCamera);
-             break;
+              case GLFW_KEY_C:
+                  std::cout << "\nCamera view:"
+                            << " (" << instance().mCamera.getEye().x
+                            << "," << instance().mCamera.getEye().y
+                            << "," << instance().mCamera.getEye().z << ") "
+                            << "(" << instance().mCamera.getCenter().x
+                            << "," << instance().mCamera.getCenter().y
+                            << "," << instance().mCamera.getCenter().z << ") "
+                            << "(" << instance().mCamera.getUp().x
+                            << "," << instance().mCamera.getUp().y
+                            << "," << instance().mCamera.getUp().z << ")\n\n";
+                  break;
 
-           case GLFW_KEY_M:
-             sound(false);
-             break;
+              case GLFW_KEY_R:
+                  instance().mCamera.reset();
+                  instance().mInteractor.setCamera(&instance().mCamera);
+                  break;
 
-           case GLFW_KEY_P:
-             pause = !pause;
-             break;
+              case GLFW_KEY_T:
+                  if (instance().mInteractor.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
+                      instance().mInteractor.setMotionRightClick(TrackBallInteractor::PAN);
+                  else
+                      instance().mInteractor.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
+                  break;
 
-           case GLFW_KEY_F1:
-             showHelp = !showHelp;
-             break;
+              case GLFW_KEY_X:
+                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(glm::vec3(length, 0, 0));
+                  instance().mCamera.setUp(glm::vec3(0, 1, 0));
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(&instance().mCamera);
+                  break;
 
-           default:
-             break;
-         }
-         break;
+              case GLFW_KEY_Y:
+                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(glm::vec3(0, length, 0));
+                  instance().mCamera.setUp(glm::vec3(1, 0, 0));
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(&instance().mCamera);
+                  break;
 
-       case GLFW_RELEASE:
-         switch (key)
-         {
-           case GLFW_KEY_LEFT_CONTROL:
-           case GLFW_KEY_RIGHT_CONTROL:
-           case GLFW_KEY_LEFT_SHIFT:
-           case GLFW_KEY_RIGHT_SHIFT:
-             instance().mInteractor.setSpeed(1.f);
-             break;
+              case GLFW_KEY_Z:
+                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(glm::vec3(0, 0, length));
+                  instance().mCamera.setUp(glm::vec3(1, 0, 0));
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(&instance().mCamera);
+                  break;
 
-           default:
-             break;
-         }
-         break;
+              case GLFW_KEY_O:
+                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                  instance().mCamera.setEye(glm::vec3(length, length, length));
+                  instance().mCamera.setUp(glm::vec3(0, 1, 0));
+                  instance().mCamera.update();
+                  instance().mInteractor.setCamera(&instance().mCamera);
+                  break;
 
-       default:
-         break;
-     }
+              case GLFW_KEY_M:
+                  sound(false);
+                  break;
+
+              case GLFW_KEY_P:
+                  pause = !pause;
+                  break;
+
+              case GLFW_KEY_F1:
+                  showHelp = !showHelp;
+                  break;
+
+              default:
+                  break;
+          }
+      }
+      else if (action == GLFW_RELEASE)
+      {
+          switch (key)
+          {
+              case GLFW_KEY_LEFT_CONTROL:
+              case GLFW_KEY_RIGHT_CONTROL:
+              case GLFW_KEY_LEFT_SHIFT:
+              case GLFW_KEY_RIGHT_SHIFT:
+                  instance().mInteractor.setSpeed(1.f);
+                  break;
+
+              default:
+                  break;
+          }
+      }
   }
 
   /*
@@ -616,24 +749,31 @@ namespace framework
     automaton::swap_lattices();
     while (true)
     {
-      if(!pause)
+      if (!pause)
       {
-        // Run one step of the simulation
-        automaton::simulation();
-        // Transfer data to the GUI
-        automaton::updateBuffer();
-        framework::timer++;
+        if (replayFrames)
+        {
+          updateReplay();
+        }
+        else
+        {
+          automaton::simulation();
+          if (recordFrames)
+            recorder.recordFrame(automaton::lattice_curr, timer, automaton::scenario);
+          automaton::updateBuffer();
+          framework::timer++;
+        }
       }
       else
       {
-        // Always refresh once when tomography mode changes
         static bool prevTomoState = false;
         bool currentTomoState = (tomo && tomo->getState());
         if (currentTomoState || prevTomoState != currentTomoState)
-            automaton::updateBuffer();
+          automaton::updateBuffer();
         prevTomoState = currentTomoState;
       }
     }
+
     return 0;
   }
 
@@ -643,7 +783,7 @@ namespace framework
    */
   int CAWindow::run()
   {
-	// Launch the loading window
+  // Launch the loading window
     showLoadingWindow();
     // Get the primary monitor's dimensions
     GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
@@ -659,7 +799,7 @@ namespace framework
         return 1;
     }
     int width = mode->width;
-	int height = mode->height;
+  int height = mode->height;
     // Create a borderless GLFW window and center it on the screen
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
     // Set up OpenGL for basic text rendering
@@ -707,35 +847,85 @@ namespace framework
     {
       if (!logoCreated)
       {
-    	logo = new framework::Logo("logo.png");  // Context is now current
-    	logoCreated = true;
+      logo = new framework::Logo("logo.png");  // Context is now current
+      logoCreated = true;
+      }
+      if (pendingExit)
+      {
+        pendingExit = false;
+        showExitDialog = true;
       }
       mRenderer.render();
+      if (toastActive)
+      {
+        double now = glfwGetTime();
+        if (now - toastStartTime < 3.0)  // Show for 3 seconds
+        {
+          glMatrixMode(GL_PROJECTION);
+          glPushMatrix();
+          glLoadIdentity();
+          glOrtho(0, width, 0, height, -1, 1);
+          glMatrixMode(GL_MODELVIEW);
+          glPushMatrix();
+          glLoadIdentity();
+          glDisable(GL_DEPTH_TEST);
+
+          // Toast layout
+          const int boxWidth = 250;
+          const int boxHeight = 40;
+
+          int boxLeft   = (width - boxWidth) / 2;
+          int boxRight  = boxLeft + boxWidth;
+          int boxBottom = (height - boxHeight) / 2;
+          int boxTop    = boxBottom + boxHeight;
+
+          // Toast background
+          glColor3f(0.3f, 0.3f, 0.3f);  // Green
+          glBegin(GL_QUADS);
+            glVertex2f(boxLeft, boxBottom);
+            glVertex2f(boxRight, boxBottom);
+            glVertex2f(boxRight, boxTop);
+            glVertex2f(boxLeft, boxTop);
+          glEnd();
+
+          // Toast text
+          glColor3f(1.0f, 1.0f, 0);
+          drawString8(toastMessage.c_str(), boxLeft + 20, boxBottom + 15);
+
+          glEnable(GL_DEPTH_TEST);
+          glPopMatrix();
+          glMatrixMode(GL_PROJECTION);
+          glPopMatrix();
+        }
+        else
+        {
+          toastActive = false;
+        }
+      }
       glfwSwapBuffers(mWindow);
       mInteractor.update();
       if (!pause)
       {
-    	mAnimator.animate();
+      mAnimator.animate();
       }
       else
       {
-    	this_thread::sleep_for(std::chrono::milliseconds(16));
+      this_thread::sleep_for(std::chrono::milliseconds(16));
       }
       glfwPollEvents();
-      if (pendingExit)
+      if (savePopup)
       {
-        pendingExit = false; // clear to avoid re-entering loop
-        HWND hwnd = glfwGetWin32Window(mWindow);
-        // Ensure final buffer displayed and events flushed
-        glfwPollEvents();
-        glFinish();             // ensure all OpenGL drawing is complete
-        RedrawWindow(hwnd, NULL, NULL, RDW_INTERNALPAINT | RDW_UPDATENOW);
-        int result = MessageBox(hwnd,
-                                "Are you sure you want to exit?",
-                                "Confirm Exit",
-                                MB_YESNO | MB_ICONQUESTION);
-        if (result == IDYES)
-          glfwSetWindowShouldClose(mWindow, GL_TRUE);
+        toastMessage = "Frames saved successfully.";
+        toastStartTime = glfwGetTime();
+        toastActive = true;
+        savePopup = false;
+      }
+      if (loadPopup)
+      {
+        toastMessage = "Frames loaded successfully.";
+        toastStartTime = glfwGetTime();
+        toastActive = true;
+        loadPopup = false;
       }
     }
     puts("GUI thread ended.");
@@ -772,7 +962,7 @@ namespace framework
 /************************************
  *                                  *
  *     Simulation entry point.      *
- *      (Called by the Splash)      *
+ *     (Called by the Splash)       *
  *                                  *
  ************************************/
 int runSimulation(int scenario)
