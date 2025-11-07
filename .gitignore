@@ -1,4 +1,5 @@
 /Debug/
 /include/
 /shaders/
-/src/glad.cframes.dat
+/src/glad.c
+/frames.dat
