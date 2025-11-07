@@ -38,14 +38,14 @@ namespace framework
     void zoom();
 
   private:
-    AnimationType mAnimation;
-    TrackBallInteractor *mInteractor;
-    int mFrame;
-    int mFrames;
-    float mFramesPerSecond;
-    int mHeight;
-    std::chrono::time_point<std::chrono::system_clock> mTic;
-    int mWidth;
+    AnimationType mAnimation_;
+    TrackBallInteractor *mInteractor_;
+    int mFrame_;
+    int mFrames_;
+    float mFramesPerSecond_;
+    int mHeight_;
+    std::chrono::time_point<std::chrono::system_clock> mTic_;
+    int mWidth_;
   };
 
 

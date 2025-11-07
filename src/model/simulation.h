@@ -100,8 +100,8 @@ namespace automaton
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false)
       {
-        std::fill(std::begin(x), std::end(x), 0);
-        std::fill(std::begin(c), std::end(c), 0);
+        fill(begin(x), end(x), 0);
+        fill(begin(c), end(c), 0);
       }
       // Serialization functions
       void serialize(ofstream& out) const;
@@ -120,12 +120,12 @@ namespace automaton
 
 
   // Inline accessor for 4D indexing
-  inline Cell& getCell(std::vector<Cell>& lattice, int x, int y, int z, int w)
+  inline Cell& getCell(vector<Cell>& lattice, int x, int y, int z, int w)
   {
     return lattice[((x * EL + y) * EL + z) * W_USED + w];
   }
 
-  inline const Cell& getCell(const std::vector<Cell>& lattice, int x, int y, int z, int w)
+  inline const Cell& getCell(const vector<Cell>& lattice, int x, int y, int z, int w)
   {
     return lattice[((x * EL + y) * EL + z) * W_USED + w];
   }
@@ -159,7 +159,7 @@ namespace automaton
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up);
   void updateBuffer();
-  std::vector<std::tuple<int, int, int>> generateShell(int L);
+  vector<tuple<int, int, int>> generateShell(int L);
   void normalize(double vec[3]);
   void cross_product(double result[3], const double a[3], const double b[3]);
   void printLattice(int w);
@@ -178,7 +178,7 @@ namespace automaton
 
   /// Cross variables ///
   extern COLORREF* voxels;
-  extern std::vector<Cell> lattice_curr;
+  extern vector<Cell> lattice_curr;
 
   /// Cross constants ///
   extern unsigned L3;

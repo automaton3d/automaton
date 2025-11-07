@@ -17,18 +17,18 @@ namespace framework
 class Radio
 {
 private:
-  bool selected;
-  std::string label;
-  int x, y;
-  static constexpr int RADIO_HEIGHT = 15;
+  bool selected_;
+  std::string label_;
+  int x_, y_;
+  static constexpr int RADIO_HEIGHT_ = 15;
 
 public:
   Radio(int x, int y, std::string label)
-        : selected(false), label(label), x(x), y(y) {}
+        : selected_(false), label_(label), x_(x), y_(y) {}
 
   void draw()
   {
-    drawAt(x, y);
+    drawAt(x_, y_);
   }
 
   void drawAt(int xPos, int yPos)
@@ -44,7 +44,7 @@ public:
     }
     glEnd();
 
-    if (selected)
+    if (selected_)
     {
       glColor3f(0.0, 1.0, 0.0);
       glBegin(GL_TRIANGLE_FAN);
@@ -65,17 +65,17 @@ public:
     glEnd();
 
     // Vertically centered label
-    framework::drawString8(label, xPos + 18, yPos + 3);
+    framework::drawString8(label_, xPos + 18, yPos + 3);
   }
 
-  void setSelected(bool isSelected) { selected = isSelected; }
+  void setSelected(bool isSelected) { selected_ = isSelected; }
 
-  bool isSelected() const { return selected; }
+  bool isSelected() const { return selected_; }
 
   bool clicked(double xpos, double ypos) const
   {
-    return xpos >= x - 2 && xpos <= x + 100 &&
-           ypos >= y - 9 && ypos <= y + 7;
+    return xpos >= x_ - 2 && xpos <= x_ + 100 &&
+           ypos >= y_ - 9 && ypos <= y_ + 7;
   }
 
   bool clickedAt(double xpos, double ypos, int drawX, int drawY) const
@@ -84,8 +84,8 @@ public:
            ypos >= drawY - 9 && ypos <= drawY + 7;
   }
 
-  int getX() const { return x; }
-  int getY() const { return y; }
+  int getX() const { return x_; }
+  int getY() const { return y_; }
 };
 
 #endif /* RADIO_H_ */

@@ -385,7 +385,7 @@ int main(int argc, char** argv)
 
   glutMainLoop();
   if (splash::selection == 1)
-      return runSimulation(splash::scenarioDropdown.selectedIndex);
+      return runSimulation(splash::scenarioDropdown.getSelectedIndex());
   if (splash::selection == 2)
       return runStatistics();
   return 0;

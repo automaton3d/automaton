@@ -1,4 +1,7 @@
-// dropdown.h
+/*
+ * dropdown.h
+ */
+
 #ifndef DROPDOWN_H_
 #define DROPDOWN_H_
 
@@ -10,10 +13,7 @@ class Dropdown
 {
 public:
     float x, y, width, height;
-    std::vector<std::string> options;
-    int selectedIndex;
     bool isOpen;
-    int scrollOffset;
 
     Dropdown(float x, float y, float w, float h, const std::vector<std::string>& opts);
 
@@ -28,6 +28,11 @@ public:
 
     std::string getSelectedItem() const;
     void selectByValue(const std::string& value);
-};
+    int getSelectedIndex() const;
 
+private:
+    std::vector<std::string> options_;
+    int selectedIndex_;
+    int scrollOffset_;
+};
 #endif // DROPDOWN_H_

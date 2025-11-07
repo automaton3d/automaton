@@ -1,8 +1,5 @@
 /*
  * splash.h
- *
- *  Created on: 16 de out. de 2025
- *      Author: Alexandre
  */
 
 #ifndef SPLASH_H_

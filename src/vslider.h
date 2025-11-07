@@ -17,48 +17,48 @@ namespace framework
   class VSlider
   {
   private:
-    float x, y;           // Bottom-left corner of the track
-    float width, height;  // Dimensions of the track
-    float thumbY;         // Current Y position of the thumb
-    float thumbHeight;    // Height of the thumb
-    bool dragging;        // Is the thumb being dragged?
-    bool visible;         // Should the slider be drawn?
+    float x_, y_;           // Bottom-left corner of the track
+    float width_, height_;  // Dimensions of the track
+    float thumbY_;         // Current Y position of the thumb
+    float thumbHeight_;    // Height of the thumb
+    bool dragging_;        // Is the thumb being dragged?
+    bool visible_;         // Should the slider be drawn?
 
   public:
     /**
      * Constructor.
      */
     VSlider(float x, float y, float width, float height, float thumbHeight)
-        : x(x), y(y), width(width), height(height),
-          thumbY(y), thumbHeight(thumbHeight),
-          dragging(false), visible(true)
+        : x_(x), y_(y), width_(width), height_(height),
+          thumbY_(y), thumbHeight_(thumbHeight),
+          dragging_(false), visible_(true)
     {
     }
 
-    void setVisible(bool state) { visible = state; }
+    void setVisible(bool state) { visible_ = state; }
 
     /**
      * Renders the slider (if visible).
      */
     void draw() const
     {
-      if (!visible) return;
+      if (!visible_) return;
 
       // Track
       glColor3f(0.6f, 0.6f, 0.6f);
-      glRectf(x, y, x + width, y + height);
+      glRectf(x_, y_, x_ + width_, y_ + height_);
 
       // Thumb
       glColor3f(0.2f, 0.2f, 0.8f);
-      glRectf(x, thumbY, x + width, thumbY + thumbHeight);
+      glRectf(x_, thumbY_, x_ + width_, thumbY_ + thumbHeight_);
 
       // Thumb outline
       glColor3f(0.0f, 0.7f, 0.9f);
       glBegin(GL_LINE_LOOP);
-        glVertex2f(x - 1, thumbY - 1);
-        glVertex2f(x + width + 1, thumbY - 1);
-        glVertex2f(x + width + 1, thumbY + thumbHeight + 1);
-        glVertex2f(x - 1, thumbY + thumbHeight + 1);
+        glVertex2f(x_ - 1, thumbY_ - 1);
+        glVertex2f(x_ + width_ + 1, thumbY_ - 1);
+        glVertex2f(x_ + width_ + 1, thumbY_ + thumbHeight_ + 1);
+        glVertex2f(x_ - 1, thumbY_ + thumbHeight_ + 1);
       glEnd();
     }
 
@@ -67,19 +67,19 @@ namespace framework
      */
     void onMouseButton(int button, int action, int mouseX, int mouseY, int windowHeight)
     {
-      if (!visible) return;
+      if (!visible_) return;
 
       if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
       {
-        if (mouseX >= x && mouseX <= x + width &&
-            mouseY >= thumbY && mouseY <= thumbY + thumbHeight)
+        if (mouseX >= x_ && mouseX <= x_ + width_ &&
+            mouseY >= thumbY_ && mouseY <= thumbY_ + thumbHeight_)
         {
-          dragging = true;
+          dragging_ = true;
         }
       }
       else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
       {
-        dragging = false;
+        dragging_ = false;
       }
     }
 
@@ -88,10 +88,10 @@ namespace framework
      */
     void onMouseDrag(int mouseX, int mouseY, int windowHeight)
     {
-      if (!visible || !dragging) return;
+      if (!visible_ || !dragging_) return;
 
-      thumbY = mouseY - thumbHeight / 2;
-      thumbY = std::clamp(thumbY, y, y + height - thumbHeight);
+      thumbY_ = mouseY - thumbHeight_ / 2;
+      thumbY_ = std::clamp(thumbY_, y_, y_ + height_ - thumbHeight_);
     }
 
     /**
@@ -99,10 +99,10 @@ namespace framework
      */
     float getValue() const
     {
-      if (!visible || height <= thumbHeight)
+      if (!visible_ || height_ <= thumbHeight_)
         return 0.0f;
 
-      return (thumbY - y) / (height - thumbHeight);
+      return (thumbY_ - y_) / (height_ - thumbHeight_);
     }
 
     /**
@@ -112,17 +112,17 @@ namespace framework
     {
       if (totalItems <= windowSize)
       {
-        visible = false;
-        thumbY = y;
-        thumbHeight = height; // fill track so nothing shows distorted
+        visible_ = false;
+        thumbY_ = y_;
+        thumbHeight_ = height_; // fill track so nothing shows distorted
         return 0;
       }
 
-      visible = true;
+      visible_ = true;
 
       // Recalculate thumb height proportionally
       float ratio = static_cast<float>(windowSize) / totalItems;
-      thumbHeight = std::clamp(height * ratio, 10.0f, height - 4.0f);
+      thumbHeight_ = std::clamp(height_ * ratio, 10.0f, height_ - 4.0f);
 
       // Compute scroll offset
       int maxFirst = totalItems - windowSize;
@@ -132,7 +132,7 @@ namespace framework
       return std::clamp(index, 0, maxFirst);
     }
 
-    bool isDragging() const { return dragging; }
+    bool isDragging() const { return dragging_; }
   };
 
 } // namespace framework

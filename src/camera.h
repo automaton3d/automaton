@@ -32,10 +32,10 @@ public:
   void update();
 
 private:
-  glm::vec3 mCenter;
-  glm::vec3 mEye;
-  glm::mat4 mMatrix;
-  glm::vec3 mUp;
+  glm::vec3 mCenter_;
+  glm::vec3 mEye_;
+  glm::mat4 mMatrix_;
+  glm::vec3 mUp_;
 };
 
 } // end namespace framework

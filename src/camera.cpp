@@ -24,83 +24,83 @@ namespace framework
 
   const glm::vec3 & Camera::getCenter()
   {
-    return mCenter;
+    return mCenter_;
   }
 
   const glm::vec3 & Camera::getEye()
   {
-    return mEye;
+    return mEye_;
   }
 
   const glm::mat4 & Camera::getMatrix()
   {
-    return mMatrix;
+    return mMatrix_;
   }
 
   const float* Camera::getMatrixFlat()
   {
-    return glm::value_ptr(mMatrix);
+    return glm::value_ptr(mMatrix_);
   }
 
   const glm::vec3 & Camera::getUp()
   {
-    return mUp;
+    return mUp_;
   }
 
   void Camera::reset()
   {
-    mEye.x = 0.f;
-    mEye.y = 0.f;
-    mEye.z = 1.f;
-    mCenter.x = 0.f;
-    mCenter.y = 0.f;
-    mCenter.z = 0.f;
-    mUp.x = 0.f;
-    mUp.y = 1.f;
-    mUp.z = 0.f;
+    mEye_.x = 0.f;
+    mEye_.y = 0.f;
+    mEye_.z = 1.f;
+    mCenter_.x = 0.f;
+    mCenter_.y = 0.f;
+    mCenter_.z = 0.f;
+    mUp_.x = 0.f;
+    mUp_.y = 1.f;
+    mUp_.z = 0.f;
 
       update();
   }
 
   void Camera::setEye(float x, float y, float z)
   {
-    mEye.x = x;
-    mEye.y = y;
-    mEye.z = z;
+    mEye_.x = x;
+    mEye_.y = y;
+    mEye_.z = z;
   }
 
   void Camera::setEye(const glm::vec3 & e)
   {
-      mEye = e;
+      mEye_ = e;
   }
 
   void Camera::setCenter(float x, float y, float z)
   {
-    mCenter.x = x;
-    mCenter.y = y;
-    mCenter.z = z;
+    mCenter_.x = x;
+    mCenter_.y = y;
+    mCenter_.z = z;
   }
 
   void Camera::setCenter(const glm::vec3 & c)
   {
-      mCenter = c;
+      mCenter_ = c;
   }
 
   void Camera::setUp(float x, float y, float z)
   {
-    mUp.x = x;
-    mUp.y = y;
-    mUp.z = z;
+    mUp_.x = x;
+    mUp_.y = y;
+    mUp_.z = z;
   }
 
   void Camera::setUp(const glm::vec3 & u)
   {
-    mUp = u;
+    mUp_ = u;
   }
 
   void Camera::update()
   {
-    mMatrix = glm::lookAt(mEye, mCenter, mUp);
+    mMatrix_ = glm::lookAt(mEye_, mCenter_, mUp_);
   }
 
 } // end namespace framework

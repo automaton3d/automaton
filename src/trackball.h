@@ -74,31 +74,31 @@ namespace framework
         void updateCameraEyeUp(bool eye, bool up);
 
     private:
-        Camera *mCamera;
-        CameraMotionType mCameraMotionLeftClick;
-        CameraMotionType mCameraMotionMiddleClick;
-        CameraMotionType mCameraMotionRightClick;
-        CameraMotionType mCameraMotionScroll;
-        glm::vec2 mClickPoint;
-        float mHeight;
-        bool mIsDragging;
-        bool mIsLeftClick;
-        bool mIsMiddleClick;
-        bool mIsRightClick;
-        bool mIsScrolling;
-        float mPanScale;
-        glm::vec2 mPrevClickPoint;
-        float mRollScale;
-        float mRollSum;
-        glm::quat mRotation;
-        glm::quat mRotationSum;
-        float mSpeed;
-        glm::vec3 mStartVector;
-        glm::vec3 mStopVector;
-        float mTranslateLength;
-        float mWidth;
-        float mZoomSum;
-        float mZoomScale;
+        Camera *mCamera_;
+        CameraMotionType mCameraMotionLeftClick_;
+        CameraMotionType mCameraMotionMiddleClick_;
+        CameraMotionType mCameraMotionRightClick_;
+        CameraMotionType mCameraMotionScroll_;
+        glm::vec2 mClickPoint_;
+        float mHeight_;
+        bool mIsDragging_;
+        bool mIsLeftClick_;
+        bool mIsMiddleClick_;
+        bool mIsRightClick_;
+        bool mIsScrolling_;
+        float mPanScale_;
+        glm::vec2 mPrevClickPoint_;
+        float mRollScale_;
+        float mRollSum_;
+        glm::quat mRotation_;
+        glm::quat mRotationSum_;
+        float mSpeed_;
+        glm::vec3 mStartVector_;
+        glm::vec3 mStopVector_;
+        float mTranslateLength_;
+        float mWidth_;
+        float mZoomSum_;
+        float mZoomScale_;
 
   }; // end class TrackBallInteractor
 

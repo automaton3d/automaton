@@ -1,8 +1,5 @@
 /*
  * stats.h
- *
- *  Created on: 4 de out. de 2025
- *      Author: Alexandre
  */
 
 #ifndef STATS_H_

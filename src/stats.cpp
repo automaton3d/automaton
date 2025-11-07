@@ -1,6 +1,7 @@
 /*
-* stats_glut.cpp
+* stats.cpp
 */
+
 #include <GLFW/glfw3.h>
 #include <GL/freeglut.h>
 #include <iostream>

@@ -33,155 +33,134 @@ namespace framework
 
   class LayerList
   {
-    public:
-      LayerList(unsigned wDim, int visibleLayers = 25)
-        : wDim(wDim), visibleLayers(visibleLayers), lastFirstIndex(-1)
+  public:
+    LayerList(unsigned wDim, int visibleLayers = 25)
+      : wDim_(wDim), visibleLayers_(visibleLayers), lastFirstIndex_(-1)
+    {
+      lastPositions_.resize(wDim_);
+      for (unsigned w = 0; w < wDim_; w++)
       {
-        lastPositions.resize(wDim);
-        for (unsigned w = 0; w < wDim; w++)
-        {
-          lastPositions[w][0] = 0;
-          lastPositions[w][1] = 0;
-          lastPositions[w][2] = 0;
-        }
+        lastPositions_[w][0] = 0;
+        lastPositions_[w][1] = 0;
+        lastPositions_[w][2] = 0;
+      }
+      char s[100];
+      for (unsigned w = 0; w < wDim_; w++)
+      {
+        sprintf(s, "Layer %2d", w);
+        layers_.push_back(Radio(1700, 120 + 25 * w, s));
+      }
+      if (!layers_.empty())
+        layers_[0].setSelected(true);
+    }
+
+    ~LayerList() = default;
+
+    LayerList(const LayerList&) = delete;
+    LayerList& operator=(const LayerList&) = delete;
+
+    // Return index of selected layer (-1 if none)
+    int getSelected() const
+    {
+      for (size_t i = 0; i < layers_.size(); ++i)
+      {
+        if (layers_[i].isSelected())
+          return static_cast<int>(i);
+      }
+      return -1;
+    }
+
+    // Update cell position display (with change highlighting)
+    void update()
+    {
+      int endLimit = std::min<int>(visibleLayers_, wDim_);
+      for (int w = 0; w < endLimit; w++)
+      {
+        Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
+        bool changed = (cell.x[0] != lastPositions_[w][0] ||
+                        cell.x[1] != lastPositions_[w][1] ||
+                        cell.x[2] != lastPositions_[w][2]);
+        glColor3f(changed ? 1.0f : 1.0f,
+                  changed ? 0.0f : 1.0f,
+                  changed ? 1.0f : 0.0f);
 
         char s[100];
-        for (unsigned w = 0; w < wDim; w++)
-        {
-          sprintf(s, "Layer %2d", w);
-          layers.push_back(Radio(1700, 120 + 25 * w, s));
-        }
-        if (!layers.empty())
-          layers[0].setSelected(true);
+        sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
+        drawString8(s, 1780, 120 + 25 * w);
+        lastPositions_[w][0] = cell.x[0];
+        lastPositions_[w][1] = cell.x[1];
+        lastPositions_[w][2] = cell.x[2];
       }
+    }
 
-      ~LayerList() = default;
-
-      LayerList(const LayerList&) = delete;
-      LayerList& operator=(const LayerList&) = delete;
-
-      // -------------------------------------------------------------
-      // Return index of selected layer (-1 if none)
-      // -------------------------------------------------------------
-      int getSelected() const
+    // Render visible portion of the layer list (with scrolling)
+    void render()
+    {
+      const int first = vslider.getFirstIndex(wDim_, visibleLayers_);
+      glDisable(GL_DEPTH_TEST);
+      setOrthographicProjection();
+      glPushMatrix();
+      const int endLimit = std::min<int>(visibleLayers_, static_cast<int>(wDim_));
+      for (int i = 0; i < endLimit; ++i)
       {
-          for (size_t i = 0; i < layers.size(); ++i)
-          {
-              if (layers[i].isSelected())
-                  return static_cast<int>(i);
-          }
-          return -1;
+        const int logicalIndex = i + first;
+        if (logicalIndex >= static_cast<int>(wDim_)) break;
+        const int displayY = 120 + 25 * i;
+        layers_[logicalIndex].drawAt(1680, displayY);
       }
+      glPopMatrix();
+      resetPerspectiveProjection();
+    }
 
-      // -------------------------------------------------------------
-      // Update cell position display (with change highlighting)
-      // -------------------------------------------------------------
-      void update()
+    // Poll mouse click – returns true if a radio was clicked
+    bool poll(int xpos, int ypos)
+    {
+      Radio* clickedOption = nullptr;
+      const int first = vslider.getFirstIndex(wDim_, visibleLayers_);
+      const int selectedIndex = getSelected();
+      Radio* currentSelected = (selectedIndex != -1) ? &layers_[selectedIndex] : nullptr;
+      const int endLimit = std::min<int>(visibleLayers_, static_cast<int>(wDim_));
+      for (int i = 0; i < endLimit; ++i)
       {
-        int endLimit = std::min<int>(visibleLayers, wDim);
-        for (int w = 0; w < endLimit; w++)
+        const int logicalIndex = i + first;
+        if (logicalIndex >= static_cast<int>(wDim_)) break;
+        const int displayY = 120 + 25 * i;
+        if (layers_[logicalIndex].clickedAt(xpos, ypos, 1680, displayY))
         {
-          Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-          bool changed = (cell.x[0] != lastPositions[w][0] ||
-                          cell.x[1] != lastPositions[w][1] ||
-                          cell.x[2] != lastPositions[w][2]);
-
-          glColor3f(changed ? 1.0f : 1.0f,
-                    changed ? 0.0f : 1.0f,
-                    changed ? 1.0f : 0.0f);
-
-          char s[100];
-          sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
-          drawString8(s, 1780, 120 + 25 * w);
-
-          lastPositions[w][0] = cell.x[0];
-          lastPositions[w][1] = cell.x[1];
-          lastPositions[w][2] = cell.x[2];
+          clickedOption = &layers_[logicalIndex];
+          break;
         }
       }
-
-      // -------------------------------------------------------------
-      // Render visible portion of the layer list (with scrolling)
-      // -------------------------------------------------------------
-      void render()
+      if (clickedOption)
       {
-        const int first = vslider.getFirstIndex(wDim, visibleLayers);
-
-        glDisable(GL_DEPTH_TEST);
-        setOrthographicProjection();
-        glPushMatrix();
-
-        const int endLimit = std::min<int>(visibleLayers, static_cast<int>(wDim));
-        for (int i = 0; i < endLimit; ++i)
+        if (clickedOption != currentSelected)
         {
-            const int logicalIndex = i + first;
-            if (logicalIndex >= static_cast<int>(wDim)) break;
-
-            const int displayY = 120 + 25 * i;
-            layers[logicalIndex].drawAt(1680, displayY);
+          if (currentSelected) currentSelected->setSelected(false);
+          clickedOption->setSelected(true);
         }
-
-        glPopMatrix();
-        resetPerspectiveProjection();
+        lastFirstIndex_ = first;
       }
-
-      // -------------------------------------------------------------
-      // Poll mouse click – returns true if a radio was clicked
-      // -------------------------------------------------------------
-      bool poll(int xpos, int ypos)
+      else if (first != lastFirstIndex_)
       {
-          Radio* clickedOption = nullptr;
-          const int first = vslider.getFirstIndex(wDim, visibleLayers);
-
-          const int selectedIndex = getSelected();
-          Radio* currentSelected = (selectedIndex != -1) ? &layers[selectedIndex] : nullptr;
-
-          const int endLimit = std::min<int>(visibleLayers, static_cast<int>(wDim));
-          for (int i = 0; i < endLimit; ++i)
-          {
-              const int logicalIndex = i + first;
-              if (logicalIndex >= static_cast<int>(wDim)) break;
-
-              const int displayY = 120 + 25 * i;
-
-              // Use on-screen draw position for accurate hit-testing
-              if (layers[logicalIndex].clickedAt(xpos, ypos, 1680, displayY))
-              {
-                  clickedOption = &layers[logicalIndex];
-                  break;
-              }
-          }
-
-          if (clickedOption)
-          {
-              if (clickedOption != currentSelected)
-              {
-                  if (currentSelected) currentSelected->setSelected(false);
-                  clickedOption->setSelected(true);
-              }
-              lastFirstIndex = first;
-          }
-          else if (first != lastFirstIndex)
-          {
-              // Auto-select first visible layer when scrolling
-              if (first >= 0 && static_cast<unsigned>(first) < wDim && first != selectedIndex)
-              {
-                  if (currentSelected) currentSelected->setSelected(false);
-                  layers[first].setSelected(true);
-              }
-              lastFirstIndex = first;
-          }
-
-          return clickedOption != nullptr;
+        // Auto-select first visible layer when scrolling
+        if (first >= 0 && static_cast<unsigned>(first) < wDim_ && first != selectedIndex)
+        {
+          if (currentSelected) currentSelected->setSelected(false);
+            layers_[first].setSelected(true);
+        }
+        lastFirstIndex_ = first;
       }
+      return clickedOption != nullptr;
+    }
 
-    private:
-      unsigned wDim;
-      int visibleLayers;
-      std::vector<Radio> layers;
-      std::vector<std::array<unsigned, 3>> lastPositions;
-      int lastFirstIndex;
+  private:
+    unsigned wDim_;
+    int visibleLayers_;
+    std::vector<Radio> layers_;
+    std::vector<std::array<unsigned, 3>> lastPositions_;
+    int lastFirstIndex_;
   };
+
 }
 
 #endif /* LAYERS_H_ */

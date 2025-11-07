@@ -1,6 +1,7 @@
 /*
  * tickbox.h
  */
+
 #ifndef TICKBOX_H_
 #define TICKBOX_H_
 
@@ -16,26 +17,26 @@ namespace framework
 class Tickbox
 {
 private:
-    static constexpr int BOX_WIDTH = 15;
-    static constexpr int BOX_HEIGHT = 15;
-    static constexpr int LABEL_OFFSET_X = 22;
-    static constexpr int LABEL_OFFSET_Y = 11;
+    static constexpr int BOX_WIDTH_ = 15;
+    static constexpr int BOX_HEIGHT_ = 15;
+    static constexpr int LABEL_OFFSET_X_ = 22;
+    static constexpr int LABEL_OFFSET_Y_ = 11;
 
-    bool state;
-    std::string label;
-    int x, y;
+    bool state_;
+    std::string label_;
+    int x_, y_;
 
     // Color members (initialized to original defaults)
-    float borderColor[3] = {1.0f, 1.0f, 1.0f};   // white border
-    float labelColor[3]  = {1.0f, 1.0f, 1.0f};   // white text
-    float fillOnColor[3] = {0.0f, 1.0f, 0.0f};   // green when ON
-    float fillOffColor[3]= {0.5f, 0.5f, 0.5f};   // gray when OFF
+    float borderColor_[3] = {1.0f, 1.0f, 1.0f};   // white border
+    float labelColor_[3]  = {1.0f, 1.0f, 1.0f};   // white text
+    float fillOnColor_[3] = {0.0f, 1.0f, 0.0f};   // green when ON
+    float fillOffColor_[3]= {0.5f, 0.5f, 0.5f};   // gray when OFF
 
 public:
     std::function<void(bool)> onToggle;  // Optional callback
 
     Tickbox(int x, int y, const std::string& label)
-        : state(false), label(label), x(x), y(y) {}
+        : state_(false), label_(label), x_(x), y_(y) {}
 
     // ✅ NEW: setColor() with optional parameters
     void setColor(const float* border = nullptr,
@@ -43,54 +44,54 @@ public:
                   const float* fillOn = nullptr,
                   const float* fillOff = nullptr)
     {
-        if (border)   std::copy(border, border + 3, borderColor);
-        if (labelC)   std::copy(labelC, labelC + 3, labelColor);
-        if (fillOn)   std::copy(fillOn, fillOn + 3, fillOnColor);
-        if (fillOff)  std::copy(fillOff, fillOff + 3, fillOffColor);
+        if (border)   std::copy(border, border + 3, borderColor_);
+        if (labelC)   std::copy(labelC, labelC + 3, labelColor_);
+        if (fillOn)   std::copy(fillOn, fillOn + 3, fillOnColor_);
+        if (fillOff)  std::copy(fillOff, fillOff + 3, fillOffColor_);
     }
 
     void draw() const
     {
         // Draw border
-        glColor3fv(borderColor);
+        glColor3fv(borderColor_);
         glBegin(GL_LINE_LOOP);
-        glVertex2i(x, y);
-        glVertex2i(x, y + BOX_HEIGHT);
-        glVertex2i(x + BOX_WIDTH, y + BOX_HEIGHT);
-        glVertex2i(x + BOX_WIDTH, y);
+        glVertex2i(x_, y_);
+        glVertex2i(x_, y_ + BOX_HEIGHT_);
+        glVertex2i(x_ + BOX_WIDTH_, y_ + BOX_HEIGHT_);
+        glVertex2i(x_ + BOX_WIDTH_, y_);
         glEnd();
 
         // Fill box
-        glColor3fv(state ? fillOnColor : fillOffColor);
+        glColor3fv(state_ ? fillOnColor_ : fillOffColor_);
         glBegin(GL_QUADS);
-        glVertex2i(x, y);
-        glVertex2i(x, y + BOX_HEIGHT);
-        glVertex2i(x + BOX_WIDTH, y + BOX_HEIGHT);
-        glVertex2i(x + BOX_WIDTH, y);
+        glVertex2i(x_, y_);
+        glVertex2i(x_, y_ + BOX_HEIGHT_);
+        glVertex2i(x_ + BOX_WIDTH_, y_ + BOX_HEIGHT_);
+        glVertex2i(x_ + BOX_WIDTH_, y_);
         glEnd();
 
         // Draw label
-        glColor3fv(labelColor);
-        framework::drawString8(label, x + LABEL_OFFSET_X, y + LABEL_OFFSET_Y);
+        glColor3fv(labelColor_);
+        framework::drawString8(label_, x_ + LABEL_OFFSET_X_, y_ + LABEL_OFFSET_Y_);
     }
 
     void setState(bool newState)
     {
-        if (state != newState)
+        if (state_ != newState)
         {
-            state = newState;
-            if (onToggle) onToggle(state);
+            state_ = newState;
+            if (onToggle) onToggle(state_);
         }
     }
 
-    bool getState() const { return state; }
+    bool getState() const { return state_; }
 
-    void toggle() { setState(!state); }
+    void toggle() { setState(!state_); }
 
     bool contains(int mx, int my) const
     {
-        return mx >= x && mx <= x + BOX_WIDTH &&
-               my >= y && my <= y + BOX_HEIGHT;
+        return mx >= x_ && mx <= x_ + BOX_WIDTH_ &&
+               my >= y_ && my <= y_ + BOX_HEIGHT_;
     }
 
     bool onMouseButton(int mx, int my, bool pressed)
@@ -104,8 +105,8 @@ public:
         return false;
     }
 
-    int getX() const { return x; }
-    int getY() const { return y; }
+    int getX() const { return x_; }
+    int getY() const { return y_; }
 };
 
 #endif /* TICKBOX_H_ */

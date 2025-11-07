@@ -23,17 +23,16 @@ namespace framework
     Logo& operator=(Logo&&)      = default;
 
     void draw(int x, int y, float scale = 1.0f) const;
-    // NEW: NDC version
     void draw(float centerX, float centerY, float ndcSize) const;
 
-    int width()  const noexcept { return mWidth;  }
-    int height() const noexcept { return mHeight; }
-    bool valid() const noexcept { return mTexture != 0; }
+    int width()  const noexcept { return mWidth_;  }
+    int height() const noexcept { return mHeight_; }
+    bool valid() const noexcept { return mTexture_ != 0; }
 
   private:
-    GLuint mTexture = 0;
-    int    mWidth  = 0;
-    int    mHeight = 0;
+    GLuint mTexture_ = 0;
+    int    mWidth_  = 0;
+    int    mHeight_ = 0;
   };
 } // namespace splash
 

@@ -1,3 +1,7 @@
+/*
+ * recorder.h
+ */
+
 #ifndef FRAME_RECORDER_H
 #define FRAME_RECORDER_H
 

@@ -10,13 +10,13 @@ namespace framework
 {
 
   Animator::Animator() :
-    mAnimation(NONE),
-    mInteractor(0),
-    mFrame(0),
-    mFrames(0),
-    mFramesPerSecond(30.),
-    mHeight(0),
-    mWidth(0)
+    mAnimation_(NONE),
+    mInteractor_(0),
+    mFrame_(0),
+    mFrames_(0),
+    mFramesPerSecond_(30.),
+    mHeight_(0),
+    mWidth_(0)
   {
       stopwatch();
   }
@@ -27,11 +27,11 @@ namespace framework
 
   void Animator::animate()
   {
-    if (elapsedSeconds() < 1.0 / mFramesPerSecond)
+    if (elapsedSeconds() < 1.0 / mFramesPerSecond_)
     {
       return;
     }
-    switch(mAnimation)
+    switch(mAnimation_)
     {
       case FIRST_PERSON:
         firstperson();
@@ -57,7 +57,7 @@ namespace framework
   double Animator::elapsedSeconds()
   {
     std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
-    std::chrono::duration<double> seconds = now - mTic;
+    std::chrono::duration<double> seconds = now - mTic_;
     return seconds.count();
   }
 
@@ -67,23 +67,23 @@ namespace framework
 
   void Animator::orbit()
   {
-    Camera *c = mInteractor->getCamera();
-    if (0 == mFrame)
+    Camera *c = mInteractor_->getCamera();
+    if (0 == mFrame_)
     {
-      mFrames = 5 * mFramesPerSecond;
+      mFrames_ = 5 * mFramesPerSecond_;
       c->setEye(1., 1., 1.);
       c->setUp(-0., -0., 1.);
       c->setCenter(0, 0, 0);
       c->update();
-      mInteractor->setCamera(c);
+      mInteractor_->setCamera(c);
     }
-    double x = fmod(mFrame*4, mWidth);
-    double y = mHeight * .74;
-    mInteractor->setLeftClicked(true);
-    mInteractor->setClickPoint(x, y);
-    if (++mFrame >= mFrames)
+    double x = fmod(mFrame_*4, mWidth_);
+    double y = mHeight_ * .74;
+    mInteractor_->setLeftClicked(true);
+    mInteractor_->setClickPoint(x, y);
+    if (++mFrame_ >= mFrames_)
     {
-      mInteractor->setLeftClicked(false);
+      mInteractor_->setLeftClicked(false);
       reset();
     }
   }
@@ -94,8 +94,8 @@ namespace framework
 
   void Animator::reset()
   {
-    mAnimation = NONE;
-    mFrame = 0;
+    mAnimation_ = NONE;
+    mFrame_ = 0;
   }
 
   void Animator::roll()
@@ -104,23 +104,23 @@ namespace framework
 
   void Animator::setAnimation(AnimationType type)
   {
-    mAnimation = type;
+    mAnimation_ = type;
   }
 
   void Animator::setInteractor(TrackBallInteractor *i)
   {
-    mInteractor = i;
+    mInteractor_ = i;
   }
 
   void Animator::setScreenSize(int w, int h)
   {
-    mWidth = w;
-    mHeight = h;
+    mWidth_ = w;
+    mHeight_ = h;
   }
 
   void Animator::stopwatch()
   {
-    mTic = std::chrono::system_clock::now();
+    mTic_ = std::chrono::system_clock::now();
   }
 
   void Animator::zoom()

@@ -1,8 +1,5 @@
 /*
  * GLutils.h
- *
- *  Created on: 15 de dez. de 2024
- *      Author: Alexandre
  */
 
 #ifndef TEXT_H_

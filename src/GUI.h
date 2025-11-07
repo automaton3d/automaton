@@ -48,65 +48,66 @@ extern unsigned long long replayTimer;
 
 class GUIrenderer : public Renderer
 {
+public:
+    GUIrenderer();
+    virtual ~GUIrenderer();
+
+    void init();
+    virtual void render();
+    void resize(int width, int height);
+    void setProjection(const glm::mat4& proj) { mProjection_ = proj; }
+    void clearVoxels();
 
 private:
-  void enhanceVoxel();
-  std::vector<std::array<float, 2>> screenPositions;
-  std::map<std::pair<int,int>, int> counts;
+    // Internal rendering methods
+    void renderAxes();
+    void renderCenter();
+    void renderClear();
+    void renderCube();
+    void renderPlane();
+    void renderObjects();
+    void renderWavefront();
+    void renderCounts();
+    void renderMomentum();
+    void renderSpin();
+    void renderSineMask();
+    void renderHunting();
+    void renderCenters();
+    void renderCenterBox(const char* text);
+    void renderUI();
+    void renderElapsedTime();
+    void renderSimulationStats();
+    void renderLayerInfo();
+    void renderHelpText();
+    void renderSliders();
+    void renderTomoControls();
+    void renderPauseOverlay();
+    void renderSectionLabels();
+    void renderCheckboxes();
+    void renderDelays();
+    void renderViewpointRadios();
+    void renderProjectionRadios();
+    void renderTomoRadios();
+    void renderHyperlink();
+    void renderSlice();
+    void renderScenarioHelpPane();
+    void renderTomoPlane();
+    void drawPanel(int x, int y, int width, int height);
+    void enhanceVoxel();
 
-public:
-  GUIrenderer();
-  virtual ~GUIrenderer();
+    // Helper methods
+    bool projectPoint(const float obj[3],
+                     const GLdouble modelview[16],
+                     const GLdouble projection[16],
+                     const GLint viewport[4],
+                     float &winX, float &winY);
+    inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
 
-  void init();
-  virtual void render();
-  void renderAxes();
-  void renderCenter();
-  void renderClear();
-  void renderCube();
-  void renderPlane();
-  void renderObjects();
-  void renderWavefront();
-  void renderCounts();
-  void renderMomentum();
-  void renderSpin();
-  void renderSineMask();
-  void renderHunting();
-  void renderCenters();
-  void renderCenterBox(const char* text);
-  void resize(int width, int height);
-  bool projectPoint(const float obj[3],
-                    const GLdouble modelview[16],
-                    const GLdouble projection[16],
-                    const GLint viewport[4],
-                    float &winX, float &winY);
-  void setProjection(const glm::mat4& proj) { mProjection = proj; }
-  void renderUI();
-  void renderElapsedTime();
-  void renderSimulationStats();
-  void renderLayerInfo();
-  void renderHelpText();
-  void renderSliders();
-  void renderTomoControls();
-  void renderPauseOverlay();
-  void renderSectionLabels();
-  void renderCheckboxes();
-  void renderDelays();
-  void renderViewpointRadios();
-  void renderProjectionRadios();
-  void renderTomoRadios();
-  void renderHyperlink();
-  void renderSlice();
-  void renderScenarioHelpPane();
-  inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
-  void renderTomoPlane();
-  void drawPanel(int x, int y, int width, int height);
-  void clearVoxels();
-
-protected:
-    glm::mat4 mProjection;
-    std::vector<std::array<unsigned, 3>> lastPositions;
-
+    // Member variables
+    glm::mat4 mProjection_;
+    std::vector<std::array<unsigned, 3>> lastPositions_;
+    std::vector<std::array<float, 2>> screenPositions_;
+    std::map<std::pair<int,int>, int> counts_;
 };
 
 void drawString8(string s, int x, int y);

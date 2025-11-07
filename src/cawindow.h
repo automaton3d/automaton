@@ -46,16 +46,16 @@ namespace framework
 
     void onDelayToggled(Tickbox* toggled);
     bool pendingExit = false;
-    GLFWwindow* getWindow() const { return mWindow; }
+    GLFWwindow* getWindow() const { return mWindow_; }
 
   private:
-    Animator mAnimator;
-    Camera mCamera;
-    TrackBallInteractor mInteractor;
-    GUIrenderer mRenderer;
-    GLFWwindow *mWindow;
+    Animator mAnimator_;
+    Camera mCamera_;
+    TrackBallInteractor mInteractor_;
+    GUIrenderer mRenderer_;
+    GLFWwindow *mWindow_;
     static DWORD WINAPI SimulateThread(LPVOID lpParam);
-    volatile bool isThreadReady = false;
+    volatile bool isThreadReady_ = false;
     void updateProjection();
 
   };

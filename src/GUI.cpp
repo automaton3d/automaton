@@ -123,7 +123,7 @@ namespace framework
     hslider.setThumbPosition(0.5f);
     progress = new ProgressBar(screenWidth);
     tbegin = GetTickCount64();
-    lastPositions.resize(W_USED);
+    lastPositions_.resize(W_USED);
     list = std::make_unique<LayerList>(W_USED); // W_DIM is now the constructor argument
     //
     tomo->onToggle = [](bool state)
@@ -288,7 +288,7 @@ namespace framework
   {
     // Count duplicates
     std::map<std::pair<int,int>, int> counts;
-    for (auto &pos : screenPositions)
+    for (auto &pos : screenPositions_)
     {
       int x = static_cast<int>(pos[0] + 0.5f);
       int y = static_cast<int>(pos[1] + 0.5f);
@@ -518,7 +518,7 @@ namespace framework
   void GUIrenderer::renderCenters()
   {
     // Clear previous positions
-    screenPositions.clear();
+    screenPositions_.clear();
 
     // Get matrices and viewport
     GLdouble modelview[16];
@@ -546,13 +546,13 @@ namespace framework
       float obj[3] = {px, py, pz};
       if (framework::projectPoint(obj, modelview, projection, gViewport, sx, sy))
       {
-        screenPositions.push_back({sx, sy});
+        screenPositions_.push_back({sx, sy});
       }
     }
     glEnd();
     // --- Count duplicates ---
     std::map<std::pair<int,int>, int> counts;
-    for (auto &pos : screenPositions)
+    for (auto &pos : screenPositions_)
     {
       int x = static_cast<int>(pos[0] + 0.5f);
       int y = static_cast<int>(pos[1] + 0.5f);
@@ -568,7 +568,7 @@ namespace framework
   {
     glEnable(GL_DEPTH_TEST);
     glPushMatrix();
-    glMultMatrixf(glm::value_ptr(mProjection));
+    glMultMatrixf(glm::value_ptr(mProjection_));
     if (mCamera)
     {
       glPushMatrix();
@@ -732,7 +732,7 @@ namespace framework
     {
       // Orthographic
       float orthoSize = 0.6f;
-      mProjection = glm::ortho(
+      mProjection_ = glm::ortho(
         -orthoSize * ratio, orthoSize * ratio,
         -orthoSize, orthoSize,
         0.01f, 100.0f
@@ -741,7 +741,7 @@ namespace framework
     else
     {
       // Perspective
-      mProjection = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
+      mProjection_ = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
     }
   }
 

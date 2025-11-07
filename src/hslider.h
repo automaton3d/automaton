@@ -15,21 +15,21 @@ namespace framework
   class HSlider
   {
   private:
-    float x, y;           // Bottom-left corner of the track
-    float width, height;  // Dimensions of the track
-    float thumbX;         // Current X position of the thumb
-    float thumbWidth;     // Width of the thumb
-    bool dragging;        // Is the thumb being dragged?
-    float dragOffsetX;    // Offset from thumb left edge when drag started
-    bool hoverReset;
+    float x_, y_;           // Bottom-left corner of the track
+    float width_, height_;  // Dimensions of the track
+    float thumbX_;         // Current X position of the thumb
+    float thumbWidth_;     // Width of the thumb
+    bool dragging_;        // Is the thumb being dragged?
+    float dragOffsetX_;    // Offset from thumb left edge when drag started
+    bool hoverReset_;
 
   public:
     /**
      * Constructor.
      */
     HSlider(float x, float y, float width, float height, float thumbWidth)
-        : x(x), y(y), width(width), height(height),
-          thumbX(x), thumbWidth(thumbWidth), dragging(false), dragOffsetX(0), hoverReset(false)
+        : x_(x), y_(y), width_(width), height_(height),
+          thumbX_(x), thumbWidth_(thumbWidth), dragging_(false), dragOffsetX_(0), hoverReset_(false)
     {
     }
 
@@ -40,28 +40,28 @@ namespace framework
     {
       // Track
       glColor3f(0.6f, 0.6f, 0.6f);
-      glRectf(x, y, x + width, y + height);
+      glRectf(x_, y_, x_ + width_, y_ + height_);
 
       // Thumb
       glColor3f(0.2f, 0.2f, 0.8f);
-      glRectf(thumbX, y, thumbX + thumbWidth, y + height);
+      glRectf(thumbX_, y_, thumbX_ + thumbWidth_, y_ + height_);
 
       // Thumb outline
       glColor3f(0.0f, 0.7f, 0.9f);
       glBegin(GL_LINE_LOOP);
-        glVertex2f(thumbX - 1, y - 1);
-        glVertex2f(thumbX + thumbWidth + 1, y - 1);
-        glVertex2f(thumbX + thumbWidth + 1, y + height + 1);
-        glVertex2f(thumbX - 1, y + height + 1);
+        glVertex2f(thumbX_ - 1, y_ - 1);
+        glVertex2f(thumbX_ + thumbWidth_ + 1, y_ - 1);
+        glVertex2f(thumbX_ + thumbWidth_ + 1, y_ + height_ + 1);
+        glVertex2f(thumbX_ - 1, y_ + height_ + 1);
       glEnd();
 
       // ---- Reset triangle (above center) ----
-      float triBaseX = x + width * 0.5f;
-      float triBaseY = y + height - 33.0f;
+      float triBaseX = x_ + width_ * 0.5f;
+      float triBaseY = y_ + height_ - 33.0f;
       float triSize  = 10.0f;
 
       // ✅ Change color when hovered
-      if (hoverReset)
+      if (hoverReset_)
         glColor3f(1.0f, 0.7f, 0.1f); // bright yellow
       else
         glColor3f(0.8f, 0.3f, 0.2f); // normal orange-red
@@ -89,17 +89,17 @@ namespace framework
       if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
       {
         // --- Thumb click ---
-        if (mouseX >= thumbX && mouseX <= thumbX + thumbWidth &&
-            mouseY >= y && mouseY <= y + height)
+        if (mouseX >= thumbX_ && mouseX <= thumbX_ + thumbWidth_ &&
+            mouseY >= y_ && mouseY <= y_ + height_)
         {
-          dragging = true;
-          dragOffsetX = mouseX - thumbX;
+          dragging_ = true;
+          dragOffsetX_ = mouseX - thumbX_;
           return;
         }
 
         // --- Triangle click ---
-        float triBaseX = x + width * 0.5f;
-        float triBaseY = y + height - 33.0f;
+        float triBaseX = x_ + width_ * 0.5f;
+        float triBaseY = y_ + height_ - 33.0f;
         float triSize  = 10.0f;
         float minX = triBaseX - triSize / 2.0f;
         float maxX = triBaseX + triSize / 2.0f;
@@ -115,31 +115,31 @@ namespace framework
       }
       else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
       {
-        dragging = false;
+        dragging_ = false;
       }
     }
 
     void onMouseMove(int mouseX, int mouseY)
     {
-      float triBaseX = x + width * 0.5f;
-      float triBaseY = y + height - 33.0f;
+      float triBaseX = x_ + width_ * 0.5f;
+      float triBaseY = y_ + height_ - 33.0f;
       float triSize  = 10.0f;
       float minX = triBaseX - triSize / 2.0f;
       float maxX = triBaseX + triSize / 2.0f;
       float minY = triBaseY;
       float maxY = triBaseY + triSize;
 
-      hoverReset = (mouseX >= minX && mouseX <= maxX &&
+      hoverReset_ = (mouseX >= minX && mouseX <= maxX &&
                     mouseY >= minY && mouseY <= maxY);
     }
 
     void onMouseDrag(int mouseX, int mouseY, int windowHeight)
     {
-      if (dragging)
+      if (dragging_)
       {
-        thumbX = mouseX - dragOffsetX;
-        if (thumbX < x) thumbX = x;
-        if (thumbX > x + width - thumbWidth) thumbX = x + width - thumbWidth;
+        thumbX_ = mouseX - dragOffsetX_;
+        if (thumbX_ < x_) thumbX_ = x_;
+        if (thumbX_ > x_ + width_ - thumbWidth_) thumbX_ = x_ + width_ - thumbWidth_;
       }
     }
 
@@ -150,10 +150,10 @@ namespace framework
      */
     float getValue() const
     {
-      if (width <= thumbWidth)
+      if (width_ <= thumbWidth_)
         return 0.0f;
       // Map thumb position to [0..1]
-      return (thumbX - x) / (width - thumbWidth);
+      return (thumbX_ - x_) / (width_ - thumbWidth_);
     }
 
     /**
@@ -163,7 +163,7 @@ namespace framework
     {
       if (value < 0.0f) value = 0.0f;
       if (value > 1.0f) value = 1.0f;
-      thumbX = x + value * (width - thumbWidth);
+      thumbX_ = x_ + value * (width_ - thumbWidth_);
     }
 
     /**
@@ -194,7 +194,7 @@ namespace framework
      */
     bool isDragging() const
     {
-      return dragging;
+      return dragging_;
     }
 
     /**
@@ -202,7 +202,7 @@ namespace framework
      */
     float getX() const
     {
-      return x;
+      return x_;
     }
 
     /**
@@ -210,7 +210,7 @@ namespace framework
      */
     float getY() const
     {
-      return y;
+      return y_;
     }
 
     /**
@@ -239,7 +239,7 @@ namespace framework
       if (pos < 0.0f) pos = 0.0f;
       if (pos > 1.0f) pos = 1.0f;
 
-      thumbX = x + pos * (width - thumbWidth);
+      thumbX_ = x_ + pos * (width_ - thumbWidth_);
     }
   };
 

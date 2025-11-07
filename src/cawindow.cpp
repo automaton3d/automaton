@@ -223,7 +223,7 @@ namespace framework
     return 0;
   }
 
-  CAWindow::CAWindow() :  mWindow(0)
+  CAWindow::CAWindow() :  mWindow_(0)
   {
   }
 
@@ -246,7 +246,7 @@ namespace framework
     {
       // Orthographic projection
       float orthoSize = 0.6f; // Adjust this value to control zoom
-      mRenderer.setProjection(glm::ortho(         // ← USE setProjection()
+      mRenderer_.setProjection(glm::ortho(         // ← USE setProjection()
         -orthoSize * ratio, orthoSize * ratio,
         -orthoSize, orthoSize,
         0.01f, 100.0f
@@ -255,7 +255,7 @@ namespace framework
     else if (projection[1].isSelected())
     {
       // Perspective projection
-      mRenderer.setProjection(glm::perspective(   // ← USE setProjection()
+      mRenderer_.setProjection(glm::perspective(   // ← USE setProjection()
         glm::radians(45.0f),
         ratio,
         0.01f,
@@ -349,30 +349,30 @@ namespace framework
                       viewClicked = true;
 
                       // Update camera
-                      float length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
+                      float length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
                       if (i == 0) // Isometric
                       {
-                          instance().mCamera.setEye(glm::vec3(length, length, length));
-                          instance().mCamera.setUp(glm::vec3(0, 1, 0));
+                          instance().mCamera_.setEye(glm::vec3(length, length, length));
+                          instance().mCamera_.setUp(glm::vec3(0, 1, 0));
                       }
                       else if (i == 1) // XY
                       {
-                          instance().mCamera.setEye(glm::vec3(0, 0, length));
-                          instance().mCamera.setUp(glm::vec3(1, 0, 0));
+                          instance().mCamera_.setEye(glm::vec3(0, 0, length));
+                          instance().mCamera_.setUp(glm::vec3(1, 0, 0));
                       }
                       else if (i == 2) // YZ
                       {
-                          instance().mCamera.setEye(glm::vec3(length, 0, 0));
-                          instance().mCamera.setUp(glm::vec3(0, 1, 0));
+                          instance().mCamera_.setEye(glm::vec3(length, 0, 0));
+                          instance().mCamera_.setUp(glm::vec3(0, 1, 0));
                       }
                       else if (i == 3) // ZX
                       {
-                          instance().mCamera.setEye(glm::vec3(0, length, 0));
-                          instance().mCamera.setUp(glm::vec3(1, 0, 0));
+                          instance().mCamera_.setEye(glm::vec3(0, length, 0));
+                          instance().mCamera_.setUp(glm::vec3(1, 0, 0));
                       }
 
-                      instance().mCamera.update();
-                      instance().mInteractor.setCamera(&instance().mCamera);
+                      instance().mCamera_.update();
+                      instance().mInteractor_.setCamera(&instance().mCamera_);
                       break;  // Only one can be selected
                   }
               }
@@ -441,8 +441,8 @@ namespace framework
               // ==========================================
               if (isIn3DZone(xpos, ypos, width, height))
               {
-                instance().mInteractor.setLeftClicked(true);
-                instance().mInteractor.setClickPoint(xpos, ypos);
+                instance().mInteractor_.setLeftClicked(true);
+                instance().mInteractor_.setClickPoint(xpos, ypos);
               }
               break;
             }
@@ -451,8 +451,8 @@ namespace framework
               if (isIn3DZone(xpos, ypos, width, height) &&
                   !hslider.isDragging() && !vslider.isDragging())
               {
-                instance().mInteractor.setMiddleClicked(true);
-                instance().mInteractor.setClickPoint(xpos, ypos);
+                instance().mInteractor_.setMiddleClicked(true);
+                instance().mInteractor_.setClickPoint(xpos, ypos);
               }
               break;
             case GLFW_MOUSE_BUTTON_RIGHT:
@@ -460,8 +460,8 @@ namespace framework
               if (isIn3DZone(xpos, ypos, width, height) &&
                   !hslider.isDragging() && !vslider.isDragging())
               {
-                instance().mInteractor.setRightClicked(true);
-                instance().mInteractor.setClickPoint(xpos, ypos);
+                instance().mInteractor_.setRightClicked(true);
+                instance().mInteractor_.setClickPoint(xpos, ypos);
               }
               break;
           }
@@ -481,15 +481,15 @@ namespace framework
               // Only release 3D interactor if slider wasn't being dragged
               if (!wasSliderDragging)
               {
-                instance().mInteractor.setLeftClicked(false);
+                instance().mInteractor_.setLeftClicked(false);
               }
               break;
             }
             case GLFW_MOUSE_BUTTON_MIDDLE:
-              instance().mInteractor.setMiddleClicked(false);
+              instance().mInteractor_.setMiddleClicked(false);
               break;
             case GLFW_MOUSE_BUTTON_RIGHT:
-              instance().mInteractor.setRightClicked(false);
+              instance().mInteractor_.setRightClicked(false);
               break;
           }
           break;
@@ -551,16 +551,16 @@ namespace framework
 
               case GLFW_KEY_LEFT_CONTROL:
               case GLFW_KEY_RIGHT_CONTROL:
-                  instance().mInteractor.setSpeed(5.f);
+                  instance().mInteractor_.setSpeed(5.f);
                   break;
 
               case GLFW_KEY_LEFT_SHIFT:
               case GLFW_KEY_RIGHT_SHIFT:
-                  instance().mInteractor.setSpeed(0.1f);
+                  instance().mInteractor_.setSpeed(0.1f);
                   break;
 
               case GLFW_KEY_F2:
-                  instance().mAnimator.setAnimation(Animator::ORBIT);
+                  instance().mAnimator_.setAnimation(Animator::ORBIT);
                   break;
 
               case GLFW_KEY_F5:
@@ -594,59 +594,59 @@ namespace framework
 
               case GLFW_KEY_C:
                   std::cout << "\nCamera view:"
-                            << " (" << instance().mCamera.getEye().x
-                            << "," << instance().mCamera.getEye().y
-                            << "," << instance().mCamera.getEye().z << ") "
-                            << "(" << instance().mCamera.getCenter().x
-                            << "," << instance().mCamera.getCenter().y
-                            << "," << instance().mCamera.getCenter().z << ") "
-                            << "(" << instance().mCamera.getUp().x
-                            << "," << instance().mCamera.getUp().y
-                            << "," << instance().mCamera.getUp().z << ")\n\n";
+                            << " (" << instance().mCamera_.getEye().x
+                            << "," << instance().mCamera_.getEye().y
+                            << "," << instance().mCamera_.getEye().z << ") "
+                            << "(" << instance().mCamera_.getCenter().x
+                            << "," << instance().mCamera_.getCenter().y
+                            << "," << instance().mCamera_.getCenter().z << ") "
+                            << "(" << instance().mCamera_.getUp().x
+                            << "," << instance().mCamera_.getUp().y
+                            << "," << instance().mCamera_.getUp().z << ")\n\n";
                   break;
 
               case GLFW_KEY_R:
-                  instance().mCamera.reset();
-                  instance().mInteractor.setCamera(&instance().mCamera);
+                  instance().mCamera_.reset();
+                  instance().mInteractor_.setCamera(&instance().mCamera_);
                   break;
 
               case GLFW_KEY_T:
-                  if (instance().mInteractor.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
-                      instance().mInteractor.setMotionRightClick(TrackBallInteractor::PAN);
+                  if (instance().mInteractor_.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
+                      instance().mInteractor_.setMotionRightClick(TrackBallInteractor::PAN);
                   else
-                      instance().mInteractor.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
+                      instance().mInteractor_.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
                   break;
 
               case GLFW_KEY_X:
-                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                  instance().mCamera.setEye(glm::vec3(length, 0, 0));
-                  instance().mCamera.setUp(glm::vec3(0, 1, 0));
-                  instance().mCamera.update();
-                  instance().mInteractor.setCamera(&instance().mCamera);
+                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+                  instance().mCamera_.setEye(glm::vec3(length, 0, 0));
+                  instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+                  instance().mCamera_.update();
+                  instance().mInteractor_.setCamera(&instance().mCamera_);
                   break;
 
               case GLFW_KEY_Y:
-                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                  instance().mCamera.setEye(glm::vec3(0, length, 0));
-                  instance().mCamera.setUp(glm::vec3(1, 0, 0));
-                  instance().mCamera.update();
-                  instance().mInteractor.setCamera(&instance().mCamera);
+                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+                  instance().mCamera_.setEye(glm::vec3(0, length, 0));
+                  instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+                  instance().mCamera_.update();
+                  instance().mInteractor_.setCamera(&instance().mCamera_);
                   break;
 
               case GLFW_KEY_Z:
-                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                  instance().mCamera.setEye(glm::vec3(0, 0, length));
-                  instance().mCamera.setUp(glm::vec3(1, 0, 0));
-                  instance().mCamera.update();
-                  instance().mInteractor.setCamera(&instance().mCamera);
+                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+                  instance().mCamera_.setEye(glm::vec3(0, 0, length));
+                  instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+                  instance().mCamera_.update();
+                  instance().mInteractor_.setCamera(&instance().mCamera_);
                   break;
 
               case GLFW_KEY_O:
-                  length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-                  instance().mCamera.setEye(glm::vec3(length, length, length));
-                  instance().mCamera.setUp(glm::vec3(0, 1, 0));
-                  instance().mCamera.update();
-                  instance().mInteractor.setCamera(&instance().mCamera);
+                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+                  instance().mCamera_.setEye(glm::vec3(length, length, length));
+                  instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+                  instance().mCamera_.update();
+                  instance().mInteractor_.setCamera(&instance().mCamera_);
                   break;
 
               case GLFW_KEY_M:
@@ -673,7 +673,7 @@ namespace framework
               case GLFW_KEY_RIGHT_CONTROL:
               case GLFW_KEY_LEFT_SHIFT:
               case GLFW_KEY_RIGHT_SHIFT:
-                  instance().mInteractor.setSpeed(1.f);
+                  instance().mInteractor_.setSpeed(1.f);
                   break;
 
               default:
@@ -708,7 +708,7 @@ namespace framework
        if (!hslider.isDragging() && !vslider.isDragging() &&
            isIn3DZone(xpos, ypos, width, height))
        {
-         instance().mInteractor.setClickPoint(xpos, ypos);
+         instance().mInteractor_.setClickPoint(xpos, ypos);
        }
      }
 
@@ -725,15 +725,15 @@ namespace framework
     if (!hslider.isDragging() && !vslider.isDragging() &&
         isIn3DZone(mouseX, mouseY, width, height))
     {
-      instance().mInteractor.setScrollDirection(xpos + ypos > 0 ? true : false);
+      instance().mInteractor_.setScrollDirection(xpos + ypos > 0 ? true : false);
     }
   }
 
   void CAWindow::sizeCallback(GLFWwindow *window, int width, int height)
   {
-    instance().mRenderer.resize(width, height);
-    instance().mInteractor.setScreenSize(width, height);
-    instance().mAnimator.setScreenSize(width, height);
+    instance().mRenderer_.resize(width, height);
+    instance().mInteractor_.setScreenSize(width, height);
+    instance().mAnimator_.setScreenSize(width, height);
   }
 
   /*
@@ -743,7 +743,7 @@ namespace framework
   DWORD WINAPI CAWindow::SimulateThread(LPVOID lpParam)
   {
     puts("Simulation thread launched...");
-    static_cast<CAWindow*>(lpParam)->isThreadReady = true;
+    static_cast<CAWindow*>(lpParam)->isThreadReady_ = true;
     Sleep(100);
     // Prepare the mirror grid before starting
     automaton::swap_lattices();
@@ -813,37 +813,37 @@ namespace framework
     glColor3f(1.0f, 1.0f, 1.0f);
     puts("GUI thread launched...");
     glfwSetErrorCallback(& CAWindow::errorCallback);
-    mWindow = glfwCreateWindow(width, height, "Cellular automaton", NULL, NULL);
-    if (!mWindow)
+    mWindow_ = glfwCreateWindow(width, height, "Cellular automaton", NULL, NULL);
+    if (!mWindow_)
     {
       glfwTerminate();
       perror("GUI window failed.");
       return EXIT_FAILURE;
     }
-    glfwMakeContextCurrent(mWindow);
+    glfwMakeContextCurrent(mWindow_);
     glfwSwapInterval(1);
-    glfwSetCursorPosCallback(mWindow, & CAWindow::moveCallback);
-    glfwSetKeyCallback(mWindow, & CAWindow::keyCallback);
-    glfwSetMouseButtonCallback(mWindow, & CAWindow::buttonCallback);
-    glfwSetScrollCallback(mWindow, & CAWindow::scrollCallback);
-    glfwSetWindowSizeCallback(mWindow, &CAWindow::sizeCallback);
-    mInteractor.setCamera(& mCamera);
-    mRenderer.setCamera(& mCamera);
-    mAnimator.setInteractor(& mInteractor);
-    mRenderer.init();
-    sizeCallback(mWindow, width, height); // Set initial size.
+    glfwSetCursorPosCallback(mWindow_, & CAWindow::moveCallback);
+    glfwSetKeyCallback(mWindow_, & CAWindow::keyCallback);
+    glfwSetMouseButtonCallback(mWindow_, & CAWindow::buttonCallback);
+    glfwSetScrollCallback(mWindow_, & CAWindow::scrollCallback);
+    glfwSetWindowSizeCallback(mWindow_, &CAWindow::sizeCallback);
+    mInteractor_.setCamera(& mCamera_);
+    mRenderer_.setCamera(& mCamera_);
+    mAnimator_.setInteractor(& mInteractor_);
+    mRenderer_.init();
+    sizeCallback(mWindow_, width, height); // Set initial size.
     // Isometric view
-    int length = glm::length(instance().mCamera.getEye() - instance().mCamera.getCenter());
-    instance().mCamera.setEye(glm::vec3(length, length, length));
-    instance().mCamera.setUp(glm::vec3(0, 1, 0));
-    instance().mCamera.update();
-    instance().mInteractor.setCamera(& instance().mCamera);
+    int length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+    instance().mCamera_.setEye(glm::vec3(length, length, length));
+    instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+    instance().mCamera_.update();
+    instance().mInteractor_.setCamera(& instance().mCamera_);
     // Launch the simulation thread
     DWORD dwThreadId;
     HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, this, 0, &dwThreadId);
     CloseHandle(hSimulateThread);
     // Enter the visualization loop
-    while (!glfwWindowShouldClose(mWindow))
+    while (!glfwWindowShouldClose(mWindow_))
     {
       if (!logoCreated)
       {
@@ -855,7 +855,7 @@ namespace framework
         pendingExit = false;
         showExitDialog = true;
       }
-      mRenderer.render();
+      mRenderer_.render();
       if (toastActive)
       {
         double now = glfwGetTime();
@@ -902,11 +902,11 @@ namespace framework
           toastActive = false;
         }
       }
-      glfwSwapBuffers(mWindow);
-      mInteractor.update();
+      glfwSwapBuffers(mWindow_);
+      mInteractor_.update();
       if (!pause)
       {
-      mAnimator.animate();
+      mAnimator_.animate();
       }
       else
       {
@@ -929,7 +929,7 @@ namespace framework
       }
     }
     puts("GUI thread ended.");
-    glfwDestroyWindow(mWindow);
+    glfwDestroyWindow(mWindow_);
     glfwTerminate();
     return EXIT_SUCCESS;
   }

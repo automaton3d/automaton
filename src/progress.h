@@ -12,8 +12,8 @@ public:
   void render();
 
 private:
-  int barWidths[3];
-  int barX, barY, barWidth, barHeight;
-  int pointerX;
-  float progress;
+  int barWidths_[3];
+  int barX_, barY_, barWidth_, barHeight_;
+  int pointerX_;
+  float progress_;
 };

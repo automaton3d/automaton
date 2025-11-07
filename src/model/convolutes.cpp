@@ -1,6 +1,7 @@
 /*
  * convolutes.cpp
  */
+
 #include "simulation.h"
 
 namespace automaton
