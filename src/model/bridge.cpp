@@ -20,7 +20,6 @@ namespace framework
   extern Tickbox* tomo;
   extern std::vector<Radio> tomoDirs;
   extern unsigned tomo_x, tomo_y, tomo_z;
-  extern bool replayFrames;
 }
 
 namespace automaton

@@ -10,6 +10,8 @@
 #include <text.h>
 #include <iostream>
 #include <windows.h>
+#include <windows.h>
+#include <shellapi.h>
 #include <vector>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -85,6 +87,8 @@ namespace framework
   unsigned long long replayTimer = 0;
   bool showExitDialog = false;
 
+  // In cawindow.cpp, modify updateReplay() function:
+
   void updateReplay()
   {
     using namespace automaton;
@@ -92,59 +96,66 @@ namespace framework
     if (replayIndex < recorder.frames.size())
     {
       const Frame& currentFrame = recorder.frames[replayIndex];
+
+      // If it's a keyframe, apply directly
+      // If it's a delta frame, we need to apply it on top of current state
+      if (currentFrame.isKeyframe) {
+        // Clear and rebuild from keyframe
+        std::fill(voxels, voxels + EL * EL * EL, RGB(0, 0, 0));
+      }
+
       currentFrame.apply(lattice_curr);
-      std::fill(voxels, voxels + EL * EL * EL, RGB(0, 0, 0));
+
+      // Update voxel buffer for rendering
       int selectedLayer = list->getSelected();
-      for (const FrameCell& fc : currentFrame.cells)
-      {
-        if (fc.w != selectedLayer)
-          continue;
 
-        bool visible = true;
-        if (tomo && tomo->getState())
-        {
-          if (tomoDirs[0].isSelected())      visible = (fc.z == tomo_z);
-          else if (tomoDirs[1].isSelected()) visible = (fc.x == tomo_x);
-          else if (tomoDirs[2].isSelected()) visible = (fc.y == tomo_y);
-        }
-        if (!visible) continue;
-        unsigned index3D = fc.x * EL * EL + fc.y * EL + fc.z;
-        if (index3D >= EL * EL * EL) continue;
+      // Clear voxels for non-keyframes (delta updates)
+      if (!currentFrame.isKeyframe) {
+        std::fill(voxels, voxels + EL * EL * EL, RGB(0, 0, 0));
+      }
 
-        if (fc.flags & 0x01)
-        {
-          if (!(fc.flags & 0x02)) voxels[index3D] = RGB(255, 0, 0);
-          else if (fc.flags & 0x10) voxels[index3D] = RGB(0, 255, 0);
-          else voxels[index3D] = RGB(255, 255, 255);
-        }
-        else
-        {
-          voxels[index3D] = RGB(0, 0, 0);
-        }
+      // Render all active cells in current layer
+      for (unsigned x = 0; x < EL; ++x) {
+        for (unsigned y = 0; y < EL; ++y) {
+          for (unsigned z = 0; z < EL; ++z) {
+            const Cell& cell = getCell(lattice_curr, x, y, z, selectedLayer);
 
-        if (data3D[2].getState())
-        {
-          if (fc.flags & 0x04)  // sB
-            voxels[index3D] = RGB(0, 255, 255);     // Cyan (spin)
-        }
-        if (data3D[1].getState())
-        {
-          if (fc.flags & 0x08)  // pB
-            voxels[index3D] = RGB(255, 255, 0);     // Yellow (momentum)
+            bool visible = true;
+            if (tomo && tomo->getState()) {
+              if (tomoDirs[0].isSelected())      visible = (z == tomo_z);
+              else if (tomoDirs[1].isSelected()) visible = (x == tomo_x);
+              else if (tomoDirs[2].isSelected()) visible = (y == tomo_y);
+            }
+            if (!visible) continue;
+
+            unsigned index3D = x * EL * EL + y * EL + z;
+            if (index3D >= EL * EL * EL) continue;
+
+            // Determine color based on cell state
+            if (cell.t == cell.d) {
+              if (cell.a == W_USED) voxels[index3D] = RGB(255, 0, 0);
+              else if (cell.d == 0) voxels[index3D] = RGB(0, 255, 0);
+              else voxels[index3D] = RGB(255, 255, 255);
+            }
+
+            if (data3D[2].getState() && cell.sB) {
+              voxels[index3D] = RGB(0, 255, 255);  // Cyan (spin)
+            }
+            if (data3D[1].getState() && cell.pB) {
+              voxels[index3D] = RGB(255, 255, 0);  // Yellow (momentum)
+            }
+          }
         }
       }
+
       ++replayIndex;
-      if (replayIndex >= recorder.frames.size())
-      {
+      if (replayIndex >= recorder.frames.size()) {
         replayIndex = 0;
-        replayTimer -= recorder.frames.size();  // Loop reset
-      }
-      else
-      {
+        replayTimer -= recorder.frames.size();
+      } else {
         ++replayTimer;
       }
     }
-//    std::this_thread::sleep_for(std::chrono::milliseconds(33));
   }
 
   /**
@@ -431,9 +442,14 @@ namespace framework
               if (xpos >= linkX && xpos <= linkX + textWidth &&
                   ypos >= linkY - linkHeight && ypos-30 <= linkY + 5)
               {
-                ShellExecuteA(NULL, "open",
-                             "https://github.com/automaton3d/automaton/blob/master/help.md",
-                             NULL, NULL, SW_SHOWNORMAL);
+                ShellExecuteA(
+            	   NULL,                           // HWND hwnd
+            	   "open",                         // LPCSTR lpOperation
+            	   "https://github.com/automaton3d/automaton/blob/master/help.md", // LPCSTR lpFile
+            	   NULL,                           // LPCSTR lpParameters
+            	   NULL,                           // LPCSTR lpDirectory
+            	   SW_SHOWNORMAL                   // INT nShowCmd
+            	);
                 return;  // Don't activate 3D interactor
               }
               // ==========================================
@@ -965,9 +981,10 @@ namespace framework
  *     (Called by the Splash)       *
  *                                  *
  ************************************/
-int runSimulation(int scenario)
+int runSimulation(int scenario, bool paused)
 {
   automaton::scenario = scenario;
+  framework::pause = paused;
   Beep(1000, 80);
   glfwInit();
   char arg0[] = "test";

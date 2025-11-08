@@ -27,7 +27,7 @@ struct XButton
 };
 
 // ✅ Forward declarations for simulation entry points
-int runSimulation(int scenario);
+int runSimulation(int scenario, bool paused);
 int runStatistics();
 
 #endif /* SPLASH_H_ */
