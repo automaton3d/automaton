@@ -8,10 +8,11 @@
 #include <GL/gl.h>
 #include <string>
 #include <functional>
+#include "text.h"
 
 namespace framework
 {
-    extern void drawString8(std::string s, int x, int y);
+//    extern void drawString8(std::string s, int x, int y);
 }
 
 class Tickbox
@@ -72,7 +73,7 @@ public:
 
         // Draw label
         glColor3fv(labelColor_);
-        framework::drawString8(label_, x_ + LABEL_OFFSET_X_, y_ + LABEL_OFFSET_Y_);
+        framework::drawString(label_, x_ + LABEL_OFFSET_X_, y_ + LABEL_OFFSET_Y_, 8);
     }
 
     void setState(bool newState)

@@ -79,7 +79,7 @@ void ProgressBar::render()
     glEnd();
 
     glColor3f(0.6f, 0.6f, 0.6f);
-    framework::drawString12(steps[i], x0 + w + 10, y0 + 7);
+    framework::drawString(steps[i], x0 + w + 10, y0 + 7, 12);
     accumulatedWidth += barWidths_[i];
     y0 += 20;
   }

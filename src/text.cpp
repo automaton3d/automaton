@@ -26,23 +26,29 @@ namespace framework
       glutBitmapCharacter(font, string[i]);
   }
 
-  void drawString8(string s, int x, int y)
+  void drawString(string s, int x, int y, int size)
   {
     glRasterPos2f(x, y);
-    for (int i = 0; s[i] != '\0'; ++i)
-      glutBitmapCharacter(GLUT_BITMAP_8_BY_13, s[i]);
-  }
+	if (size == 8)
+	{
+	  for (int i = 0; s[i] != '\0'; ++i)
+	    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, s[i]);
 
-  /*
-   * Draw normal text.
-   */
-  void drawString12(const string& text, int x, int y)
-  {
-    glRasterPos2i(x, y);
-    for (char c : text)
-    {
-      glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c); // Use GLUT for bitmap fonts
-    }
+	}
+	else if (size == 12)
+	{
+	  for (char c : s)
+	  {
+	    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
+	  }
+	}
+	else if (size == 18)
+	{
+	  for (char c : s)
+	  {
+	    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+	  }
+	}
   }
 
   /*

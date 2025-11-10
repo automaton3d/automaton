@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <random>
 #include <cassert>
+#include <array>
 
 namespace automaton
 {
@@ -34,6 +35,9 @@ namespace automaton
 
   vector<unsigned> dirs;
   vector<WPoint> wpoints;
+
+
+  extern std::vector<std::array<unsigned, 3>> lcenters;
 
   /**
    * Function to initialize the lattice with general data.
@@ -433,6 +437,17 @@ namespace automaton
     }
   }
 
+  void initCenters(unsigned wDim)
+  {
+    lcenters.resize(wDim);
+    for (unsigned w = 0; w < wDim; ++w)
+    {
+      lcenters[w][0] = CENTER;
+      lcenters[w][1] = CENTER;
+      lcenters[w][2] = CENTER;
+    }
+  }
+
   /**
    * Calculates the simulation parameters.
    */
@@ -465,5 +480,8 @@ namespace automaton
     REISSUE   = RELOC + 1;
     FLOOD     = REISSUE + 3 * (L - 1);
     FRAME     = FLOOD;
+
+    // Centers will be used by the frame recorder
+    initCenters(W_USED);
   }
 }

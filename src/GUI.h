@@ -1,11 +1,11 @@
 /*
- * GUIrenderer.h
+ * GUI.h
  *
- * Declares the OpenGL rendering routines.
+ * Declares the Graphical Unit Interface rendering routines.
  */
 
-#ifndef RSMZ_RENDEREROPENGL1_H
-#define RSMZ_RENDEREROPENGL1_H
+#ifndef GUI_H
+#define GUI_H
 
 #include "renderer.h"
 #include <GL/glut.h>
@@ -20,6 +20,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include "button.h"
 
 #define DEBUG
 // Inclusões GLM (Seu projeto)
@@ -41,96 +42,94 @@ namespace framework
 {
   using namespace std;
 
-extern ProgressBar *progress;
+  extern ProgressBar *progress;
+  extern bool helpHover;
+  extern bool active;
+  extern std::vector<Tickbox> data3D;
+  extern std::unique_ptr<LayerList> list;
+  extern std::vector<Tickbox> delays;
+  extern std::vector<Radio> views;
+  extern std::vector<Radio> projection;
 
-extern bool replayFrames;
-extern unsigned long long replayTimer;
+  extern bool replayFrames;
+  extern unsigned long long replayTimer;
 
-class GUIrenderer : public Renderer
-{
-public:
-    GUIrenderer();
-    virtual ~GUIrenderer();
+  class GUIrenderer : public Renderer
+  {
+  public:
+      GUIrenderer();
+      virtual ~GUIrenderer();
 
-    void init();
-    virtual void render();
-    void resize(int width, int height);
-    void setProjection(const glm::mat4& proj) { mProjection_ = proj; }
-    void clearVoxels();
+      void init();
+      virtual void render();
+      void resize(int width, int height);
+      void setProjection(const glm::mat4& proj) { mProjection_ = proj; }
+      void clearVoxels();
 
-private:
-    // Internal rendering methods
-    void renderAxes();
-    void renderCenter();
-    void renderClear();
-    void renderCube();
-    void renderPlane();
-    void renderObjects();
-    void renderWavefront();
-    void renderCounts();
-    void renderMomentum();
-    void renderSpin();
-    void renderSineMask();
-    void renderHunting();
-    void renderCenters();
-    void renderCenterBox(const char* text);
-    void renderUI();
-    void renderElapsedTime();
-    void renderSimulationStats();
-    void renderLayerInfo();
-    void renderHelpText();
-    void renderSliders();
-    void renderTomoControls();
-    void renderPauseOverlay();
-    void renderSectionLabels();
-    void renderCheckboxes();
-    void renderDelays();
-    void renderViewpointRadios();
-    void renderProjectionRadios();
-    void renderTomoRadios();
-    void renderHyperlink();
-    void renderSlice();
-    void renderScenarioHelpPane();
-    void renderTomoPlane();
-    void drawPanel(int x, int y, int width, int height);
-    void enhanceVoxel();
+  private:
+      // Internal rendering methods
+      void renderAxes();
+      void renderCenter();
+      void renderClear();
+      void renderCube();
+      void renderPlane();
+      void renderObjects();
+      void renderWavefront();
+      void renderCounts();
+      void renderMomentum();
+      void renderSpin();
+      void renderSineMask();
+      void renderHunting();
+      void renderCenters();
+      void renderCenterBox(const char* text);
+      void renderUI();
+      void renderElapsedTime();
+      void renderSimulationStats();
+      void renderLayerInfo();
+      void renderHelpText();
+      void renderSliders();
+      void renderTomoControls();
+      void renderPauseOverlay();
+      void renderSectionLabels();
+      void renderCheckboxes();
+      void renderDelays();
+      void renderViewpointRadios();
+      void renderProjectionRadios();
+      void renderTomoRadios();
+      void renderHyperlink();
+      void renderSlice();
+      void renderScenarioHelpPane();
+      void renderTomoPlane();
+      void drawPanel(int x, int y, int width, int height);
+      void drawRoundedRect(float x, float y, float w, float h, float radius);
+      void drawRoundedRectOutline(float x, float y, float w, float h, float radius);
+      void renderExitDialog();
+      void enhanceVoxel();
 
-    // Helper methods
-    bool projectPoint(const float obj[3],
-                     const GLdouble modelview[16],
-                     const GLdouble projection[16],
-                     const GLint viewport[4],
-                     float &winX, float &winY);
-    inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
+      // Helper methods
+      bool projectPoint(const float obj[3],
+                       const GLdouble modelview[16],
+                       const GLdouble projection[16],
+                       const GLint viewport[4],
+                       float &winX, float &winY);
+      inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
 
-    // Member variables
-    glm::mat4 mProjection_;
-    std::vector<std::array<unsigned, 3>> lastPositions_;
-    std::vector<std::array<float, 2>> screenPositions_;
-    std::map<std::pair<int,int>, int> counts_;
-};
+      // Member variables
+      glm::mat4 mProjection_;
+      std::vector<std::array<unsigned, 3>> lastPositions_;
+      std::vector<std::array<float, 2>> screenPositions_;
+      std::map<std::pair<int,int>, int> counts_;
+  };
 
-void drawString8(string s, int x, int y);
-void drawString12(const string& text, int x, int y);
-void drawBoldText(const string& text, int x, int y, float offset = 0.5f);
-void render2Dstring(float x, float y, void *font, const char *string);
-void render3Dstring(float x, float y, float z, void *font, const char *string);
-void blinkText(unsigned long long timer);
-void triggerEvent(unsigned long long timer);
+  void drawBoldText(const string& text, int x, int y, float offset = 0.5f);
+  void render2Dstring(float x, float y, void *font, const char *string);
+  void render3Dstring(float x, float y, float z, void *font, const char *string);
+  void blinkText(unsigned long long timer);
+  void triggerEvent(unsigned long long timer);
 
-extern bool active;
-extern std::vector<Tickbox> data3D;
-extern std::unique_ptr<LayerList> list;
-extern std::vector<Tickbox> delays;
-extern std::vector<Radio> views;
-extern std::vector<Radio> projection;
-
-void initText();
-void reshape(GLFWwindow* window, int width, int height);
-
-// In the framework namespace, with other extern declarations:
-extern bool helpHover;
+  void initText();
+  void reshape(GLFWwindow* window, int width, int height);
 
 } // end namespace framework
 
-#endif // RSMZ_RENDEREROPENGL1_H
+#endif // GUI_H

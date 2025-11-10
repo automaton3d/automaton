@@ -2,6 +2,7 @@
  * splash.cpp
  */
 
+#include <button.h>
 #include <windows.h>
 #include <GL/freeglut.h>
 #include <vector>
@@ -72,66 +73,15 @@ namespace splash
 
   Tickbox startPausedBox(tickX, tickY, "Start paused");
 
-  XButton btn1 = { -0.5f, -0.65f, 1.0f, 0.12f, "Simulation" };
-  XButton btn2 = { -0.5f, -0.82f, 1.0f, 0.12f, "Statistics" };
-  XButton helpLink = { -0.15f, -0.90f, 0.3f, 0.05f, "Help" };
+  // --- UPDATED BUTTON POSITIONS (Moved up by ~5 pixels / 0.015f NDC) ---
+  Button simBtn(-0.5f, -0.585f, 1.0f, 0.12f, "Simulation", Button::NDC);
+  Button replayBtn(-0.5f, -0.735f, 1.0f, 0.12f, "Replay", Button::NDC);
+  Button statBtn(-0.5f, -0.885f, 1.0f, 0.12f, "Statistics", Button::NDC);
+  // Help link remains at the very bottom
+  Button helpLink(-0.15f, -0.96f, 0.3f, 0.05f, "Help", Button::NDC);
+  // ----------------------------------------------------------------------
 
   framework::Logo *logo_splash = nullptr;
-
-  bool insideButton(int mx, int my, int w, int h, const XButton& b)
-  {
-      float x = (float)mx / w * 2.0f - 1.0f;
-      float y = 1.0f - (float)my / h * 2.0f;
-      return (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
-  }
-
-  void drawButton(const XButton& b, bool isDefault = false)
-  {
-      glColor3f(0.1f, 0.1f, 0.1f);
-      float offset = 0.02f;
-      glBegin(GL_QUADS);
-          glVertex2f(b.x + offset, b.y - offset);
-          glVertex2f(b.x + b.w + offset, b.y - offset);
-          glVertex2f(b.x + b.w + offset, b.y + b.h - offset);
-          glVertex2f(b.x + offset, b.y + b.h - offset);
-      glEnd();
-
-      glColor3f(isDefault ? 0.3f : 0.2f, isDefault ? 0.7f : 0.6f, isDefault ? 0.9f : 0.8f);
-      glBegin(GL_QUADS);
-          glVertex2f(b.x, b.y);
-          glVertex2f(b.x + b.w, b.y);
-          glVertex2f(b.x + b.w, b.y + b.h);
-          glVertex2f(b.x, b.y + b.h);
-      glEnd();
-
-      glColor3f(1.0f, 1.0f, 1.0f);
-      const char* c = b.label;
-      int textWidth = 0;
-      while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *c++);
-      float tx = b.x + b.w/2 - (textWidth * 1.0f / WINDOW_WIDTH);
-      float ty = b.y + b.h/2 - 0.015f;
-      glRasterPos2f(tx, ty);
-      c = b.label;
-      while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c++);
-  }
-
-  void drawHyperlink(const XButton& b)
-  {
-      glColor3f(helpHover ? 0.1f : 0.0f, helpHover ? 0.4f : 0.0f, 1.0f);
-      const char* c = b.label;
-      int textWidth = 0;
-      while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
-      float tx = b.x + (b.w - (textWidth * 2.0f / WINDOW_WIDTH)) / 2;
-      float ty = b.y + 0.015f;
-      glRasterPos2f(tx, ty);
-      c = b.label;
-      while (*c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c++);
-      glLineWidth(1.0f);
-      glBegin(GL_LINES);
-          glVertex2f(tx, b.y + 0.005f);
-          glVertex2f(tx + (textWidth * 2.0f / WINDOW_WIDTH), b.y + 0.005f);
-      glEnd();
-  }
 
   void drawLabel(const char* text, float x, float y)
   {
@@ -157,8 +107,9 @@ namespace splash
     scenarioDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
 
     // Draw buttons below dropdowns
-    drawButton(btn1, true);
-    drawButton(btn2, false);
+    simBtn.draw(true);
+    replayBtn.draw(true); // Draw the new button
+    statBtn.draw(false);
 
     // Re-draw the open dropdown last to bring it to front
     if (sizeOpen)
@@ -209,7 +160,7 @@ namespace splash
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     drawTitle();
-    drawHyperlink(helpLink);
+    helpLink.drawAsHyperlink(helpHover);
     drawControls();
     if (logo_splash->valid())
     	logo_splash->draw(0.0f, 0.35f, 0.8f); // Centered, half-screen size
@@ -266,21 +217,28 @@ namespace splash
     // Only trigger buttons if not clicking on UI
     if (!clickedOnUI)
     {
-      if (insideButton(x, y, WINDOW_WIDTH, WINDOW_HEIGHT, btn1))
+      if (simBtn.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
+      {
+        automaton::calculateParameters(lattice_size, numLayers);
+        if (!automaton::tryAllocate(lattice_size, numLayers))
+          MessageBox(NULL, "Memory allocation failed. Try a smaller lattice size or fewer layers.", "Allocation Error", MB_OK | MB_ICONWARNING);
+        else { selection = 0; glutLeaveMainLoop(); }
+      }
+      else if (replayBtn.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
       {
         automaton::calculateParameters(lattice_size, numLayers);
         if (!automaton::tryAllocate(lattice_size, numLayers))
           MessageBox(NULL, "Memory allocation failed. Try a smaller lattice size or fewer layers.", "Allocation Error", MB_OK | MB_ICONWARNING);
         else { selection = 1; glutLeaveMainLoop(); }
       }
-      else if (insideButton(x, y, WINDOW_WIDTH, WINDOW_HEIGHT, btn2))
+      else if (statBtn.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
       {
         automaton::calculateParameters(lattice_size, numLayers);
         if (!automaton::tryAllocate(lattice_size, numLayers))
           MessageBox(NULL, "Memory allocation failed. Try a smaller lattice size or fewer layers.", "Allocation Error", MB_OK | MB_ICONWARNING);
         else { selection = 2; glutLeaveMainLoop(); }
       }
-      else if (insideButton(x, y, WINDOW_WIDTH, WINDOW_HEIGHT, helpLink))
+      else if (helpLink.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
       {
         ShellExecuteA(NULL, "open", "https://github.com/automaton3d/automaton/blob/master/help.md", NULL, NULL, SW_SHOWNORMAL);
       }
@@ -315,7 +273,7 @@ namespace splash
       }
       else
       {
-        selection = 1;
+        selection = 0;
         glutLeaveMainLoop();
       }
     }
@@ -330,7 +288,7 @@ namespace splash
 
   void passiveMotion(int x, int y)
   {
-    helpHover = insideButton(x, y, WINDOW_WIDTH, WINDOW_HEIGHT, helpLink);
+    helpHover = helpLink.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
     glutPostRedisplay();
   }
 
@@ -384,8 +342,10 @@ int main(int argc, char** argv)
   splash::startPausedBox.setColor(border, label, fillOn, fillOff);
 
   glutMainLoop();
-  if (splash::selection == 1)
+  if (splash::selection == 0)
       return runSimulation(splash::scenarioDropdown.getSelectedIndex(), splash::startPausedBox.getState());
+  if (splash::selection == 1)
+      return runReplay();
   if (splash::selection == 2)
       return runStatistics();
   return 0;

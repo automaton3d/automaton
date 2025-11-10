@@ -8,11 +8,7 @@
 #include <GL/gl.h>
 #include <cmath>
 #include <string>
-
-namespace framework
-{
-  extern void drawString8(std::string s, int x, int y);
-}
+#include "text.h"
 
 class Radio
 {
@@ -65,7 +61,7 @@ public:
     glEnd();
 
     // Vertically centered label
-    framework::drawString8(label_, xPos + 18, yPos + 3);
+    framework::drawString(label_, xPos + 18, yPos + 3, 8);
   }
 
   void setSelected(bool isSelected) { selected_ = isSelected; }

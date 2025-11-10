@@ -12,7 +12,7 @@
 #include <random>
 #include <chrono>
 #include <thread>
-
+#include "cuda/cuda_sim.h" // declare wrappers
 #include "simulation.h"
 
 namespace framework
@@ -29,6 +29,30 @@ namespace automaton
   extern std::vector<Cell> lattice_curr;
 
   COLORREF *voxels;
+
+#ifdef CUDA
+
+#include "cuda_sim.h" // declare wrappers
+
+void updateBuffer()
+{
+    int w = framework::list->getSelected();
+
+    // Ensure CUDA layer pointer exists
+    // Launch device kernel to fill mapped voxels for given layer
+    cudaUpdateVoxelsLayer((unsigned)w);
+
+    // Get mapped voxels pointer (COLORREF layout is 0x00BBGGRR on Windows)
+    uint32_t* mapped = getMappedVoxels();
+    size_t n = getVoxelsSize();
+    // Copy mapped (device wrote host-mapped memory) into GUI's voxels pointer
+    // If your GUI expects 'voxels' pointer directly, you can set it to mapped.
+    // Example: overwrite automaton::voxels pointer
+    automaton::voxels = (COLORREF*) mapped;
+    // If your GUI requires a separate buffer, memcpy mapped -> GUI buffer here.
+}
+
+#else
 
   /**
    * This is a bridge between the model and the graphical framework.
@@ -90,4 +114,5 @@ namespace automaton
       }
     }
   }
+#endif
 }

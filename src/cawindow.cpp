@@ -7,7 +7,6 @@
  */
 
 #include <GUI.h>
-#include <text.h>
 #include <iostream>
 #include <windows.h>
 #include <windows.h>
@@ -22,7 +21,8 @@
 #include "hslider.h"
 #include "vslider.h"
 #include "logo.h"
-#include "recorder.h"
+#include <recorder.h>
+#include "text.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -73,7 +73,11 @@ namespace framework
 
   // Frame recorder
 
-  FrameRecorder recorder;
+  // Change from:
+  // FrameRecorder recorder;
+  // To:
+  CompactFrameRecorder recorder;
+//  FrameRecorder recorder;
   bool recordFrames = false;
   bool replayFrames = false;
   size_t replayIndex = 0;
@@ -89,6 +93,7 @@ namespace framework
 
   // In cawindow.cpp, modify updateReplay() function:
 
+  /*
   void updateReplay()
   {
     using namespace automaton;
@@ -157,6 +162,34 @@ namespace framework
       }
     }
   }
+  */
+
+  bool updateReplay()
+  {
+    using namespace automaton;
+
+    if (recorder.frames.size() == 0)
+      return false;
+    if (replayIndex < recorder.frames.size())
+    {
+      const Frame& currentFrame = recorder.frames[replayIndex];
+
+      // Reconstruct voxels directly from compact format
+      recorder.reconstructVoxels(currentFrame, voxels);
+
+      // Optional: also update lattice if needed
+      recorder.applyFrame(currentFrame, lattice_curr);
+
+      ++replayIndex;
+      if (replayIndex >= recorder.frames.size()) {
+        replayIndex = 0;
+        replayTimer -= recorder.frames.size();
+      } else {
+        ++replayTimer;
+      }
+    }
+    return true;
+  }
 
   /**
    * Function to show the loading window
@@ -217,7 +250,7 @@ namespace framework
         loadingMessage += ".";
       }
       // Draw the loading message at the center of the screen
-      framework::drawString8(loadingMessage, 500, mode->height / 2);
+      drawString(loadingMessage, 500, mode->height / 2, 8);
       // Change the ellipsis count if enough time has passed
       if (glfwGetTime() - lastEllipsisChangeTime >= ellipsisChangeInterval)
       {
@@ -532,38 +565,28 @@ namespace framework
       if (now - lastKeyTime < 0.2)
           return;
       lastKeyTime = now;
-
-      // === EXIT POPUP LOGIC ===
-      if (showExitDialog)
-      {
-          if (action == GLFW_PRESS)
-          {
-              if (key == GLFW_KEY_Y)
-              {
-                  // Confirm exit
-                  glfwSetWindowShouldClose(window, GL_TRUE);
-                  showExitDialog = false;
-              }
-              else if (key == GLFW_KEY_N || key == GLFW_KEY_ESCAPE)
-              {
-                  // Cancel exit
-                  showExitDialog = false;
-              }
-          }
-          return; // ⛔ Block all other key input when popup is active
-      }
-
       // === NORMAL KEY HANDLING ===
       if (action == GLFW_PRESS)
       {
           float length;
           switch (key)
           {
-              case GLFW_KEY_ESCAPE:
-                  // Show the popup immediately
-                  showExitDialog = true;
-                  instance().pendingExit = false;
-                  break;
+            case GLFW_KEY_ESCAPE:
+            {
+              std::thread([]() {
+                  int result = MessageBoxW(
+                      NULL,
+                      L"Are you sure you want to exit?",
+                      L"Exit Confirmation",
+                      MB_ICONQUESTION | MB_YESNO | MB_SYSTEMMODAL
+                  );
+                  if (result == IDYES)
+                  {
+                      glfwSetWindowShouldClose(framework::CAWindow::instance().getWindow(), GL_TRUE);
+                  }
+              }).detach();
+              break;
+            }
 
               case GLFW_KEY_LEFT_CONTROL:
               case GLFW_KEY_RIGHT_CONTROL:
@@ -580,8 +603,13 @@ namespace framework
                   break;
 
               case GLFW_KEY_F5:
-                  if (!replayFrames)
+                  if (!replayFrames) {
+                      if (!recordFrames) {
+                          // Starting recording - ensure it's enabled
+                          recorder.recordingEnabled_ = true;
+                      }
                       recordFrames = !recordFrames;
+                  }
                   break;
 
               case GLFW_KEY_F6:
@@ -591,7 +619,7 @@ namespace framework
                   break;
 
               case GLFW_KEY_F7:
-                  if (!recordFrames && !replayFrames)
+                  if (!recordFrames && !replayFrames && !pause)  // Only save when NOT paused
                   {
                       recorder.saveToFile("frames.dat");
                       savePopup = true;
@@ -599,7 +627,7 @@ namespace framework
                   break;
 
               case GLFW_KEY_F8:
-                  if (!recordFrames && !replayFrames)
+                  if (!recordFrames && !replayFrames && !pause)  // Only load when NOT paused
                   {
                       recorder.loadFromFile("frames.dat");
                       timer = recorder.savedTimer;
@@ -769,7 +797,13 @@ namespace framework
       {
         if (replayFrames)
         {
-          updateReplay();
+          if (!updateReplay())
+          {
+        	replayFrames = false;
+            toastMessage = "No frames to replay.";
+            toastStartTime = glfwGetTime();
+            toastActive = true;
+          }
         }
         else
         {
@@ -906,7 +940,7 @@ namespace framework
 
           // Toast text
           glColor3f(1.0f, 1.0f, 0);
-          drawString8(toastMessage.c_str(), boxLeft + 20, boxBottom + 15);
+          drawString(toastMessage.c_str(), boxLeft + 20, boxBottom + 15, 8);
 
           glEnable(GL_DEPTH_TEST);
           glPopMatrix();
@@ -985,6 +1019,18 @@ int runSimulation(int scenario, bool paused)
 {
   automaton::scenario = scenario;
   framework::pause = paused;
+  Beep(1000, 80);
+  glfwInit();
+  char arg0[] = "test";
+  char *argv[] = { arg0, NULL };
+  int argc = 1;
+  glutInit(&argc, argv);
+  bool status = framework::CAWindow::instance().run();
+  glfwTerminate();
+  return status;
+}
+int runReplay()
+{
   Beep(1000, 80);
   glfwInit();
   char arg0[] = "test";

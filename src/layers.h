@@ -8,19 +8,20 @@
 #ifndef LAYERS_H_
 #define LAYERS_H_
 
-#include <text.h>
 #include <vector>
 #include <cstdio>
 #include <array>
 #include "vslider.h"
 #include "radio.h"
 #include "model/simulation.h"
+#include "text.h"
 
 namespace automaton
 {
   extern unsigned CENTER;
   extern unsigned W_USED;
   extern std::vector<Cell> lattice_curr;
+  extern std::vector<std::array<unsigned, 3>> lcenters;
 }
 
 namespace framework
@@ -28,7 +29,6 @@ namespace framework
   using namespace std;
   using namespace automaton;
 
-  extern void drawString8(string s, int x, int y);
   extern VSlider vslider;
 
   class LayerList
@@ -40,9 +40,9 @@ namespace framework
       lastPositions_.resize(wDim_);
       for (unsigned w = 0; w < wDim_; w++)
       {
-        lastPositions_[w][0] = 0;
-        lastPositions_[w][1] = 0;
-        lastPositions_[w][2] = 0;
+    	lastPositions_[w][0] = CENTER;
+    	lastPositions_[w][1] = CENTER;
+    	lastPositions_[w][2] = CENTER;
       }
       char s[100];
       for (unsigned w = 0; w < wDim_; w++)
@@ -86,7 +86,7 @@ namespace framework
 
         char s[100];
         sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
-        drawString8(s, 1780, 120 + 25 * w);
+        drawString(s, 1780, 120 + 25 * w, 8);
         lastPositions_[w][0] = cell.x[0];
         lastPositions_[w][1] = cell.x[1];
         lastPositions_[w][2] = cell.x[2];

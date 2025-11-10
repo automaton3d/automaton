@@ -7,11 +7,18 @@
 #include <sstream>
 #include <cawindow.h>
 #include <GUI.h>
-#include <text.h>
+#include <cmath>
+#include <GL/freeglut.h>
 #include "logo.h"
 #include "layers.h"
 #include "hslider.h"
 #include "vslider.h"
+#include "button.h"
+#include "text.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace automaton
 {
@@ -43,7 +50,6 @@ namespace framework
   extern void setOrthographicProjection();
   extern void resetPerspectiveProjection();
   extern bool recordFrames;
-  extern bool showExitDialog;
 
   // Global viewport info
   GLint gViewport[4] = {0, 0, 1920, 1080}; // default values, will be overwritten on resize
@@ -224,19 +230,20 @@ namespace framework
    */
   void GUIrenderer::render()
   {
-    renderClear();
-    renderObjects();
-    renderUI();
-    #ifdef DEBUG
-    if (showDebugClick)
-    {
-      glColor3f(1.0f, 0.0f, 0.0f);
-      glPointSize(6.0f);
-      glBegin(GL_POINTS);
-      glVertex2f(debugClickX, debugClickY);
-      glEnd();
-    }
-    #endif
+      renderClear();
+      renderObjects();
+      renderUI();
+
+      #ifdef DEBUG
+      if (showDebugClick)
+      {
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glPointSize(6.0f);
+        glBegin(GL_POINTS);
+        glVertex2f(debugClickX, debugClickY);
+        glEnd();
+      }
+      #endif
   }
 
   /**
@@ -272,7 +279,7 @@ namespace framework
     int rectHeight = textHeight + 2 * paddingY;
     // Draw the text
     glColor3f(1.0f, 1.0f, 1.0f); // White color for text
-    drawString8(text, textX, textY); // Render the text at the calculated position
+    drawString(text, textX, textY, 8);
     // Draw the rectangle around the text
     glColor3f(1.0f, 1.0f, 1.0f); // White color for rectangle
     glLineWidth(2);
@@ -531,7 +538,11 @@ namespace framework
     glBegin(GL_POINTS);
     for (unsigned w = 0; w < W_USED; w++)
     {
-      Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
+      const auto& center = automaton::lcenters[w];
+      unsigned cx = center[0];
+      unsigned cy = center[1];
+      unsigned cz = center[2];
+      Cell &cell = getCell(lattice_curr, cx, cy, cz, w);
       float alpha = 0.5f;
       float r = 0.7f + (w & 1) * 0.3f;
       float g = 0.7f + ((w >> 1) & 1) * 0.3f;
@@ -559,7 +570,6 @@ namespace framework
       counts[{x, y}]++;
     }
   }
-
 
   /**
    * Renders 2D and 3D objects controlled by the mouse and keyboard.
@@ -803,12 +813,14 @@ namespace framework
     glEnd();
   }
 
+
   void GUIrenderer::renderUI()
   {
     glDisable(GL_DEPTH_TEST);
     setOrthographicProjection();
     glPushMatrix();
     glLoadIdentity();
+
     renderElapsedTime();
     drawPanel(35, 65, 170, gViewport[3] - 150);
     drawPanel(gViewport[2] - 260, 65, 250, gViewport[3] - 150);
@@ -825,47 +837,13 @@ namespace framework
     renderProjectionRadios();
     renderTomoRadios();
     renderHyperlink();
+
     unsigned long long displayTimer = replayFrames ? replayTimer : timer;
     progress->update(displayTimer);
     progress->render();
+
     if (showScenarioHelp)
       renderScenarioHelpPane();
-
-
-    if (showExitDialog)
-    {
-      const int boxWidth = 400;
-      const int boxHeight = 120;
-      int boxLeft = (gViewport[2] - boxWidth) / 2;
-      int boxBottom = (gViewport[3] - boxHeight) / 2;
-
-      // Background
-      glColor3f(0.1f, 0.1f, 0.1f);
-      glBegin(GL_QUADS);
-        glVertex2i(boxLeft, boxBottom);
-        glVertex2i(boxLeft + boxWidth, boxBottom);
-        glVertex2i(boxLeft + boxWidth, boxBottom + boxHeight);
-        glVertex2i(boxLeft, boxBottom + boxHeight);
-      glEnd();
-
-      // Border
-      glColor3f(1.0f, 1.0f, 1.0f);
-      glLineWidth(2);
-      glBegin(GL_LINE_LOOP);
-        glVertex2i(boxLeft, boxBottom);
-        glVertex2i(boxLeft + boxWidth, boxBottom);
-        glVertex2i(boxLeft + boxWidth, boxBottom + boxHeight);
-        glVertex2i(boxLeft, boxBottom + boxHeight);
-      glEnd();
-
-      // Text
-      glColor3f(1.0f, 1.0f, 0.0f);
-      drawString8("Are you sure you want to exit?", boxLeft + 40, boxBottom + 80);
-      drawString8("[Y] Yes     [N] No", boxLeft + 40, boxBottom + 40);
-    }
-
-
-
 
     glColor3f(0.5f, 0.5f, 0.5f);
     glBegin(GL_QUADS);
@@ -879,6 +857,7 @@ namespace framework
     glVertex2i(x, y + h);
     glEnd();
     logo->draw(gViewport[2] - 240, gViewport[3] - 325, 0.21);
+
     #ifdef DEBUG
     if (showDebugClick)
     {
@@ -889,6 +868,7 @@ namespace framework
       glEnd();
     }
     #endif
+
     scenarioHelpToggle->draw();
 
     if (recordFrames)
@@ -909,7 +889,7 @@ namespace framework
 
         // White "RECORD" text centered inside the box
         glColor3f(1.0f, 1.0f, 1.0f);  // White
-        drawString8("RECORD F5", 240, ypos + 20);  // Adjusted to fit inside the box
+        drawString("RECORD F5", 240, ypos + 20, 8);
       }
     }
     if (replayFrames)
@@ -927,14 +907,17 @@ namespace framework
         glColor3f(0.0f, 0.4f, 1.0f);    // Blue
         glRectf(230.0f, ypos, 326.0f, ypos + 30);
         glColor3f(1.0f, 1.0f, 1.0f);    // White
-        drawString8("REPLAY F6", 240, ypos + 20);
+        drawString("REPLAY F6", 240, ypos + 20, 8);
       }
     }
     glPopMatrix();
+
     list->update();
     list->render();
+
     resetPerspectiveProjection();
-    glEnable(GL_DEPTH_TEST);  // 🔹 Re-enable depth testing for 3D rendering
+    glEnable(GL_DEPTH_TEST);
+
     if (data3D[5].getState())
       renderCounts();
   }
@@ -945,7 +928,7 @@ namespace framework
     char s[64];
     sprintf(s, "Elapsed %.1fs ", millis / 1000.0);
     glColor3f(1.0f, 1.0f, 1.0f);
-    drawString8(s, 50, gViewport[3] - 40);
+    drawString(s, 50, gViewport[3] - 40, 8);
   }
 
   void GUIrenderer::renderSimulationStats()
@@ -978,9 +961,9 @@ namespace framework
     if (showHelp)
     {
       for (int i = 0; i < 11; ++i)
-        drawString8(ui_help[i], mode->width - 630, 20 * i + mode->height - 250);
+        drawString(ui_help[i], mode->width - 630, 20 * i + mode->height - 250, 8);
       for (int i = 0; i < 4; ++i)
-        drawString8(record_help[i], 230, 20 * i + mode->height - 250);
+        drawString(record_help[i], 230, 20 * i + mode->height - 250, 8);
     }
   }
 
@@ -1036,11 +1019,11 @@ namespace framework
   void GUIrenderer::renderSectionLabels()
   {
     glColor3f(1.0f, 1.0f, 0.5f);
-    drawString12("Data", 50, 85);
-    drawString12("Delays", 50, 405);
-    drawString12("Views", 50, 551);
-    drawString12("Projection", 50, 721);
-    drawString12("Tomo", 50, 830);
+    drawString("Data", 50, 85, 12);
+    drawString("Delays", 50, 405, 12);
+    drawString("Views", 50, 551, 12);
+    drawString("Projection", 50, 721, 12);
+    drawString("Tomo", 50, 830, 12);
   }
 
   void GUIrenderer::renderCheckboxes()
@@ -1235,7 +1218,7 @@ namespace framework
     int lineY = paneY + 25;
     while (std::getline(iss, line))
     {
-      drawString12(line.c_str(), paneX + 20, lineY);
+      drawString(line.c_str(), paneX + 20, lineY, 12);
       lineY += 20;
     }
   }
@@ -1244,6 +1227,66 @@ namespace framework
   {
     for (unsigned i = 0; i < EL * EL * EL; ++i)
       voxels[i] = RGB(0, 0, 0);  // Black background
+  }
+
+  void framework::GUIrenderer::drawRoundedRect(float x, float y, float w, float h, float radius)
+  {
+      const int seg = 20;
+      glBegin(GL_POLYGON);
+
+      // TOP-LEFT corner (Y down = positive Y is down)
+      for (int i = 0; i <= seg; ++i) {
+          float a = (M_PI / 2.0f) * (float)i / seg;                    // 0° → 90°
+          glVertex2f(x + radius + radius * cosf(a),
+                     y + radius + radius * sinf(a));
+      }
+      // TOP-RIGHT
+      for (int i = 0; i <= seg; ++i) {
+          float a = (M_PI / 2.0f) + (M_PI / 2.0f) * (float)i / seg;    // 90° → 180°
+          glVertex2f(x + w - radius + radius * cosf(a),
+                     y + radius + radius * sinf(a));
+      }
+      // BOTTOM-RIGHT
+      for (int i = 0; i <= seg; ++i) {
+          float a = M_PI + (M_PI / 2.0f) * (float)i / seg;             // 180° → 270°
+          glVertex2f(x + w - radius + radius * cosf(a),
+                     y + h - radius + radius * sinf(a));
+      }
+      // BOTTOM-LEFT
+      for (int i = 0; i <= seg; ++i) {
+          float a = 3*M_PI/2.0f + (M_PI / 2.0f) * (float)i / seg;      // 270° → 360°
+          glVertex2f(x + radius + radius * cosf(a),
+                     y + h - radius + radius * sinf(a));
+      }
+      glEnd();
+  }
+
+  void framework::GUIrenderer::drawRoundedRectOutline(float x, float y, float w, float h, float radius)
+  {
+      const int seg = 20;
+      glBegin(GL_LINE_LOOP);
+
+      for (int i = 0; i <= seg; ++i) {
+          float a = (M_PI / 2.0f) * (float)i / seg;
+          glVertex2f(x + radius + radius * cosf(a),
+                     y + radius + radius * sinf(a));
+      }
+      for (int i = 0; i <= seg; ++i) {
+          float a = (M_PI / 2.0f) + (M_PI / 2.0f) * (float)i / seg;
+          glVertex2f(x + w - radius + radius * cosf(a),
+                     y + radius + radius * sinf(a));
+      }
+      for (int i = 0; i <= seg; ++i) {
+          float a = M_PI + (M_PI / 2.0f) * (float)i / seg;
+          glVertex2f(x + w - radius + radius * cosf(a),
+                     y + h - radius + radius * sinf(a));
+      }
+      for (int i = 0; i <= seg; ++i) {
+          float a = 3*M_PI/2.0f + (M_PI / 2.0f) * (float)i / seg;
+          glVertex2f(x + radius + radius * cosf(a),
+                     y + h - radius + radius * sinf(a));
+      }
+      glEnd();
   }
 
 }

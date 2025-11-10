@@ -17,17 +17,12 @@
 
 // ✅ Window dimensions
 constexpr int WINDOW_WIDTH = 600;
-constexpr int WINDOW_HEIGHT = 650;
-
-// ✅ Button structure for clickable UI elements
-struct XButton
-{
-  float x, y, w, h;
-  const char* label;
-};
+// Increased height to accommodate the new "Replay" button
+constexpr int WINDOW_HEIGHT = 700;
 
 // ✅ Forward declarations for simulation entry points
 int runSimulation(int scenario, bool paused);
+int runReplay();
 int runStatistics();
 
 #endif /* SPLASH_H_ */

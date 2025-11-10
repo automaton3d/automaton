@@ -7,6 +7,7 @@
 #include <cassert>
 #include <chrono>
 #include <algorithm>
+#include <array>
 #include "simulation.h"
 
 namespace automaton
@@ -48,6 +49,17 @@ namespace automaton
   bool reloc_delay   = false;
 
   string lastAllocationError;
+
+  // Layer tracking
+
+  std::vector<std::array<unsigned, 3>> lcenters;
+
+  void trackCenter(unsigned x, unsigned y, unsigned z, unsigned w)
+  {
+    lcenters[w][0] = x;
+    lcenters[w][1] = y;
+    lcenters[w][2] = z;
+  }
 
   /*
    * Executes a one tick operation in every cell.
@@ -114,10 +126,15 @@ namespace automaton
             {
               reissue(curr, draft, forward, north, west, down, south, east, up);
             }
-            /****** XXX ******/
+            /****** FLOOD ******/
             else if (curr.k < FLOOD)
             {
               flood(curr, draft, forward, north, west, down, south, east, up);
+            }
+            /****** UPDATE LAYER TRACKING ******/
+            if (curr.d == 0)
+            {
+              trackCenter(x, y, z, w);
             }
             /****** UPDATE COUNTERS ******/
             // Update tick counter

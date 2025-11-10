@@ -21,6 +21,7 @@ namespace framework
                     const GLdouble projection[16],
                     const GLint viewport[4],
                     float &winX, float &winY);
+  void drawString(std::string s, int x, int y, int size);
 }
 
 
