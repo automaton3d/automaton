@@ -22,6 +22,25 @@ namespace framework
   extern unsigned tomo_x, tomo_y, tomo_z;
 }
 
+// Near the top of bridge.cpp
+namespace tomo_util
+{
+  inline bool isTomogramMatch(unsigned x, unsigned y, unsigned z) {
+    using namespace framework;
+    if (!tomo || !tomo->getState()) return true;
+    if (tomoDirs.empty()) return true;
+
+    // XY → fix Z
+    if (tomoDirs[0].isSelected()) return z == tomo_z;
+    // YZ → fix X
+    if (tomoDirs[1].isSelected()) return x == tomo_x;
+    // ZX → fix Y
+    if (tomoDirs[2].isSelected()) return y == tomo_y;
+
+    return true;
+  }
+}
+
 namespace automaton
 {
   extern unsigned EL;
@@ -57,62 +76,38 @@ void updateBuffer()
   /**
    * This is a bridge between the model and the graphical framework.
    */
-  void updateBuffer()
+// bridge.cpp (non-CUDA updateBuffer)
+void updateBuffer()
+{
+  int w = framework::list->getSelected();
+  unsigned index3D = 0;
+  for (unsigned x = 0; x < EL; x++)
   {
-	int w = framework::list->getSelected();
-    unsigned index3D = 0;
-    for (unsigned x = 0; x < EL; x++)
+    for (unsigned y = 0; y < EL; y++)
     {
-      for (unsigned y = 0; y < EL; y++)
+      for (unsigned z = 0; z < EL; z++)
       {
-        for (unsigned z = 0; z < EL; z++)
+        if (!tomo_util::isTomogramMatch(x, y, z))
         {
-          bool visible = true;
-          // Apply tomography filter if enabled
-          if (framework::tomo && framework::tomo->getState())
-          {
-            if (framework::tomoDirs[0].isSelected())      // XY → fix Z
-              visible = (z == framework::tomo_z);
-            else if (framework::tomoDirs[1].isSelected()) // YZ → fix X
-              visible = (x == framework::tomo_x);
-            else if (framework::tomoDirs[2].isSelected()) // ZX → fix Y
-              visible = (y == framework::tomo_y);
-          }
-          if (!visible)
-          {
-            voxels[index3D++] = RGB(0, 0, 0);  // Black for hidden voxels
-            continue;
-          }
-          Cell &cell = getCell(lattice_curr, x, y, z, w);
-          if (cell.t == cell.d)
-          {
-            // Select wavefront cells
-            if (cell.a == W_USED)
-              voxels[index3D] = RGB(255, 0, 0);     // Red (orphan)
-      	    else if (cell.t == 0)
-      	      voxels[index3D] = RGB(0, 255, 0);     // Green for fresh wavefront seed
-            else
-              voxels[index3D] = RGB(255, 255, 255); // White (wavefront match)
-          }
-          else
-          {
-            voxels[index3D] = RGB(0, 0, 0); // Black
-          }
-          /*
-          else if (cell.cB)
-          else if (cell.t < RMAX / 2)
-          {
-            voxels[index3D] = RGB(100, 100, 255);   // Blue (contraction/reissue)
-          }
-          else
-          {
-            voxels[index3D] = RGB(0, 0, 0); // Black
-          }
-          */
-          index3D++;
+          voxels[index3D++] = RGB(0, 0, 0);
+          continue;
         }
+
+        Cell &cell = getCell(lattice_curr, x, y, z, w);
+        if (cell.t == cell.d)
+        {
+          if (cell.a == W_USED)      voxels[index3D] = RGB(255, 0, 0);
+          else if (cell.t == 0)      voxels[index3D] = RGB(0, 255, 0);
+          else                        voxels[index3D] = RGB(255, 255, 255);
+        }
+        else
+        {
+          voxels[index3D] = RGB(0, 0, 0);
+        }
+        index3D++;
       }
     }
   }
+}
 #endif
 }

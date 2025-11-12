@@ -17,8 +17,10 @@
 
 // ✅ Window dimensions
 constexpr int WINDOW_WIDTH = 600;
-// Increased height to accommodate the new "Replay" button
+// Increased height to accommodate the new "Replay" button and panel layout
 constexpr int WINDOW_HEIGHT = 700;
+
+void drawRaisedPanel(float x, float y, float w, float h);
 
 // ✅ Forward declarations for simulation entry points
 int runSimulation(int scenario, bool paused);

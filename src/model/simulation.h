@@ -134,13 +134,13 @@ namespace automaton
   void calculateParameters(unsigned L, unsigned W);
   void* SimulationLoop();
   void DeleteAutomaton();
-  void swap_lattices();
+  bool swap_lattices();
   void update();
   bool initSimulation(int step);
   void initSpirals();
   void replicate();
   void markPoints(unsigned p[3], int w);
-  void simulation();
+  bool simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
   bool convolute0(Cell& curr, Cell &draft, Cell &mirror);
   bool convolute1(Cell& curr, Cell &draft, Cell &mirror);

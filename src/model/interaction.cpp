@@ -15,7 +15,7 @@ namespace automaton
   extern unsigned W_USED;
 
   int count = 0;
-  int scenario;
+  int scenario = -1;
 
   bool ctrl = true; // debug
 

@@ -37,12 +37,12 @@ namespace framework
     LayerList(unsigned wDim, int visibleLayers = 25)
       : wDim_(wDim), visibleLayers_(visibleLayers), lastFirstIndex_(-1)
     {
-      lastPositions_.resize(wDim_);
+      lastCellCoordinates_.resize(wDim_);
       for (unsigned w = 0; w < wDim_; w++)
       {
-    	lastPositions_[w][0] = CENTER;
-    	lastPositions_[w][1] = CENTER;
-    	lastPositions_[w][2] = CENTER;
+    	lastCellCoordinates_[w][0] = CENTER;
+    	lastCellCoordinates_[w][1] = CENTER;
+    	lastCellCoordinates_[w][2] = CENTER;
       }
       char s[100];
       for (unsigned w = 0; w < wDim_; w++)
@@ -76,10 +76,12 @@ namespace framework
       int endLimit = std::min<int>(visibleLayers_, wDim_);
       for (int w = 0; w < endLimit; w++)
       {
-        Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-        bool changed = (cell.x[0] != lastPositions_[w][0] ||
-                        cell.x[1] != lastPositions_[w][1] ||
-                        cell.x[2] != lastPositions_[w][2]);
+
+   	    const auto& center = automaton::lcenters[w];
+    	Cell &cell = getCell(lattice_curr, center[0], center[1], center[2], w);
+    	bool changed = (cell.x[0] != lastCellCoordinates_[w][0] ||
+                        cell.x[1] != lastCellCoordinates_[w][1] ||
+                        cell.x[2] != lastCellCoordinates_[w][2]);
         glColor3f(changed ? 1.0f : 1.0f,
                   changed ? 0.0f : 1.0f,
                   changed ? 1.0f : 0.0f);
@@ -87,9 +89,9 @@ namespace framework
         char s[100];
         sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
         drawString(s, 1780, 120 + 25 * w, 8);
-        lastPositions_[w][0] = cell.x[0];
-        lastPositions_[w][1] = cell.x[1];
-        lastPositions_[w][2] = cell.x[2];
+        lastCellCoordinates_[w][0] = cell.x[0];
+        lastCellCoordinates_[w][1] = cell.x[1];
+        lastCellCoordinates_[w][2] = cell.x[2];
       }
     }
 
@@ -157,7 +159,8 @@ namespace framework
     unsigned wDim_;
     int visibleLayers_;
     std::vector<Radio> layers_;
-    std::vector<std::array<unsigned, 3>> lastPositions_;
+    std::vector<std::array<unsigned, 3>> lastCellCoordinates_;
+
     int lastFirstIndex_;
   };
 

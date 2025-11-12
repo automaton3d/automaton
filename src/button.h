@@ -19,6 +19,11 @@ public:
       y_ = y;
     }
 
+    float getX() const { return x_; }
+    float getY() const { return y_; }
+    float getWidth() const { return w_; }
+    // TODO: float getHeight() const { return h; }
+
 private:
     float x_, y_, w_, h_;
     const char* label_;

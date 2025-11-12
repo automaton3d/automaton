@@ -161,8 +161,9 @@ namespace automaton
    * Swaps lattices after an update.
    * (Counter k is always identical in all cells)
    */
-  void swap_lattices()
+  bool swap_lattices()
   {
+	bool newLightFrame = false;
     // Update the current lattice
     std::copy(
         lattice_draft.begin(),
@@ -189,11 +190,13 @@ namespace automaton
           }
         }
       }
+      newLightFrame = true;
     }
     if (repr.k < CONVOL)
     {
       shiftMirror();
     }
+    return newLightFrame;
   }
 
   //extern int count;
@@ -201,11 +204,11 @@ namespace automaton
   /*
    * One step of the CA.
    */
-  void simulation()
+  bool simulation()
   {
     // Run one step of the simulation
     update_lattice();
-    swap_lattices();
+    return swap_lattices();
   }
 
   /*

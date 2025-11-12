@@ -23,8 +23,8 @@
 #include "button.h"
 
 #define DEBUG
-// Inclusões GLM (Seu projeto)
 #define GLM_FORCE_RADIANS
+
 #include <glm/gtc/type_ptr.hpp> // value_ptr
 #include <glm/gtc/matrix_transform.hpp> // perspective
 
@@ -37,6 +37,9 @@
 #include "progress.h"
 
 #define WIDTH	480     // graph width
+
+#define SIMULATION 0
+#define REPLAY 1
 
 namespace framework
 {
@@ -91,7 +94,7 @@ namespace framework
       void renderTomoControls();
       void renderPauseOverlay();
       void renderSectionLabels();
-      void renderCheckboxes();
+      void render3Dboxes();
       void renderDelays();
       void renderViewpointRadios();
       void renderProjectionRadios();
@@ -114,6 +117,7 @@ namespace framework
                        float &winX, float &winY);
       inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
 
+  private:
       // Member variables
       glm::mat4 mProjection_;
       std::vector<std::array<unsigned, 3>> lastPositions_;

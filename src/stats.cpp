@@ -17,8 +17,6 @@
 namespace automaton
 {
   extern unsigned EL;
-  void swap_lattices();
-  void simulation();
   bool initSimulation(int step);
   extern std::vector<Cell> lattice_curr;
 }
@@ -81,7 +79,7 @@ void consolePrintf(const char* format, ...)
 // Simulation thread function
 DWORD WINAPI SimulationThread(LPVOID lpParam)
 {
-  consolePrintf("Statistics simulation thread launched...\n");
+  consolePrintf("Launching statistics simulation thread...\n");
   // Initialize simulation
   for (int step = 0; automaton::initSimulation(step); step++);
   consolePrintf("Simulation initialized, starting loop...\n");
@@ -376,8 +374,9 @@ int run()
 
   glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
 
-  // Launch the simulation thread
-  consolePrintf("Launching simulation thread...\n");
+  // Launch the statistics thread (renamed for clarity)
+  consolePrintf("Launching statistics simulation thread...\n");
+
   DWORD dwThreadId;
   simulationThread = CreateThread(NULL, 0, SimulationThread, NULL, 0, &dwThreadId);
 
@@ -387,6 +386,7 @@ int run()
     DeleteCriticalSection(&consoleMutex);
     return -1;
   }
+
   glutMainLoop(); // blocks here until window is closed
   // Cleanup
   consolePrintf("Window closed, stopping simulation...\n");

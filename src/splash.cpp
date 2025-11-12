@@ -17,13 +17,75 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+  // Function to draw a 3D-raised rectangular panel using beveled edges
+  void drawRaisedPanel(float x, float y, float w, float h)
+  {
+    // Panel coordinates are expected to be in NDC for simplicity
+    float halfW = w / 2.0f;
+    float halfH = h / 2.0f;
+    float x1 = x - halfW;
+    float y1 = y - halfH;
+    float x2 = x + halfW;
+    float y2 = y + halfH;
+    float bevel = 0.005f; // Small offset for the bevel effect
+
+    // 1. Dark Shadow (Bottom and Right edges) - makes the panel look "raised"
+    glColor3f(0.5f, 0.5f, 0.5f); // Dark gray
+    glBegin(GL_QUADS);
+    // Bottom edge
+    glVertex2f(x1, y1);
+    glVertex2f(x2, y1);
+    glVertex2f(x2, y1 - bevel);
+    glVertex2f(x1, y1 - bevel);
+    // Right edge
+    glVertex2f(x2, y1);
+    glVertex2f(x2 + bevel, y1);
+    glVertex2f(x2 + bevel, y2);
+    glVertex2f(x2, y2);
+    glEnd();
+
+    // 2. Light Highlight (Top and Left edges)
+    glColor3f(1.0f, 1.0f, 1.0f); // White
+    glBegin(GL_QUADS);
+    // Top edge
+    glVertex2f(x1, y2);
+    glVertex2f(x2, y2);
+    glVertex2f(x2, y2 + bevel);
+    glVertex2f(x1, y2 + bevel);
+    // Left edge
+    glVertex2f(x1, y1);
+    glVertex2f(x1, y2);
+    glVertex2f(x1 - bevel, y2);
+    glVertex2f(x1 - bevel, y1);
+    glEnd();
+
+    // 3. Inner Fill Color
+    glColor3f(0.85f, 0.85f, 0.9f); // Slightly darker than background
+    glBegin(GL_QUADS);
+    glVertex2f(x1, y1);
+    glVertex2f(x2, y1);
+    glVertex2f(x2, y2);
+    glVertex2f(x1, y2);
+    glEnd();
+  }
+
+namespace automaton
+{
+  extern int scenario;
+}
+
 namespace splash
 {
   int lattice_size = 21;
   int numLayers = 10;
-  int selection = 0;
+  int selection = -1;
   bool shouldExit = false;
   bool helpHover = false;
+
+  float panelW = 1.8f;
+  float panelH = 0.7f;
+  float panelX = 0.0f;
+  float panelY = -0.34f;
 
   // Dropdown options
   std::vector<std::string> sizeOptions = {
@@ -39,8 +101,8 @@ namespace splash
   };
 
   // UI Elements
-  Dropdown sizeDropdown(-0.85f, -0.25f, 0.4f, 0.08f, sizeOptions);
-  Dropdown layerDropdown(-0.85f, -0.40f, 0.4f, 0.08f, layerOptions);
+  Dropdown sizeDropdown(-0.85f, -0.17f, 0.4f, 0.08f, sizeOptions);
+  Dropdown layerDropdown(-0.85f, -0.32f, 0.4f, 0.08f, layerOptions);
 
   std::vector<std::string> scenarioOptions =
   {
@@ -63,23 +125,11 @@ namespace splash
                             scenarioWidth,
                             0.08f,
                             scenarioOptions);
-  // Calculate position in NDC, then convert for bottom-left origin
-  float ndcX = scenarioDropdown.x;
-  float ndcY = scenarioDropdown.y - 0.12f;
-
-  // Convert NDC to pixel (bottom-left origin)
-  int tickX = (int)((ndcX + 1.0f) * WINDOW_WIDTH / 2.0f);
-  int tickY = (int)((ndcY + 1.0f) * WINDOW_HEIGHT / 2.0f);
-
-  Tickbox startPausedBox(tickX, tickY, "Start paused");
-
-  // --- UPDATED BUTTON POSITIONS (Moved up by ~5 pixels / 0.015f NDC) ---
-  Button simBtn(-0.5f, -0.585f, 1.0f, 0.12f, "Simulation", Button::NDC);
-  Button replayBtn(-0.5f, -0.735f, 1.0f, 0.12f, "Replay", Button::NDC);
-  Button statBtn(-0.5f, -0.885f, 1.0f, 0.12f, "Statistics", Button::NDC);
-  // Help link remains at the very bottom
+  Tickbox startPausedBox(0, 0, "Start paused");
+  Button simBtn(-0.3f, -0.45f, 0.7f, 0.12f, "Simulation", Button::NDC);
+  Button replayBtn(-0.3f, -0.85f, 0.7f, 0.12f, "Replay", Button::NDC);
+  Button statBtn(-0.3f, -0.63f, 0.7f, 0.12f, "Statistics", Button::NDC);
   Button helpLink(-0.15f, -0.96f, 0.3f, 0.05f, "Help", Button::NDC);
-  // ----------------------------------------------------------------------
 
   framework::Logo *logo_splash = nullptr;
 
@@ -93,6 +143,17 @@ namespace splash
 
   void drawControls()
   {
+    // 1. Draw the Raised Panel first
+    drawRaisedPanel(panelX, panelY, panelW, panelH);
+    // Draw grouping panel around "Start paused" and "Simulation"
+    float groupX = simBtn.getX() + simBtn.getWidth() / 2.0f; // center X
+    float groupY = simBtn.getY() + 0.1f; // center Y between tickbox and button
+    float groupW = simBtn.getWidth() + 0.08f; // slightly wider than button
+    float groupH = 0.26f; // enough to wrap tickbox and button
+
+    drawRaisedPanel(groupX, groupY, groupW, groupH);
+
+    // 2. Draw Labels
     drawLabel("Size", sizeDropdown.x, sizeDropdown.y + sizeDropdown.height + 0.01f);
     drawLabel("Layers", layerDropdown.x, layerDropdown.y + layerDropdown.height + 0.01f);
     drawLabel("Scenario", scenarioDropdown.x, scenarioDropdown.y + scenarioDropdown.height + 0.01f);
@@ -101,25 +162,25 @@ namespace splash
     bool layerOpen    = layerDropdown.isOpen;
     bool scenarioOpen = scenarioDropdown.isOpen;
 
-    // Draw all headers first
+    // 3. Draw Dropdown Headers
     sizeDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
     layerDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
     scenarioDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    // Draw buttons below dropdowns
-    simBtn.draw(true);
-    replayBtn.draw(true); // Draw the new button
-    statBtn.draw(false);
+    // 4. Draw Buttons (Simulation is inside the panel, others outside)
+    simBtn.draw(true); // Inside panel
+    replayBtn.draw(true); // Outside panel
+    statBtn.draw(false); // Outside panel
 
-    // Re-draw the open dropdown last to bring it to front
+    // 5. Re-draw the open dropdown last to bring it to front
     if (sizeOpen)
         sizeDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
     else if (layerOpen)
         layerDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
     else if (scenarioOpen)
         scenarioDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
-    //
-    // Draw the "Start paused" tickbox
+
+    // 6. Draw the "Start paused" tickbox (Requires repositioning)
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -128,6 +189,19 @@ namespace splash
     glPushMatrix();
     glLoadIdentity();
     glColor3f(1.0f, 1.0f, 1.0f);
+
+    // FIX: Use private members x_, y_, and w_ for Button position/size
+    float ndcX = simBtn.getX(); // Right side of the Simulation button
+    float ndcY = simBtn.getY() + 0.15f;
+
+    // Convert new NDC to pixel (bottom-left origin)
+    int tickX = (int)((ndcX + 1.0f) * WINDOW_WIDTH / 2.0f);
+    int tickY = (int)((ndcY + 1.0f) * WINDOW_HEIGHT / 2.0f);
+
+    // FIX: Update the private position members of the Tickbox directly
+    startPausedBox.setX(tickX);
+    startPausedBox.setY(tickY);
+
     startPausedBox.draw();
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -163,7 +237,7 @@ namespace splash
     helpLink.drawAsHyperlink(helpHover);
     drawControls();
     if (logo_splash->valid())
-    	logo_splash->draw(0.0f, 0.35f, 0.8f); // Centered, half-screen size
+    	logo_splash->draw(0.0f, 0.45f, 0.6f); // Centered, half-screen size
     glutSwapBuffers();
   }
 
@@ -236,7 +310,12 @@ namespace splash
         automaton::calculateParameters(lattice_size, numLayers);
         if (!automaton::tryAllocate(lattice_size, numLayers))
           MessageBox(NULL, "Memory allocation failed. Try a smaller lattice size or fewer layers.", "Allocation Error", MB_OK | MB_ICONWARNING);
-        else { selection = 2; glutLeaveMainLoop(); }
+        else {
+          // Set the scenario before launching statistics
+          automaton::scenario = 7; // 7 is the full simulation
+          selection = 2;
+          glutLeaveMainLoop();
+        }
       }
       else if (helpLink.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
       {
@@ -284,15 +363,20 @@ namespace splash
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
   }
 
-  void closeFunc() { shouldExit = true; }
+  void closeFunc() {
+      if (selection == 0 || selection == 1 || selection == 2) {
+          // valid selection already made — do not override
+          return;
+      }
+      selection = -1; // mark as exit
+  }
 
   void passiveMotion(int x, int y)
   {
     helpHover = helpLink.contains(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
     glutPostRedisplay();
   }
-
-}
+} // end namespace splash
 
 void reshape(int w, int h)
 {
@@ -342,11 +426,30 @@ int main(int argc, char** argv)
   splash::startPausedBox.setColor(border, label, fillOn, fillOff);
 
   glutMainLoop();
-  if (splash::selection == 0)
-      return runSimulation(splash::scenarioDropdown.getSelectedIndex(), splash::startPausedBox.getState());
-  if (splash::selection == 1)
-      return runReplay();
-  if (splash::selection == 2)
-      return runStatistics();
-  return 0;
+
+  // Decide what to do after leaving the splash
+  switch (splash::selection) {
+      case -1:
+          // User closed the splash window → exit quietly
+          return 0;
+
+      case 0:
+          // Simulation button pressed
+          return runSimulation(
+              splash::scenarioDropdown.getSelectedIndex(),
+              splash::startPausedBox.getState()
+          );
+
+      case 1:
+          // Replay button pressed
+          return runReplay();
+
+      case 2:
+          // Statistics button pressed
+          return runStatistics();
+
+      default:
+          // No valid selection → exit quietly
+          return 0;
+  }
 }

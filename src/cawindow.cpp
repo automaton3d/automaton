@@ -23,9 +23,12 @@
 #include "logo.h"
 #include <recorder.h>
 #include "text.h"
+#include "replay_progress.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
+
+int GUImode;
 
 namespace automaton
 {
@@ -34,6 +37,8 @@ namespace automaton
 
 namespace framework
 {
+
+  using namespace automaton;
 
   #ifdef DEBUG
   double debugClickX = -1;
@@ -64,7 +69,7 @@ namespace framework
   extern vector<Radio> tomoDirs;
   extern bool showHelp;
   extern Tickbox* scenarioHelpToggle;
-  extern unsigned tomo_x, tomo_y, tomo_z;
+  extern ReplayProgressBar *rep_progress;
 
   // Logo
 
@@ -72,12 +77,7 @@ namespace framework
   bool logoCreated = false;
 
   // Frame recorder
-
-  // Change from:
-  // FrameRecorder recorder;
-  // To:
-  CompactFrameRecorder recorder;
-//  FrameRecorder recorder;
+  FrameRecorder recorder;
   bool recordFrames = false;
   bool replayFrames = false;
   size_t replayIndex = 0;
@@ -91,104 +91,37 @@ namespace framework
   unsigned long long replayTimer = 0;
   bool showExitDialog = false;
 
-  // In cawindow.cpp, modify updateReplay() function:
-
-  /*
-  void updateReplay()
-  {
-    using namespace automaton;
-
-    if (replayIndex < recorder.frames.size())
-    {
-      const Frame& currentFrame = recorder.frames[replayIndex];
-
-      // If it's a keyframe, apply directly
-      // If it's a delta frame, we need to apply it on top of current state
-      if (currentFrame.isKeyframe) {
-        // Clear and rebuild from keyframe
-        std::fill(voxels, voxels + EL * EL * EL, RGB(0, 0, 0));
-      }
-
-      currentFrame.apply(lattice_curr);
-
-      // Update voxel buffer for rendering
-      int selectedLayer = list->getSelected();
-
-      // Clear voxels for non-keyframes (delta updates)
-      if (!currentFrame.isKeyframe) {
-        std::fill(voxels, voxels + EL * EL * EL, RGB(0, 0, 0));
-      }
-
-      // Render all active cells in current layer
-      for (unsigned x = 0; x < EL; ++x) {
-        for (unsigned y = 0; y < EL; ++y) {
-          for (unsigned z = 0; z < EL; ++z) {
-            const Cell& cell = getCell(lattice_curr, x, y, z, selectedLayer);
-
-            bool visible = true;
-            if (tomo && tomo->getState()) {
-              if (tomoDirs[0].isSelected())      visible = (z == tomo_z);
-              else if (tomoDirs[1].isSelected()) visible = (x == tomo_x);
-              else if (tomoDirs[2].isSelected()) visible = (y == tomo_y);
-            }
-            if (!visible) continue;
-
-            unsigned index3D = x * EL * EL + y * EL + z;
-            if (index3D >= EL * EL * EL) continue;
-
-            // Determine color based on cell state
-            if (cell.t == cell.d) {
-              if (cell.a == W_USED) voxels[index3D] = RGB(255, 0, 0);
-              else if (cell.d == 0) voxels[index3D] = RGB(0, 255, 0);
-              else voxels[index3D] = RGB(255, 255, 255);
-            }
-
-            if (data3D[2].getState() && cell.sB) {
-              voxels[index3D] = RGB(0, 255, 255);  // Cyan (spin)
-            }
-            if (data3D[1].getState() && cell.pB) {
-              voxels[index3D] = RGB(255, 255, 0);  // Yellow (momentum)
-            }
-          }
-        }
-      }
-
-      ++replayIndex;
-      if (replayIndex >= recorder.frames.size()) {
-        replayIndex = 0;
-        replayTimer -= recorder.frames.size();
-      } else {
-        ++replayTimer;
-      }
-    }
-  }
-  */
-
   bool updateReplay()
   {
-    using namespace automaton;
+      if (recorder.frames.empty())
+          return false;
 
-    if (recorder.frames.size() == 0)
-      return false;
-    if (replayIndex < recorder.frames.size())
-    {
-      const Frame& currentFrame = recorder.frames[replayIndex];
+      if (replayIndex < recorder.frames.size())
+      {
+          const Frame& currentFrame = recorder.frames[replayIndex];
 
-      // Reconstruct voxels directly from compact format
-      recorder.reconstructVoxels(currentFrame, voxels);
+          // Reconstruct voxels and lattice
+          recorder.reconstructVoxels(currentFrame, voxels, list->getSelected());
+          recorder.applyFrame(currentFrame, lattice_curr);
 
-      // Optional: also update lattice if needed
-      recorder.applyFrame(currentFrame, lattice_curr);
+          // Update lcenters
+          for (const auto& layer : currentFrame.layers)
+          {
+              if (layer.w < automaton::W_USED)
+              {
+                  automaton::lcenters[layer.w][0] = layer.center_x;
+                  automaton::lcenters[layer.w][1] = layer.center_y;
+                  automaton::lcenters[layer.w][2] = layer.center_z;
+              }
+          }
 
-      ++replayIndex;
-      if (replayIndex >= recorder.frames.size()) {
-        replayIndex = 0;
-        replayTimer -= recorder.frames.size();
-      } else {
-        ++replayTimer;
+          // ✅ NEW: Update replay progress bar
+          if (rep_progress)
+            rep_progress->update(replayIndex + 1, recorder.frames.size());
+          ++replayIndex;
+          timer += FRAME;
       }
-    }
-    return true;
+      return true;
   }
 
   /**
@@ -603,7 +536,7 @@ namespace framework
                   break;
 
               case GLFW_KEY_F5:
-                  if (!replayFrames) {
+                  if (GUImode == SIMULATION && !replayFrames) {
                       if (!recordFrames) {
                           // Starting recording - ensure it's enabled
                           recorder.recordingEnabled_ = true;
@@ -613,13 +546,20 @@ namespace framework
                   break;
 
               case GLFW_KEY_F6:
-                  replayFrames = !replayFrames;
-                  replayIndex = 0;
-                  recordFrames = false;
+                  if (GUImode == REPLAY || 1)
+                  {
+                      replayFrames = !replayFrames;
+                      replayIndex = 0;
+                      recordFrames = false;
+
+                      // ✅ Reset progress bar
+                      if (framework::rep_progress)
+                          framework::rep_progress->update(0, recorder.frames.size());
+                  }
                   break;
 
               case GLFW_KEY_F7:
-                  if (!recordFrames && !replayFrames && !pause)  // Only save when NOT paused
+                  if (GUImode == SIMULATION && !recordFrames && !replayFrames && !pause)
                   {
                       recorder.saveToFile("frames.dat");
                       savePopup = true;
@@ -627,12 +567,24 @@ namespace framework
                   break;
 
               case GLFW_KEY_F8:
-                  if (!recordFrames && !replayFrames && !pause)  // Only load when NOT paused
+                  if (GUImode == REPLAY)
                   {
-                      recorder.loadFromFile("frames.dat");
-                      timer = recorder.savedTimer;
-                      automaton::scenario = recorder.savedScenario;
-                      loadPopup = true;
+                      if (!recordFrames && !replayFrames && !pause)  // Only load when NOT paused
+                      {
+                          try {
+                              recorder.loadFromFile("frames.dat");
+                              timer = recorder.savedTimer;
+                              automaton::scenario = recorder.savedScenario;
+                              loadPopup = true;
+                          }
+                          catch (const std::exception& e) {
+                              // Launch toast notification on failure
+                              toastMessage = std::string("Failed to load frames.dat");
+                              toastStartTime = glfwGetTime();
+                              toastActive = true;
+                          }
+                      }
+                      scenarioHelpToggle->setState(false);
                   }
                   break;
 
@@ -775,9 +727,13 @@ namespace framework
 
   void CAWindow::sizeCallback(GLFWwindow *window, int width, int height)
   {
-    instance().mRenderer_.resize(width, height);
-    instance().mInteractor_.setScreenSize(width, height);
-    instance().mAnimator_.setScreenSize(width, height);
+      instance().mRenderer_.resize(width, height);
+      instance().mInteractor_.setScreenSize(width, height);
+      instance().mAnimator_.setScreenSize(width, height);
+
+      // ✅ Update replay progress bar position
+      if (framework::rep_progress)
+          framework::rep_progress->setPosition(width, height, 100);
   }
 
   /*
@@ -797,7 +753,12 @@ namespace framework
       {
         if (replayFrames)
         {
-          if (!updateReplay())
+          if (updateReplay())
+          {
+            framework::timer++;
+            Sleep(250);
+          }
+          else
           {
         	replayFrames = false;
             toastMessage = "No frames to replay.";
@@ -805,10 +766,9 @@ namespace framework
             toastActive = true;
           }
         }
-        else
+        else if (GUImode == SIMULATION)
         {
-          automaton::simulation();
-          if (recordFrames)
+          if (automaton::simulation() && recordFrames)
             recorder.recordFrame(automaton::lattice_curr, timer, automaton::scenario);
           automaton::updateBuffer();
           framework::timer++;
@@ -833,7 +793,7 @@ namespace framework
    */
   int CAWindow::run()
   {
-  // Launch the loading window
+    // Launch the loading window
     showLoadingWindow();
     // Get the primary monitor's dimensions
     GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
@@ -849,7 +809,7 @@ namespace framework
         return 1;
     }
     int width = mode->width;
-  int height = mode->height;
+    int height = mode->height;
     // Create a borderless GLFW window and center it on the screen
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
     // Set up OpenGL for basic text rendering
@@ -888,6 +848,7 @@ namespace framework
     instance().mCamera_.setUp(glm::vec3(0, 1, 0));
     instance().mCamera_.update();
     instance().mInteractor_.setCamera(& instance().mCamera_);
+    mRenderer_.clearVoxels();
     // Launch the simulation thread
     DWORD dwThreadId;
     HANDLE hSimulateThread = CreateThread(NULL, 0, SimulateThread, this, 0, &dwThreadId);
@@ -897,8 +858,8 @@ namespace framework
     {
       if (!logoCreated)
       {
-      logo = new framework::Logo("logo.png");  // Context is now current
-      logoCreated = true;
+        logo = new framework::Logo("logo.png");
+        logoCreated = true;
       }
       if (pendingExit)
       {
@@ -956,11 +917,11 @@ namespace framework
       mInteractor_.update();
       if (!pause)
       {
-      mAnimator_.animate();
+        mAnimator_.animate();
       }
       else
       {
-      this_thread::sleep_for(std::chrono::milliseconds(16));
+        this_thread::sleep_for(std::chrono::milliseconds(16));
       }
       glfwPollEvents();
       if (savePopup)
@@ -1008,10 +969,9 @@ namespace framework
 
 } // end namespace framework
 
-
 /************************************
  *                                  *
- *     Simulation entry point.      *
+ *   Simulation mode entry point.   *
  *     (Called by the Splash)       *
  *                                  *
  ************************************/
@@ -1020,6 +980,7 @@ int runSimulation(int scenario, bool paused)
   automaton::scenario = scenario;
   framework::pause = paused;
   Beep(1000, 80);
+  GUImode = SIMULATION;
   glfwInit();
   char arg0[] = "test";
   char *argv[] = { arg0, NULL };
@@ -1029,9 +990,17 @@ int runSimulation(int scenario, bool paused)
   glfwTerminate();
   return status;
 }
+
+/************************************
+ *                                  *
+ *     Replay mode entry point.     *
+ *     (Called by the Splash)       *
+ *                                  *
+ ************************************/
 int runReplay()
 {
   Beep(1000, 80);
+  GUImode = REPLAY;
   glfwInit();
   char arg0[] = "test";
   char *argv[] = { arg0, NULL };

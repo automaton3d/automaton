@@ -51,6 +51,8 @@ public:
         if (fillOff)  std::copy(fillOff, fillOff + 3, fillOffColor_);
     }
 
+    void setPosition(int x, int y) { x_ = x; y_ = y; }
+
     void draw() const
     {
         // Draw border
@@ -108,6 +110,10 @@ public:
 
     int getX() const { return x_; }
     int getY() const { return y_; }
+
+    // FIX: Removed 'const' qualifier
+    void setX(int x) { x_ = x; }
+    void setY(int y) { y_ = y; }
 };
 
 #endif /* TICKBOX_H_ */

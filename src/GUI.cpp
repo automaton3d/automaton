@@ -15,10 +15,14 @@
 #include "vslider.h"
 #include "button.h"
 #include "text.h"
+#include "replay_progress.h"
+#include "recorder.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+extern int GUImode;
 
 namespace automaton
 {
@@ -50,6 +54,8 @@ namespace framework
   extern void setOrthographicProjection();
   extern void resetPerspectiveProjection();
   extern bool recordFrames;
+  extern FrameRecorder recorder;
+  extern size_t replayIndex;
 
   // Global viewport info
   GLint gViewport[4] = {0, 0, 1920, 1080}; // default values, will be overwritten on resize
@@ -65,6 +71,7 @@ namespace framework
   Tickbox *tomo = new Tickbox(50, 840, "Enable");
   vector<Radio> tomoDirs;
   ProgressBar *progress = nullptr;
+  ReplayProgressBar *rep_progress = nullptr;
 
   // Static text
   extern string ui_help[11];
@@ -128,8 +135,8 @@ namespace framework
     hslider = framework::HSlider(x, y, sliderWidth, sliderHeight, thumbWidth);
     hslider.setThumbPosition(0.5f);
     progress = new ProgressBar(screenWidth);
+    rep_progress = new ReplayProgressBar((int)screenWidth, (int)screenHeight);
     tbegin = GetTickCount64();
-    lastPositions_.resize(W_USED);
     list = std::make_unique<LayerList>(W_USED); // W_DIM is now the constructor argument
     //
     tomo->onToggle = [](bool state)
@@ -330,8 +337,8 @@ namespace framework
   }
 
   /**
-   * Renders momentum line.
-   */
+    * Renders momentum line.
+    */
   void GUIrenderer::renderMomentum()
   {
     const float GRID_SIZE = 0.5f / EL;
@@ -353,10 +360,30 @@ namespace framework
             {
               glColor3d(0.4, 0.4, 0.4);
             }
-            float px = (x - EL / 2.0) * GRID_SIZE;
-            float py = (y - EL / 2.0) * GRID_SIZE;
-            float pz = (z - EL / 2.0) * GRID_SIZE;
-            glVertex3f(px, py, pz);
+
+            if (GUImode == REPLAY)
+            {
+              // Shift the momentum point by the layer's center
+              unsigned w = list->getSelected();
+              const auto& center = automaton::lcenters[w];
+              float cx = (float)center[0];
+              float cy = (float)center[1];
+              float cz = (float)center[2];
+
+              // Calculate position relative to the layer's center (cx, cy, cz)
+              float px = (x - cx) * GRID_SIZE;
+              float py = (y - cy) * GRID_SIZE;
+              float pz = (z - cz) * GRID_SIZE;
+              glVertex3f(px, py, pz);
+            }
+            else
+            {
+              // Normal rendering mode (centered on global lattice center)
+              float px = (x - EL / 2.0) * GRID_SIZE;
+              float py = (y - EL / 2.0) * GRID_SIZE;
+              float pz = (z - EL / 2.0) * GRID_SIZE;
+              glVertex3f(px, py, pz);
+            }
           }
         }
       }
@@ -384,10 +411,27 @@ namespace framework
               glColor3d(0, 1.0, 1.0);   // Cyan
             else
               glColor3d(0.4, 0.4, 0.4);
-            float px = (x - EL / 2.0) * GRID_SIZE;
-            float py = (y - EL / 2.0) * GRID_SIZE;
-            float pz = (z - EL / 2.0) * GRID_SIZE;
-            glVertex3f(px, py, pz);
+            if (GUImode == REPLAY)
+            {
+              unsigned w = list->getSelected();
+              const auto& center = automaton::lcenters[w];
+              float cx = (float)center[0];
+              float cy = (float)center[1];
+              float cz = (float)center[2];
+
+              // Calculate position relative to the layer's center (cx, cy, cz)
+              float px = (x - cx) * GRID_SIZE;
+              float py = (y - cy) * GRID_SIZE;
+              float pz = (z - cz) * GRID_SIZE;
+              glVertex3f(px, py, pz);
+            }
+            else
+            {
+              float px = (x - EL / 2.0) * GRID_SIZE;
+              float py = (y - EL / 2.0) * GRID_SIZE;
+              float pz = (z - EL / 2.0) * GRID_SIZE;
+              glVertex3f(px, py, pz);
+            }
           }
         }
       }
@@ -547,9 +591,12 @@ namespace framework
       float r = 0.7f + (w & 1) * 0.3f;
       float g = 0.7f + ((w >> 1) & 1) * 0.3f;
       float b = 0.7f + ((w >> 2) & 1) * 0.3f;
-      float px = (EL - cell.x[0] - 0.5f) * GRID_SIZE - 0.25f;
-      float py = (EL - cell.x[1] - 0.5f) * GRID_SIZE - 0.25f;
-      float pz = (EL - cell.x[2] - 0.5f) * GRID_SIZE - 0.25f;
+
+      // ✅ FIX: Use consistent coordinate transformation
+      float px = (cell.x[0] - EL / 2.0f) * GRID_SIZE;
+      float py = (cell.x[1] - EL / 2.0f) * GRID_SIZE;
+      float pz = (cell.x[2] - EL / 2.0f) * GRID_SIZE;
+
       glColor4f(r, g, b, alpha);
       glVertex3f(px, py, pz);
       // Manual projection
@@ -584,18 +631,21 @@ namespace framework
       glPushMatrix();
       glMultMatrixf(mCamera->getMatrixFlat());
     }
-    if (data3D[0].getState())
-      renderWavefront();
-    if (data3D[1].getState())
-      renderMomentum();
-    if (data3D[2].getState())
-      renderSpin();
-    if (data3D[3].getState())
-      renderSineMask();
-    if (data3D[4].getState())
-      renderHunting();
-    if (data3D[5].getState())
-      renderCenters();
+    if (scenario >= 0)
+    {
+      if (data3D[0].getState())
+        renderWavefront();
+      if (data3D[1].getState())
+        renderMomentum();
+      if (data3D[2].getState())
+        renderSpin();
+      if (data3D[3].getState())
+        renderSineMask();
+      if (data3D[4].getState())
+        renderHunting();
+      if (data3D[5].getState())
+        renderCenters();
+    }
     if (data3D[6].getState())
     {
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Enable wireframe mode.
@@ -831,16 +881,25 @@ namespace framework
     renderTomoControls();
     renderPauseOverlay();
     renderSectionLabels();
-    renderCheckboxes();
+    render3Dboxes();
     renderDelays();
     renderViewpointRadios();
     renderProjectionRadios();
     renderTomoRadios();
     renderHyperlink();
 
-    unsigned long long displayTimer = replayFrames ? replayTimer : timer;
-    progress->update(displayTimer);
-    progress->render();
+    if (GUImode == SIMULATION)
+	{
+      if (scenario >= 0)
+      {
+        progress->update(timer);
+        progress->render();
+      }
+	}
+	else if (GUImode == REPLAY)
+	{
+       rep_progress->render();
+	}
 
     if (showScenarioHelp)
       renderScenarioHelpPane();
@@ -869,7 +928,8 @@ namespace framework
     }
     #endif
 
-    scenarioHelpToggle->draw();
+    if (scenario >= 0)
+      scenarioHelpToggle->draw();
 
     if (recordFrames)
     {
@@ -892,28 +952,13 @@ namespace framework
         drawString("RECORD F5", 240, ypos + 20, 8);
       }
     }
-    if (replayFrames)
-    {
-      static bool blinkReplay = true;
-      static double lastReplayToggle = glfwGetTime();
-      double now = glfwGetTime();
-      if (now - lastReplayToggle > 0.5) {
-        blinkReplay = !blinkReplay;
-        lastReplayToggle = now;
-      }
-      if (blinkReplay)
-      {
-        int ypos = gViewport[3] - 155;  // Slightly above RECORD box
-        glColor3f(0.0f, 0.4f, 1.0f);    // Blue
-        glRectf(230.0f, ypos, 326.0f, ypos + 30);
-        glColor3f(1.0f, 1.0f, 1.0f);    // White
-        drawString("REPLAY F6", 240, ypos + 20, 8);
-      }
-    }
     glPopMatrix();
 
-    list->update();
-    list->render();
+    if (scenario >= 0)
+    {
+      list->update();
+      list->render();
+    }
 
     resetPerspectiveProjection();
     glEnable(GL_DEPTH_TEST);
@@ -933,15 +978,20 @@ namespace framework
 
   void GUIrenderer::renderSimulationStats()
   {
-    unsigned long long displayTimer = replayFrames ? replayTimer : timer;
-    char s[64];
-    sprintf(s, "Light: %llu   Tick: %llu", displayTimer / automaton::FRAME, displayTimer);
-    glColor3f(1.0f, 1.0f, 1.0f);
-    render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+      char s[64];
+      if (GUImode == REPLAY) {
+          sprintf(s, "Light: %llu", timer / automaton::FRAME);
+      } else {
+          sprintf(s, "Light: %llu Tick: %llu", timer / automaton::FRAME, timer);
+      }
+      glColor3f(1.0f, 1.0f, 1.0f);
+      render2Dstring(900, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
   }
 
   void GUIrenderer::renderLayerInfo()
   {
+	if (scenario < 0)
+	  return;
     char s[64];
     sprintf(s, "L = %u  W = %u", EL, W_USED);
     glColor3f(1.0f, 1.0f, 1.0f);
@@ -949,8 +999,14 @@ namespace framework
     int w = framework::list->getSelected();
     sprintf(s, "(Current layer = %u)", w);
     render2Dstring(1730, 88, GLUT_BITMAP_HELVETICA_12, s);
-    sprintf(s, "%s", splash::scenarioOptions[scenario].c_str());
-    render2Dstring(230, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+    if (scenario >= 0)
+    {
+      sprintf(s, "%s", splash::scenarioOptions[scenario].c_str());
+      render2Dstring(230, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
+    }
+    sprintf(s, "Mode = %s", GUImode == REPLAY ? "Replay" : "Simulation");
+    glColor3f(1.0f, 1.0f, 1.0f);
+    render2Dstring(1400, 40, GLUT_BITMAP_TIMES_ROMAN_24, s);
   }
 
   void GUIrenderer::renderHelpText()
@@ -970,7 +1026,8 @@ namespace framework
   void GUIrenderer::renderSliders()
   {
     // Draw vertical slider
-    vslider.draw();
+	if (scenario >= 0)
+      vslider.draw();
     // Draw horizontal slider only if tomography is enabled
     if (tomo && tomo->getState())
     {
@@ -1026,7 +1083,7 @@ namespace framework
     drawString("Tomo", 50, 830, 12);
   }
 
-  void GUIrenderer::renderCheckboxes()
+  void GUIrenderer::render3Dboxes()
   {
     for (Tickbox& checkbox : data3D)
       checkbox.draw();
