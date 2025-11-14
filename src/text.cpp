@@ -42,6 +42,13 @@ namespace framework
 	    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
 	  }
 	}
+	else if (size == 15)
+	{
+	  for (char c : s)
+	  {
+	    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, c);
+	  }
+	}
 	else if (size == 18)
 	{
 	  for (char c : s)

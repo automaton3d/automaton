@@ -40,34 +40,36 @@ static float ndcY(int my, int h) { return 1.0f - my * 2.0f / h; }
 
 bool Dropdown::containsHeader(int mx, int my, int winW, int winH) const
 {
-    float nx = ndcX(mx, winW);
-    float ny = ndcY(my, winH);
-    return nx >= x && nx <= x + width && ny >= y && ny <= y + height;
+    // Direct pixel comparison
+    return mx >= x && mx <= x + width &&
+           my >= y && my <= y + height;
 }
 
-/* List opens **below** the header */
 bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
 {
     if (!isOpen) return false;
-    float nx = ndcX(mx, winW);
-    float ny = ndcY(my, winH);
-    float top    = y;                 // top of header
-    float bottom = y - height * 6;    // max 6 items visible
-    return nx >= x && nx <= x + width && ny <= top && ny >= bottom;
+
+    // Dropdown list extends downward from header
+    float top    = y;
+    float bottom = y - height * 6; // max 6 items visible
+
+    return mx >= x && mx <= x + width &&
+           my <= top && my >= bottom;
 }
 
 int Dropdown::getItemIndexAt(int mx, int my, int winW, int winH) const
 {
     if (!isOpen) return -1;
-    float ny = ndcY(my, winH);
-    float itemY = y;                         // first item at header top
+
+    float curY = y;
     for (int i = scrollOffset_; i < (int)options_.size(); ++i)
     {
-        float itemBottom = itemY - height;
-        if (ny <= itemY && ny >= itemBottom)
+        float itemBottom = curY - height;
+        if (my <= curY && my >= itemBottom)
             return i;
-        itemY = itemBottom;
-        if (itemY < y - height * 6) break;
+
+        curY = itemBottom;
+        if (curY < y - height * 6) break;
     }
     return -1;
 }
@@ -82,13 +84,15 @@ void Dropdown::scroll(int dir)
     scrollOffset_ = std::max(0, std::min(scrollOffset_, maxScroll));
 }
 
-void Dropdown::close() { isOpen = false; }
-
 /* ------------------------------------------------- */
 bool Dropdown::handleClick(int mx, int my, int winW, int winH)
 {
+	printf("%d,%d\n", mx, my);
+//	26.000000 16.000000 1080
+//	134.000000 17.000000 1080
     if (containsHeader(mx, my, winW, winH))
     {
+ //   	puts("contains");
         isOpen = !isOpen;
         return false;               // just toggled
     }
@@ -217,4 +221,18 @@ void Dropdown::draw(int winW, int winH)
         glVertex2f(x + width - 0.01f, barYBottom);
     glEnd();
     }
+
+
+}
+
+void Dropdown::open() {
+    isOpen = true;
+}
+
+void Dropdown::close() {
+    isOpen = false;
+}
+
+void Dropdown::toggle() {
+    isOpen = !isOpen;
 }

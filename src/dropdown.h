@@ -20,7 +20,9 @@ public:
     void draw(int winW, int winH);
     bool handleClick(int mx, int my, int winW, int winH);
     void scroll(int direction);
+    void open();
     void close();
+    void toggle();
 
     bool containsHeader(int mx, int my, int winW, int winH) const;
     bool containsDropdown(int mx, int my, int winW, int winH) const;

@@ -49,7 +49,6 @@ namespace automaton
         return convolute7(curr, draft, mirror);
       default:
       {
-    	std::cerr << "Option unavailable: scenario " << (scenario + 1) << "\n";
     	exit(1);
       }
     }

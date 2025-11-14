@@ -55,7 +55,7 @@ namespace automaton
 
 void updateBuffer()
 {
-    int w = framework::list->getSelected();
+    int w = framework::layerList->getSelected();
 
     // Ensure CUDA layer pointer exists
     // Launch device kernel to fill mapped voxels for given layer
@@ -79,7 +79,7 @@ void updateBuffer()
 // bridge.cpp (non-CUDA updateBuffer)
 void updateBuffer()
 {
-  int w = framework::list->getSelected();
+  int w = framework::layerList->getSelected();
   unsigned index3D = 0;
   for (unsigned x = 0; x < EL; x++)
   {

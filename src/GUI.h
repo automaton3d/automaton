@@ -21,8 +21,9 @@
 #include <map>
 #include <memory>
 #include "button.h"
+#include "dropdown.h"
 
-#define DEBUG
+#undef DEBUG
 #define GLM_FORCE_RADIANS
 
 #include <glm/gtc/type_ptr.hpp> // value_ptr
@@ -38,24 +39,41 @@
 
 #define WIDTH	480     // graph width
 
-#define SIMULATION 0
-#define REPLAY 1
+namespace automaton
+{
+  extern unsigned L2;
+}
 
 namespace framework
 {
+  // -----------------------------
+  // GUI mode enumeration
+  // -----------------------------
+  enum GUIMode {
+      SIMULATION = 0,
+      REPLAY     = 1,
+      STATISTICS = 2
+  };
+
+  // Global GUI mode variable (defined once in GUI.cpp)
+  extern int GUImode;
+  extern bool MULTICUBE_MODE;
+  extern unsigned tomo_x, tomo_y, tomo_z;
   using namespace std;
 
   extern ProgressBar *progress;
   extern bool helpHover;
   extern bool active;
   extern std::vector<Tickbox> data3D;
-  extern std::unique_ptr<LayerList> list;
+  extern std::unique_ptr<LayerList> layerList;
   extern std::vector<Tickbox> delays;
   extern std::vector<Radio> views;
   extern std::vector<Radio> projection;
 
   extern bool replayFrames;
   extern unsigned long long replayTimer;
+  extern Dropdown* fileMenu;
+  extern Dropdown* helpMenu;
 
   class GUIrenderer : public Renderer
   {
@@ -68,8 +86,12 @@ namespace framework
       void resize(int width, int height);
       void setProjection(const glm::mat4& proj) { mProjection_ = proj; }
       void clearVoxels();
+      void handleMenuSelection();
 
   private:
+      void renderMenuBar();
+      void initMenuDropdowns();
+
       // Internal rendering methods
       void renderAxes();
       void renderCenter();
@@ -115,7 +137,16 @@ namespace framework
                        const GLdouble projection[16],
                        const GLint viewport[4],
                        float &winX, float &winY);
-      inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z);
+      inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z)
+      {
+          // Simple visibility rule — keep consistent with your simulation’s dimensions.
+          // If you have 3D volume boundaries (EL, W_USED, L2, etc.), you can adjust this logic.
+
+          if (x >= automaton::EL) return false;
+          if (y >= automaton::W_USED) return false;
+          if (z >= automaton::L2) return false;
+          return true;
+      }
 
   private:
       // Member variables
