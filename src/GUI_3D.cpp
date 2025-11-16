@@ -1,14 +1,16 @@
 /*
- * GUI_3D.cpp
+ * GUI_3D.cpp (merged)
  */
-
-
 
 #include "GUI.h"
 #include "model/simulation.h"
 #include <GL/freeglut.h>
 #include <glm/gtc/type_ptr.hpp>
 #include "recorder.h"
+#include "projection.h"
+
+AxisProjection gAxisProj[3];
+bool gAxisProjValid = false;
 
 namespace automaton
 {
@@ -25,6 +27,10 @@ namespace framework
   extern Tickbox *tomo;
 
   using namespace automaton;
+
+  int vis_dx = 0;
+  int vis_dy = 0;
+  int vis_dz = 0;
 
   /**
     * Renders momentum line.
@@ -263,10 +269,10 @@ namespace framework
     screenPositions_.clear();
 
     // Get matrices and viewport
-    GLdouble modelview[16];
-    GLdouble projection[16];
-    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    GLfloat modelview[16];
+    GLfloat projection[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+    glGetFloatv(GL_PROJECTION_MATRIX, projection);
     const float GRID_SIZE = 0.5f / EL;
     const int CENTER_INT = EL / 2;
 
@@ -291,7 +297,7 @@ namespace framework
       glColor4f(r, g, b, alpha);
       glVertex3f(px, py, pz);
 
-      // Manual projection
+      // Manual projection using GLfloat (updated from old GLdouble)
       float sx, sy;
       float obj[3] = {px, py, pz};
       if (framework::projectPoint(obj, modelview, projection, gViewport, sx, sy))
@@ -361,6 +367,7 @@ namespace framework
 
   /**
    * Renders the cartesian positive axes with labels.
+   * IMPROVED: Now includes complete axis projection caching for mouse picking.
    */
   void GUIrenderer::renderAxes()
   {
@@ -394,6 +401,40 @@ namespace framework
 
     glColor3f(0.3f, 0.3f, 0.8f);
     render3Dstring(0.0f, -labelOffset, axisLength + labelOffset, GLUT_BITMAP_HELVETICA_18, "z");
+
+    // Draw thumb if active
+    if (thumb.active) {
+        glPointSize(10.0f);
+        glColor3f(1.0f, 0.0f, 0.0f); // red dot
+        glBegin(GL_POINTS);
+        if (thumb.axis == 0) glVertex3f(thumb.position, 0.0f, 0.0f);
+        if (thumb.axis == 1) glVertex3f(0.0f, thumb.position, 0.0f);
+        if (thumb.axis == 2) glVertex3f(0.0f, 0.0f, thumb.position);
+        glEnd();
+    }
+
+    // === IMPROVED: Complete axis projection caching for mouse picking ===
+    GLfloat model[16], proj[16];
+    GLint viewport[4];
+    glGetFloatv(GL_MODELVIEW_MATRIX, model);
+    glGetFloatv(GL_PROJECTION_MATRIX, proj);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    // Origin (shared by all axes)
+    float ox, oy;
+    projectPoint((float[3]){0.0f, 0.0f, 0.0f}, model, proj, viewport, ox, oy);
+    gAxisProj[0].x0 = gAxisProj[1].x0 = gAxisProj[2].x0 = ox;
+    gAxisProj[0].y0 = gAxisProj[1].y0 = gAxisProj[2].y0 = oy;
+
+    // Endpoints per axis
+    projectPoint((float[3]){axisLength, 0.0f, 0.0f}, model, proj, viewport,
+                 gAxisProj[0].x1, gAxisProj[0].y1);
+    projectPoint((float[3]){0.0f, axisLength, 0.0f}, model, proj, viewport,
+                 gAxisProj[1].x1, gAxisProj[1].y1);
+    projectPoint((float[3]){0.0f, 0.0f, axisLength}, model, proj, viewport,
+                 gAxisProj[2].x1, gAxisProj[2].y1);
+
+    gAxisProjValid = true;
   }
 
   /**
@@ -510,5 +551,3 @@ namespace framework
   }
 
 }
-
-

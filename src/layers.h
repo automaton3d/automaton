@@ -15,6 +15,7 @@
 #include "radio.h"
 #include "model/simulation.h"
 #include "text.h"
+#include "projection.h"
 
 namespace automaton
 {

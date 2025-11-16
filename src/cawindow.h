@@ -1,5 +1,5 @@
 /*
- * window.h
+ * window.h (old)
  */
 
 #ifndef RENDER_WIN
@@ -43,8 +43,8 @@ namespace framework
     static void moveCallback(GLFWwindow *window, double xpos, double ypos);
     static void scrollCallback(GLFWwindow *window, double xpos, double ypos);
     static void sizeCallback(GLFWwindow *window, int width, int height);
-
     void onDelayToggled(Tickbox* toggled);
+
     bool pendingExit = false;
     GLFWwindow* getWindow() const { return mWindow_; }
 

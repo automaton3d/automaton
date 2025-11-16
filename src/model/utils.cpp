@@ -285,6 +285,61 @@ namespace automaton
   }
 
   /**
+     * Relocate all cells in lattice_curr by offsets (dx, dy, dz).
+     * - Wraps around with modulo EL.
+     * - Copies dynamic state fields (excluding ch, k, and c[]).
+     * - Leaves x[] untouched (fixed coordinates).
+     * - Mirror lattice is not touched.
+     */
+  void relocateGlobal(unsigned dx, unsigned dy, unsigned dz)
+  {
+    dx %= EL; dy %= EL; dz %= EL;
+
+    // Temporary buffer
+    std::vector<Cell> temp(BLOCK);
+    std::copy(lattice_curr.begin(), lattice_curr.begin() + BLOCK, temp.begin());
+
+    for (unsigned w = 0; w < W_USED; ++w)
+    {
+      for (unsigned x = 0; x < EL; ++x)
+      {
+        for (unsigned y = 0; y < EL; ++y)
+        {
+          for (unsigned z = 0; z < EL; ++z)
+          {
+            const Cell& src = getCell(lattice_curr, x, y, z, w);
+
+            unsigned nx = (x + dx) % EL;
+            unsigned ny = (y + dy) % EL;
+            unsigned nz = (z + dz) % EL;
+
+            Cell& dst = getCell(temp, nx, ny, nz, w);
+
+            // Copy only the relevant properties
+            dst.pB   = src.pB;
+            dst.sB   = src.sB;
+            dst.a    = src.a;
+            dst.phiB = src.phiB;
+            dst.t    = src.t;
+            dst.f    = src.f;
+            dst.d    = src.d;
+            dst.s2B  = src.s2B;
+            dst.kB   = src.kB;
+            dst.bB   = src.bB;
+            dst.hB   = src.hB;
+            dst.cB   = src.cB;
+
+            // Leave x[], ch, k, and c[] untouched
+          }
+        }
+      }
+    }
+
+    // Commit back
+    std::copy(temp.begin(), temp.begin() + BLOCK, lattice_curr.begin());
+  }
+
+  /**
    * Prints the main parameters.
    */
   void printParams()

@@ -1,26 +1,23 @@
-/*
- * dropdown.cpp
- */
-
+// Fixed dropdown.cpp
 #include "dropdown.h"
 #include <algorithm>
 #include <iostream>
 
 Dropdown::Dropdown(float x_, float y_, float w_, float h_,
-                   const std::vector<std::string>& opts)
+                   const std::vector<std::string>& opts,
+                   const std::string& header)
     : x(x_), y(y_), width(w_), height(h_), isOpen(false),
-      options_(opts), selectedIndex_(0), scrollOffset_(0)
+      options_(opts), selectedIndex_(0), scrollOffset_(0),
+      header_(header)
 {
 }
 
-/* ------------------------------------------------- */
 std::string Dropdown::getSelectedItem() const
 {
     if (selectedIndex_ >= 0 && selectedIndex_ < (int)options_.size())
         return options_[selectedIndex_];
     return options_.empty() ? "" : options_[0];
 }
-
 
 void Dropdown::selectByValue(const std::string& value)
 {
@@ -29,18 +26,10 @@ void Dropdown::selectByValue(const std::string& value)
     if (!options_.empty()) selectedIndex_ = 0;
 }
 
-int Dropdown::getSelectedIndex() const
-{
-    return selectedIndex_;
-}
-
-/* ------------------------------------------------- */
-static float ndcX(int mx, int w) { return mx * 2.0f / w - 1.0f; }
-static float ndcY(int my, int h) { return 1.0f - my * 2.0f / h; }
+int Dropdown::getSelectedIndex() const { return selectedIndex_; }
 
 bool Dropdown::containsHeader(int mx, int my, int winW, int winH) const
 {
-    // Direct pixel comparison
     return mx >= x && mx <= x + width &&
            my >= y && my <= y + height;
 }
@@ -48,53 +37,47 @@ bool Dropdown::containsHeader(int mx, int my, int winW, int winH) const
 bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
 {
     if (!isOpen) return false;
-
-    // Dropdown list extends downward from header
-    float top    = y;
-    float bottom = y - height * 6; // max 6 items visible
-
-    return mx >= x && mx <= x + width &&
-           my <= top && my >= bottom;
+    float top    = y + height;
+    float bottom = y + height * 6;
+    return mx >= x && mx <= x + width && my >= top && my <= bottom;
 }
 
 int Dropdown::getItemIndexAt(int mx, int my, int winW, int winH) const
 {
     if (!isOpen) return -1;
 
-    float curY = y;
+    float curY = y + height;
     for (int i = scrollOffset_; i < (int)options_.size(); ++i)
     {
-        float itemBottom = curY - height;
-        if (my <= curY && my >= itemBottom)
+        float itemTop    = curY;
+        float itemBottom = curY + height;
+        if (my >= itemTop && my <= itemBottom)
             return i;
-
-        curY = itemBottom;
-        if (curY < y - height * 6) break;
+        curY += height;
     }
     return -1;
 }
 
-/* ------------------------------------------------- */
+bool Dropdown::isMouseOver(int mx, int my, int winW, int winH) const
+{
+    return containsHeader(mx, my, winW, winH) ||
+           (isOpen && containsDropdown(mx, my, winW, winH));
+}
+
 void Dropdown::scroll(int dir)
 {
     const int VISIBLE = 6;
     int maxScroll = (int)options_.size() - VISIBLE;
     if (maxScroll < 0) maxScroll = 0;
-    scrollOffset_ += dir;
-    scrollOffset_ = std::max(0, std::min(scrollOffset_, maxScroll));
+    scrollOffset_ = std::clamp(scrollOffset_ + dir, 0, maxScroll);
 }
 
-/* ------------------------------------------------- */
 bool Dropdown::handleClick(int mx, int my, int winW, int winH)
 {
-	printf("%d,%d\n", mx, my);
-//	26.000000 16.000000 1080
-//	134.000000 17.000000 1080
     if (containsHeader(mx, my, winW, winH))
     {
- //   	puts("contains");
         isOpen = !isOpen;
-        return false;               // just toggled
+        return false;
     }
 
     if (isOpen && containsDropdown(mx, my, winW, winH))
@@ -104,16 +87,14 @@ bool Dropdown::handleClick(int mx, int my, int winW, int winH)
         {
             selectedIndex_ = idx;
             isOpen = false;
-            return true;            // item selected
+            return true;
         }
     }
     return false;
 }
 
-/* ------------------------------------------------- */
 void Dropdown::draw(int winW, int winH)
 {
-    /* ---- HEADER ---- */
     glColor3f(0.92f, 0.92f, 0.92f);
     glBegin(GL_QUADS);
         glVertex2f(x, y);
@@ -131,55 +112,51 @@ void Dropdown::draw(int winW, int winH)
     glEnd();
 
     std::string txt = getSelectedItem();
-    if (txt.empty() && !options_.empty()) txt = options_[0];
     glColor3f(0.f, 0.f, 0.f);
-    glRasterPos2f(x + 0.01f, y + height * 0.5f - 0.008f);
+    glRasterPos2f(x + 6, y + height * 0.5f + 4);
     for (char c : txt) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
 
-    /* arrow */
-    float ax = x + width - 0.03f;
+    float ax = x + width - 10;
     float ay = y + height * 0.5f;
+
     glBegin(GL_TRIANGLES);
-        if (isOpen) {   // up
+        if (isOpen)
+        {
             glVertex2f(ax - 0.01f, ay - 0.005f);
             glVertex2f(ax + 0.01f, ay - 0.005f);
             glVertex2f(ax,        ay + 0.005f);
-        } else {        // down
+        }
+        else
+        {
             glVertex2f(ax - 0.01f, ay + 0.005f);
             glVertex2f(ax + 0.01f, ay + 0.005f);
             glVertex2f(ax,        ay - 0.005f);
         }
     glEnd();
 
-    /* ---- LIST (downward) ---- */
     if (!isOpen || options_.empty()) return;
 
     const int VISIBLE = 6;
-    float listTop    = y;                     // start right under header
-    float listBottom = y - height * VISIBLE;
+    float curY = y + height;
 
-    /* background */
     glColor3f(1.f, 1.f, 1.f);
     glBegin(GL_QUADS);
-        glVertex2f(x, listTop);
-        glVertex2f(x + width, listTop);
-        glVertex2f(x + width, listBottom);
-        glVertex2f(x, listBottom);
+        glVertex2f(x, curY);
+        glVertex2f(x + width, curY);
+        glVertex2f(x + width, curY + height * VISIBLE);
+        glVertex2f(x, curY + height * VISIBLE);
     glEnd();
 
-    /* border */
     glColor3f(0.35f, 0.35f, 0.35f);
     glBegin(GL_LINE_LOOP);
-        glVertex2f(x, listTop);
-        glVertex2f(x + width, listTop);
-        glVertex2f(x + width, listBottom);
-        glVertex2f(x, listBottom);
+        glVertex2f(x, curY);
+        glVertex2f(x + width, curY);
+        glVertex2f(x + width, curY + height * VISIBLE);
+        glVertex2f(x, curY + height * VISIBLE);
     glEnd();
 
-    /* items */
     int start = scrollOffset_;
-    int end   = std::min((int)options_.size(), start + VISIBLE);
-    float curY = listTop;
+    int end = std::min((int)options_.size(), start + VISIBLE);
 
     for (int i = start; i < end; ++i)
     {
@@ -189,50 +166,38 @@ void Dropdown::draw(int winW, int winH)
             glBegin(GL_QUADS);
                 glVertex2f(x, curY);
                 glVertex2f(x + width, curY);
-                glVertex2f(x + width, curY - height);
-                glVertex2f(x, curY - height);
+                glVertex2f(x + width, curY + height);
+                glVertex2f(x, curY + height);
             glEnd();
         }
 
         glColor3f(0.f, 0.f, 0.f);
-        glRasterPos2f(x + 0.01f, curY - height * 0.5f - 0.006f);
+        glRasterPos2f(x + 6, curY + height * 0.5f + 4);
         for (char c : options_[i])
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
-
-        curY -= height;
+        curY += height;
     }
 
-    /* scrollbar (optional) */
     if ((int)options_.size() > VISIBLE)
     {
-    float totalH   = height * options_.size();
-    float visibleH = height * VISIBLE;
-    float barH     = visibleH * visibleH / totalH;
-    float ratio    = (float)scrollOffset_ / (options_.size() - VISIBLE);
-    // ✅ Correct top and bottom coordinates
-    float barYTop    = listTop - (visibleH - barH) * ratio;
-    float barYBottom = barYTop - barH;
+        float totalH   = height * options_.size();
+        float visibleH = height * VISIBLE;
+        float barH     = visibleH * visibleH / totalH;
+        float ratio    = (float)scrollOffset_ / (options_.size() - VISIBLE);
 
-    glColor3f(0.65f, 0.65f, 0.65f);
-    glBegin(GL_QUADS);
-        glVertex2f(x + width - 0.01f, barYTop);
-        glVertex2f(x + width,          barYTop);
-        glVertex2f(x + width,          barYBottom);
-        glVertex2f(x + width - 0.01f, barYBottom);
-    glEnd();
+        float barYTop    = y + height + (visibleH - barH) * (1 - ratio);
+        float barYBottom = barYTop - barH;
+
+        glColor3f(0.65f, 0.65f, 0.65f);
+        glBegin(GL_QUADS);
+            glVertex2f(x + width - 0.01f, barYTop);
+            glVertex2f(x + width,         barYTop);
+            glVertex2f(x + width,         barYBottom);
+            glVertex2f(x + width - 0.01f, barYBottom);
+        glEnd();
     }
-
-
 }
 
-void Dropdown::open() {
-    isOpen = true;
-}
-
-void Dropdown::close() {
-    isOpen = false;
-}
-
-void Dropdown::toggle() {
-    isOpen = !isOpen;
-}
+void Dropdown::open() { isOpen = true; }
+void Dropdown::close() { isOpen = false; }
+void Dropdown::toggle() { isOpen = !isOpen; }

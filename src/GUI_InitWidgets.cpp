@@ -1,5 +1,5 @@
 /*
- * GUI_InitWidgets.cpp
+ * GUI_InitWidgets.cpp (merged)
  */
 
 #include "GUI.h"
@@ -11,9 +11,11 @@
 #include "hslider.h"
 #include "cawindow.h"
 #include <GL/freeglut.h>
+#include "model/simulation.h"
 
 namespace framework
 {
+  using namespace automaton;
 
   extern GLint gViewport[4];
   extern HSlider hslider;
@@ -34,6 +36,7 @@ namespace framework
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     int screenWidth = gViewport[2];
     int screenHeight = gViewport[3];
     float sliderWidth = 400.0f;
@@ -136,10 +139,9 @@ namespace framework
     scenarioHelpToggle = new Tickbox(230, 105, "Scenario Help");
     scenarioHelpToggle->setState(true); // default: visible
     scenarioHelpToggle->onToggle = [](bool state)
-   	{
+    {
       showScenarioHelp = state;
     };
   }
 
 }
-

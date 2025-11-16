@@ -88,8 +88,8 @@ namespace framework
            "Documentation",
            "About"
        };
-       fileMenu = new Dropdown(10, 20, 120, 35, fileOptions);
-       helpMenu = new Dropdown(120, 20, 150, 35, helpOptions);
+       fileMenu = new Dropdown(10, 1, 120, 30, fileOptions);
+       helpMenu = new Dropdown(140, 1, 150, 30, helpOptions);
    }
 
    void GUIrenderer::handleMenuSelection()

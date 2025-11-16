@@ -169,6 +169,7 @@ namespace automaton
   bool sanityTest3();
   bool tryAllocate(int EL, int W);
   unsigned int getRandomUnsigned(unsigned int modulus);
+  void relocateGlobal(unsigned dx, unsigned dy, unsigned dz);
 
   // Tests
 

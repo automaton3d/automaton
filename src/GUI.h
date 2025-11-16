@@ -29,7 +29,6 @@
 #include <glm/gtc/type_ptr.hpp> // value_ptr
 #include <glm/gtc/matrix_transform.hpp> // perspective
 
-// Inclusões de headers internos/do projeto
 #include "model/simulation.h"
 #include "radio.h"
 #include "layers.h"
@@ -38,6 +37,10 @@
 #include "progress.h"
 
 #define WIDTH	480     // graph width
+
+struct AxisProjection { float x0,y0,x1,y1; };
+extern AxisProjection gAxisProj[3];
+extern bool gAxisProjValid;
 
 namespace automaton
 {
@@ -132,11 +135,6 @@ namespace framework
       void enhanceVoxel();
 
       // Helper methods
-      bool projectPoint(const float obj[3],
-                       const GLdouble modelview[16],
-                       const GLdouble projection[16],
-                       const GLint viewport[4],
-                       float &winX, float &winY);
       inline bool isVoxelVisible(unsigned x, unsigned y, unsigned z)
       {
           // Simple visibility rule — keep consistent with your simulation’s dimensions.
@@ -156,14 +154,8 @@ namespace framework
       std::map<std::pair<int,int>, int> counts_;
   };
 
-  void drawBoldText(const string& text, int x, int y, float offset = 0.5f);
-  void render2Dstring(float x, float y, void *font, const char *string);
-  void render3Dstring(float x, float y, float z, void *font, const char *string);
-  void blinkText(unsigned long long timer);
-  void triggerEvent(unsigned long long timer);
-
-  void initText();
-  void reshape(GLFWwindow* window, int width, int height);
+void initializeWidgets();
+void promptExit();
 
 } // end namespace framework
 

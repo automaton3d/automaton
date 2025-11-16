@@ -1,17 +1,18 @@
 /*
- * window.cpp
+ * window.cpp (old)
  *
  * processes IO, runs the simulation, and renders graphics for it.
  *
  * This is the top file of the program.
  */
 
+
 #include "GUI.h"
 #include <iostream>
 #include <windows.h>
-#include <windows.h>
 #include <shellapi.h>
 #include <vector>
+#include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <cawindow.h>
@@ -24,6 +25,11 @@
 #include <recorder.h>
 #include "text.h"
 #include "replay_progress.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>         // for glm::make_mat4
+#include "projection.h"
+
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -90,6 +96,10 @@ namespace framework
   std::string toastMessage;
   unsigned long long replayTimer = 0;
   bool showExitDialog = false;
+
+  // dot dragg
+  const float fullSize = 0.5f;
+  const float axisLength = fullSize * 0.75f;
 
   bool updateReplay()
   {
@@ -165,7 +175,7 @@ namespace framework
     double ellipsisChangeInterval = 0.5; // Change the ellipsis every 0.5 seconds
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0, mode->width, 0, mode->height, -1, 1);
+    glOrtho(0, mode->width, mode->height, 0, -1, 1);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glDisable(GL_DEPTH_TEST);
@@ -229,11 +239,20 @@ namespace framework
     {
       // Orthographic projection
       float orthoSize = 0.6f; // Adjust this value to control zoom
+
+      /*
       mRenderer_.setProjection(glm::ortho(         // ← USE setProjection()
         -orthoSize * ratio, orthoSize * ratio,
         -orthoSize, orthoSize,
         0.01f, 100.0f
       ));
+      */
+      mRenderer_.setProjection(glm::perspective(   // ← USE setProjection()
+          glm::radians(45.0f),
+          ratio,
+          0.01f,
+          100.0f
+        ));
     }
     else if (projection[1].isSelected())
     {
@@ -266,7 +285,7 @@ namespace framework
 
   void CAWindow::buttonCallback(GLFWwindow *window, int button, int action, int mods)
   {
-      if (showExitDialog) return;  // Ignore mouse input while dialog is active
+      if (showExitDialog) return;
 
       int width, height;
       glfwGetWindowSize(window, &width, &height);
@@ -275,203 +294,267 @@ namespace framework
 
       switch (action)
       {
-          case GLFW_PRESS:
+      case GLFW_PRESS:
+          switch (button)
           {
-              switch (button)
-              {
-                  case GLFW_MOUSE_BUTTON_LEFT:
-                  {
+          case GLFW_MOUSE_BUTTON_LEFT:
+          {
   #ifdef DEBUG
-                      // Store the click position for debug rendering
-                      debugClickX = xpos;
-                      debugClickY = ypos;
-                      showDebugClick = true;
+              debugClickX = xpos;
+              debugClickY = ypos;
+              showDebugClick = true;
   #endif
 
-                      if (action == GLFW_PRESS)
-                      {
-                          double xpos, ypos;
-                          glfwGetCursorPos(window, &xpos, &ypos);
+              // --- NEW: IMPROVED MENU CLICK HANDLING ---
+              int menuWidth = gViewport[2];
+              int menuHeight = gViewport[3];
+              bool fileMenuWasOpen = fileMenu && fileMenu->isOpen;
+              bool helpMenuWasOpen = helpMenu && helpMenu->isOpen;
+              bool itemSelected = false;
 
-                          int width = gViewport[2];
-                          int height = gViewport[3];
-                          // 26.000000 16.000000 1080
-                          // 134.000000 17.000000 1080
-                          if (fileMenu && fileMenu->handleClick((int)xpos, (int)(height - ypos), width, height)) {
-                              helpMenu->close();
-                              puts("click!");
-                              return;
-                          }
-                          if (helpMenu && helpMenu->handleClick((int)xpos, (int)ypos, width, height)) {
-                              fileMenu->close();
-                              return;
-                          }
-                      }
-                      // === HANDLE SLIDERS ===
-                      vslider.onMouseButton(button, action, xpos, ypos, height);
-                      hslider.onMouseButton(button, action, xpos, ypos, height);
-                      if (hslider.isDragging() || vslider.isDragging())
-                          return;
-
-                      // === HANDLE TICKBOXES ===
-                      for (Tickbox& cb : data3D)
-                          if (cb.onMouseButton(xpos, ypos, true))
-                              return;
-
-                      for (Tickbox& cb : delays)
-                      {
-                          if (cb.onMouseButton(xpos, ypos, true))
-                          {
-                              instance().onDelayToggled(&cb);
-                              return;
-                          }
-                      }
-
-                      scenarioHelpToggle->onMouseButton(xpos, ypos, true);
-
-                      // === HANDLE VIEW RADIOS ===
-                      bool viewClicked = false;
-                      for (size_t i = 0; i < views.size(); ++i)
-                      {
-                          if (views[i].clicked(xpos, ypos))
-                          {
-                              for (Radio& r : views) r.setSelected(false);
-                              views[i].setSelected(true);
-                              viewClicked = true;
-
-                              float length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-                              if (i == 0) { // Isometric
-                                  instance().mCamera_.setEye(glm::vec3(length, length, length));
-                                  instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-                              } else if (i == 1) { // XY
-                                  instance().mCamera_.setEye(glm::vec3(0, 0, length));
-                                  instance().mCamera_.setUp(glm::vec3(1, 0, 0));
-                              } else if (i == 2) { // YZ
-                                  instance().mCamera_.setEye(glm::vec3(length, 0, 0));
-                                  instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-                              } else if (i == 3) { // ZX
-                                  instance().mCamera_.setEye(glm::vec3(0, length, 0));
-                                  instance().mCamera_.setUp(glm::vec3(1, 0, 0));
-                              }
-
-                              instance().mCamera_.update();
-                              instance().mInteractor_.setCamera(&instance().mCamera_);
-                              break;
-                          }
-                      }
-                      if (viewClicked) return;
-
-                      // === HANDLE LAYER LIST ===
-                      layerList->poll(xpos, ypos);
-
-                      // === HANDLE PROJECTION RADIOS ===
-                      bool projClicked = false;
-                      for (size_t i = 0; i < projection.size(); ++i)
-                      {
-                          if (projection[i].clicked(xpos, ypos))
-                          {
-                              for (Radio& r : projection) r.setSelected(false);
-                              projection[i].setSelected(true);
-                              projClicked = true;
-                              instance().updateProjection();
-                              break;
-                          }
-                      }
-                      if (projClicked) return;
-
-                      // === HANDLE TOMOGRAPHY ===
-                      if (tomo->onMouseButton(xpos, ypos, true))
-                      {
-                          for (Radio& radio : tomoDirs)
-                              radio.setSelected(false);
-                          if (tomo->getState())
-                              tomoDirs[0].setSelected(true);
-                      }
-                      else if (tomo->getState())
-                      {
-                          for (Radio& radio : tomoDirs)
-                          {
-                              if (radio.clicked(xpos, ypos))
-                              {
-                                  for (Radio& r : tomoDirs) r.setSelected(false);
-                                  radio.setSelected(true);
-                                  break;
-                              }
-                          }
-                      }
-
-                      // === HANDLE HELP HYPERLINK ===
-                      const char* linkText = "Help";
-                      int textWidth = 0;
-                      const char* c = linkText;
-                      while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
-                      int linkX = (width - textWidth) / 2;
-                      int linkY = height - 30;
-                      int linkHeight = 15;
-
-                      if (xpos >= linkX && xpos <= linkX + textWidth &&
-                          ypos >= linkY - linkHeight && ypos <= linkY + 5)
-                      {
-                          ShellExecuteA(NULL, "open",
-                              "https://github.com/automaton3d/automaton/blob/master/help.md",
-                              NULL, NULL, SW_SHOWNORMAL);
-                          return;
-                      }
-
-                      // === ACTIVATE 3D INTERACTOR ===
-                      if (isIn3DZone(xpos, ypos, width, height))
-                      {
-                          instance().mInteractor_.setLeftClicked(true);
-                          instance().mInteractor_.setClickPoint(xpos, ypos);
-                      }
-                      break;
+              // Try to handle click on File menu
+              if (fileMenu) {
+                  if (fileMenu->handleClick((int)xpos, (int)ypos, menuWidth, menuHeight)) {
+                      itemSelected = true;
                   }
-
-                  case GLFW_MOUSE_BUTTON_MIDDLE:
-                      if (isIn3DZone(xpos, ypos, width, height) &&
-                          !hslider.isDragging() && !vslider.isDragging())
-                      {
-                          instance().mInteractor_.setMiddleClicked(true);
-                          instance().mInteractor_.setClickPoint(xpos, ypos);
-                      }
-                      break;
-
-                  case GLFW_MOUSE_BUTTON_RIGHT:
-                      if (isIn3DZone(xpos, ypos, width, height) &&
-                          !hslider.isDragging() && !vslider.isDragging())
-                      {
-                          instance().mInteractor_.setRightClicked(true);
-                          instance().mInteractor_.setClickPoint(xpos, ypos);
-                      }
-                      break;
+                  if (itemSelected) {
+                      if (helpMenu) helpMenu->close();
+                      return;
+                  }
               }
-              break;
-          }
 
-          case GLFW_RELEASE:
-          {
-              switch (button)
+              // Try to handle click on Help menu
+              if (helpMenu) {
+                  if (helpMenu->handleClick((int)xpos, (int)ypos, menuWidth, menuHeight)) {
+                      itemSelected = true;
+                  }
+                  if (itemSelected) {
+                      if (fileMenu) fileMenu->close();
+                      return;
+                  }
+              }
+
+              // Click-outside-to-close logic
+              bool clickOnMenuArea = (fileMenu && fileMenu->isMouseOver((int)xpos, (int)ypos, width, height)) ||
+                                     (helpMenu && helpMenu->isMouseOver((int)xpos, (int)ypos, width, height));
+
+              if (fileMenuWasOpen || helpMenuWasOpen) {
+                  if (!clickOnMenuArea) {
+                      if (fileMenu) fileMenu->close();
+                      if (helpMenu) helpMenu->close();
+                  }
+              }
+              // --- END NEW MENU LOGIC ---
+
+              // === OLD: HANDLE SLIDERS ===
+              vslider.onMouseButton(button, action, xpos, ypos, height);
+              hslider.onMouseButton(button, action, xpos, ypos, height);
+              if (hslider.isDragging() || vslider.isDragging())
+                  return;
+
+              // === OLD: HANDLE TICKBOXES ===
+              for (Tickbox& cb : data3D)
+                  if (cb.onMouseButton(xpos, ypos, true))
+                      return;
+
+              for (Tickbox& cb : delays)
               {
-                  case GLFW_MOUSE_BUTTON_LEFT:
+                  if (cb.onMouseButton(xpos, ypos, true))
                   {
-                      bool wasSliderDragging = hslider.isDragging() || vslider.isDragging();
-                      hslider.onMouseButton(button, action, xpos, ypos, height);
-                      vslider.onMouseButton(button, action, xpos, ypos, height);
-                      if (!wasSliderDragging)
-                          instance().mInteractor_.setLeftClicked(false);
+                      instance().onDelayToggled(&cb);
+                      return;
+                  }
+              }
+
+              scenarioHelpToggle->onMouseButton(xpos, ypos, true);
+
+              // === OLD: HANDLE VIEW RADIOS ===
+              bool viewClicked = false;
+              for (size_t i = 0; i < views.size(); ++i)
+              {
+                  if (views[i].clicked(xpos, ypos))
+                  {
+                      for (Radio& r : views) r.setSelected(false);
+                      views[i].setSelected(true);
+                      viewClicked = true;
+
+                      float length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+                      if (i == 0) { // Isometric
+                          instance().mCamera_.setEye(glm::vec3(length, length, length));
+                          instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+                      } else if (i == 1) { // XY
+                          instance().mCamera_.setEye(glm::vec3(0, 0, length));
+                          instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+                      } else if (i == 2) { // YZ
+                          instance().mCamera_.setEye(glm::vec3(length, 0, 0));
+                          instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+                      } else if (i == 3) { // ZX
+                          instance().mCamera_.setEye(glm::vec3(0, length, 0));
+                          instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+                      }
+
+                      instance().mCamera_.update();
+                      instance().mInteractor_.setCamera(&instance().mCamera_);
                       break;
                   }
-                  case GLFW_MOUSE_BUTTON_MIDDLE:
-                      instance().mInteractor_.setMiddleClicked(false);
+              }
+              if (viewClicked) return;
+
+              // === OLD: HANDLE LAYER LIST ===
+              layerList->poll(xpos, ypos);
+
+              // === OLD: HANDLE PROJECTION RADIOS ===
+              bool projClicked = false;
+              for (size_t i = 0; i < projection.size(); ++i)
+              {
+                  if (projection[i].clicked(xpos, ypos))
+                  {
+                      for (Radio& r : projection) r.setSelected(false);
+                      projection[i].setSelected(true);
+                      projClicked = true;
+                      instance().updateProjection();
                       break;
-                  case GLFW_MOUSE_BUTTON_RIGHT:
-                      instance().mInteractor_.setRightClicked(false);
-                      break;
+                  }
+              }
+              if (projClicked) return;
+
+              // === OLD: HANDLE TOMOGRAPHY ===
+              if (tomo->onMouseButton(xpos, ypos, true))
+              {
+                  for (Radio& radio : tomoDirs)
+                      radio.setSelected(false);
+                  if (tomo->getState())
+                      tomoDirs[0].setSelected(true);
+              }
+              else if (tomo->getState())
+              {
+                  for (Radio& radio : tomoDirs)
+                  {
+                      if (radio.clicked(xpos, ypos))
+                      {
+                          for (Radio& r : tomoDirs) r.setSelected(false);
+                          radio.setSelected(true);
+                          break;
+                      }
+                  }
+              }
+
+              // === OLD: HANDLE HELP HYPERLINK ===
+              const char* linkText = "Help";
+              int textWidth = 0;
+              const char* c = linkText;
+              while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
+              int linkX = (width - textWidth) / 2;
+              int linkY = height - 30;
+              int linkHeight = 15;
+
+              if (xpos >= linkX && xpos <= linkX + textWidth &&
+                  ypos >= linkY - linkHeight && ypos <= linkY + 5)
+              {
+                  ShellExecuteA(NULL, "open",
+                      "https://github.com/automaton3d/automaton/blob/master/help.md",
+                      NULL, NULL, SW_SHOWNORMAL);
+                  return;
+              }
+
+              // === NEW: IMPROVED AXIS THUMB DETECTION ===
+              if (!gAxisProjValid) {
+                  // No cached projection; fall back to 3D interactor
+                  if (!thumb.active && isIn3DZone(xpos, ypos, width, height)) {
+                      instance().mInteractor_.setLeftClicked(true);
+                      instance().mInteractor_.setClickPoint(xpos, ypos);
+                  }
+                  break;
+              }
+
+              float clickX = (float)xpos;
+              float clickY = (float)(height - ypos); // bottom-origin
+
+              auto distAndT = [](float px, float py, const AxisProjection& ap, float &tOut) {
+                  float dx = ap.x1 - ap.x0, dy = ap.y1 - ap.y0;
+                  float denom = dx*dx + dy*dy;
+                  if (denom <= 0.0f) { tOut = 0.0f; return std::hypot(px - ap.x0, py - ap.y0); }
+                  float t = ((px - ap.x0)*dx + (py - ap.y0)*dy) / denom;
+                  t = glm::clamp(t, 0.0f, 1.0f);
+                  tOut = t;
+                  float cx = ap.x0 + t*dx, cy = ap.y0 + t*dy;
+                  return std::hypot(px - cx, py - cy);
+              };
+
+              float tX=0.0f, tY=0.0f, tZ=0.0f;
+              float dX = distAndT(clickX, clickY, gAxisProj[0], tX);
+              float dY = distAndT(clickX, clickY, gAxisProj[1], tY);
+              float dZ = distAndT(clickX, clickY, gAxisProj[2], tZ);
+
+              const float thresholdPx = 12.0f;
+              int chosenAxis = -1;
+              float t = 0.0f;
+              float minDist = thresholdPx;
+
+              if (dX < minDist) { minDist = dX; chosenAxis = 0; t = tX; }
+              if (dY < minDist) { minDist = dY; chosenAxis = 1; t = tY; }
+              if (dZ < minDist) { minDist = dZ; chosenAxis = 2; t = tZ; }
+
+              if (chosenAxis != -1) {
+                  thumb.active   = true;
+                  thumb.axis     = chosenAxis;
+                  thumb.position = t * axisLength;
+                  return;
+              }
+              // === END NEW AXIS LOGIC ===
+
+              // === ACTIVATE 3D INTERACTOR ===
+              if (!thumb.active && isIn3DZone(xpos, ypos, width, height)) {
+                  instance().mInteractor_.setLeftClicked(true);
+                  instance().mInteractor_.setClickPoint(xpos, ypos);
               }
               break;
           }
 
-          default: break;
+          case GLFW_MOUSE_BUTTON_MIDDLE:
+              if (isIn3DZone(xpos, ypos, width, height) &&
+                  !hslider.isDragging() && !vslider.isDragging())
+              {
+                  instance().mInteractor_.setMiddleClicked(true);
+                  instance().mInteractor_.setClickPoint(xpos, ypos);
+              }
+              break;
+
+          case GLFW_MOUSE_BUTTON_RIGHT:
+              if (isIn3DZone(xpos, ypos, width, height) &&
+                  !hslider.isDragging() && !vslider.isDragging())
+              {
+                  instance().mInteractor_.setRightClicked(true);
+                  instance().mInteractor_.setClickPoint(xpos, ypos);
+              }
+              break;
+          }
+          break;
+
+      case GLFW_RELEASE:
+          switch (button)
+          {
+          case GLFW_MOUSE_BUTTON_LEFT:
+          {
+              // OLD: Preserve slider-aware release logic
+              bool wasSliderDragging = hslider.isDragging() || vslider.isDragging();
+              hslider.onMouseButton(button, action, xpos, ypos, height);
+              vslider.onMouseButton(button, action, xpos, ypos, height);
+              if (!wasSliderDragging)
+                  instance().mInteractor_.setLeftClicked(false);
+              thumb.active = false;
+              break;
+          }
+          case GLFW_MOUSE_BUTTON_MIDDLE:
+              instance().mInteractor_.setMiddleClicked(false);
+              break;
+          case GLFW_MOUSE_BUTTON_RIGHT:
+              instance().mInteractor_.setRightClicked(false);
+              break;
+          }
+          break;
+
+      default: break;
       }
   }
 
@@ -497,165 +580,164 @@ namespace framework
       // === NORMAL KEY HANDLING ===
       if (action == GLFW_PRESS)
       {
-          float length;
-          switch (key)
+        float length;
+        switch (key)
+        {
+          case GLFW_KEY_ESCAPE:
           {
-            case GLFW_KEY_ESCAPE:
-            {
-              std::thread([]() {
-                  int result = MessageBoxW(
-                      NULL,
-                      L"Are you sure you want to exit?",
-                      L"Exit Confirmation",
-                      MB_ICONQUESTION | MB_YESNO | MB_SYSTEMMODAL
-                  );
-                  if (result == IDYES)
-                  {
-                      glfwSetWindowShouldClose(framework::CAWindow::instance().getWindow(), GL_TRUE);
-                  }
-              }).detach();
-              break;
-            }
-
-              case GLFW_KEY_LEFT_CONTROL:
-              case GLFW_KEY_RIGHT_CONTROL:
-                  instance().mInteractor_.setSpeed(5.f);
-                  break;
-
-              case GLFW_KEY_LEFT_SHIFT:
-              case GLFW_KEY_RIGHT_SHIFT:
-                  instance().mInteractor_.setSpeed(0.1f);
-                  break;
-
-              case GLFW_KEY_F2:
-                  instance().mAnimator_.setAnimation(Animator::ORBIT);
-                  break;
-
-              case GLFW_KEY_F5:
-                  if (GUImode == SIMULATION && !replayFrames) {
-                      if (!recordFrames) {
-                          // Starting recording - ensure it's enabled
-                          recorder.recordingEnabled_ = true;
-                      }
-                      recordFrames = !recordFrames;
-                  }
-                  break;
-
-              case GLFW_KEY_F6:
-                  if (GUImode == REPLAY)
-                  {
-                      replayFrames = !replayFrames;
-                      replayIndex = 0;
-                      recordFrames = false;
-
-                      // ✅ Reset progress bar
-                      if (framework::replayProgress)
-                          framework::replayProgress->update(0, recorder.frames.size());
-                  }
-                  break;
-
-              case GLFW_KEY_F7:
-                  if (GUImode == SIMULATION && !recordFrames && !replayFrames && !pause)
-                  {
-                      recorder.saveToFile("frames.dat");
-                      savePopup = true;
-                  }
-                  break;
-
-              case GLFW_KEY_F8:
-                  if (GUImode == REPLAY)
-                  {
-                      if (!recordFrames && !replayFrames && !pause)  // Only load when NOT paused
-                      {
-                          try {
-                              recorder.loadFromFile("frames.dat");
-                              timer = recorder.savedTimer;
-                              automaton::scenario = recorder.savedScenario;
-                              loadPopup = true;
-                          }
-                          catch (const std::exception& e) {
-                              // Launch toast notification on failure
-                              toastMessage = std::string("Failed to load frames.dat");
-                              toastStartTime = glfwGetTime();
-                              toastActive = true;
-                          }
-                      }
-                      scenarioHelpToggle->setState(false);
-                  }
-                  break;
-
-              case GLFW_KEY_C:
-                  std::cout << "\nCamera view:"
-                            << " (" << instance().mCamera_.getEye().x
-                            << "," << instance().mCamera_.getEye().y
-                            << "," << instance().mCamera_.getEye().z << ") "
-                            << "(" << instance().mCamera_.getCenter().x
-                            << "," << instance().mCamera_.getCenter().y
-                            << "," << instance().mCamera_.getCenter().z << ") "
-                            << "(" << instance().mCamera_.getUp().x
-                            << "," << instance().mCamera_.getUp().y
-                            << "," << instance().mCamera_.getUp().z << ")\n\n";
-                  break;
-
-              case GLFW_KEY_R:
-                  instance().mCamera_.reset();
-                  instance().mInteractor_.setCamera(&instance().mCamera_);
-                  break;
-
-              case GLFW_KEY_T:
-                  if (instance().mInteractor_.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
-                      instance().mInteractor_.setMotionRightClick(TrackBallInteractor::PAN);
-                  else
-                      instance().mInteractor_.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
-                  break;
-
-              case GLFW_KEY_X:
-                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-                  instance().mCamera_.setEye(glm::vec3(length, 0, 0));
-                  instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-                  instance().mCamera_.update();
-                  instance().mInteractor_.setCamera(&instance().mCamera_);
-                  break;
-
-              case GLFW_KEY_Y:
-                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-                  instance().mCamera_.setEye(glm::vec3(0, length, 0));
-                  instance().mCamera_.setUp(glm::vec3(1, 0, 0));
-                  instance().mCamera_.update();
-                  instance().mInteractor_.setCamera(&instance().mCamera_);
-                  break;
-
-              case GLFW_KEY_Z:
-                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-                  instance().mCamera_.setEye(glm::vec3(0, 0, length));
-                  instance().mCamera_.setUp(glm::vec3(1, 0, 0));
-                  instance().mCamera_.update();
-                  instance().mInteractor_.setCamera(&instance().mCamera_);
-                  break;
-
-              case GLFW_KEY_O:
-                  length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-                  instance().mCamera_.setEye(glm::vec3(length, length, length));
-                  instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-                  instance().mCamera_.update();
-                  instance().mInteractor_.setCamera(&instance().mCamera_);
-                  break;
-
-              case GLFW_KEY_M:
-                  sound(false);
-                  break;
-
-              case GLFW_KEY_P:
-                  pause = !pause;
-                  break;
-
-              case GLFW_KEY_F1:
-                  showHelp = !showHelp;
-                  break;
-
-              default:
-                  break;
+            std::thread([]() {
+                int result = MessageBoxW(
+                    NULL,
+                    L"Are you sure you want to exit?",
+                    L"Exit Confirmation",
+                    MB_ICONQUESTION | MB_YESNO | MB_SYSTEMMODAL
+                );
+                if (result == IDYES)
+                {
+                    glfwSetWindowShouldClose(framework::CAWindow::instance().getWindow(), GL_TRUE);
+                }
+            }).detach();
+            break;
           }
+          case GLFW_KEY_LEFT_CONTROL:
+          case GLFW_KEY_RIGHT_CONTROL:
+            instance().mInteractor_.setSpeed(5.f);
+            break;
+
+          case GLFW_KEY_LEFT_SHIFT:
+          case GLFW_KEY_RIGHT_SHIFT:
+              instance().mInteractor_.setSpeed(0.1f);
+              break;
+
+          case GLFW_KEY_F2:
+              instance().mAnimator_.setAnimation(Animator::ORBIT);
+              break;
+
+          case GLFW_KEY_F5:
+              if (GUImode == SIMULATION && !replayFrames) {
+                  if (!recordFrames) {
+                      // Starting recording - ensure it's enabled
+                      recorder.recordingEnabled_ = true;
+                  }
+                  recordFrames = !recordFrames;
+              }
+              break;
+
+          case GLFW_KEY_F6:
+              if (GUImode == REPLAY)
+              {
+                  replayFrames = !replayFrames;
+                  replayIndex = 0;
+                  recordFrames = false;
+
+                  // ✅ Reset progress bar
+                  if (framework::replayProgress)
+                      framework::replayProgress->update(0, recorder.frames.size());
+              }
+              break;
+
+          case GLFW_KEY_F7:
+              if (GUImode == SIMULATION && !recordFrames && !replayFrames && !pause)
+              {
+                  recorder.saveToFile("frames.dat");
+                  savePopup = true;
+              }
+              break;
+
+          case GLFW_KEY_F8:
+              if (GUImode == REPLAY)
+              {
+                  if (!recordFrames && !replayFrames && !pause)  // Only load when NOT paused
+                  {
+                      try {
+                          recorder.loadFromFile("frames.dat");
+                          timer = recorder.savedTimer;
+                          automaton::scenario = recorder.savedScenario;
+                          loadPopup = true;
+                      }
+                      catch (const std::exception& e) {
+                          // Launch toast notification on failure
+                          toastMessage = std::string("Failed to load frames.dat");
+                          toastStartTime = glfwGetTime();
+                          toastActive = true;
+                      }
+                  }
+                  scenarioHelpToggle->setState(false);
+              }
+              break;
+
+          case GLFW_KEY_C:
+              std::cout << "\nCamera view:"
+                        << " (" << instance().mCamera_.getEye().x
+                        << "," << instance().mCamera_.getEye().y
+                        << "," << instance().mCamera_.getEye().z << ") "
+                        << "(" << instance().mCamera_.getCenter().x
+                        << "," << instance().mCamera_.getCenter().y
+                        << "," << instance().mCamera_.getCenter().z << ") "
+                        << "(" << instance().mCamera_.getUp().x
+                        << "," << instance().mCamera_.getUp().y
+                        << "," << instance().mCamera_.getUp().z << ")\n\n";
+              break;
+
+          case GLFW_KEY_R:
+              instance().mCamera_.reset();
+              instance().mInteractor_.setCamera(&instance().mCamera_);
+              break;
+
+          case GLFW_KEY_T:
+              if (instance().mInteractor_.getMotionRightClick() == TrackBallInteractor::FIRSTPERSON)
+                  instance().mInteractor_.setMotionRightClick(TrackBallInteractor::PAN);
+              else
+                  instance().mInteractor_.setMotionRightClick(TrackBallInteractor::FIRSTPERSON);
+              break;
+
+          case GLFW_KEY_X:
+              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+              instance().mCamera_.setEye(glm::vec3(length, 0, 0));
+              instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+              instance().mCamera_.update();
+              instance().mInteractor_.setCamera(&instance().mCamera_);
+              break;
+
+          case GLFW_KEY_Y:
+              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+              instance().mCamera_.setEye(glm::vec3(0, length, 0));
+              instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+              instance().mCamera_.update();
+              instance().mInteractor_.setCamera(&instance().mCamera_);
+              break;
+
+          case GLFW_KEY_Z:
+              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+              instance().mCamera_.setEye(glm::vec3(0, 0, length));
+              instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+              instance().mCamera_.update();
+              instance().mInteractor_.setCamera(&instance().mCamera_);
+              break;
+
+          case GLFW_KEY_O:
+              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
+              instance().mCamera_.setEye(glm::vec3(length, length, length));
+              instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+              instance().mCamera_.update();
+              instance().mInteractor_.setCamera(&instance().mCamera_);
+              break;
+
+          case GLFW_KEY_M:
+              sound(false);
+              break;
+
+          case GLFW_KEY_P:
+              pause = !pause;
+              break;
+
+          case GLFW_KEY_F1:
+              showHelp = !showHelp;
+              break;
+
+          default:
+              break;
+        }
       }
       else if (action == GLFW_RELEASE)
       {
@@ -679,27 +761,33 @@ namespace framework
       int width, height;
       glfwGetWindowSize(window, &width, &height);
 
-      // Close menus if mouse moves far from menu bar
-      if (ypos > 80)
+      // --- NEW: IMPROVED MENU AUTO-CLOSE LOGIC ---
+      // Only close menus when mouse button is not pressed
+      if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS)
       {
-          if (framework::fileMenu && framework::fileMenu->isOpen &&
-              !framework::fileMenu->containsDropdown((int)xpos, (int)ypos, width, height))
+          if (framework::fileMenu && framework::fileMenu->isOpen)
           {
-              framework::fileMenu->close();
+              if (!framework::fileMenu->isMouseOver((int)xpos, (int)ypos, width, height))
+              {
+                  framework::fileMenu->close();
+              }
           }
-          if (framework::helpMenu && framework::helpMenu->isOpen &&
-              !framework::helpMenu->containsDropdown((int)xpos, (int)ypos, width, height))
+          if (framework::helpMenu && framework::helpMenu->isOpen)
           {
-              framework::helpMenu->close();
+              if (!framework::helpMenu->isMouseOver((int)xpos, (int)ypos, width, height))
+              {
+                  framework::helpMenu->close();
+              }
           }
       }
+      // --- END NEW MENU LOGIC ---
 
-      // Always update sliders if they're being dragged
+      // === OLD: HANDLE SLIDER DRAGGING ===
       hslider.onMouseDrag((int)xpos, (int)ypos, height);
       vslider.onMouseDrag((int)xpos, (int)ypos, height);
       hslider.onMouseMove((int)xpos, ypos);
 
-      // Hover detection for Help hyperlink (unchanged)
+      // === OLD: HOVER DETECTION FOR HELP HYPERLINK ===
       const char* linkText = "Help";
       int textWidth = 0;
       const char* c = linkText;
@@ -710,12 +798,40 @@ namespace framework
       helpHover = (xpos >= linkX && xpos <= linkX + textWidth &&
                    ypos >= linkY - linkHeight && ypos <= linkY + 5);
 
-      // Trackball update if in 3D zone
+      // === TRACKBALL UPDATE IF IN 3D ZONE ===
       if (!hslider.isDragging() && !vslider.isDragging() &&
           isIn3DZone(xpos, ypos, width, height))
       {
           instance().mInteractor_.setClickPoint(xpos, ypos);
       }
+
+      // === NEW: IMPROVED THUMB POSITION UPDATE ===
+      if (thumb.active && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+      {
+          // Check if cache is valid before accessing it
+          if (!gAxisProjValid) return;
+
+          // Get the cached 2D endpoints for the active axis
+          float x0 = gAxisProj[thumb.axis].x0;
+          float y0 = gAxisProj[thumb.axis].y0;
+          float x1 = gAxisProj[thumb.axis].x1;
+          float y1 = gAxisProj[thumb.axis].y1;
+
+          float mx = (float)xpos;
+          float my = (float)(height - ypos); // bottom-origin mouse Y
+
+          auto relPos = [](float px, float py, float ax, float ay, float bx, float by) {
+              float dx = bx - ax, dy = by - ay;
+              float denom = dx*dx + dy*dy;
+              if (denom <= 0.0f) return 0.0f;
+              float t = ((px-ax)*dx + (py-ay)*dy) / denom;
+              return glm::clamp(t, 0.0f, 1.0f);
+          };
+
+          float t = relPos(mx, my, x0, y0, x1, y1);
+          thumb.position = t * axisLength;
+      }
+      // === END NEW THUMB LOGIC ===
   }
 
   /*
@@ -893,6 +1009,8 @@ namespace framework
         showExitDialog = true;
       }
       mRenderer_.render();
+      glDisable(GL_DEPTH_TEST);
+      glDepthMask(GL_FALSE);
       if (toastActive)
       {
         double now = glfwGetTime();
@@ -939,6 +1057,9 @@ namespace framework
           toastActive = false;
         }
       }
+      mRenderer_.handleMenuSelection();
+      glEnable(GL_DEPTH_TEST);
+      glDepthMask(GL_TRUE);
       glfwSwapBuffers(mWindow_);
       mInteractor_.update();
       if (!pause)

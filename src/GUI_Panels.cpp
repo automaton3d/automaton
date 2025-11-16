@@ -1,5 +1,5 @@
 /*
- * GUI_Panels.cpp
+ * GUI_Panels.cpp (old)
  */
 
 #include "GUI.h"

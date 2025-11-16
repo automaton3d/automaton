@@ -20,6 +20,7 @@ namespace framework
   extern Tickbox* tomo;
   extern std::vector<Radio> tomoDirs;
   extern unsigned tomo_x, tomo_y, tomo_z;
+  extern int vis_dx, vis_dy, vis_dz;
 }
 
 // Near the top of bridge.cpp
@@ -93,12 +94,21 @@ void updateBuffer()
           continue;
         }
 
-        Cell &cell = getCell(lattice_curr, x, y, z, w);
+        Cell &cell = getCell(
+            lattice_curr,
+            (x + framework::vis_dx + EL) % EL,
+            (y + framework::vis_dy + EL) % EL,
+            (z + framework::vis_dz + EL) % EL,
+            w
+        );
         if (cell.t == cell.d)
         {
-          if (cell.a == W_USED)      voxels[index3D] = RGB(255, 0, 0);
-          else if (cell.t == 0)      voxels[index3D] = RGB(0, 255, 0);
-          else                        voxels[index3D] = RGB(255, 255, 255);
+          if (cell.a == W_USED)
+        	voxels[index3D] = RGB(255, 0, 0);
+          else if (cell.t == 0)
+        	voxels[index3D] = RGB(0, 255, 0);
+          else
+        	voxels[index3D] = RGB(255, 255, 255);
         }
         else
         {

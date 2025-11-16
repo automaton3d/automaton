@@ -1,5 +1,5 @@
 /*
- * splash.cpp
+ * splash.cpp (new)
  */
 
 #include <button.h>
@@ -24,41 +24,50 @@ void drawRaisedPanel(float x, float y, float w, float h)
     float y1 = y;
     float x2 = x + w;
     float y2 = y + h;
-    float bevel = 2.0f; // bevel in pixels
-
-    // Dark shadow (bottom and right edges)
-    glColor3f(0.5f, 0.5f, 0.5f);
-    glBegin(GL_QUADS);
-        // Bottom edge
-        glVertex2f(x1, y1);
-        glVertex2f(x2, y1);
-        glVertex2f(x2, y1 - bevel);
-        glVertex2f(x1, y1 - bevel);
-        // Right edge
-        glVertex2f(x2, y1);
-        glVertex2f(x2 + bevel, y1);
-        glVertex2f(x2 + bevel, y2);
-        glVertex2f(x2, y2);
-    glEnd();
-
-    // Light highlight (top and left edges)
-    glColor3f(1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-        // Top edge
-        glVertex2f(x1, y2);
-        glVertex2f(x2, y2);
-        glVertex2f(x2, y2 + bevel);
-        glVertex2f(x1, y2 + bevel);
-        // Left edge
-        glVertex2f(x1, y1);
-        glVertex2f(x1, y2);
-        glVertex2f(x1 - bevel, y2);
-        glVertex2f(x1 - bevel, y1);
-    glEnd();
+    float bevel = 2.0f;
 
     // Inner fill
     glColor3f(0.85f, 0.85f, 0.9f);
     glBegin(GL_QUADS);
+        glVertex2f(x1, y1);
+        glVertex2f(x2, y1);
+        glVertex2f(x2, y2);
+        glVertex2f(x1, y2);
+    glEnd();
+
+    // Light highlight (top and left)
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+        // Top edge (thin strip below top side)
+        glVertex2f(x1, y1);
+        glVertex2f(x2, y1);
+        glVertex2f(x2, y1 + bevel);
+        glVertex2f(x1, y1 + bevel);
+        // Left edge (thin strip to the right of left side)
+        glVertex2f(x1, y1);
+        glVertex2f(x1 + bevel, y1);
+        glVertex2f(x1 + bevel, y2);
+        glVertex2f(x1, y2);
+    glEnd();
+
+    // Dark shadow (bottom and right)
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glBegin(GL_QUADS);
+        // Bottom edge (thin strip above bottom side)
+        glVertex2f(x1, y2 - bevel);
+        glVertex2f(x2, y2 - bevel);
+        glVertex2f(x2, y2);
+        glVertex2f(x1, y2);
+        // Right edge (thin strip to the left of right side)
+        glVertex2f(x2 - bevel, y1);
+        glVertex2f(x2,         y1);
+        glVertex2f(x2,         y2);
+        glVertex2f(x2 - bevel, y2);
+    glEnd();
+
+    // Border (optional)
+    glColor3f(0.35f, 0.35f, 0.35f);
+    glBegin(GL_LINE_LOOP);
         glVertex2f(x1, y1);
         glVertex2f(x2, y1);
         glVertex2f(x2, y2);
@@ -104,95 +113,102 @@ namespace splash
   };
 
   framework::Logo *logo_splash = nullptr;
-  Dropdown sizeDropdown(50, 340, 120, 30, sizeOptions);
-  Dropdown layerDropdown(50, 270, 120, 30, layerOptions);
-  Tickbox startPausedBox(200, 240, "Start paused");
-  Dropdown scenarioDropdown(200, 340, 200, 30, scenarioOptions);
-  Button simBtn(200, 190, 200, 40, "Simulation");
-  Button statBtn(200, 130, 200, 40, "Statistics");
-  Button replayBtn(200, 60, 200, 40, "Replay");
-  Button helpLink((WINDOW_WIDTH - 100) / 2, 20, 100, 25, "Help");
+
+
+  // Refactored (top-origin)
+  Dropdown sizeDropdown(50, WINDOW_HEIGHT - 340 - 30, 120, 30, sizeOptions);
+  Dropdown layerDropdown(50, WINDOW_HEIGHT - 270 - 30, 120, 30, layerOptions);
+  Tickbox startPausedBox(200, WINDOW_HEIGHT - 240 - 15, "Start paused"); // assume tickbox height ~20
+  Dropdown scenarioDropdown(200, WINDOW_HEIGHT - 340 - 30, 200, 30, scenarioOptions);
+
+  Button simBtn(200, WINDOW_HEIGHT - 190 - 40, 200, 40, "Simulation");
+  Button statBtn(200, WINDOW_HEIGHT - 130 - 40, 200, 40, "Statistics");
+  Button replayBtn(200, WINDOW_HEIGHT - 60 - 40, 200, 40, "Replay");
+  Button helpLink((WINDOW_WIDTH - 100) / 2, WINDOW_HEIGHT - 20 - 25, 100, 25, "Help");
 
   void drawLabel(const char* text, float x, float y)
   {
-      glColor3f(0.0f, 0.0f, 0.0f);
-      glRasterPos2f(x, y);
-      for (const char* c = text; *c; ++c)
-          glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+    glColor3f(0.0f, 0.0f, 0.0f);
+    glRasterPos2f(x, y);
+    for (const char* c = text; *c; ++c)
+      glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
   }
 
   void drawControls()
   {
-	  drawRaisedPanel(40, 115, WINDOW_WIDTH - 80, 290);
-	  drawRaisedPanel(185, 180, 232, 90);
-      // Labels
-      drawLabel("Size", sizeDropdown.x, 380);
-      drawLabel("Layers", layerDropdown.x, 310);
-      drawLabel("Scenario", scenarioDropdown.x, 380);
-      // Tickbox
-      startPausedBox.draw();
-      // Buttons
-      simBtn.draw(true);
-      replayBtn.draw(true);
-      statBtn.draw(true);
-      // Dropdowns
-      layerDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
-      sizeDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
-      scenarioDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
-      // Help
-      helpLink.drawAsHyperlink(helpHover);
-
+    drawRaisedPanel(40, 297, WINDOW_WIDTH - 80, 290);
+	  drawRaisedPanel(185, 432, 232, 90);
+    drawLabel("Size", sizeDropdown.x, 325);
+    drawLabel("Layers", layerDropdown.x, 395);
+    drawLabel("Scenario", scenarioDropdown.x, 325);
+    // Tickbox
+    startPausedBox.draw();
+    // Buttons
+    simBtn.draw(true);
+    replayBtn.draw(true);
+    statBtn.draw(true);
+    // Dropdowns
+    layerDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
+    sizeDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
+    scenarioDropdown.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
+    // Help
+    helpLink.drawAsHyperlink(helpHover);
   }
 
   void drawTitle()
   {
-      const char* title = "It from bit: a concrete attempt";
-      glColor3f(0.4f, 0.7f, 1.0f);
+    const char* title = "It from bit: a concrete attempt";
+    glColor3f(0.4f, 0.7f, 1.0f);
 
-      // Compute text width in pixels
-      int textWidth = 0;
-      for (const char* c = title; *c; ++c)
-          textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *c);
+    // Compute text width in pixels
+    int textWidth = 0;
+    for (const char* c = title; *c; ++c)
+        textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *c);
 
-      // Center horizontally in window
-      int tx = (WINDOW_WIDTH - textWidth) / 2;
-      int ty = WINDOW_HEIGHT - 50; // 50 pixels down from top
+    // Center horizontally
+    int tx = (WINDOW_WIDTH - textWidth) / 2;
+    // ✅ Top-origin: 50 pixels down from top
+    int ty = 50;
 
-      // Draw with a subtle shadow effect
-      for (int dx = -1; dx <= 1; ++dx)
-          for (int dy = -1; dy <= 1; ++dy)
-          {
-              glRasterPos2i(tx + dx, ty + dy);
-              for (const char* c = title; *c; ++c)
-                  glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
-          }
+    // Draw with subtle shadow
+    for (int dx = -1; dx <= 1; ++dx)
+      for (int dy = -1; dy <= 1; ++dy)
+      {
+        glRasterPos2i(tx + dx, ty + dy);
+        for (const char* c = title; *c; ++c)
+          glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+      }
   }
 
   void display()
   {
-      glClearColor(0.95f, 0.95f, 0.97f, 1.0f);
-      glClear(GL_COLOR_BUFFER_BIT);
-      glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glClearColor(0.95f, 0.95f, 0.97f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-      drawTitle();
+    drawTitle();
 
-      // Logo centered below title
-      float scale = 0.21f;
-      int logoW = static_cast<int>(logo_splash->width()  * scale);
-      int logoH = static_cast<int>(logo_splash->height() * scale);
-      int logoX = (WINDOW_WIDTH - logoW) / 2;
-      int titleBaseline = WINDOW_HEIGHT - 50;
-      int logoY = titleBaseline - logoH - 20;
-      logo_splash->draw(logoX, logoY, scale);
+    // Logo centered below title
+    float scale = 0.21f;
+    int logoW = static_cast<int>(logo_splash->width()  * scale);
+    int logoX = (WINDOW_WIDTH - logoW) / 2;
 
-      // Widgets block (dropdowns, tickbox, buttons) just above help link
-      drawControls();
+    // Title baseline is 50px down from top
+    int titleBaseline = 50;
 
-      // Help link at bottom center
-      helpLink.drawAsHyperlink(helpHover);
+    // ✅ In top-origin, increasing Y goes downward
+    // So place logo just below titleBaseline
+    int logoY = titleBaseline + 20;  // 20px gap below title
+    logo_splash->draw(logoX, logoY, scale);
 
-      glutSwapBuffers();
+    // Widgets block (dropdowns, tickbox, buttons) just above help link
+    drawControls();
+
+    // Help link at bottom center
+    helpLink.drawAsHyperlink(helpHover);
+
+    glutSwapBuffers();
   }
 
   bool isClickOnUI(int x, int y, int windowWidth, int windowHeight)
@@ -207,66 +223,70 @@ namespace splash
 
   void mouse(int button, int state, int x, int y)
   {
-      if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN)
-          return;
+    if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN)
+      return;
 
-      // Convert GLUT’s top-left origin to bottom-left origin
-      int mx = x;
-      int my = WINDOW_HEIGHT - y;
+    // ✅ Top-origin: use GLUT’s x,y directly (no flip)
+    int mx = x;
+    int my = y;
 
-      if (startPausedBox.onMouseButton(mx, my, true)) {
-          glutPostRedisplay();
-          return;
-      }
+    // Tickbox
+    if (startPausedBox.onMouseButton(mx, my, true)) {
+        glutPostRedisplay();
+        return;
+    }
 
-      bool sizeSelected     = sizeDropdown.handleClick(mx, my, WINDOW_WIDTH, WINDOW_HEIGHT);
-      bool layerSelected    = layerDropdown.handleClick(mx, my, WINDOW_WIDTH, WINDOW_HEIGHT);
-      bool scenarioSelected = scenarioDropdown.handleClick(mx, my, WINDOW_WIDTH, WINDOW_HEIGHT);
+    // Dropdowns
+    bool sizeSelected     = sizeDropdown.handleClick(mx, my, WINDOW_WIDTH, WINDOW_HEIGHT);
+    bool layerSelected    = layerDropdown.handleClick(mx, my, WINDOW_WIDTH, WINDOW_HEIGHT);
+    bool scenarioSelected = scenarioDropdown.handleClick(mx, my, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-      if (sizeSelected) lattice_size = std::stoi(sizeDropdown.getSelectedItem());
-      if (layerSelected) numLayers = std::stoi(layerDropdown.getSelectedItem());
-      if (scenarioSelected) std::cout << "Scenario: " << scenarioDropdown.getSelectedItem() << std::endl;
+    if (sizeSelected) lattice_size = std::stoi(sizeDropdown.getSelectedItem());
+    if (layerSelected) numLayers = std::stoi(layerDropdown.getSelectedItem());
+    if (scenarioSelected) std::cout << "Scenario: " << scenarioDropdown.getSelectedItem() << std::endl;
 
-      // Buttons
-      if (simBtn.contains(mx, my)) {
-          automaton::calculateParameters(lattice_size, numLayers);
-          if (!automaton::tryAllocate(lattice_size, numLayers)) {
-              MessageBox(NULL,
-                  "Memory allocation failed. Try a smaller lattice size or fewer layers.",
-                  "Allocation Error", MB_OK | MB_ICONWARNING);
-          } else {
-              selection = 0;
-              glutLeaveMainLoop();
-          }
-      }
-      else if (replayBtn.contains(mx, my)) {
-          automaton::calculateParameters(lattice_size, numLayers);
-          if (!automaton::tryAllocate(lattice_size, numLayers)) {
-              MessageBox(NULL,
-                  "Memory allocation failed. Try a smaller lattice size or fewer layers.",
-                  "Allocation Error", MB_OK | MB_ICONWARNING);
-          } else {
-              selection = 1;
-              glutLeaveMainLoop();
-          }
-      }
-      else if (statBtn.contains(mx, my)) {
-          automaton::calculateParameters(lattice_size, numLayers);
-          if (!automaton::tryAllocate(lattice_size, numLayers)) {
-              MessageBox(NULL,
-                  "Memory allocation failed. Try a smaller lattice size or fewer layers.",
-                  "Allocation Error", MB_OK | MB_ICONWARNING);
-          } else {
-              automaton::scenario = 7; // full simulation for statistics
-              selection = 2;
-              glutLeaveMainLoop();
-          }
-      }
-      else if (helpLink.contains(mx, my)) {
-          ShellExecuteA(NULL, "open", "https://github.com/automaton3d/automaton/blob/master/help.md", NULL, NULL, SW_SHOWNORMAL);
-      }
+    // Buttons
+    if (simBtn.contains(mx, my)) {
+        automaton::calculateParameters(lattice_size, numLayers);
+        if (!automaton::tryAllocate(lattice_size, numLayers)) {
+            MessageBox(NULL,
+                "Memory allocation failed. Try a smaller lattice size or fewer layers.",
+                "Allocation Error", MB_OK | MB_ICONWARNING);
+        } else {
+            selection = 0;
+            glutLeaveMainLoop();
+        }
+    }
+    else if (replayBtn.contains(mx, my)) {
+        automaton::calculateParameters(lattice_size, numLayers);
+        if (!automaton::tryAllocate(lattice_size, numLayers)) {
+            MessageBox(NULL,
+                "Memory allocation failed. Try a smaller lattice size or fewer layers.",
+                "Allocation Error", MB_OK | MB_ICONWARNING);
+        } else {
+            selection = 1;
+            glutLeaveMainLoop();
+        }
+    }
+    else if (statBtn.contains(mx, my)) {
+        automaton::calculateParameters(lattice_size, numLayers);
+        if (!automaton::tryAllocate(lattice_size, numLayers)) {
+            MessageBox(NULL,
+                "Memory allocation failed. Try a smaller lattice size or fewer layers.",
+                "Allocation Error", MB_OK | MB_ICONWARNING);
+        } else {
+            automaton::scenario = 7; // full simulation for statistics
+            selection = 2;
+            glutLeaveMainLoop();
+        }
+    }
+    else if (helpLink.contains(mx, my)) {
+        ShellExecuteA(NULL, "open",
+            "https://github.com/automaton3d/automaton/blob/master/help.md",
+            NULL, NULL, SW_SHOWNORMAL);
+    }
 
-      glutPostRedisplay();
+    glutPostRedisplay();
   }
 
   void mouseWheel(int button, int dir, int x, int y)
@@ -297,22 +317,22 @@ namespace splash
     }
   }
 
-  void reshape(int w, int h)
+  void reshape(int w, int h)   // ✅ correct
   {
-      glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-      glMatrixMode(GL_PROJECTION);
-      glLoadIdentity();
-      glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);  // pixel coordinates
-      glMatrixMode(GL_MODELVIEW);
-      glLoadIdentity();
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
   }
 
   void closeFunc() {
-      if (selection == 0 || selection == 1 || selection == 2) {
+    if (selection == 0 || selection == 1 || selection == 2) {
           // valid selection already made — do not override
-          return;
-      }
-      selection = -1; // mark as exit
+      return;
+    }
+    selection = -1; // mark as exit
   }
 
   void passiveMotion(int x, int y)
@@ -321,16 +341,6 @@ namespace splash
     glutPostRedisplay();
   }
 } // end namespace splash
-
-void reshape(int w, int h)
-{
-  glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);  // NDC coordinates
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-}
 
 int main(int argc, char** argv)
 {
@@ -343,10 +353,9 @@ int main(int argc, char** argv)
   );
   glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
   glutCreateWindow("Toy Universe");
-  // Set up projection matrices for NDC
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+  glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);  // top-origin
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   splash::sizeDropdown.selectByValue("21");
