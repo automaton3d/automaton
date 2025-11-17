@@ -13,7 +13,7 @@ class Dropdown
 {
 public:
     float x, y, width, height;
-    bool isOpen;
+    bool isOpen_;
 
     Dropdown(float x, float y, float w, float h,
              const std::vector<std::string>& opts,
@@ -34,11 +34,14 @@ public:
     void selectByValue(const std::string& value);
     int getSelectedIndex() const;
     bool isMouseOver(int mx, int my, int winW, int winH) const;
+    void clearSelection();
+    bool wasJustSelected();
 
 private:
     std::vector<std::string> options_;
     int selectedIndex_;
     int scrollOffset_;
-    std::string header_;   // NEW field
+    std::string header_;
+    bool selectionChanged_;
 };
 #endif // DROPDOWN_H_

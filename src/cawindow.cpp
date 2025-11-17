@@ -77,6 +77,9 @@ namespace framework
   extern Tickbox* scenarioHelpToggle;
   extern ReplayProgressBar *replayProgress;
   extern GLint gViewport[4];
+  extern int vis_dx;
+  extern int vis_dy;
+  extern int vis_dz;
 
   // Logo
 
@@ -238,15 +241,6 @@ namespace framework
     if (projection[0].isSelected())
     {
       // Orthographic projection
-      float orthoSize = 0.6f; // Adjust this value to control zoom
-
-      /*
-      mRenderer_.setProjection(glm::ortho(         // ← USE setProjection()
-        -orthoSize * ratio, orthoSize * ratio,
-        -orthoSize, orthoSize,
-        0.01f, 100.0f
-      ));
-      */
       mRenderer_.setProjection(glm::perspective(   // ← USE setProjection()
           glm::radians(45.0f),
           ratio,
@@ -308,8 +302,8 @@ namespace framework
               // --- NEW: IMPROVED MENU CLICK HANDLING ---
               int menuWidth = gViewport[2];
               int menuHeight = gViewport[3];
-              bool fileMenuWasOpen = fileMenu && fileMenu->isOpen;
-              bool helpMenuWasOpen = helpMenu && helpMenu->isOpen;
+              bool fileMenuWasOpen = fileMenu && fileMenu->isOpen_;
+              bool helpMenuWasOpen = helpMenu && helpMenu->isOpen_;
               bool itemSelected = false;
 
               // Try to handle click on File menu
@@ -458,6 +452,8 @@ namespace framework
               }
 
               // === NEW: IMPROVED AXIS THUMB DETECTION ===
+              if ((pause || GUImode == REPLAY))
+              {
               if (!gAxisProjValid) {
                   // No cached projection; fall back to 3D interactor
                   if (!thumb.active && isIn3DZone(xpos, ypos, width, height)) {
@@ -499,7 +495,18 @@ namespace framework
                   thumb.active   = true;
                   thumb.axis     = chosenAxis;
                   thumb.position = t * axisLength;
+                  thumb.dragging = true;
+
+                  // ✅ Only allow offsets if simulation is paused or replay mode
+                  if (pause || GUImode == REPLAY) {
+                      int offset = static_cast<int>(round((thumb.position / axisLength) * automaton::EL));
+                      if (thumb.axis == 0) vis_dx = offset;
+                      if (thumb.axis == 1) vis_dy = offset;
+                      if (thumb.axis == 2) vis_dz = offset;
+                  }
+
                   return;
+              }
               }
               // === END NEW AXIS LOGIC ===
 
@@ -543,6 +550,7 @@ namespace framework
               if (!wasSliderDragging)
                   instance().mInteractor_.setLeftClicked(false);
               thumb.active = false;
+              thumb.dragging = false;
               break;
           }
           case GLFW_MOUSE_BUTTON_MIDDLE:
@@ -729,6 +737,12 @@ namespace framework
 
           case GLFW_KEY_P:
               pause = !pause;
+              // ✅ Reset offsets when resuming simulation
+              if (!pause && GUImode == SIMULATION) {
+                  vis_dx = 0;
+                  vis_dy = 0;
+                  vis_dz = 0;
+              }
               break;
 
           case GLFW_KEY_F1:
@@ -762,22 +776,17 @@ namespace framework
       glfwGetWindowSize(window, &width, &height);
 
       // --- NEW: IMPROVED MENU AUTO-CLOSE LOGIC ---
-      // Only close menus when mouse button is not pressed
       if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS)
       {
-          if (framework::fileMenu && framework::fileMenu->isOpen)
+          if (framework::fileMenu && framework::fileMenu->isOpen_)
           {
               if (!framework::fileMenu->isMouseOver((int)xpos, (int)ypos, width, height))
-              {
                   framework::fileMenu->close();
-              }
           }
-          if (framework::helpMenu && framework::helpMenu->isOpen)
+          if (framework::helpMenu && framework::helpMenu->isOpen_)
           {
               if (!framework::helpMenu->isMouseOver((int)xpos, (int)ypos, width, height))
-              {
                   framework::helpMenu->close();
-              }
           }
       }
       // --- END NEW MENU LOGIC ---
@@ -799,39 +808,44 @@ namespace framework
                    ypos >= linkY - linkHeight && ypos <= linkY + 5);
 
       // === TRACKBALL UPDATE IF IN 3D ZONE ===
-      if (!hslider.isDragging() && !vslider.isDragging() &&
-          isIn3DZone(xpos, ypos, width, height))
+      if (!pause)  // only update interactor when not paused
       {
-          instance().mInteractor_.setClickPoint(xpos, ypos);
+          if (!hslider.isDragging() && !vslider.isDragging() &&
+              isIn3DZone(xpos, ypos, width, height))
+          {
+              instance().mInteractor_.setClickPoint(xpos, ypos);
+          }
       }
 
-      // === NEW: IMPROVED THUMB POSITION UPDATE ===
-      if (thumb.active && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+      // === AXIS THUMB DRAGGING ===
+      if ((pause || GUImode == REPLAY) && thumb.active && thumb.dragging)
       {
-          // Check if cache is valid before accessing it
           if (!gAxisProjValid) return;
 
-          // Get the cached 2D endpoints for the active axis
           float x0 = gAxisProj[thumb.axis].x0;
           float y0 = gAxisProj[thumb.axis].y0;
           float x1 = gAxisProj[thumb.axis].x1;
           float y1 = gAxisProj[thumb.axis].y1;
 
-          float mx = (float)xpos;
-          float my = (float)(height - ypos); // bottom-origin mouse Y
+          float mx = static_cast<float>(xpos);
+          float my = static_cast<float>(height - ypos); // bottom-origin
 
           auto relPos = [](float px, float py, float ax, float ay, float bx, float by) {
               float dx = bx - ax, dy = by - ay;
               float denom = dx*dx + dy*dy;
               if (denom <= 0.0f) return 0.0f;
-              float t = ((px-ax)*dx + (py-ay)*dy) / denom;
+              float t = ((px - ax) * dx + (py - ay) * dy) / denom;
               return glm::clamp(t, 0.0f, 1.0f);
           };
 
           float t = relPos(mx, my, x0, y0, x1, y1);
           thumb.position = t * axisLength;
+
+          int offset = static_cast<int>(round((thumb.position / axisLength) * automaton::EL));
+          if (thumb.axis == 0) vis_dx = offset;
+          if (thumb.axis == 1) vis_dy = offset;
+          if (thumb.axis == 2) vis_dz = offset;
       }
-      // === END NEW THUMB LOGIC ===
   }
 
   /*
@@ -845,7 +859,7 @@ namespace framework
     glfwGetCursorPos(window, &mouseX, &mouseY);
 
     // Check if scrolling over an open dropdown menu
-    if (framework::fileMenu && framework::fileMenu->isOpen)
+    if (framework::fileMenu && framework::fileMenu->isOpen_)
     {
         if (framework::fileMenu->containsDropdown((int)mouseX, (int)mouseY, width, height))
         {
@@ -854,7 +868,7 @@ namespace framework
         }
     }
 
-    if (framework::helpMenu && framework::helpMenu->isOpen)
+    if (framework::helpMenu && framework::helpMenu->isOpen_)
     {
         if (framework::helpMenu->containsDropdown((int)mouseX, (int)mouseY, width, height))
         {
@@ -906,7 +920,7 @@ namespace framework
           }
           else
           {
-        	replayFrames = false;
+            replayFrames = false;
             toastMessage = "No frames to replay.";
             toastStartTime = glfwGetTime();
             toastActive = true;

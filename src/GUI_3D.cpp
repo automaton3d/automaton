@@ -47,9 +47,12 @@ namespace framework
       {
         for (unsigned z = 0; z < EL; z++)
         {
-          if (getCell(lattice_curr, x, y, z, layerList->getSelected()).pB)
+          int wx = (x + vis_dx + EL) % EL;
+          int wy = (y + vis_dy + EL) % EL;
+          int wz = (z + vis_dz + EL) % EL;
+          if (getCell(lattice_curr, wx, wy, wz, layerList->getSelected()).pB)
           {
-            if (isVoxelVisible(x, y, z))
+            if (isVoxelVisible(wx, wy, wz))
             {
               glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
             }
@@ -57,7 +60,6 @@ namespace framework
             {
               glColor3d(0.4, 0.4, 0.4);
             }
-
             if (GUImode == REPLAY)
             {
               // Shift the momentum point by the layer's center
@@ -68,17 +70,19 @@ namespace framework
               float cz = (float)center[2];
 
               // Calculate position relative to the layer's center (cx, cy, cz)
-              float px = (x - cx) * GRID_SIZE;
-              float py = (y - cy) * GRID_SIZE;
-              float pz = (z - cz) * GRID_SIZE;
+
+              float px = (int)(x - cx) * GRID_SIZE;
+              float py = (int)(y - cy) * GRID_SIZE;
+              float pz = (int)(z - cz) * GRID_SIZE;
               glVertex3f(px, py, pz);
             }
             else
             {
               // Normal rendering mode (centered on global lattice center)
-              float px = ((int)x - CENTER_INT) * GRID_SIZE;
-              float py = ((int)y - CENTER_INT) * GRID_SIZE;
-              float pz = ((int)z - CENTER_INT) * GRID_SIZE;
+              float px = (int)(x - CENTER_INT) * GRID_SIZE;
+              float py = (int)(y - CENTER_INT) * GRID_SIZE;
+              float pz = (int)(z - CENTER_INT) * GRID_SIZE;
+
               glVertex3f(px, py, pz);
             }
           }
@@ -103,7 +107,10 @@ namespace framework
       {
         for (unsigned z = 0; z < EL; z++)
         {
-          if (getCell(lattice_curr, x, y, z, layerList->getSelected()).sB)
+          int wx = (x + vis_dx + EL) % EL;
+          int wy = (y + vis_dy + EL) % EL;
+          int wz = (z + vis_dz + EL) % EL;
+          if (getCell(lattice_curr, wx, wy, wz, layerList->getSelected()).pB)
           {
             if (isVoxelVisible(x, y, z))
               glColor3d(0, 1.0, 1.0);   // Cyan
@@ -118,16 +125,17 @@ namespace framework
               float cz = (float)center[2];
 
               // Calculate position relative to the layer's center (cx, cy, cz)
-              float px = (x - cx) * GRID_SIZE;
-              float py = (y - cy) * GRID_SIZE;
-              float pz = (z - cz) * GRID_SIZE;
+
+              float px = (int)(x - cx) * GRID_SIZE;
+              float py = (int)(y - cy) * GRID_SIZE;
+              float pz = (int)(z - cz) * GRID_SIZE;
               glVertex3f(px, py, pz);
             }
             else
             {
-              float px = ((int)x - CENTER_INT) * GRID_SIZE;
-              float py = ((int)y - CENTER_INT) * GRID_SIZE;
-              float pz = ((int)z - CENTER_INT) * GRID_SIZE;
+              float px = (int)(x - CENTER_INT) * GRID_SIZE;
+              float py = (int)(y - CENTER_INT) * GRID_SIZE;
+              float pz = (int)(z - CENTER_INT) * GRID_SIZE;
               glVertex3f(px, py, pz);
             }
           }
@@ -154,12 +162,16 @@ namespace framework
         {
           if (!isVoxelVisible(x, y, z))
             continue;
-          if (getCell(lattice_curr, x, y, z, layerList->getSelected()).phiB)
+          int wx = (x + vis_dx + EL) % EL;
+          int wy = (y + vis_dy + EL) % EL;
+          int wz = (z + vis_dz + EL) % EL;
+          if (getCell(lattice_curr, wx, wy, wz, layerList->getSelected()).pB)
           {
             glColor3d(1.0, 1.0, 0);
-            float px = ((int)x - CENTER_INT) * GRID_SIZE;
-            float py = ((int)y - CENTER_INT) * GRID_SIZE;
-            float pz = ((int)z - CENTER_INT) * GRID_SIZE;
+            float px = (int)(x - CENTER_INT) * GRID_SIZE;
+            float py = (int)(y - CENTER_INT) * GRID_SIZE;
+            float pz = (int)(z - CENTER_INT) * GRID_SIZE;
+
             glVertex3f(px, py, pz);
           }
         }
@@ -183,12 +195,15 @@ namespace framework
       {
         for (unsigned z = 0; z < EL; z++)
         {
-          if (getCell(lattice_curr, x, y, z, layerList->getSelected()).hB)
+          int wx = (x + vis_dx + EL) % EL;
+          int wy = (y + vis_dy + EL) % EL;
+          int wz = (z + vis_dz + EL) % EL;
+          if (getCell(lattice_curr, wx, wy, wz, layerList->getSelected()).pB)
           {
             glColor3d(1.0, 1.0, 0);
-            float px = ((int)x - CENTER_INT) * GRID_SIZE;
-            float py = ((int)y - CENTER_INT) * GRID_SIZE;
-            float pz = ((int)z - CENTER_INT) * GRID_SIZE;
+            float px = (int)(x - CENTER_INT) * GRID_SIZE;
+            float py = (int)(y - CENTER_INT) * GRID_SIZE;
+            float pz = (int)(z - CENTER_INT) * GRID_SIZE;
             glVertex3f(px, py, pz);
           }
         }
@@ -231,9 +246,9 @@ namespace framework
 
           glColor4d(red, green, blue, alpha);
 
-          float px = ((int)x - CENTER_INT) * GRID_SIZE;
-          float py = ((int)y - CENTER_INT) * GRID_SIZE;
-          float pz = ((int)z - CENTER_INT) * GRID_SIZE;
+          float px = ((int)((x + vis_dx) % EL) - CENTER_INT) * GRID_SIZE;
+          float py = ((int)((y + vis_dy) % EL) - CENTER_INT) * GRID_SIZE;
+          float pz = ((int)((z + vis_dz) % EL) - CENTER_INT) * GRID_SIZE;
 
           if (MULTICUBE_MODE)
           {
@@ -290,9 +305,9 @@ namespace framework
       float g = 0.7f + ((w >> 1) & 1) * 0.3f;
       float b = 0.7f + ((w >> 2) & 1) * 0.3f;
 
-      float px = ((int)cell.x[0] - CENTER_INT) * GRID_SIZE;
-      float py = ((int)cell.x[1] - CENTER_INT) * GRID_SIZE;
-      float pz = ((int)cell.x[2] - CENTER_INT) * GRID_SIZE;
+      float px = ((int)((int)cell.x[0] + vis_dx) - CENTER_INT) * GRID_SIZE;
+      float py = ((int)((int)cell.x[1] + vis_dy) - CENTER_INT) * GRID_SIZE;
+      float pz = ((int)((int)cell.x[2] + vis_dz) - CENTER_INT) * GRID_SIZE;
 
       glColor4f(r, g, b, alpha);
       glVertex3f(px, py, pz);
@@ -521,17 +536,18 @@ namespace framework
     {
       // In replay mode, use the actual relocated center from lcenters
       const auto& center = automaton::lcenters[w];
-      cx = (center[0] - EL / 2) * GRID_SIZE;
-      cy = (center[1] - EL / 2) * GRID_SIZE;
-      cz = (center[2] - EL / 2) * GRID_SIZE;
+      cx = ((center[0] + vis_dx) - EL / 2) * GRID_SIZE;
+      cy = ((center[1] + vis_dy) - EL / 2) * GRID_SIZE;
+      cz = ((center[2] + vis_dz) - EL / 2) * GRID_SIZE;
+
     }
     else
     {
       // In simulation mode, use the cell position at the static center
       Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-      cx = (cell.x[0] - EL / 2) * GRID_SIZE;
-      cy = (cell.x[1] - EL / 2) * GRID_SIZE;
-      cz = (cell.x[2] - EL / 2) * GRID_SIZE;
+      cx = ((cell.x[0] + vis_dx) - EL / 2) * GRID_SIZE;
+      cy = ((cell.x[1] + vis_dy) - EL / 2) * GRID_SIZE;
+      cz = ((cell.x[2] + vis_dz) - EL / 2) * GRID_SIZE;
     }
 
     glPointSize(1.0f);

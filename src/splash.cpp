@@ -291,11 +291,11 @@ namespace splash
 
   void mouseWheel(int button, int dir, int x, int y)
   {
-    if (sizeDropdown.isOpen && sizeDropdown.containsDropdown(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
+    if (sizeDropdown.isOpen_ && sizeDropdown.containsDropdown(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
         sizeDropdown.scroll(dir > 0 ? 1 : -1);
-    else if (layerDropdown.isOpen && layerDropdown.containsDropdown(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
+    else if (layerDropdown.isOpen_ && layerDropdown.containsDropdown(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
         layerDropdown.scroll(dir > 0 ? 1 : -1);
-    else if (scenarioDropdown.isOpen && scenarioDropdown.containsDropdown(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
+    else if (scenarioDropdown.isOpen_ && scenarioDropdown.containsDropdown(x, y, WINDOW_WIDTH, WINDOW_HEIGHT))
         scenarioDropdown.scroll(dir > 0 ? 1 : -1);
     glutPostRedisplay();
   }

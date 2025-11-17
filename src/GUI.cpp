@@ -19,14 +19,16 @@
 
 namespace framework
 {
-    bool MULTICUBE_MODE = false;
-    int GUImode = SIMULATION;   // or = 0 if you prefer
+  extern bool showHelp;
 
-    unsigned tomo_x = 0;
-    unsigned tomo_y = 0;
-    unsigned tomo_z = 0;
-    Dropdown* fileMenu = nullptr;
-    Dropdown* helpMenu = nullptr;
+  bool MULTICUBE_MODE = false;
+  int GUImode = SIMULATION;   // or = 0 if you prefer
+
+  unsigned tomo_x = 0;
+  unsigned tomo_y = 0;
+  unsigned tomo_z = 0;
+  Dropdown* fileMenu = nullptr;
+  Dropdown* helpMenu = nullptr;
 
   using namespace std;
   using namespace automaton;
@@ -92,53 +94,53 @@ namespace framework
        helpMenu = new Dropdown(140, 1, 150, 30, helpOptions);
    }
 
-   void GUIrenderer::handleMenuSelection()
-   {
-       if (!fileMenu || !helpMenu) return;
+  void GUIrenderer::handleMenuSelection()
+  {
+      if (!fileMenu || !helpMenu) return;
 
-       // Check File menu
-       if (fileMenu->getSelectedIndex() >= 0)
-       {
-           std::string selected = fileMenu->getSelectedItem();
+      // Process File menu only on fresh selection
+      if (fileMenu->wasJustSelected())
+      {
+          std::string selected = fileMenu->getSelectedItem();
+          fileMenu->clearSelection();  // Clear AFTER reading the selected item
 
-           if (selected == "Save replay")
-           {
-               // TODO: Implement save replay functionality
-               std::cout << "Save replay selected" << std::endl;
-           }
-           else if (selected == "Load replay")
-           {
-               // TODO: Implement load replay functionality
-               std::cout << "Load replay selected" << std::endl;
-           }
-           else if (selected == "Exit")
-           {
-               exit(0);
-           }
-       }
+          if (selected == "Save replay")
+          {
+              std::cout << "Save replay selected" << std::endl;
+              // trigger save popup or call recorder.saveToFile(...)
+          }
+          else if (selected == "Load replay")
+          {
+              std::cout << "Load replay selected" << std::endl;
+              // trigger load popup or call recorder.loadFromFile(...)
+          }
+          else if (selected == "Exit")
+          {
+              exit(0);
+          }
+      }
 
-       // Check Help menu
-       if (helpMenu->getSelectedIndex() >= 0)
-       {
-           std::string selected = helpMenu->getSelectedItem();
+      // Process Help menu only on fresh selection
+      if (helpMenu->wasJustSelected())
+      {
+          std::string selected = helpMenu->getSelectedItem();
+          helpMenu->clearSelection();  // Clear AFTER reading the selected item
 
-           if (selected == "GUI help")
-           {
-               extern bool showHelp;
-               showHelp = !showHelp;
-           }
-           else if (selected == "Documentation")
-           {
-               // TODO: Open documentation
-               std::cout << "Documentation selected" << std::endl;
-           }
-           else if (selected == "About")
-           {
-               // TODO: Show about dialog
-               std::cout << "About selected" << std::endl;
-           }
-       }
-   }
+          if (selected == "GUI help")
+          {
+              // Toggle once on actual selection; no frame-by-frame repeated toggles
+              showHelp = !showHelp;
+          }
+          else if (selected == "Documentation")
+          {
+              std::cout << "Documentation selected" << std::endl;
+          }
+          else if (selected == "About")
+          {
+              std::cout << "About selected" << std::endl;
+          }
+      }
+  }
 
   void GUIrenderer::render()
   {

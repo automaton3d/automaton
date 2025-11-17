@@ -1,4 +1,7 @@
-// Fixed dropdown.cpp
+/*
+ * dropdown.cpp
+ */
+
 #include "dropdown.h"
 #include <algorithm>
 #include <iostream>
@@ -6,9 +9,9 @@
 Dropdown::Dropdown(float x_, float y_, float w_, float h_,
                    const std::vector<std::string>& opts,
                    const std::string& header)
-    : x(x_), y(y_), width(w_), height(h_), isOpen(false),
+    : x(x_), y(y_), width(w_), height(h_), isOpen_(false),
       options_(opts), selectedIndex_(0), scrollOffset_(0),
-      header_(header)
+      header_(header), selectionChanged_(false)
 {
 }
 
@@ -36,7 +39,7 @@ bool Dropdown::containsHeader(int mx, int my, int winW, int winH) const
 
 bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
 {
-    if (!isOpen) return false;
+    if (!isOpen_) return false;
     float top    = y + height;
     float bottom = y + height * 6;
     return mx >= x && mx <= x + width && my >= top && my <= bottom;
@@ -44,7 +47,7 @@ bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
 
 int Dropdown::getItemIndexAt(int mx, int my, int winW, int winH) const
 {
-    if (!isOpen) return -1;
+    if (!isOpen_) return -1;
 
     float curY = y + height;
     for (int i = scrollOffset_; i < (int)options_.size(); ++i)
@@ -61,7 +64,7 @@ int Dropdown::getItemIndexAt(int mx, int my, int winW, int winH) const
 bool Dropdown::isMouseOver(int mx, int my, int winW, int winH) const
 {
     return containsHeader(mx, my, winW, winH) ||
-           (isOpen && containsDropdown(mx, my, winW, winH));
+           (isOpen_ && containsDropdown(mx, my, winW, winH));
 }
 
 void Dropdown::scroll(int dir)
@@ -76,21 +79,39 @@ bool Dropdown::handleClick(int mx, int my, int winW, int winH)
 {
     if (containsHeader(mx, my, winW, winH))
     {
-        isOpen = !isOpen;
+        isOpen_ = !isOpen_;
+        selectionChanged_ = false;
         return false;
     }
 
-    if (isOpen && containsDropdown(mx, my, winW, winH))
+    if (isOpen_ && containsDropdown(mx, my, winW, winH))
     {
         int idx = getItemIndexAt(mx, my, winW, winH);
         if (idx >= 0 && idx < (int)options_.size())
         {
             selectedIndex_ = idx;
-            isOpen = false;
+            isOpen_ = false;
+            selectionChanged_ = true;  // <-- SET FLAG
             return true;
         }
     }
     return false;
+}
+
+bool Dropdown::wasJustSelected()  // <-- NEW METHOD
+{
+    if (selectionChanged_)
+    {
+        selectionChanged_ = false;
+        return true;
+    }
+    return false;
+}
+
+void Dropdown::clearSelection()
+{
+  selectedIndex_ = -1;
+  isOpen_ = false;
 }
 
 void Dropdown::draw(int winW, int winH)
@@ -120,7 +141,7 @@ void Dropdown::draw(int winW, int winH)
     float ay = y + height * 0.5f;
 
     glBegin(GL_TRIANGLES);
-        if (isOpen)
+        if (isOpen_)
         {
             glVertex2f(ax - 0.01f, ay - 0.005f);
             glVertex2f(ax + 0.01f, ay - 0.005f);
@@ -134,7 +155,7 @@ void Dropdown::draw(int winW, int winH)
         }
     glEnd();
 
-    if (!isOpen || options_.empty()) return;
+    if (!isOpen_ || options_.empty()) return;
 
     const int VISIBLE = 6;
     float curY = y + height;
@@ -198,6 +219,6 @@ void Dropdown::draw(int winW, int winH)
     }
 }
 
-void Dropdown::open() { isOpen = true; }
-void Dropdown::close() { isOpen = false; }
-void Dropdown::toggle() { isOpen = !isOpen; }
+void Dropdown::open() { isOpen_ = true; }
+void Dropdown::close() { isOpen_ = false; }
+void Dropdown::toggle() { isOpen_ = !isOpen_; }

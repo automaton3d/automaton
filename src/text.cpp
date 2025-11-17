@@ -30,36 +30,48 @@ namespace framework
 
   void drawString(string s, int x, int y, int size)
   {
-    glRasterPos2f(x, y);
-	if (size == 8)
-	{
-	  for (int i = 0; s[i] != '\0'; ++i)
-	    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, s[i]);
+      // Force integer pixel positioning to avoid sub-pixel jitter
+      int ix = (int)x;
+      int iy = (int)y;
 
-	}
-	else if (size == 12)
-	{
-	  for (char c : s)
-	  {
-	    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
-	  }
-	}
-	else if (size == 15)
-	{
-	  for (char c : s)
-	  {
-	    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, c);
-	  }
-	}
-	else if (size == 18)
-	{
-	  for (char c : s)
-	  {
-	    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
-	  }
-	}
+      // Save current raster position validation state
+      GLboolean validBefore = GL_FALSE;
+      glGetBooleanv(GL_CURRENT_RASTER_POSITION_VALID, &validBefore);
+
+      // Use glWindowPos2i instead of glRasterPos2f to avoid matrix transformations
+      #ifdef GL_VERSION_1_4
+          glWindowPos2i(ix, iy);
+      #else
+          glRasterPos2i(ix, iy);
+      #endif
+
+      if (size == 8)
+      {
+          for (int i = 0; s[i] != '\0'; ++i)
+              glutBitmapCharacter(GLUT_BITMAP_8_BY_13, s[i]);
+      }
+      else if (size == 12)
+      {
+          for (char c : s)
+          {
+              glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
+          }
+      }
+      else if (size == 15)
+      {
+          for (char c : s)
+          {
+              glutBitmapCharacter(GLUT_BITMAP_9_BY_15, c);
+          }
+      }
+      else if (size == 18)
+      {
+          for (char c : s)
+          {
+              glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+          }
+      }
   }
-
   /*
    * Draw bold text.
    */

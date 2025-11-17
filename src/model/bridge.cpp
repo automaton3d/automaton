@@ -77,47 +77,40 @@ void updateBuffer()
   /**
    * This is a bridge between the model and the graphical framework.
    */
-// bridge.cpp (non-CUDA updateBuffer)
-void updateBuffer()
-{
-  int w = framework::layerList->getSelected();
-  unsigned index3D = 0;
-  for (unsigned x = 0; x < EL; x++)
+  void updateBuffer()
   {
-    for (unsigned y = 0; y < EL; y++)
+    int w = framework::layerList->getSelected();
+    unsigned index3D = 0;
+    for (unsigned x = 0; x < EL; x++)
     {
-      for (unsigned z = 0; z < EL; z++)
+      for (unsigned y = 0; y < EL; y++)
       {
-        if (!tomo_util::isTomogramMatch(x, y, z))
+        for (unsigned z = 0; z < EL; z++)
         {
-          voxels[index3D++] = RGB(0, 0, 0);
-          continue;
-        }
+          if (!tomo_util::isTomogramMatch(x, y, z))
+          {
+            voxels[index3D++] = RGB(0, 0, 0);
+            continue;
+          }
 
-        Cell &cell = getCell(
-            lattice_curr,
-            (x + framework::vis_dx + EL) % EL,
-            (y + framework::vis_dy + EL) % EL,
-            (z + framework::vis_dz + EL) % EL,
-            w
-        );
-        if (cell.t == cell.d)
-        {
-          if (cell.a == W_USED)
-        	voxels[index3D] = RGB(255, 0, 0);
-          else if (cell.t == 0)
-        	voxels[index3D] = RGB(0, 255, 0);
+          Cell &cell = getCell(lattice_curr, x, y, z, w);
+          if (cell.t == cell.d)
+          {
+            if (cell.a == W_USED)
+          	voxels[index3D] = RGB(255, 0, 0);
+            else if (cell.t == 0)
+          	voxels[index3D] = RGB(0, 255, 0);
+            else
+          	voxels[index3D] = RGB(255, 255, 255);
+          }
           else
-        	voxels[index3D] = RGB(255, 255, 255);
+          {
+            voxels[index3D] = RGB(0, 0, 0);
+          }
+          index3D++;
         }
-        else
-        {
-          voxels[index3D] = RGB(0, 0, 0);
-        }
-        index3D++;
       }
     }
   }
-}
 #endif
 }

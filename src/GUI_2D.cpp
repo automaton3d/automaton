@@ -111,126 +111,127 @@ namespace framework
 
   void GUIrenderer::renderUI()
   {
-      // Switch to 2D orthographic top-left origin
-      glMatrixMode(GL_PROJECTION);
-      glPushMatrix();
-      glLoadIdentity();
-      glOrtho(0, gViewport[2], gViewport[3], 0, -1, 1);
-      glMatrixMode(GL_MODELVIEW);
-      glPushMatrix();
-      glLoadIdentity();
-      GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
-      glDisable(GL_DEPTH_TEST);
-      glDepthMask(GL_FALSE);
+    // Switch to 2D orthographic top-left origin
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
 
-      // Draw gadgets
+    // Cast to integers to avoid floating-point precision issues
+    int width = (int)gViewport[2];
+    int height = (int)gViewport[3];
+    glOrtho(0.0, (double)width, (double)height, 0.0, -1.0, 1.0);
 
-      renderElapsedTime();
-      int leftPanelHeight  = gViewport[3] - 185;
-      int rightPanelHeight = gViewport[3] - 185;
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
 
-      drawPanel(35, 65, 170, leftPanelHeight);
-      drawPanel(gViewport[2] - 260, 65, 250, rightPanelHeight);
+    // Draw gadgets
+    renderElapsedTime();
+    int leftPanelHeight  = gViewport[3] - 185;
+    int rightPanelHeight = gViewport[3] - 185;
 
-      renderSimulationStats();
-      renderLayerInfo();
-      renderHelpText();
-      renderSliders();
-      renderTomoControls();
-      renderPauseOverlay();
-      renderSectionLabels();
-      render3Dboxes();
-      renderDelays();
-      renderViewpointRadios();
-      renderProjectionRadios();
-      renderTomoRadios();
-      renderHyperlink();
+    drawPanel(35, 65, 170, leftPanelHeight);
+    drawPanel(gViewport[2] - 260, 65, 250, rightPanelHeight);
 
-      // Draw logo once (keep it on top of UI elements)
-      if (logo)
-          logo->draw(gViewport[2] - 240, gViewport[3] - 325, 0.21f);
+    renderSimulationStats();
+    renderLayerInfo();
+    renderHelpText();
+    renderSliders();
+    renderTomoControls();
+    renderPauseOverlay();
+    renderSectionLabels();
+    render3Dboxes();
+    renderDelays();
+    renderViewpointRadios();
+    renderProjectionRadios();
+    renderTomoRadios();
+    renderHyperlink();
 
-      if (GUImode == SIMULATION)
-      {
-          if (scenario >= 0)
-          {
-              progress->update(timer);
-              progress->render();
-          }
-      }
-      else if (GUImode == REPLAY)
-      {
-          replayProgress->render();
-      }
+    logo->draw(gViewport[2] - 240, gViewport[3] - 325, 0.21f);
 
-      if (scenario >= 0)
-          scenarioHelpToggle->draw();
-
-      if (showScenarioHelp)
-          renderScenarioHelpPane();
-
-  #ifdef DEBUG
-      if (showDebugClick)
-      {
-          glColor3f(1.0f, 0.0f, 0.0f);
-          glPointSize(6.0f);
-          glBegin(GL_POINTS);
-          glVertex2f(debugClickX, debugClickY);
-          glEnd();
-      }
-  #endif
-
-      if (recordFrames)
-      {
-          static bool blink = true;
-          static double lastToggle = glfwGetTime();
-          double now = glfwGetTime();
-          if (now - lastToggle > 0.5) {
-              blink = !blink;
-              lastToggle = now;
-          }
-          if (blink)
-          {
-              int ypos = gViewport[3] - 115;
-              glColor3f(1.0f, 0.0f, 0.0f);
-              glRectf(230.0f, ypos, 326.0f, ypos + 30);
-
-              glColor3f(1.0f, 1.0f, 1.0f);
-              drawString("RECORD F5", 240, ypos + 20, 8);
-          }
-      }
-
-      // Draw menu bar background at the top and menus (menus should be on top)
-      drawPanel(0, 0, gViewport[2], 30);
-
-      if (fileMenu) fileMenu->draw(gViewport[2], gViewport[3]);
-      if (helpMenu) helpMenu->draw(gViewport[2], gViewport[3]);
-
-      // Restore depth writes and optionally depth test to previous state
-      glDepthMask(GL_TRUE);
-      if (depthWasEnabled) glEnable(GL_DEPTH_TEST);
-
-      // Pop modelview for UI
-      glPopMatrix();
-
-      // After 2D UI, update and render 3D overlay widgets (layer list)
+    if (GUImode == SIMULATION)
+    {
       if (scenario >= 0)
       {
-          layerList->update();
-          layerList->render();
+        progress->update(timer);
+        progress->render();
       }
+    }
+    else if (GUImode == REPLAY)
+    {
+      replayProgress->render();
+    }
 
-      // Restore original projection
-      resetPerspectiveProjection();
+    if (scenario >= 0)
+      scenarioHelpToggle->draw();
 
-      if (data3D[5].getState())
-      {
-          renderCounts();
-      }
+    if (showScenarioHelp)
+      renderScenarioHelpPane();
 
-      glMatrixMode(GL_PROJECTION);
-      glPopMatrix();
-      glMatrixMode(GL_MODELVIEW);
+#ifdef DEBUG
+    if (showDebugClick)
+    {
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glPointSize(6.0f);
+        glBegin(GL_POINTS);
+        glVertex2f(debugClickX, debugClickY);
+        glEnd();
+    }
+#endif
+
+    if (recordFrames)
+    {
+        static bool blink = true;
+        static double lastToggle = glfwGetTime();
+        double now = glfwGetTime();
+        if (now - lastToggle > 0.5) {
+            blink = !blink;
+            lastToggle = now;
+        }
+        if (blink)
+        {
+            int ypos = gViewport[3] - 115;
+            glColor3f(1.0f, 0.0f, 0.0f);
+            glRectf(230.0f, ypos, 326.0f, ypos + 30);
+
+            glColor3f(1.0f, 1.0f, 1.0f);
+            drawString("RECORD F5", 240, ypos + 20, 8);
+        }
+    }
+
+    // Draw menu bar background at the top and menus (menus should be on top)
+    drawPanel(0, 0, gViewport[2], 30);
+
+    if (fileMenu) fileMenu->draw(gViewport[2], gViewport[3]);
+    if (helpMenu) helpMenu->draw(gViewport[2], gViewport[3]);
+
+    // Restore depth writes and optionally depth test to previous state
+    glDepthMask(GL_TRUE);
+    if (depthWasEnabled) glEnable(GL_DEPTH_TEST);
+    // Pop modelview for UI
+    glPopMatrix();
+
+    // After 2D UI, update and render 3D overlay widgets (layer list)
+    if (scenario >= 0)
+    {
+      layerList->update();
+      layerList->render();
+    }
+
+    // Restore original projection
+    resetPerspectiveProjection();
+
+    if (data3D[5].getState())
+    {
+      //renderCounts(); TODO
+    }
+
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
   }
 
   void GUIrenderer::renderElapsedTime()
@@ -277,15 +278,16 @@ namespace framework
 
   void GUIrenderer::renderHelpText()
   {
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-
     if (showHelp)
     {
+      int rightX = gViewport[2] - 630;
+      int baseY = gViewport[3] - 250;
+      int leftX = 230;
+      glColor3f(0.6f, 0.6f, 0.6f);
       for (int i = 0; i < 11; ++i)
-        drawString(ui_help[i], mode->width - 630, 20 * i + mode->height - 250, 8);
+        drawString(ui_help[i], rightX, baseY + (20 * i), 8);
       for (int i = 0; i < 4; ++i)
-        drawString(record_help[i], 230, 20 * i + mode->height - 250, 8);
+        drawString(record_help[i], leftX, baseY + (20 * i), 8);
     }
   }
 
@@ -473,9 +475,9 @@ namespace framework
 
       // Draw dropdowns if open
       glDisable(GL_DEPTH_TEST); // ensure menus are visible on top
-      if (fileMenu->isOpen)
+      if (fileMenu->isOpen_)
           fileMenu->draw(gViewport[2], gViewport[3]);
-      if (helpMenu->isOpen)
+      if (helpMenu->isOpen_)
           helpMenu->draw(gViewport[2], gViewport[3]);
       glEnable(GL_DEPTH_TEST);
   }
