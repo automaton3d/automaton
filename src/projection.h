@@ -10,13 +10,15 @@
 
 namespace framework
 {
-
-struct AxisThumb {
+  struct AxisThumb {
     bool active = false;
     int axis = -1;
     float position = 0.0f;
-    bool dragging = false;   // ✅ new field
-};
+    bool dragging = false;
+    float initialPosition = 0.0f;
+    int startOffset[3] = {0, 0, 0};
+  };
+
   extern AxisThumb thumb;
 
   void setOrthographicProjection();

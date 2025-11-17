@@ -1,11 +1,10 @@
 /*
- * window.cpp (old)
+ * window.cpp
  *
  * processes IO, runs the simulation, and renders graphics for it.
  *
  * This is the top file of the program.
  */
-
 
 #include "GUI.h"
 #include <iostream>
@@ -18,6 +17,7 @@
 #include <cawindow.h>
 #include <thread>
 #include <chrono>
+#include <commdlg.h>
 #include "model/simulation.h"
 #include "hslider.h"
 #include "vslider.h"
@@ -29,12 +29,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>         // for glm::make_mat4
 #include "projection.h"
-
+#include "GUI.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
-
-using namespace framework;
 
 namespace automaton
 {
@@ -43,7 +41,7 @@ namespace automaton
 
 namespace framework
 {
-
+  void requestExit();
   using namespace automaton;
 
   #ifdef DEBUG
@@ -55,6 +53,8 @@ namespace framework
   using namespace std;
   GLFWwindow* loadingWindow = nullptr;
   bool pause = false;
+  void saveReplay();
+  void loadReplay();
 
   // UID
 
@@ -217,6 +217,123 @@ namespace framework
 
     glfwDestroyWindow(loadingWindow);
     return 0;
+  }
+
+  /**
+   * Opens a Save File dialog and returns the chosen filename
+   * Returns empty string if user cancels
+   */
+  std::string getSaveFileName()
+  {
+      OPENFILENAMEA ofn;
+      char szFile[260] = {0};
+
+      // ✅ Get the native Windows handle from GLFW window
+      HWND hwnd = glfwGetWin32Window(CAWindow::instance().getWindow());
+
+      ZeroMemory(&ofn, sizeof(ofn));
+      ofn.lStructSize = sizeof(ofn);
+      ofn.hwndOwner = hwnd;  // ✅ Set the owner window
+      ofn.lpstrFile = szFile;
+      ofn.nMaxFile = sizeof(szFile);
+      ofn.lpstrFilter = "Replay Files (*.dat)\0*.dat\0All Files (*.*)\0*.*\0";
+      ofn.nFilterIndex = 1;
+      ofn.lpstrFileTitle = NULL;
+      ofn.nMaxFileTitle = 0;
+      ofn.lpstrInitialDir = NULL;
+      ofn.lpstrTitle = "Save Replay As";
+      ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+      ofn.lpstrDefExt = "dat";
+
+      if (GetSaveFileNameA(&ofn) == TRUE)
+      {
+          return std::string(ofn.lpstrFile);
+      }
+      return "";
+  }
+
+  /**
+   * Opens an Open File dialog and returns the chosen filename
+   * Returns empty string if user cancels
+   */
+  std::string getOpenFileName()
+  {
+      OPENFILENAMEA ofn;
+      char szFile[260] = {0};
+
+      // ✅ Get the native Windows handle from GLFW window
+      HWND hwnd = glfwGetWin32Window(CAWindow::instance().getWindow());
+
+      ZeroMemory(&ofn, sizeof(ofn));
+      ofn.lStructSize = sizeof(ofn);
+      ofn.hwndOwner = hwnd;  // ✅ Set the owner window
+      ofn.lpstrFile = szFile;
+      ofn.nMaxFile = sizeof(szFile);
+      ofn.lpstrFilter = "Replay Files (*.dat)\0*.dat\0All Files (*.*)\0*.*\0";
+      ofn.nFilterIndex = 1;
+      ofn.lpstrFileTitle = NULL;
+      ofn.nMaxFileTitle = 0;
+      ofn.lpstrInitialDir = NULL;
+      ofn.lpstrTitle = "Open Replay";
+      ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+      if (GetOpenFileNameA(&ofn) == TRUE)
+      {
+          return std::string(ofn.lpstrFile);
+      }
+      return "";
+  }
+
+  /**
+   * Saves the current replay to file
+   */
+  void saveReplay()
+  {
+      if (GUImode == SIMULATION && !recordFrames && !replayFrames && !pause)
+      {
+          std::string filename = getSaveFileName();
+          if (!filename.empty())
+          {
+              try {
+                  recorder.saveToFile(filename);
+                  savePopup = true;
+              }
+              catch (const std::exception& e) {
+                  toastMessage = "Failed to save replay: " + std::string(e.what());
+                  toastStartTime = glfwGetTime();
+                  toastActive = true;
+              }
+          }
+      }
+  }
+
+  /**
+   * Loads a replay from file
+   */
+  void loadReplay()
+  {
+      if (GUImode == REPLAY)
+      {
+          if (!recordFrames && !replayFrames && !pause)
+          {
+              std::string filename = getOpenFileName();
+              if (!filename.empty())
+              {
+                  try {
+                      recorder.loadFromFile(filename);
+                      timer = recorder.savedTimer;
+                      automaton::scenario = recorder.savedScenario;
+                      loadPopup = true;
+                  }
+                  catch (const std::exception& e) {
+                      toastMessage = "Failed to load replay: " + std::string(e.what());
+                      toastStartTime = glfwGetTime();
+                      toastActive = true;
+                  }
+              }
+          }
+          scenarioHelpToggle->setState(false);
+      }
   }
 
   // Methods definition
@@ -495,15 +612,13 @@ namespace framework
                   thumb.active   = true;
                   thumb.axis     = chosenAxis;
                   thumb.position = t * axisLength;
+                  thumb.initialPosition = t * axisLength;
                   thumb.dragging = true;
 
-                  // ✅ Only allow offsets if simulation is paused or replay mode
-                  if (pause || GUImode == REPLAY) {
-                      int offset = static_cast<int>(round((thumb.position / axisLength) * automaton::EL));
-                      if (thumb.axis == 0) vis_dx = offset;
-                      if (thumb.axis == 1) vis_dy = offset;
-                      if (thumb.axis == 2) vis_dz = offset;
-                  }
+
+                  thumb.startOffset[0] = vis_dx;
+                  thumb.startOffset[1] = vis_dy;
+                  thumb.startOffset[2] = vis_dz;
 
                   return;
               }
@@ -566,15 +681,130 @@ namespace framework
       }
   }
 
-  void CAWindow::errorCallback(int error, const char* description)
+  void CAWindow::moveCallback(GLFWwindow* window, double xpos, double ypos)
   {
-    cerr << description << endl;
+      int width, height;
+      glfwGetWindowSize(window, &width, &height);
+
+      // === UPDATE DROPDOWN HOVER ===
+      if (framework::fileMenu) {
+          framework::fileMenu->updateHover(xpos, ypos, width, height);
+      }
+      if (framework::helpMenu) {
+        framework::helpMenu->updateHover(xpos, ypos, width, height);
+      }
+      // === END HOVER UPDATE ===
+
+      // --- MENU AUTO-CLOSE LOGIC ---
+      if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS)
+      {
+          if (framework::fileMenu && framework::fileMenu->isOpen_)
+          {
+              if (!framework::fileMenu->isMouseOver((int)xpos, (int)ypos, width, height))
+                  framework::fileMenu->close();
+          }
+          if (framework::helpMenu && framework::helpMenu->isOpen_)
+          {
+              if (!framework::helpMenu->isMouseOver((int)xpos, (int)ypos, width, height))
+                  framework::helpMenu->close();
+          }
+      }
+      // --- END NEW MENU LOGIC ---
+
+      // === HANDLE SLIDER DRAGGING ===
+      hslider.onMouseDrag((int)xpos, (int)ypos, height);
+      vslider.onMouseDrag((int)xpos, (int)ypos, height);
+      hslider.onMouseMove((int)xpos, ypos);
+
+      // === HOVER DETECTION FOR HELP HYPERLINK ===
+      const char* linkText = "Help";
+      int textWidth = 0;
+      const char* c = linkText;
+      while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
+      int linkX = (width - textWidth) / 2;
+      int linkY = height - 30;
+      int linkHeight = 15;
+      helpHover = (xpos >= linkX && xpos <= linkX + textWidth &&
+                   ypos >= linkY - linkHeight && ypos <= linkY + 5);
+
+      // === TRACKBALL UPDATE IF IN 3D ZONE ===
+      if (!hslider.isDragging() && !vslider.isDragging() &&
+        isIn3DZone(xpos, ypos, width, height))
+      {
+        instance().mInteractor_.setClickPoint(xpos, ypos);
+      }
+
+      // === AXIS THUMB DRAGGING ===
+      if ((pause || GUImode == REPLAY) && thumb.active && thumb.dragging)
+      {
+          if (!gAxisProjValid) return;
+
+          float x0 = gAxisProj[thumb.axis].x0;
+          float y0 = gAxisProj[thumb.axis].y0;
+          float x1 = gAxisProj[thumb.axis].x1;
+          float y1 = gAxisProj[thumb.axis].y1;
+
+          float mx = static_cast<float>(xpos);
+          float my = static_cast<float>(height - ypos);
+
+          auto relPos = [](float px, float py, float ax, float ay, float bx, float by) {
+              float dx = bx - ax, dy = by - ay;
+              float denom = dx*dx + dy*dy;
+              if (denom <= 0.0f) return 0.0f;
+              float t = ((px - ax) * dx + (py - ay) * dy) / denom;
+              return glm::clamp(t, 0.0f, 1.0f);
+          };
+
+          float t = relPos(mx, my, x0, y0, x1, y1);
+          thumb.position = t * axisLength;
+
+
+          // Calculate the change from initial grab position
+          float deltaPosition = thumb.position - thumb.initialPosition;
+          int deltaOffset = static_cast<int>(round((deltaPosition / axisLength) * automaton::EL));
+
+          // Apply delta relative to starting offsets
+          if (thumb.axis == 0) vis_dx = thumb.startOffset[0] + deltaOffset;
+          if (thumb.axis == 1) vis_dy = thumb.startOffset[1] + deltaOffset;
+          if (thumb.axis == 2) vis_dz = thumb.startOffset[2] + deltaOffset;
+      }
   }
 
-  CAWindow & CAWindow::instance()
+  /*
+   * Processes scroll wheel - IMPROVED VERSION
+   */
+  void CAWindow::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
   {
-    static CAWindow i;
-    return i;
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+    double mouseX, mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+
+    // Check if scrolling over an open dropdown menu
+    if (framework::fileMenu && framework::fileMenu->isOpen_)
+    {
+        if (framework::fileMenu->containsDropdown((int)mouseX, (int)mouseY, width, height))
+        {
+            framework::fileMenu->scroll(yoffset > 0 ? -1 : 1);
+            return;
+        }
+    }
+
+    if (framework::helpMenu && framework::helpMenu->isOpen_)
+    {
+        if (framework::helpMenu->containsDropdown((int)mouseX, (int)mouseY, width, height))
+        {
+            framework::helpMenu->scroll(yoffset > 0 ? -1 : 1);
+            return;
+        }
+    }
+
+    // Continue with existing scroll handling
+    if (!hslider.isDragging() && !vslider.isDragging() &&
+        isIn3DZone(mouseX, mouseY, width, height))
+    {
+      instance().mInteractor_.setScrollDirection(xoffset + yoffset > 0 ? true : false);
+    }
   }
 
   void CAWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -593,18 +823,8 @@ namespace framework
         {
           case GLFW_KEY_ESCAPE:
           {
-            std::thread([]() {
-                int result = MessageBoxW(
-                    NULL,
-                    L"Are you sure you want to exit?",
-                    L"Exit Confirmation",
-                    MB_ICONQUESTION | MB_YESNO | MB_SYSTEMMODAL
-                );
-                if (result == IDYES)
-                {
-                    glfwSetWindowShouldClose(framework::CAWindow::instance().getWindow(), GL_TRUE);
-                }
-            }).detach();
+            // ✅ Use shared function
+            framework::requestExit();
             break;
           }
           case GLFW_KEY_LEFT_CONTROL:
@@ -645,33 +865,11 @@ namespace framework
               break;
 
           case GLFW_KEY_F7:
-              if (GUImode == SIMULATION && !recordFrames && !replayFrames && !pause)
-              {
-                  recorder.saveToFile("frames.dat");
-                  savePopup = true;
-              }
+              saveReplay();  // ✅ Use the new function
               break;
 
           case GLFW_KEY_F8:
-              if (GUImode == REPLAY)
-              {
-                  if (!recordFrames && !replayFrames && !pause)  // Only load when NOT paused
-                  {
-                      try {
-                          recorder.loadFromFile("frames.dat");
-                          timer = recorder.savedTimer;
-                          automaton::scenario = recorder.savedScenario;
-                          loadPopup = true;
-                      }
-                      catch (const std::exception& e) {
-                          // Launch toast notification on failure
-                          toastMessage = std::string("Failed to load frames.dat");
-                          toastStartTime = glfwGetTime();
-                          toastActive = true;
-                      }
-                  }
-                  scenarioHelpToggle->setState(false);
-              }
+              loadReplay();  // ✅ Use the new function
               break;
 
           case GLFW_KEY_C:
@@ -770,120 +968,6 @@ namespace framework
       }
   }
 
-  void CAWindow::moveCallback(GLFWwindow* window, double xpos, double ypos)
-  {
-      int width, height;
-      glfwGetWindowSize(window, &width, &height);
-
-      // --- NEW: IMPROVED MENU AUTO-CLOSE LOGIC ---
-      if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS)
-      {
-          if (framework::fileMenu && framework::fileMenu->isOpen_)
-          {
-              if (!framework::fileMenu->isMouseOver((int)xpos, (int)ypos, width, height))
-                  framework::fileMenu->close();
-          }
-          if (framework::helpMenu && framework::helpMenu->isOpen_)
-          {
-              if (!framework::helpMenu->isMouseOver((int)xpos, (int)ypos, width, height))
-                  framework::helpMenu->close();
-          }
-      }
-      // --- END NEW MENU LOGIC ---
-
-      // === OLD: HANDLE SLIDER DRAGGING ===
-      hslider.onMouseDrag((int)xpos, (int)ypos, height);
-      vslider.onMouseDrag((int)xpos, (int)ypos, height);
-      hslider.onMouseMove((int)xpos, ypos);
-
-      // === OLD: HOVER DETECTION FOR HELP HYPERLINK ===
-      const char* linkText = "Help";
-      int textWidth = 0;
-      const char* c = linkText;
-      while (*c) textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_12, *c++);
-      int linkX = (width - textWidth) / 2;
-      int linkY = height - 30;
-      int linkHeight = 15;
-      helpHover = (xpos >= linkX && xpos <= linkX + textWidth &&
-                   ypos >= linkY - linkHeight && ypos <= linkY + 5);
-
-      // === TRACKBALL UPDATE IF IN 3D ZONE ===
-      if (!pause)  // only update interactor when not paused
-      {
-          if (!hslider.isDragging() && !vslider.isDragging() &&
-              isIn3DZone(xpos, ypos, width, height))
-          {
-              instance().mInteractor_.setClickPoint(xpos, ypos);
-          }
-      }
-
-      // === AXIS THUMB DRAGGING ===
-      if ((pause || GUImode == REPLAY) && thumb.active && thumb.dragging)
-      {
-          if (!gAxisProjValid) return;
-
-          float x0 = gAxisProj[thumb.axis].x0;
-          float y0 = gAxisProj[thumb.axis].y0;
-          float x1 = gAxisProj[thumb.axis].x1;
-          float y1 = gAxisProj[thumb.axis].y1;
-
-          float mx = static_cast<float>(xpos);
-          float my = static_cast<float>(height - ypos); // bottom-origin
-
-          auto relPos = [](float px, float py, float ax, float ay, float bx, float by) {
-              float dx = bx - ax, dy = by - ay;
-              float denom = dx*dx + dy*dy;
-              if (denom <= 0.0f) return 0.0f;
-              float t = ((px - ax) * dx + (py - ay) * dy) / denom;
-              return glm::clamp(t, 0.0f, 1.0f);
-          };
-
-          float t = relPos(mx, my, x0, y0, x1, y1);
-          thumb.position = t * axisLength;
-
-          int offset = static_cast<int>(round((thumb.position / axisLength) * automaton::EL));
-          if (thumb.axis == 0) vis_dx = offset;
-          if (thumb.axis == 1) vis_dy = offset;
-          if (thumb.axis == 2) vis_dz = offset;
-      }
-  }
-
-  /*
-   * Processes scroll wheel - IMPROVED VERSION
-   */
-  void CAWindow::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
-  {
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
-    double mouseX, mouseY;
-    glfwGetCursorPos(window, &mouseX, &mouseY);
-
-    // Check if scrolling over an open dropdown menu
-    if (framework::fileMenu && framework::fileMenu->isOpen_)
-    {
-        if (framework::fileMenu->containsDropdown((int)mouseX, (int)mouseY, width, height))
-        {
-            framework::fileMenu->scroll(yoffset > 0 ? -1 : 1);
-            return;
-        }
-    }
-
-    if (framework::helpMenu && framework::helpMenu->isOpen_)
-    {
-        if (framework::helpMenu->containsDropdown((int)mouseX, (int)mouseY, width, height))
-        {
-            framework::helpMenu->scroll(yoffset > 0 ? -1 : 1);
-            return;
-        }
-    }
-
-    // Continue with existing scroll handling
-    if (!hslider.isDragging() && !vslider.isDragging() &&
-        isIn3DZone(mouseX, mouseY, width, height))
-    {
-      instance().mInteractor_.setScrollDirection(xoffset + yoffset > 0 ? true : false);
-    }
-  }
 
   void CAWindow::sizeCallback(GLFWwindow *window, int width, int height)
   {
@@ -894,6 +978,17 @@ namespace framework
       // ✅ Update replay progress bar position
       if (framework::replayProgress)
           framework::replayProgress->setPosition(width, height, 100);
+  }
+
+  void CAWindow::errorCallback(int error, const char* description)
+  {
+    cerr << description << endl;
+  }
+
+  CAWindow & CAWindow::instance()
+  {
+    static CAWindow i;
+    return i;
   }
 
   /*
@@ -997,6 +1092,7 @@ namespace framework
     glfwSetMouseButtonCallback(mWindow_, & CAWindow::buttonCallback);
     glfwSetScrollCallback(mWindow_, & CAWindow::scrollCallback);
     glfwSetWindowSizeCallback(mWindow_, &CAWindow::sizeCallback);
+    // Make sure to register it in your initialization
     mInteractor_.setCamera(& mCamera_);
     mRenderer_.setCamera(& mCamera_);
     mAnimator_.setInteractor(& mInteractor_);
@@ -1071,10 +1167,10 @@ namespace framework
           toastActive = false;
         }
       }
-      mRenderer_.handleMenuSelection();
       glEnable(GL_DEPTH_TEST);
       glDepthMask(GL_TRUE);
       glfwSwapBuffers(mWindow_);
+      mRenderer_.handleMenuSelection();
       mInteractor_.update();
       if (!pause)
       {
@@ -1141,7 +1237,7 @@ int runSimulation(int scenario, bool paused)
   automaton::scenario = scenario;
   framework::pause = paused;
   Beep(1000, 80);
-  GUImode = framework::SIMULATION;
+  framework::GUImode = framework::SIMULATION;
   glfwInit();
   char arg0[] = "test";
   char *argv[] = { arg0, NULL };
@@ -1162,7 +1258,7 @@ int runReplay()
 {
   Beep(1000, 80);
   automaton::scenario = -1;
-  GUImode = framework::REPLAY;
+  framework::GUImode = framework::REPLAY;
   glfwInit();
   char arg0[] = "test";
   char *argv[] = { arg0, NULL };

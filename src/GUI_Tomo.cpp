@@ -71,6 +71,15 @@ namespace framework
   {
     if (!tomo || !tomo->getState()) return;
 
+    // Update the tomo slice coordinates from the slider
+    unsigned sliceIndex = hslider.getSliceIndex(EL);
+    if (tomoDirs[0].isSelected())
+      tomo_z = sliceIndex;  // XY plane
+    else if (tomoDirs[1].isSelected())
+      tomo_x = sliceIndex;  // YZ plane
+    else if (tomoDirs[2].isSelected())
+      tomo_y = sliceIndex;  // ZX plane
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 

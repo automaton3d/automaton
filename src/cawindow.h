@@ -41,6 +41,7 @@ namespace framework
     static void keyCallback(GLFWwindow *window, int key, int scancode,
                               int action, int mods);
     static void moveCallback(GLFWwindow *window, double xpos, double ypos);
+    static void passiveMotionCallback(int x, int y);
     static void scrollCallback(GLFWwindow *window, double xpos, double ypos);
     static void sizeCallback(GLFWwindow *window, int width, int height);
     void onDelayToggled(Tickbox* toggled);

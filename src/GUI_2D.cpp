@@ -128,14 +128,18 @@ namespace framework
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    // Draw gadgets
+    // --- DRAW GADGETS ---
+
+    // Draw real elapsed time
     renderElapsedTime();
-    int leftPanelHeight  = gViewport[3] - 185;
-    int rightPanelHeight = gViewport[3] - 185;
 
-    drawPanel(35, 65, 170, leftPanelHeight);
-    drawPanel(gViewport[2] - 260, 65, 250, rightPanelHeight);
+    // Draw left and right panels
+    int leftPanelHeight  = gViewport[3] - 170;
+    int rightPanelHeight = gViewport[3] - 170;
+    drawPanel(35, 60, 170, leftPanelHeight);
+    drawPanel(gViewport[2] - 260, 60, 250, rightPanelHeight);
 
+    // Render gadgets in the panels
     renderSimulationStats();
     renderLayerInfo();
     renderHelpText();
@@ -149,9 +153,9 @@ namespace framework
     renderProjectionRadios();
     renderTomoRadios();
     renderHyperlink();
+    logo->draw(gViewport[2] - 240, gViewport[3] - 340, 0.21f);
 
-    logo->draw(gViewport[2] - 240, gViewport[3] - 325, 0.21f);
-
+    // Draw the simulation progress bar
     if (GUImode == SIMULATION)
     {
       if (scenario >= 0)
@@ -160,14 +164,15 @@ namespace framework
         progress->render();
       }
     }
+    // Draw the replay progress bar
     else if (GUImode == REPLAY)
     {
       replayProgress->render();
     }
 
+    // Draw the scenario help
     if (scenario >= 0)
       scenarioHelpToggle->draw();
-
     if (showScenarioHelp)
       renderScenarioHelpPane();
 
@@ -184,7 +189,7 @@ namespace framework
 
     if (recordFrames)
     {
-        static bool blink = true;
+    	static bool blink = true;
         static double lastToggle = glfwGetTime();
         double now = glfwGetTime();
         if (now - lastToggle > 0.5) {
@@ -196,17 +201,15 @@ namespace framework
             int ypos = gViewport[3] - 115;
             glColor3f(1.0f, 0.0f, 0.0f);
             glRectf(230.0f, ypos, 326.0f, ypos + 30);
-
             glColor3f(1.0f, 1.0f, 1.0f);
             drawString("RECORD F5", 240, ypos + 20, 8);
         }
     }
 
-    // Draw menu bar background at the top and menus (menus should be on top)
-    drawPanel(0, 0, gViewport[2], 30);
+    // --- DRAW THE MENU BAR ---
 
-    if (fileMenu) fileMenu->draw(gViewport[2], gViewport[3]);
-    if (helpMenu) helpMenu->draw(gViewport[2], gViewport[3]);
+    // Draw menu bar background at the top and menus (menus should be on top)
+    renderMenuBar();
 
     // Restore depth writes and optionally depth test to previous state
     glDepthMask(GL_TRUE);
@@ -223,12 +226,6 @@ namespace framework
 
     // Restore original projection
     resetPerspectiveProjection();
-
-    if (data3D[5].getState())
-    {
-      //renderCounts(); TODO
-    }
-
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -440,6 +437,9 @@ namespace framework
       glDisable(GL_BLEND);
       glEnable(GL_DEPTH_TEST);
       glPopMatrix();
+
+      // ✅ ADD THIS: Render the "PAUSED" text box
+      renderCenterBox("PAUSED");
   }
 
   void GUIrenderer::renderSectionLabels()

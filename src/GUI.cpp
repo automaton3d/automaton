@@ -7,9 +7,11 @@
 #include "GUI.h"
 #include <GL/freeglut.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <thread>
 #include "hslider.h"
 #include "replay_progress.h"
 #include "logo.h"
+#include "cawindow.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -22,13 +24,14 @@ namespace framework
   extern bool showHelp;
 
   bool MULTICUBE_MODE = false;
-  int GUImode = SIMULATION;   // or = 0 if you prefer
+  int GUImode = SIMULATION;
 
   unsigned tomo_x = 0;
   unsigned tomo_y = 0;
   unsigned tomo_z = 0;
   Dropdown* fileMenu = nullptr;
   Dropdown* helpMenu = nullptr;
+  bool showAboutDialog = false;
 
   using namespace std;
   using namespace automaton;
@@ -57,6 +60,10 @@ namespace framework
   Tickbox* scenarioHelpToggle = nullptr;
 
   void initializeWidgets(); // defined in GUI_InitWidgets.cpp
+  void requestExit();
+  void showAboutWindow();
+  void saveReplay();
+  void loadReplay();
 
   // --------------------------------------------
   // GUIrenderer implementation
@@ -90,9 +97,13 @@ namespace framework
            "Documentation",
            "About"
        };
-       fileMenu = new Dropdown(10, 1, 120, 30, fileOptions);
-       helpMenu = new Dropdown(140, 1, 150, 30, helpOptions);
+       fileMenu = new Dropdown(10, 0, 80, 30, fileOptions, "File");
+       helpMenu = new Dropdown(100, 0, 80, 30, helpOptions, "Help");
    }
+
+
+  void requestExit();
+  void showAboutWindow();
 
   void GUIrenderer::handleMenuSelection()
   {
@@ -106,17 +117,15 @@ namespace framework
 
           if (selected == "Save replay")
           {
-              std::cout << "Save replay selected" << std::endl;
-              // trigger save popup or call recorder.saveToFile(...)
+        	  saveReplay();  // ✅ Call the function
           }
           else if (selected == "Load replay")
           {
-              std::cout << "Load replay selected" << std::endl;
-              // trigger load popup or call recorder.loadFromFile(...)
+        	  loadReplay();  // ✅ Call the function
           }
           else if (selected == "Exit")
           {
-              exit(0);
+        	  requestExit();
           }
       }
 
@@ -137,7 +146,7 @@ namespace framework
           }
           else if (selected == "About")
           {
-              std::cout << "About selected" << std::endl;
+        	  showAboutWindow();
           }
       }
   }
@@ -198,6 +207,46 @@ namespace framework
       {
           mProjection_ = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
       }
+  }
+
+  // ✅ NEW: Shared exit confirmation function
+  void requestExit()
+  {
+      std::thread([]() {
+          int result = MessageBoxW(
+              NULL,
+              L"Are you sure you want to exit?",
+              L"Exit Confirmation",
+              MB_ICONQUESTION | MB_YESNO | MB_SYSTEMMODAL
+          );
+          if (result == IDYES)
+          {
+              glfwSetWindowShouldClose(framework::CAWindow::instance().getWindow(), GL_TRUE);
+          }
+      }).detach();
+  }
+
+  // ✅ NEW: Function to show About dialog
+  void showAboutWindow()
+  {
+      const wchar_t* message =
+          L"Cellular Automaton Visualizer\n\n"
+          L"Version 1.0\n\n"
+          L"A 3D simulation and visualization tool for\n"
+          L"cellular automaton patterns.\n\n"
+          L"Features:\n"
+          L"• Real-time 3D visualization\n"
+          L"• Frame recording and replay\n"
+          L"• Tomography slicing\n"
+          L"• Multiple viewing modes\n\n"
+          L"© 2024 - Built with OpenGL & GLFW";
+
+      MessageBoxW(
+          NULL,
+          message,
+          L"About Cellular Automaton",
+          MB_OK | MB_ICONINFORMATION
+      );
   }
 
 } // namespace framework

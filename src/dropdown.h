@@ -1,5 +1,5 @@
 /*
- * dropdown.h (old)
+ * dropdown.h
  */
 
 #ifndef DROPDOWN_H_
@@ -37,11 +37,16 @@ public:
     void clearSelection();
     bool wasJustSelected();
 
+    // New hover functionality
+    void updateHover(int mx, int my, int winW, int winH);
+    void clearHover();
+
 private:
     std::vector<std::string> options_;
     int selectedIndex_;
     int scrollOffset_;
     std::string header_;
     bool selectionChanged_;
+    int hoverIndex_;  // -1 means no hover
 };
 #endif // DROPDOWN_H_

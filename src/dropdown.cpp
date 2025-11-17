@@ -11,7 +11,7 @@ Dropdown::Dropdown(float x_, float y_, float w_, float h_,
                    const std::string& header)
     : x(x_), y(y_), width(w_), height(h_), isOpen_(false),
       options_(opts), selectedIndex_(0), scrollOffset_(0),
-      header_(header), selectionChanged_(false)
+      header_(header), selectionChanged_(false), hoverIndex_(-1)
 {
 }
 
@@ -37,11 +37,27 @@ bool Dropdown::containsHeader(int mx, int my, int winW, int winH) const
            my >= y && my <= y + height;
 }
 
+/*
 bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
 {
     if (!isOpen_) return false;
     float top    = y + height;
-    float bottom = y + height * 6;
+    float bottom = y + height * 7;  // Changed from 6 to 7 to match VISIBLE
+    return mx >= x && mx <= x + width && my >= top && my <= bottom;
+}
+*/
+
+bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
+{
+    if (!isOpen_) return false;
+
+    // ✅ FIXED: Calculate actual visible item count
+    const int VISIBLE = 6;
+    int actualItemCount = std::min((int)options_.size(), VISIBLE);
+
+    float top    = y + height;
+    float bottom = y + height + height * actualItemCount;  // ✅ Use actualItemCount
+
     return mx >= x && mx <= x + width && my >= top && my <= bottom;
 }
 
@@ -50,7 +66,13 @@ int Dropdown::getItemIndexAt(int mx, int my, int winW, int winH) const
     if (!isOpen_) return -1;
 
     float curY = y + height;
-    for (int i = scrollOffset_; i < (int)options_.size(); ++i)
+    const int VISIBLE = 6;
+
+    // ✅ Calculate actual visible items
+    int end = std::min((int)options_.size(), scrollOffset_ + VISIBLE);
+    int actualEnd = std::min((int)options_.size(), end);
+
+    for (int i = scrollOffset_; i < actualEnd; ++i)
     {
         float itemTop    = curY;
         float itemBottom = curY + height;
@@ -81,6 +103,7 @@ bool Dropdown::handleClick(int mx, int my, int winW, int winH)
     {
         isOpen_ = !isOpen_;
         selectionChanged_ = false;
+        if (!isOpen_) hoverIndex_ = -1;  // Clear hover when closing
         return false;
     }
 
@@ -91,14 +114,15 @@ bool Dropdown::handleClick(int mx, int my, int winW, int winH)
         {
             selectedIndex_ = idx;
             isOpen_ = false;
-            selectionChanged_ = true;  // <-- SET FLAG
+            selectionChanged_ = true;
+            hoverIndex_ = -1;  // Clear hover on selection
             return true;
         }
     }
     return false;
 }
 
-bool Dropdown::wasJustSelected()  // <-- NEW METHOD
+bool Dropdown::wasJustSelected()
 {
     if (selectionChanged_)
     {
@@ -108,14 +132,32 @@ bool Dropdown::wasJustSelected()  // <-- NEW METHOD
     return false;
 }
 
+void Dropdown::updateHover(int mx, int my, int winW, int winH)
+{
+    if (!isOpen_)
+    {
+        hoverIndex_ = -1;
+        return;
+    }
+
+    hoverIndex_ = getItemIndexAt(mx, my, winW, winH);
+}
+
+void Dropdown::clearHover()
+{
+    hoverIndex_ = -1;
+}
+
 void Dropdown::clearSelection()
 {
-  selectedIndex_ = -1;
-  isOpen_ = false;
+    selectedIndex_ = -1;
+    isOpen_ = false;
+    hoverIndex_ = -1;
 }
 
 void Dropdown::draw(int winW, int winH)
 {
+    // Draw header
     glColor3f(0.92f, 0.92f, 0.92f);
     glBegin(GL_QUADS);
         glVertex2f(x, y);
@@ -132,58 +174,82 @@ void Dropdown::draw(int winW, int winH)
         glVertex2f(x, y + height);
     glEnd();
 
-    std::string txt = getSelectedItem();
+    // Display header text if available, otherwise selected item
+    std::string txt = header_.empty() ? getSelectedItem() : header_;
     glColor3f(0.f, 0.f, 0.f);
     glRasterPos2f(x + 6, y + height * 0.5f + 4);
     for (char c : txt) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
 
-    float ax = x + width - 10;
-    float ay = y + height * 0.5f;
+    // Draw arrow (only if this is a regular dropdown, not a menu)
+    if (header_.empty())
+    {
+        float ax = x + width - 10;
+        float ay = y + height * 0.5f;
 
-    glBegin(GL_TRIANGLES);
-        if (isOpen_)
-        {
-            glVertex2f(ax - 0.01f, ay - 0.005f);
-            glVertex2f(ax + 0.01f, ay - 0.005f);
-            glVertex2f(ax,        ay + 0.005f);
-        }
-        else
-        {
-            glVertex2f(ax - 0.01f, ay + 0.005f);
-            glVertex2f(ax + 0.01f, ay + 0.005f);
-            glVertex2f(ax,        ay - 0.005f);
-        }
-    glEnd();
+        glBegin(GL_TRIANGLES);
+            if (isOpen_)
+            {
+                glVertex2f(ax - 0.01f, ay - 0.005f);
+                glVertex2f(ax + 0.01f, ay - 0.005f);
+                glVertex2f(ax,        ay + 0.005f);
+            }
+            else
+            {
+                glVertex2f(ax - 0.01f, ay + 0.005f);
+                glVertex2f(ax + 0.01f, ay + 0.005f);
+                glVertex2f(ax,        ay - 0.005f);
+            }
+        glEnd();
+    }
 
     if (!isOpen_ || options_.empty()) return;
 
     const int VISIBLE = 6;
     float curY = y + height;
 
+    // ✅ FIXED: Calculate actual number of items to display
+    int start = scrollOffset_;
+    int end = std::min((int)options_.size(), start + VISIBLE);
+    int actualItemCount = end - start;  // Actual items being shown
+
+    // Draw dropdown background - adjusted to actual item count
     glColor3f(1.f, 1.f, 1.f);
     glBegin(GL_QUADS);
         glVertex2f(x, curY);
         glVertex2f(x + width, curY);
-        glVertex2f(x + width, curY + height * VISIBLE);
-        glVertex2f(x, curY + height * VISIBLE);
+        glVertex2f(x + width, curY + height * actualItemCount);  // ✅ Use actualItemCount
+        glVertex2f(x, curY + height * actualItemCount);          // ✅ Use actualItemCount
     glEnd();
 
     glColor3f(0.35f, 0.35f, 0.35f);
     glBegin(GL_LINE_LOOP);
         glVertex2f(x, curY);
         glVertex2f(x + width, curY);
-        glVertex2f(x + width, curY + height * VISIBLE);
-        glVertex2f(x, curY + height * VISIBLE);
+        glVertex2f(x + width, curY + height * actualItemCount);  // ✅ Use actualItemCount
+        glVertex2f(x, curY + height * actualItemCount);          // ✅ Use actualItemCount
     glEnd();
 
-    int start = scrollOffset_;
-    int end = std::min((int)options_.size(), start + VISIBLE);
-
+    // Draw items
     for (int i = start; i < end; ++i)
     {
-        if (i == selectedIndex_)
+        bool isSelected = (i == selectedIndex_);
+        bool isHovered = (i == hoverIndex_);
+
+        if (isSelected)
         {
             glColor3f(0.68f, 0.85f, 0.90f);
+        }
+        else if (isHovered)
+        {
+            glColor3f(0.95f, 0.95f, 0.95f);
+        }
+        else
+        {
+            glColor3f(1.f, 1.f, 1.f);
+        }
+
+        if (isSelected || isHovered)
+        {
             glBegin(GL_QUADS);
                 glVertex2f(x, curY);
                 glVertex2f(x + width, curY);
@@ -199,6 +265,7 @@ void Dropdown::draw(int winW, int winH)
         curY += height;
     }
 
+    // Draw scrollbar if needed
     if ((int)options_.size() > VISIBLE)
     {
         float totalH   = height * options_.size();
@@ -220,5 +287,5 @@ void Dropdown::draw(int winW, int winH)
 }
 
 void Dropdown::open() { isOpen_ = true; }
-void Dropdown::close() { isOpen_ = false; }
-void Dropdown::toggle() { isOpen_ = !isOpen_; }
+void Dropdown::close() { isOpen_ = false; hoverIndex_ = -1; }
+void Dropdown::toggle() { isOpen_ = !isOpen_; if (!isOpen_) hoverIndex_ = -1; }
