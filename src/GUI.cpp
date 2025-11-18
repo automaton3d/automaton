@@ -97,8 +97,8 @@ namespace framework
            "Documentation",
            "About"
        };
-       fileMenu = new Dropdown(10, 0, 80, 30, fileOptions, "File");
-       helpMenu = new Dropdown(100, 0, 80, 30, helpOptions, "Help");
+       fileMenu = new Dropdown(10, 0, 100, 30, fileOptions, "File");
+       helpMenu = new Dropdown(100, 0, 100, 30, helpOptions, "Help");
    }
 
 
@@ -205,7 +205,7 @@ namespace framework
       }
       else
       {
-          mProjection_ = glm::perspective(glm::radians(45.0f), ratio, .01f, 100.f);
+          mProjection_ = glm::perspective(glm::radians(65.0f), ratio, 0.01f, 100.0f);
       }
   }
 

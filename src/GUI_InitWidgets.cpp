@@ -137,7 +137,7 @@ namespace framework
     barWidths[2] = (int)(barWidth * (double) (RELOC - DIFFUSION) / totalRatio);
     //
     scenarioHelpToggle = new Tickbox(230, 105, "Scenario Help");
-    scenarioHelpToggle->setState(true); // default: visible
+    scenarioHelpToggle->setState(false);
     scenarioHelpToggle->onToggle = [](bool state)
     {
       showScenarioHelp = state;

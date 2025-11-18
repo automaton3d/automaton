@@ -351,30 +351,34 @@ namespace framework
    */
   void CAWindow::updateProjection()
   {
-    int width = gViewport[2];
-    int height = gViewport[3];
-    if (height == 0) height = 1;
-    GLfloat ratio = width / (GLfloat) height;
-    if (projection[0].isSelected())
-    {
-      // Orthographic projection
-      mRenderer_.setProjection(glm::perspective(   // ← USE setProjection()
-          glm::radians(45.0f),
-          ratio,
-          0.01f,
-          100.0f
-        ));
-    }
-    else if (projection[1].isSelected())
-    {
-      // Perspective projection
-      mRenderer_.setProjection(glm::perspective(   // ← USE setProjection()
-        glm::radians(45.0f),
-        ratio,
-        0.01f,
-        100.0f
-      ));
-    }
+      int width = gViewport[2];
+      int height = gViewport[3];
+      if (height == 0) height = 1;
+
+      float ratio = static_cast<float>(width) / static_cast<float>(height);
+
+      // Default orthographic scale (same used everywhere else)
+      float orthoSize = 0.6f;
+
+      if (projection[0].isSelected())
+      {
+          // Orthographic projection
+          mRenderer_.setProjection(
+              glm::ortho(-orthoSize * ratio,  orthoSize * ratio,
+                         -orthoSize,           orthoSize,
+                          0.01f,               100.0f)
+          );
+      }
+      else if (projection[1].isSelected())
+      {
+          // Perspective projection (FOV = 30 degrees)
+          mRenderer_.setProjection(
+              glm::perspective(glm::radians(65.0f),
+                               ratio,
+                               0.01f,
+                               100.0f)
+          );
+      }
   }
 
   /*
@@ -479,7 +483,7 @@ namespace framework
 
               scenarioHelpToggle->onMouseButton(xpos, ypos, true);
 
-              // === OLD: HANDLE VIEW RADIOS ===
+              // === HANDLE VIEW RADIOS ===
               bool viewClicked = false;
               for (size_t i = 0; i < views.size(); ++i)
               {
@@ -489,20 +493,32 @@ namespace framework
                       views[i].setSelected(true);
                       viewClicked = true;
 
-                      float length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-                      if (i == 0) { // Isometric
-                          instance().mCamera_.setEye(glm::vec3(length, length, length));
+                      // Preserve distance and center
+                      glm::vec3 eye    = instance().mCamera_.getEye();
+                      glm::vec3 center = instance().mCamera_.getCenter();
+                      float length     = glm::length(eye - center);
+
+                      glm::vec3 dir;   // direction vector (must be normalized!)
+
+                      if (i == 0) {                 // Isometric
+                          dir = glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f));
                           instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-                      } else if (i == 1) { // XY
-                          instance().mCamera_.setEye(glm::vec3(0, 0, length));
-                          instance().mCamera_.setUp(glm::vec3(1, 0, 0));
-                      } else if (i == 2) { // YZ
-                          instance().mCamera_.setEye(glm::vec3(length, 0, 0));
-                          instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-                      } else if (i == 3) { // ZX
-                          instance().mCamera_.setEye(glm::vec3(0, length, 0));
+                      }
+                      else if (i == 1) {            // XY → look along +Z
+                          dir = glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f));
                           instance().mCamera_.setUp(glm::vec3(1, 0, 0));
                       }
+                      else if (i == 2) {            // YZ → look along +X
+                          dir = glm::normalize(glm::vec3(1.0f, 0.0f, 0.0f));
+                          instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+                      }
+                      else if (i == 3) {            // ZX → look along +Y
+                          dir = glm::normalize(glm::vec3(0.0f, 1.0f, 0.0f));
+                          instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+                      }
+
+                      // New eye = center + normalized(direction) * distance
+                      instance().mCamera_.setEye(center + dir * length);
 
                       instance().mCamera_.update();
                       instance().mInteractor_.setCamera(&instance().mCamera_);
@@ -511,20 +527,42 @@ namespace framework
               }
               if (viewClicked) return;
 
-              // === OLD: HANDLE LAYER LIST ===
+              // === HANDLE LAYER LIST ===
               layerList->poll(xpos, ypos);
 
-              // === OLD: HANDLE PROJECTION RADIOS ===
+              // === HANDLE PROJECTION RADIOS ===
               bool projClicked = false;
+              // === HANDLE PROJECTION RADIOS ===
+              // === HANDLE PROJECTION RADIOS ===
               for (size_t i = 0; i < projection.size(); ++i)
               {
                   if (projection[i].clicked(xpos, ypos))
                   {
                       for (Radio& r : projection) r.setSelected(false);
                       projection[i].setSelected(true);
-                      projClicked = true;
-                      instance().updateProjection();
-                      break;
+
+                      float width  = gViewport[2];
+                      float height = gViewport[3];
+                      float ratio  = width / height;
+
+                      if (projection[0].isSelected())   // ORTHOGRAPHIC
+                      {
+                          float orthoSize = 0.6f;
+                          instance().mRenderer_.setProjection(
+                              glm::ortho(-orthoSize * ratio, orthoSize * ratio,
+                                         -orthoSize, orthoSize,
+                                          0.01f, 100.0f)
+                          );
+                      }
+                      else                              // PERSPECTIVE
+                      {
+                          instance().mRenderer_.setProjection(
+                              glm::perspective(glm::radians(45.0f), ratio,
+                                               0.01f, 100.0f)
+                          );
+                      }
+
+                      return; // stop processing
                   }
               }
               if (projClicked) return;
@@ -550,7 +588,7 @@ namespace framework
                   }
               }
 
-              // === OLD: HANDLE HELP HYPERLINK ===
+              // === HANDLE HELP HYPERLINK ===
               const char* linkText = "Help";
               int textWidth = 0;
               const char* c = linkText;
@@ -568,7 +606,7 @@ namespace framework
                   return;
               }
 
-              // === NEW: IMPROVED AXIS THUMB DETECTION ===
+              // === IMPROVED AXIS THUMB DETECTION ===
               if ((pause || GUImode == REPLAY))
               {
               if (!gAxisProjValid) {
@@ -818,7 +856,6 @@ namespace framework
       // === NORMAL KEY HANDLING ===
       if (action == GLFW_PRESS)
       {
-        float length;
         switch (key)
         {
           case GLFW_KEY_ESCAPE:
@@ -898,36 +935,64 @@ namespace framework
               break;
 
           case GLFW_KEY_X:
-              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-              instance().mCamera_.setEye(glm::vec3(length, 0, 0));
+          {
+              glm::vec3 eye    = instance().mCamera_.getEye();
+              glm::vec3 center = instance().mCamera_.getCenter();
+              float length     = glm::length(eye - center);
+
+              glm::vec3 dir = glm::normalize(glm::vec3(1.0f, 0.0f, 0.0f)); // +X
+              instance().mCamera_.setEye(center + dir * length);
               instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+
               instance().mCamera_.update();
               instance().mInteractor_.setCamera(&instance().mCamera_);
-              break;
+          }
+          break;
 
           case GLFW_KEY_Y:
-              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-              instance().mCamera_.setEye(glm::vec3(0, length, 0));
+          {
+              glm::vec3 eye    = instance().mCamera_.getEye();
+              glm::vec3 center = instance().mCamera_.getCenter();
+              float length     = glm::length(eye - center);
+
+              glm::vec3 dir = glm::normalize(glm::vec3(0.0f, 1.0f, 0.0f)); // +Y
+              instance().mCamera_.setEye(center + dir * length);
               instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+
               instance().mCamera_.update();
               instance().mInteractor_.setCamera(&instance().mCamera_);
-              break;
+          }
+          break;
 
           case GLFW_KEY_Z:
-              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-              instance().mCamera_.setEye(glm::vec3(0, 0, length));
-              instance().mCamera_.setUp(glm::vec3(1, 0, 0));
-              instance().mCamera_.update();
-              instance().mInteractor_.setCamera(&instance().mCamera_);
-              break;
+          {
+              glm::vec3 eye    = instance().mCamera_.getEye();
+              glm::vec3 center = instance().mCamera_.getCenter();
+              float length     = glm::length(eye - center);
 
-          case GLFW_KEY_O:
-              length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-              instance().mCamera_.setEye(glm::vec3(length, length, length));
-              instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+              glm::vec3 dir = glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f)); // +Z
+              instance().mCamera_.setEye(center + dir * length);
+              instance().mCamera_.setUp(glm::vec3(1, 0, 0));
+
               instance().mCamera_.update();
               instance().mInteractor_.setCamera(&instance().mCamera_);
-              break;
+          }
+          break;
+
+          case GLFW_KEY_O:  // Isometric
+          {
+              glm::vec3 eye    = instance().mCamera_.getEye();
+              glm::vec3 center = instance().mCamera_.getCenter();
+              float length     = glm::length(eye - center);
+
+              glm::vec3 dir = glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f));
+              instance().mCamera_.setEye(center + dir * length);
+              instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+
+              instance().mCamera_.update();
+              instance().mInteractor_.setCamera(&instance().mCamera_);
+          }
+          break;
 
           case GLFW_KEY_M:
               sound(false);
@@ -1100,11 +1165,20 @@ namespace framework
     logo = new Logo("logo.png");
     sizeCallback(mWindow_, width, height); // Set initial size.
     // Isometric view
-    int length = glm::length(instance().mCamera_.getEye() - instance().mCamera_.getCenter());
-    instance().mCamera_.setEye(glm::vec3(length, length, length));
-    instance().mCamera_.setUp(glm::vec3(0, 1, 0));
-    instance().mCamera_.update();
-    instance().mInteractor_.setCamera(& instance().mCamera_);
+    // === Correct isometric camera initialization ===
+    {
+        glm::vec3 eye    = instance().mCamera_.getEye();
+        glm::vec3 center = instance().mCamera_.getCenter();
+        float length     = glm::length(eye - center);
+
+        // Normalized isometric direction
+        glm::vec3 isoDir = glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f));
+
+        instance().mCamera_.setEye(center + isoDir * length);
+        instance().mCamera_.setUp(glm::vec3(0, 1, 0));
+        instance().mCamera_.update();
+        instance().mInteractor_.setCamera(&instance().mCamera_);
+    }
     mRenderer_.clearVoxels();
     // Launch the simulation thread
     DWORD dwThreadId;

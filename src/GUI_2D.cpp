@@ -140,6 +140,7 @@ namespace framework
     drawPanel(gViewport[2] - 260, 60, 250, rightPanelHeight);
 
     // Render gadgets in the panels
+
     renderSimulationStats();
     renderLayerInfo();
     renderHelpText();
@@ -262,7 +263,7 @@ namespace framework
     render2Dstring(1700, 80, GLUT_BITMAP_TIMES_ROMAN_24, s);
     int w = framework::layerList->getSelected();
     sprintf(s, "(Current layer = %u)", w);
-    render2Dstring(1730, 128, GLUT_BITMAP_HELVETICA_12, s);
+    render2Dstring(1730, 120, GLUT_BITMAP_HELVETICA_12, s);
     if (scenario >= 0)
     {
       sprintf(s, "%s", splash::scenarioOptions[scenario].c_str());
@@ -328,7 +329,7 @@ namespace framework
     if (scenario < 0 || scenario >= (int)scenarioHelpTexts.size())
       return;
     const int paneX = 230;
-    const int paneY = 90;
+    const int paneY = 150;
     const int paneWidth = 400;
     const int paneHeight = 450;
 
@@ -465,8 +466,6 @@ namespace framework
   {
       // Draw background bar across the top
       drawPanel(0, 0, gViewport[2], 30);
-
-      if (!fileMenu || !helpMenu) return;
 
       // Draw labels at fixed pixel positions
       glColor3f(0.9f, 0.9f, 0.9f);

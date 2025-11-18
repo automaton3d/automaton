@@ -77,7 +77,6 @@ namespace framework
       int endLimit = std::min<int>(visibleLayers_, wDim_);
       for (int w = 0; w < endLimit; w++)
       {
-
    	    const auto& center = automaton::lcenters[w];
     	Cell &cell = getCell(lattice_curr, center[0], center[1], center[2], w);
     	bool changed = (cell.x[0] != lastCellCoordinates_[w][0] ||
@@ -89,7 +88,7 @@ namespace framework
 
         char s[100];
         sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
-        drawString(s, 1780, 120 + 25 * w, 8);
+        drawString(s, 1780, 148 + 25 * w, 8);
         lastCellCoordinates_[w][0] = cell.x[0];
         lastCellCoordinates_[w][1] = cell.x[1];
         lastCellCoordinates_[w][2] = cell.x[2];
@@ -108,7 +107,7 @@ namespace framework
       {
         const int logicalIndex = i + first;
         if (logicalIndex >= static_cast<int>(wDim_)) break;
-        const int displayY = 120 + 25 * i;
+        const int displayY = 145 + 25 * i;
         layers_[logicalIndex].drawAt(1680, displayY);
       }
       glPopMatrix();
@@ -127,7 +126,7 @@ namespace framework
       {
         const int logicalIndex = i + first;
         if (logicalIndex >= static_cast<int>(wDim_)) break;
-        const int displayY = 120 + 25 * i;
+        const int displayY = 145 + 25 * i;
         if (layers_[logicalIndex].clickedAt(xpos, ypos, 1680, displayY))
         {
           clickedOption = &layers_[logicalIndex];
