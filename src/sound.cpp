@@ -1,33 +1,31 @@
 /*
- * sound.cpp
+ * sound.cpp (stub implementation)
  *
- * Encapsulates sound capabilities.
+ * Provides stub implementations for sound functions.
+ * To enable sound, install OpenAL and libsndfile, then define HAS_OPENAL.
  */
 
-#include <thread>
-#include <windows.h>
-#include <mmsystem.h>
-#include <thread>
 #include <iostream>
+#include <string>
 
-namespace framework
-{
-  void sound(bool loop)
-  {
-    if (loop)
-    {
-        PlaySoundA("close2u.wav", NULL, SND_FILENAME | SND_LOOP);
-    }
-    else
-    {/*
-        // Launch in a separate thread for non-looping sound
-        std::thread([]()
-        {
-            PlaySoundA("close2u.wav", NULL, SND_FILENAME);
-            PlaySoundA(NULL, NULL, SND_PURGE); // Ensure resources are released
-        }).detach(); // Detach thread to make it temporary
-        */
-        PlaySoundA("close2u.wav", NULL, SND_FILENAME);
-    }
+namespace framework {
+
+  // Stub implementation - no sound
+  void playSound(const std::string& filename, bool loop) {
+    // Do nothing - sound disabled
+    // To enable sound support:
+    // 1. Install OpenAL: https://www.openal.org/
+    // 2. Install libsndfile: http://www.mega-nerd.com/libsndfile/
+    // 3. Add HAS_OPENAL define to your build system
+    // 4. Replace this file with the full OpenAL implementation
+    
+    (void)filename;  // Suppress unused parameter warning
+    (void)loop;      // Suppress unused parameter warning
   }
+
+  void sound(bool loop) {
+    // Do nothing - sound disabled
+    (void)loop;
+  }
+
 }

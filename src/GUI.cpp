@@ -5,248 +5,207 @@
  */
 
 #include "GUI.h"
-#include <GL/freeglut.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <thread>
+#include "globals.h"
 #include "hslider.h"
+#include "vslider.h"
+#include "tickbox.h"
 #include "replay_progress.h"
+#include "progress.h"
 #include "logo.h"
-#include "cawindow.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-#include "GUI.h"
+#include "ca_window.h"
+#include "text_renderer.h"
+#include "dropdown.h"
+#include "radio.h"
+#include "layers.h"
+#include "model/simulation.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
+#include "menubar.h"
 
 namespace framework
 {
-  extern bool showHelp;
+    // -----------------------------------------------------------------
+    // Global / static variables that belong to the framework namespace
+    // -----------------------------------------------------------------
+    std::unique_ptr<MenuBar> menuBar;
 
-  bool MULTICUBE_MODE = false;
-  int GUImode = SIMULATION;
+    int barWidths[3] = {0, 0, 0};
 
-  unsigned tomo_x = 0;
-  unsigned tomo_y = 0;
-  unsigned tomo_z = 0;
-  Dropdown* fileMenu = nullptr;
-  Dropdown* helpMenu = nullptr;
-  bool showAboutDialog = false;
+    bool MULTICUBE_MODE = false;
+    int GUImode = SIMULATION;
 
-  using namespace std;
-  using namespace automaton;
+    bool helpHover = false;
+    bool showHelp = false;
+    bool showAboutDialog = false;
 
-  // Global viewport info
-  GLint gViewport[4] = {0, 0, 1920, 1080}; // default values, overwritten on resize
+    std::vector<Tickbox> data3D;
+    std::vector<Tickbox> delays;
+    std::vector<Radio> views;
+    std::vector<Radio> projection;
+    std::unique_ptr<LayerList> layerList;
 
-  // Core GUI elements
-  vector<Tickbox> data3D;
-  vector<Tickbox> delays;
-  vector<Radio> views;
-  vector<Radio> projection;
-  std::unique_ptr<LayerList> layerList;
-  HSlider hslider(0, 0, 0, 0, 0);
-  VSlider vslider(1890, 93, 10.0f, 607.0f, 30.0f);
-  Tickbox *tomo = new Tickbox(50, 840, "Enable");
-  vector<Radio> tomoDirs;
-  ProgressBar *progress = nullptr;
-  ReplayProgressBar *replayProgress = nullptr;
+    HSlider hslider(0, 0, 0, 0, 0);
+    VSlider vslider(1890, 93, 10.0f, 607.0f, 30.0f);
+    Tickbox* tomo = nullptr;
+    Tickbox* scenarioHelpToggle = nullptr;
 
-  // Auxiliary
-  unsigned long tbegin = 0;
-  int barWidths[3] = {0, 0, 0};
-  bool helpHover = false;
-  bool showScenarioHelp = false;
-  Tickbox* scenarioHelpToggle = nullptr;
+    ProgressBar* progress = nullptr;
+    ReplayProgressBar* replayProgress = nullptr;
 
-  void initializeWidgets(); // defined in GUI_InitWidgets.cpp
-  void requestExit();
-  void showAboutWindow();
-  void saveReplay();
-  void loadReplay();
+    int vis_dx = 0;
+    int vis_dy = 0;
+    int vis_dz = 0;
 
-  // --------------------------------------------
-  // GUIrenderer implementation
-  // --------------------------------------------
+    int windowWidth = 800;
+    int windowHeight = 600;
 
-  GUIrenderer::GUIrenderer() : Renderer() {}
+    double tbegin = 0;
 
-  // Add destructor cleanup
-   GUIrenderer::~GUIrenderer()
-   {
-       delete fileMenu;
-       delete helpMenu;
-   }
+    std::vector<Radio> tomoDirs;
+    unsigned tomo_x = 0;
+    unsigned tomo_y = 0;
+    unsigned tomo_z = 0;
 
-  void GUIrenderer::init()
-  {
-      initializeWidgets();
-      initMenuDropdowns();
-  }
+    GLuint colorProgram3D = 0;
+    GLint colorMvpLoc3D = -1;
+    GLint colorColorLoc3D = -1;
 
-  void GUIrenderer::initMenuDropdowns()
-   {
-       std::vector<std::string> fileOptions = {
-           "Save replay",
-           "Load replay",
-           "Exit"
-       };
+    bool showScenarioHelp = false;
+    std::vector<std::string> scenarioHelpTexts;
+    
+    Logo* logo = nullptr; 
+    
+    extern const char* ui_help[];
+    extern const char* record_help[];
 
-       std::vector<std::string> helpOptions = {
-           "GUI help",
-           "Documentation",
-           "About"
-       };
-       fileMenu = new Dropdown(10, 0, 100, 30, fileOptions, "File");
-       helpMenu = new Dropdown(100, 0, 100, 30, helpOptions, "Help");
-   }
+    // -----------------------------------------------------------------
+    // GUIrenderer implementation
+    // -----------------------------------------------------------------
+    GUIrenderer::GUIrenderer() : Renderer() {}
 
+    GUIrenderer::~GUIrenderer()
+    {
+        delete tomo;
+        delete scenarioHelpToggle;
+        delete progress;
+        delete replayProgress;
+    }
 
-  void requestExit();
-  void showAboutWindow();
+    void GUIrenderer::init()
+    {
+        initializeWidgets();
+        initMenuDropdowns();
 
-  void GUIrenderer::handleMenuSelection()
-  {
-      if (!fileMenu || !helpMenu) return;
+        if (!tomo) {
+            tomo = new Tickbox(50, gViewport[3] - 800, "Enable");
+        }
 
-      // Process File menu only on fresh selection
-      if (fileMenu->wasJustSelected())
-      {
-          std::string selected = fileMenu->getSelectedItem();
-          fileMenu->clearSelection();  // Clear AFTER reading the selected item
+        if (!progress) {
+            progress = new ProgressBar(gViewport[2] / 2, 100, gViewport[2] / 4, 20);
+            progress->init(gViewport[2], 100, 100, 100, automaton::FRAME);
+        }
 
-          if (selected == "Save replay")
-          {
-        	  saveReplay();  // ✅ Call the function
-          }
-          else if (selected == "Load replay")
-          {
-        	  loadReplay();  // ✅ Call the function
-          }
-          else if (selected == "Exit")
-          {
-        	  requestExit();
-          }
-      }
+        if (!replayProgress) {
+            replayProgress = new ReplayProgressBar(gViewport[2], gViewport[3]);
+        }
+        if (!logo) {
+            logo = new Logo("logo_bar.png");
+        }
+        if (!scenarioHelpToggle) {
+            scenarioHelpToggle = new Tickbox(50, gViewport[3] - 120, "Show Scenario Help");
+            float labelCol[3] = {0.0f, 0.0f, 0.0f};
+            scenarioHelpToggle->setColor(nullptr, labelCol, nullptr, nullptr);
+        }
+    }
 
-      // Process Help menu only on fresh selection
-      if (helpMenu->wasJustSelected())
-      {
-          std::string selected = helpMenu->getSelectedItem();
-          helpMenu->clearSelection();  // Clear AFTER reading the selected item
+    void GUIrenderer::initMenuDropdowns()
+    {
+        menuBar = std::make_unique<MenuBar>(
+            textRenderer,
+            static_cast<float>(gViewport[2]),
+            static_cast<float>(gViewport[3])
+        );
 
-          if (selected == "GUI help")
-          {
-              // Toggle once on actual selection; no frame-by-frame repeated toggles
-              showHelp = !showHelp;
-          }
-          else if (selected == "Documentation")
-          {
-              std::cout << "Documentation selected" << std::endl;
-          }
-          else if (selected == "About")
-          {
-        	  showAboutWindow();
-          }
-      }
-  }
+        auto fileMenu = std::make_unique<Menu>("File");
+        fileMenu->AddItem("Open", [](){ loadReplay(); });
+        fileMenu->AddItem("Save", [](){ saveReplay(); });
+        fileMenu->AddItem("Exit", [](){ requestExit(); });
+        menuBar->AddMenu(std::move(fileMenu));
 
-  void GUIrenderer::render()
-  {
-      renderClear();
-      renderObjects();
-      renderUI();
+        auto helpMenu = std::make_unique<Menu>("Help");
+        helpMenu->AddItem("GUI keys", [](){ showHelp = true; });
+        helpMenu->AddItem("About", [](){ showAboutDialog = true; });
+        menuBar->AddMenu(std::move(helpMenu));
 
-  #ifdef DEBUG
-      extern bool showDebugClick;
-      extern double debugClickX;
-      extern double debugClickY;
-      if (showDebugClick)
-      {
-          glColor3f(1.0f, 0.0f, 0.0f);
-          glPointSize(6.0f);
-          glBegin(GL_POINTS);
-          glVertex2f(debugClickX, debugClickY);
-          glEnd();
-      }
-  #endif
-  }
+    }
 
-  void GUIrenderer::renderClear()
-  {
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-      glClearDepth(1.0f);
-  }
+    void GUIrenderer::handleMenuSelection()
+    {
+        // Old Dropdown handling is now completely replaced by MenuBar
+        // (the callbacks in initMenuDropdowns already do the work)
+    }
 
-  void GUIrenderer::resize(int width, int height)
-  {
-      if (height == 0) height = 1;
-      GLfloat ratio = width / (GLfloat) height;
+    void GUIrenderer::render()
+    {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-      glViewport(0, 0, width, height);
+        if (!textRenderer) {
+            static bool warned = false;
+            if (!warned) {
+                std::cerr << "WARNING: textRenderer not initialized before GUI render.\n";
+                warned = true;
+            }
+        }
 
-      gViewport[0] = 0;
-      gViewport[1] = 0;
-      gViewport[2] = width;
-      gViewport[3] = height;
+        renderClear();
+        renderObjects();
+        renderUI();
 
-      glMatrixMode(GL_PROJECTION);
-      glLoadIdentity();
+        // Render the new menu bar on top of everything
+        if (menuBar) menuBar->Render();
+    }
 
-      if (projection[0].isSelected())
-      {
-          float orthoSize = 0.6f;
-          mProjection_ = glm::ortho(
-              -orthoSize * ratio, orthoSize * ratio,
-              -orthoSize, orthoSize,
-              0.01f, 100.0f
-          );
-      }
-      else
-      {
-          mProjection_ = glm::perspective(glm::radians(65.0f), ratio, 0.01f, 100.0f);
-      }
-  }
+void GUIrenderer::resize(int width, int height)
+{
+    if (height == 0) height = 1;
+    float ratio = static_cast<float>(width) / static_cast<float>(height);
 
-  // ✅ NEW: Shared exit confirmation function
-  void requestExit()
-  {
-      std::thread([]() {
-          int result = MessageBoxW(
-              NULL,
-              L"Are you sure you want to exit?",
-              L"Exit Confirmation",
-              MB_ICONQUESTION | MB_YESNO | MB_SYSTEMMODAL
-          );
-          if (result == IDYES)
-          {
-              glfwSetWindowShouldClose(framework::CAWindow::instance().getWindow(), GL_TRUE);
-          }
-      }).detach();
-  }
+    glViewport(0, 0, width, height);
+    gViewport[2] = width;
+    gViewport[3] = height;
 
-  // ✅ NEW: Function to show About dialog
-  void showAboutWindow()
-  {
-      const wchar_t* message =
-          L"Cellular Automaton Visualizer\n\n"
-          L"Version 1.0\n\n"
-          L"A 3D simulation and visualization tool for\n"
-          L"cellular automaton patterns.\n\n"
-          L"Features:\n"
-          L"• Real-time 3D visualization\n"
-          L"• Frame recording and replay\n"
-          L"• Tomography slicing\n"
-          L"• Multiple viewing modes\n\n"
-          L"© 2024 - Built with OpenGL & GLFW";
+    windowWidth  = width;
+    windowHeight = height;
 
-      MessageBoxW(
-          NULL,
-          message,
-          L"About Cellular Automaton",
-          MB_OK | MB_ICONINFORMATION
-      );
-  }
+    mOrtho       = glm::ortho(0.0f, (float)width, (float)height, 0.0f);
+    mPerspective = glm::perspective(glm::radians(45.0f), ratio, 0.01f, 100.0f);
 
-} // namespace framework
+    if (progress)     progress->resize(width, height);
+    if (replayProgress) replayProgress->setPosition(width, height, height - 100);
+    if (menuBar)      menuBar->Resize(static_cast<float>(width), static_cast<float>(height));
+    hslider.resize(width, height);
+}
+
+    void GUIrenderer::renderClear()
+    {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClearDepth(1.0f);
+    }
+
+    // -----------------------------------------------------------------
+    // Helper functions
+    // -----------------------------------------------------------------
+
+    void requestExit()
+    {
+        framework::CAWindow::instance().pendingExit = true;
+    }
+
+    void showAboutWindow()
+    {
+        showAboutDialog = true;
+    }
+}

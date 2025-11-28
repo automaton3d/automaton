@@ -19,7 +19,7 @@ namespace automaton
    */
   bool convolute0(Cell& curr, Cell &draft, Cell &mirror)
   {
-	return false;
+    return false;
   }
 
   /**
@@ -32,12 +32,12 @@ namespace automaton
   {
     if (curr.t == curr.d && curr.t == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
-   	  draft.c[0] = getRandomUnsigned(EL);
+      draft.c[0] = getRandomUnsigned(EL);
       draft.c[1] = getRandomUnsigned(EL);
       draft.c[2] = getRandomUnsigned(EL);
       ctrl = false;
     }
-	return false;
+    return false;
   }
 
   /**
@@ -53,7 +53,7 @@ namespace automaton
       draft.a = W_USED;
       ctrl = false;
     }
-	return false;
+    return false;
   }
 
   /**
@@ -70,7 +70,7 @@ namespace automaton
       draft.cB = true;
       ctrl = false;
     }
-	return false;
+    return false;
   }
 
   /**
@@ -87,7 +87,7 @@ namespace automaton
       draft.hB = true;
       ctrl = false;
     }
-	return false;
+    return false;
   }
 
   /**
@@ -123,14 +123,14 @@ namespace automaton
     {
       // Test superposition
       if (curr.x[0] == mirror.x[0] &&
-    	  curr.x[1] == mirror.x[1] &&
+          curr.x[1] == mirror.x[1] &&
           curr.x[2] == mirror.x[2])
       {
         // Test dispersion
         if (curr.a != W_USED &&
-        	curr.W1() != mirror.W1() &&
-			!curr.cB &&
-        	curr.t == RMAX / 2)
+            curr.W1() != mirror.W1() &&
+            !curr.cB &&
+            curr.t == RMAX / 2)
         {
           if (curr.pB && mirror.sB)
           {
@@ -142,7 +142,6 @@ namespace automaton
             draft.cB = true;
             // Orphan seed
             draft.a = W_USED;
-            printf("pB [k=%d: (%d,%d,%d) pB L=%d M=%d]\n", curr.x[0],curr.x[1],curr.x[2], curr.k, curr.x[3], mirror.x[3]); fflush(stdout);
           }
           else if (curr.sB && !mirror.pB)
           {
@@ -151,7 +150,6 @@ namespace automaton
             draft.cB = true;
             // Orphan seed
             draft.a = W_USED;
-            printf("sB [k=%d: (%d,%d,%d) NOT pB L=%d M=%d}\n", curr.x[0],curr.x[1],curr.x[2], curr.k, curr.x[3], mirror.x[3]); fflush(stdout);
           }
         }
       }

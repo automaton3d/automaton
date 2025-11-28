@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "thread": "cpp"
+    },
+    "git.path": "C:\\Program Files\\Git\\bin\\git.exe",
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+    "terminal.integrated.profiles.windows": {
+        "Command Prompt": {
+            "path": "C:\\Windows\\System32\\cmd.exe"
+        },
+        "Git Bash": {
+            "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+            "icon": "terminal-bash"
+        }
+    }
+}

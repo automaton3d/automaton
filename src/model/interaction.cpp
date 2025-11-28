@@ -8,6 +8,7 @@
 #include <cassert>
 #include <algorithm>
 #include "simulation.h"
+#include "globals.h"
 
 namespace automaton
 {
@@ -15,7 +16,6 @@ namespace automaton
   extern unsigned W_USED;
 
   int count = 0;
-  int scenario = -1;
 
   bool ctrl = true; // debug
 

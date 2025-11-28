@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build automaton",
+      "type": "shell",
+      "command": "cmd.exe",
+"args": [
+  "/c",
+  "call \"E:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cl.exe /Zi /EHsc /std:c++17 /nologo /MD /O2 /I\"E:\\automaton\\src\\include\" /I\"E:\\automaton\\src\\include\\model\" /I\"E:\\automaton\\src\\include\\zlib\" /I\"C:\\GL\\GLAD\\include\" /I\"C:\\GL\\GLFWx64\\include\" /I\"C:\\GL\\GLM\" /I\"C:\\Users\\Alexandre\\Downloads\\freetype-master\\freetype-master\\include\" @E:\\automaton\\sources.rsp /FoE:\\automaton\\obj\\ /Fe:E:\\automaton\\bin\\automaton.exe /link /LIBPATH:\"C:\\GL\\GLFWx64\\lib-vc2022\" /LIBPATH:\"C:\\Users\\Alexandre\\Downloads\\freetype-master\\freetype-master\\build\\Release\" /LIBPATH:\"E:\\automaton\\lib\" glfw3.lib opengl32.lib user32.lib gdi32.lib shell32.lib comdlg32.lib ole32.lib freetype.lib zlib.lib"
+],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile",
+      "detail": "Build FINAL - sintaxe corrigida!"
+    }
+  ]
+}

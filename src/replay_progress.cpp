@@ -1,68 +1,205 @@
-// replay_progress.cpp
+/*
+ * replay_progress.cpp
+ */
+
 #include "replay_progress.h"
-#include <GL/glut.h>
-#include <text.h>
-#include <cstdio>
-#include <cstddef>
+#include "text_renderer.h"
+#include "globals.h"
+#include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <vector>
+#include <cstdio> // for snprintf
 
 ReplayProgressBar::ReplayProgressBar(int screenWidth, int screenHeight)
 {
-  barHeight_ = 15;
-  barWidth_ = screenWidth / 3;
+  barHeight_ = 20;
+  barWidth_ = screenWidth / 4;
   barX_ = (screenWidth - barWidth_) / 2;
-  barY_ = screenHeight - 50; // Near bottom of screen
-
+  barY_ = screenHeight - 100;
   progress_ = 0.0f;
+  pointerX_ = barX_;
   currentFrame_ = 0;
   totalFrames_ = 0;
 }
 
-void ReplayProgressBar::update(size_t currentFrame, size_t totalFrames)
+ReplayProgressBar::ReplayProgressBar()
+{
+  barX_ = 0;
+  barY_ = 0;
+  barWidth_ = 200;
+  barHeight_ = 20;
+  progress_ = 0.0f;
+  pointerX_ = barX_;
+  currentFrame_ = 0;
+  totalFrames_ = 0;
+}
+
+void ReplayProgressBar::update(unsigned long long currentFrame, unsigned long long totalFrames)
 {
   currentFrame_ = currentFrame;
   totalFrames_ = totalFrames;
-
+  
   if (totalFrames > 0) {
     progress_ = static_cast<float>(currentFrame) / static_cast<float>(totalFrames);
+    pointerX_ = barX_ + static_cast<int>(progress_ * barWidth_);
   } else {
     progress_ = 0.0f;
+    pointerX_ = barX_;
   }
 }
 
 void ReplayProgressBar::render()
 {
-  if (totalFrames_ == 0) return;
+    if (gViewport[2] <= 0 || gViewport[3] <= 0) return;
 
-  // Draw filled progress
-  glColor3f(0.2f, 0.6f, 0.8f); // Cyan/blue color
-  int filledWidth = static_cast<int>(progress_ * barWidth_);
-  glBegin(GL_QUADS);
-    glVertex2i(barX_, barY_);
-    glVertex2i(barX_ + filledWidth, barY_);
-    glVertex2i(barX_ + filledWidth, barY_ + barHeight_);
-    glVertex2i(barX_, barY_ + barHeight_);
-  glEnd();
+    glm::mat4 ortho = glm::ortho(
+        0.0f, static_cast<float>(gViewport[2]),
+        0.0f, static_cast<float>(gViewport[3])
+    );
 
-  // Draw outline
-  glColor3f(0.6f, 0.6f, 0.6f);
-  glLineWidth(2);
-  glBegin(GL_LINE_LOOP);
-    glVertex2i(barX_, barY_);
-    glVertex2i(barX_ + barWidth_, barY_);
-    glVertex2i(barX_ + barWidth_, barY_ + barHeight_);
-    glVertex2i(barX_, barY_ + barHeight_);
-  glEnd();
+    // Lambda helper for drawing quads
+    auto drawQuad2D = [&](float x1, float y1, float x2, float y2, const glm::vec3& color) {
+        std::vector<glm::vec2> verts = {
+            {x1, y1}, {x2, y1}, {x2, y2}, {x1, y2}
+        };
+        glUseProgram(colorProgram2D);
+        glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
+        glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
+        
+        GLuint vao, vbo;
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(glm::vec2), 
+                     verts.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
+        glEnableVertexAttribArray(0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glBindVertexArray(0);
+        glDeleteBuffers(1, &vbo);
+        glDeleteVertexArrays(1, &vao);
+    };
 
-  // Draw text: "Frame X / Y"
-  char text[64];
-  sprintf(text, "Frame %zu / %zu", currentFrame_, totalFrames_);
-  glColor3f(1.0f, 1.0f, 1.0f);
-  framework::drawString(text, barX_, barY_ - 10, 12);
+    // Lambda helper for drawing line loops
+    auto drawLineLoop2D = [&](const std::vector<glm::vec2>& verts, const glm::vec3& color, float lineWidth = 2.0f) {
+        glUseProgram(colorProgram2D);
+        glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
+        glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
+        
+        GLuint vao, vbo;
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(glm::vec2), 
+                     verts.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
+        glEnableVertexAttribArray(0);
+        glLineWidth(lineWidth);
+        glDrawArrays(GL_LINE_LOOP, 0, static_cast<GLsizei>(verts.size()));
+        glBindVertexArray(0);
+        glDeleteBuffers(1, &vbo);
+        glDeleteVertexArrays(1, &vao);
+    };
+
+    // Background bar (dark gray)
+    drawQuad2D(static_cast<float>(barX_), 
+               static_cast<float>(barY_), 
+               static_cast<float>(barX_ + barWidth_), 
+               static_cast<float>(barY_ + barHeight_), 
+               glm::vec3(0.3f, 0.3f, 0.3f));
+
+    // Progress bar (blue)
+    int progressWidth = static_cast<int>(progress_ * barWidth_);
+    if (progressWidth > 0) {
+        drawQuad2D(static_cast<float>(barX_), 
+                   static_cast<float>(barY_), 
+                   static_cast<float>(barX_ + progressWidth), 
+                   static_cast<float>(barY_ + barHeight_), 
+                   glm::vec3(0.2f, 0.6f, 0.8f));
+    }
+
+    // Border (light gray)
+    drawLineLoop2D({
+        {static_cast<float>(barX_ - 1), static_cast<float>(barY_)},
+        {static_cast<float>(barX_ + barWidth_ + 1), static_cast<float>(barY_)},
+        {static_cast<float>(barX_ + barWidth_ + 1), static_cast<float>(barY_ + barHeight_)},
+        {static_cast<float>(barX_ - 1), static_cast<float>(barY_ + barHeight_)}
+    }, glm::vec3(0.6f, 0.6f, 0.6f));
+
+    // Pointer (yellow vertical line)
+    drawQuad2D(static_cast<float>(pointerX_ - 2), 
+               static_cast<float>(barY_ + 2), 
+               static_cast<float>(pointerX_ + 2), 
+               static_cast<float>(barY_ + barHeight_ - 2), 
+               glm::vec3(1.0f, 1.0f, 0.0f));
+
+    // Frame counter text
+    if (textRenderer) {
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "Frame: %llu / %llu", currentFrame_, totalFrames_);
+        textRenderer->RenderText(buffer,
+            static_cast<float>(barX_), 
+            static_cast<float>(barY_ - 25),
+            0.6f,
+            glm::vec3(1.0f, 1.0f, 1.0f),
+            gViewport[2], gViewport[3]);
+    }
+    
+    glUseProgram(0);
 }
 
 void ReplayProgressBar::setPosition(int screenWidth, int screenHeight, int progressY)
 {
-    barWidth_ = screenWidth / 3;
+    barWidth_ = screenWidth / 4;
     barX_ = (screenWidth - barWidth_) / 2;
-    barY_ = progressY;   // use ProgressBar’s Y
+    barY_ = progressY;
+    
+    // Update pointer position based on current progress
+    if (totalFrames_ > 0) {
+        pointerX_ = barX_ + static_cast<int>(progress_ * barWidth_);
+    }
+}
+
+void ReplayProgressBar::setSize(int width, int height)
+{
+  barWidth_ = width;
+  barHeight_ = height;
+  
+  // Update pointer position based on current progress
+  if (totalFrames_ > 0) {
+      pointerX_ = barX_ + static_cast<int>(progress_ * barWidth_);
+  }
+}
+
+bool ReplayProgressBar::isMouseOver(int mouseX, int mouseY, int windowHeight) const
+{
+  // Convert from top-origin to bottom-origin
+  int bottomY = windowHeight - mouseY;
+  
+  return (mouseX >= barX_ && mouseX <= barX_ + barWidth_ &&
+          bottomY >= barY_ && bottomY <= barY_ + barHeight_);
+}
+
+unsigned long long ReplayProgressBar::getFrameAtPosition(int mouseX, int mouseY, int windowHeight) const
+{
+  // Convert from top-origin to bottom-origin
+  int bottomY = windowHeight - mouseY;
+  
+  // Check if mouse is within bar bounds
+  if (totalFrames_ == 0 || 
+      mouseX < barX_ || mouseX > barX_ + barWidth_ ||
+      bottomY < barY_ || bottomY > barY_ + barHeight_)
+  {
+    return currentFrame_;
+  }
+  
+  // Calculate frame based on mouse X position
+  float ratio = static_cast<float>(mouseX - barX_) / static_cast<float>(barWidth_);
+  ratio = (ratio < 0.0f) ? 0.0f : (ratio > 1.0f) ? 1.0f : ratio; // Clamp to [0,1]
+  
+  return static_cast<unsigned long long>(ratio * totalFrames_);
 }

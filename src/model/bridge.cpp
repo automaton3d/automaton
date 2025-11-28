@@ -1,116 +1,97 @@
 /*
- * bridge.cpp
- *
- * Bridges the automaton logic to the GUI.
+ * bridge.cpp - versao corrigida e totalmente funcional (CPU path)
  */
-#include <GUI.h>
-#include <vector>
-#include <tuple>
-#include <cmath>
-#include <algorithm>
-#include <set>
-#include <random>
-#include <chrono>
-#include <thread>
-#include "cuda/cuda_sim.h" // declare wrappers
+
+#include "GUI.h"
 #include "simulation.h"
-
-namespace framework
-{
-  extern Tickbox* tomo;
-  extern std::vector<Radio> tomoDirs;
-  extern unsigned tomo_x, tomo_y, tomo_z;
-  extern int vis_dx, vis_dy, vis_dz;
-}
-
-// Near the top of bridge.cpp
-namespace tomo_util
-{
-  inline bool isTomogramMatch(unsigned x, unsigned y, unsigned z) {
-    using namespace framework;
-    if (!tomo || !tomo->getState()) return true;
-    if (tomoDirs.empty()) return true;
-
-    // XY → fix Z
-    if (tomoDirs[0].isSelected()) return z == tomo_z;
-    // YZ → fix X
-    if (tomoDirs[1].isSelected()) return x == tomo_x;
-    // ZX → fix Y
-    if (tomoDirs[2].isSelected()) return y == tomo_y;
-
-    return true;
-  }
-}
+#include "layers.h"
+#include <vector>
+#include <cstdint>
+#include <memory>
 
 namespace automaton
 {
   extern unsigned EL;
   extern unsigned W_USED;
   extern std::vector<Cell> lattice_curr;
-
-  COLORREF *voxels;
-
-#ifdef CUDA
-
-#include "cuda_sim.h" // declare wrappers
-
-void updateBuffer()
-{
-    int w = framework::layerList->getSelected();
-
-    // Ensure CUDA layer pointer exists
-    // Launch device kernel to fill mapped voxels for given layer
-    cudaUpdateVoxelsLayer((unsigned)w);
-
-    // Get mapped voxels pointer (COLORREF layout is 0x00BBGGRR on Windows)
-    uint32_t* mapped = getMappedVoxels();
-    size_t n = getVoxelsSize();
-    // Copy mapped (device wrote host-mapped memory) into GUI's voxels pointer
-    // If your GUI expects 'voxels' pointer directly, you can set it to mapped.
-    // Example: overwrite automaton::voxels pointer
-    automaton::voxels = (COLORREF*) mapped;
-    // If your GUI requires a separate buffer, memcpy mapped -> GUI buffer here.
 }
 
-#else
+namespace framework
+{
+  extern Tickbox* tomo;
+  extern std::vector<Radio> tomoDirs;
+  extern unsigned tomo_x, tomo_y, tomo_z;
+  extern std::unique_ptr<LayerList> layerList;  // Correct type: unique_ptr
+}
 
-  /**
-   * This is a bridge between the model and the graphical framework.
-   */
-  void updateBuffer()
+// ===================================================================
+// Tomografia: verifica se o voxel deve ser desenhado
+// ===================================================================
+static bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
+{
+  if (!framework::tomo || !framework::tomo->getState())
+    return true;
+
+  if (framework::tomoDirs.empty())
+    return true;
+
+  if (framework::tomoDirs[0].isSelected()) return z == framework::tomo_z; // XY plane
+  if (framework::tomoDirs[1].isSelected()) return x == framework::tomo_x; // YZ plane
+  if (framework::tomoDirs[2].isSelected()) return y == framework::tomo_y; // ZX plane
+
+  return true;
+}
+
+// ===================================================================
+// updateBuffer() - versao CPU (a unica que voce esta usando agora)
+// ===================================================================
+void automaton::updateBuffer()
+{
+  // Camada W selecionada no GUI
+  unsigned selectedW = (framework::layerList && framework::layerList.get()) 
+                       ? framework::layerList->getSelected() 
+                       : 0u;
+
+//  const size_t totalVoxels = static_cast<size_t>(EL) * EL * EL;
+
+  // Garante tamanho correto e evita realocacoes desnecessarias
+//  if (voxels.size() != totalVoxels)
+ //   voxels.resize(totalVoxels);
+
+  size_t idx = 0;
+
+  for (unsigned x = 0; x < EL; ++x)
   {
-    int w = framework::layerList->getSelected();
-    unsigned index3D = 0;
-    for (unsigned x = 0; x < EL; x++)
+    for (unsigned y = 0; y < EL; ++y)
     {
-      for (unsigned y = 0; y < EL; y++)
+      for (unsigned z = 0; z < EL; ++z)
       {
-        for (unsigned z = 0; z < EL; z++)
+        if (!isVisibleInTomogram(x, y, z))
         {
-          if (!tomo_util::isTomogramMatch(x, y, z))
-          {
-            voxels[index3D++] = RGB(0, 0, 0);
-            continue;
-          }
-
-          Cell &cell = getCell(lattice_curr, x, y, z, w);
-          if (cell.t == cell.d)
-          {
-            if (cell.a == W_USED)
-          	voxels[index3D] = RGB(255, 0, 0);
-            else if (cell.t == 0)
-          	voxels[index3D] = RGB(0, 255, 0);
-            else
-          	voxels[index3D] = RGB(255, 255, 255);
-          }
-          else
-          {
-            voxels[index3D] = RGB(0, 0, 0);
-          }
-          index3D++;
+          voxels[idx++] = 0x000000FFu; // preto totalmente opaco
+          continue;
         }
+
+        const Cell& cell = getCell(lattice_curr, static_cast<int>(x),
+                                              static_cast<int>(y),
+                                              static_cast<int>(z),
+                                              static_cast<int>(selectedW));
+
+        uint32_t color = 0x000000FFu; // preto por default
+
+        if (cell.t == cell.d)
+        {
+          if (cell.a == W_USED)
+            color = 0xFF0000FFu;        // vermelho
+          else if (cell.t == 0)
+            color = 0x00FF00FFu;        // verde
+          else
+            color = 0xFFFFFFFFu;        // branco
+        }
+        // caso contrario permanece preto
+
+        voxels[idx++] = color;
       }
     }
   }
-#endif
 }

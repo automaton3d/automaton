@@ -1,10 +1,12 @@
 /*
- * dropdown.cpp
+ * dropdown.cpp (FIXED: Items now spread downward visually)
  */
 
 #include "dropdown.h"
 #include <algorithm>
 #include <iostream>
+#include "text_renderer.h"
+#include "draw_utils.h"
 
 Dropdown::Dropdown(float x_, float y_, float w_, float h_,
                    const std::vector<std::string>& opts,
@@ -37,48 +39,37 @@ bool Dropdown::containsHeader(int mx, int my, int winW, int winH) const
            my >= y && my <= y + height;
 }
 
-/*
-bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
-{
-    if (!isOpen_) return false;
-    float top    = y + height;
-    float bottom = y + height * 7;  // Changed from 6 to 7 to match VISIBLE
-    return mx >= x && mx <= x + width && my >= top && my <= bottom;
-}
-*/
-
 bool Dropdown::containsDropdown(int mx, int my, int winW, int winH) const
 {
     if (!isOpen_) return false;
 
-    // ✅ FIXED: Calculate actual visible item count
+    // FIXED: Items spread downward (decreasing Y in OpenGL coords)
     const int VISIBLE = 6;
     int actualItemCount = std::min((int)options_.size(), VISIBLE);
 
-    float top    = y + height;
-    float bottom = y + height + height * actualItemCount;  // ✅ Use actualItemCount
+    float top    = y;  // Top of dropdown = bottom of header
+    float bottom = y - height * actualItemCount;  // FIXED: Subtract to go down
 
-    return mx >= x && mx <= x + width && my >= top && my <= bottom;
+    return mx >= x && mx <= x + width && my >= bottom && my <= top;
 }
 
 int Dropdown::getItemIndexAt(int mx, int my, int winW, int winH) const
 {
     if (!isOpen_) return -1;
 
-    float curY = y + height;
+    float curY = y;  // FIXED: Start at header bottom
     const int VISIBLE = 6;
 
-    // ✅ Calculate actual visible items
     int end = std::min((int)options_.size(), scrollOffset_ + VISIBLE);
     int actualEnd = std::min((int)options_.size(), end);
 
     for (int i = scrollOffset_; i < actualEnd; ++i)
     {
         float itemTop    = curY;
-        float itemBottom = curY + height;
-        if (my >= itemTop && my <= itemBottom)
+        float itemBottom = curY - height;  // FIXED: Subtract to go down
+        if (my >= itemBottom && my <= itemTop)
             return i;
-        curY += height;
+        curY -= height;  // FIXED: Subtract to move down
     }
     return -1;
 }
@@ -103,7 +94,7 @@ bool Dropdown::handleClick(int mx, int my, int winW, int winH)
     {
         isOpen_ = !isOpen_;
         selectionChanged_ = false;
-        if (!isOpen_) hoverIndex_ = -1;  // Clear hover when closing
+        if (!isOpen_) hoverIndex_ = -1;
         return false;
     }
 
@@ -115,7 +106,7 @@ bool Dropdown::handleClick(int mx, int my, int winW, int winH)
             selectedIndex_ = idx;
             isOpen_ = false;
             selectionChanged_ = true;
-            hoverIndex_ = -1;  // Clear hover on selection
+            hoverIndex_ = -1;
             return true;
         }
     }
@@ -155,134 +146,82 @@ void Dropdown::clearSelection()
     hoverIndex_ = -1;
 }
 
-void Dropdown::draw(int winW, int winH)
+void Dropdown::draw(TextRenderer& renderer, int winW, int winH)
 {
-    // Draw header
-    glColor3f(0.92f, 0.92f, 0.92f);
-    glBegin(GL_QUADS);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
-    glEnd();
+    // Header background
+    drawQuad2D(x, y, x+width, y+height,
+               glm::vec3(0.92f,0.92f,0.92f), winW, winH);
+    drawLineLoop2D({{x,y},{x+width,y},{x+width,y+height},{x,y+height}},
+                   glm::vec3(0.35f), winW, winH);
 
-    glColor3f(0.35f, 0.35f, 0.35f);
-    glBegin(GL_LINE_LOOP);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
-    glEnd();
-
-    // Display header text if available, otherwise selected item
+    // Header text
     std::string txt = header_.empty() ? getSelectedItem() : header_;
-    glColor3f(0.f, 0.f, 0.f);
-    glRasterPos2f(x + 6, y + height * 0.5f + 4);
-    for (char c : txt) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
+    renderer.RenderText(txt, x+6, y+height*0.5f-6, 0.3f,
+                        glm::vec3(0.f), winW, winH);
 
-    // Draw arrow (only if this is a regular dropdown, not a menu)
-    if (header_.empty())
-    {
+    // Arrow
+    if (header_.empty()) {
         float ax = x + width - 10;
         float ay = y + height * 0.5f;
-
-        glBegin(GL_TRIANGLES);
-            if (isOpen_)
-            {
-                glVertex2f(ax - 0.01f, ay - 0.005f);
-                glVertex2f(ax + 0.01f, ay - 0.005f);
-                glVertex2f(ax,        ay + 0.005f);
-            }
-            else
-            {
-                glVertex2f(ax - 0.01f, ay + 0.005f);
-                glVertex2f(ax + 0.01f, ay + 0.005f);
-                glVertex2f(ax,        ay - 0.005f);
-            }
-        glEnd();
+        if (isOpen_) {
+            drawTriangle2D({{ax-0.01f,ay+0.005f},
+                           {ax+0.01f,ay+0.005f},
+                           {ax,ay-0.005f}},
+                           glm::vec3(0.f), winW, winH);
+        } else {
+            drawTriangle2D({{ax-0.01f,ay-0.005f},
+                           {ax+0.01f,ay-0.005f},
+                           {ax,ay+0.005f}},
+                           glm::vec3(0.f), winW, winH);
+        }
     }
 
     if (!isOpen_ || options_.empty()) return;
 
-    const int VISIBLE = 6;
-    float curY = y + height;
+    const int VISIBLE=6;
+    float curY=y;  // FIXED: Start at header bottom
+    int start=scrollOffset_;
+    int end=std::min((int)options_.size(), start+VISIBLE);
+    int actualItemCount=end-start;
 
-    // ✅ FIXED: Calculate actual number of items to display
-    int start = scrollOffset_;
-    int end = std::min((int)options_.size(), start + VISIBLE);
-    int actualItemCount = end - start;  // Actual items being shown
+    // FIXED: Dropdown background (spreading downward)
+    float dropdownTop = y;
+    float dropdownBottom = y - height * actualItemCount;
+    drawQuad2D(x, dropdownBottom, x+width, dropdownTop,
+               glm::vec3(1.f), winW, winH);
+    drawLineLoop2D({{x,dropdownBottom},{x+width,dropdownBottom},
+                    {x+width,dropdownTop},{x,dropdownTop}},
+                   glm::vec3(0.35f), winW, winH);
 
-    // Draw dropdown background - adjusted to actual item count
-    glColor3f(1.f, 1.f, 1.f);
-    glBegin(GL_QUADS);
-        glVertex2f(x, curY);
-        glVertex2f(x + width, curY);
-        glVertex2f(x + width, curY + height * actualItemCount);  // ✅ Use actualItemCount
-        glVertex2f(x, curY + height * actualItemCount);          // ✅ Use actualItemCount
-    glEnd();
+    // Items (FIXED: spreading downward)
+    for (int i=start;i<end;++i) {
+        bool isSelected=(i==selectedIndex_);
+        bool isHovered=(i==hoverIndex_);
+        glm::vec3 bgColor=glm::vec3(1.f);
+        if (isSelected) bgColor=glm::vec3(0.68f,0.85f,0.90f);
+        else if (isHovered) bgColor=glm::vec3(0.95f);
 
-    glColor3f(0.35f, 0.35f, 0.35f);
-    glBegin(GL_LINE_LOOP);
-        glVertex2f(x, curY);
-        glVertex2f(x + width, curY);
-        glVertex2f(x + width, curY + height * actualItemCount);  // ✅ Use actualItemCount
-        glVertex2f(x, curY + height * actualItemCount);          // ✅ Use actualItemCount
-    glEnd();
+        float itemTop = curY;
+        float itemBottom = curY - height;
 
-    // Draw items
-    for (int i = start; i < end; ++i)
-    {
-        bool isSelected = (i == selectedIndex_);
-        bool isHovered = (i == hoverIndex_);
+        if (isSelected||isHovered)
+            drawQuad2D(x, itemBottom, x+width, itemTop, bgColor, winW, winH);
 
-        if (isSelected)
-        {
-            glColor3f(0.68f, 0.85f, 0.90f);
-        }
-        else if (isHovered)
-        {
-            glColor3f(0.95f, 0.95f, 0.95f);
-        }
-        else
-        {
-            glColor3f(1.f, 1.f, 1.f);
-        }
-
-        if (isSelected || isHovered)
-        {
-            glBegin(GL_QUADS);
-                glVertex2f(x, curY);
-                glVertex2f(x + width, curY);
-                glVertex2f(x + width, curY + height);
-                glVertex2f(x, curY + height);
-            glEnd();
-        }
-
-        glColor3f(0.f, 0.f, 0.f);
-        glRasterPos2f(x + 6, curY + height * 0.5f + 4);
-        for (char c : options_[i])
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
-        curY += height;
+        renderer.RenderText(options_[i], x+6, itemBottom+height*0.5f-6, 0.3f,
+                            glm::vec3(0.f), winW, winH);
+        curY -= height;  // FIXED: Subtract to move down
     }
 
-    // Draw scrollbar if needed
-    if ((int)options_.size() > VISIBLE)
-    {
-        float totalH   = height * options_.size();
-        float visibleH = height * VISIBLE;
-        float barH     = visibleH * visibleH / totalH;
-        float ratio    = (float)scrollOffset_ / (options_.size() - VISIBLE);
-
-        float barYTop    = y + height + (visibleH - barH) * (1 - ratio);
+    // Scrollbar (FIXED: positioned correctly for downward spread)
+    if ((int)options_.size()>VISIBLE) {
+        float totalH=height*options_.size();
+        float visibleH=height*VISIBLE;
+        float barH=visibleH*visibleH/totalH;
+        float ratio=(float)scrollOffset_/(options_.size()-VISIBLE);
+        float barYTop = y - (visibleH-barH)*ratio;
         float barYBottom = barYTop - barH;
-
-        glColor3f(0.65f, 0.65f, 0.65f);
-        glBegin(GL_QUADS);
-            glVertex2f(x + width - 0.01f, barYTop);
-            glVertex2f(x + width,         barYTop);
-            glVertex2f(x + width,         barYBottom);
-            glVertex2f(x + width - 0.01f, barYBottom);
-        glEnd();
+        drawQuad2D(x+width-0.01f, barYBottom, x+width, barYTop,
+                   glm::vec3(0.65f), winW, winH);
     }
 }
 

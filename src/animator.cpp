@@ -1,86 +1,76 @@
 /*
- * animator.cpp
+ * animator.cpp (adapted)
  *
- * Helps to implement the states of the animation (roll, zoom etc.).
+ * Implements the states of the animation (roll, zoom etc.).
  */
 
 #include "animator.h"
+#include <cmath>   // for fmod
 
 namespace framework
 {
 
   Animator::Animator() :
     mAnimation_(NONE),
-    mInteractor_(0),
+    mInteractor_(nullptr),
     mFrame_(0),
     mFrames_(0),
-    mFramesPerSecond_(30.),
+    mFramesPerSecond_(30.0f),
     mHeight_(0),
     mWidth_(0)
   {
-      stopwatch();
+    stopwatch();
   }
 
-  Animator::~Animator()
-  {
-  }
+  Animator::~Animator() = default;
 
   void Animator::animate()
   {
     if (elapsedSeconds() < 1.0 / mFramesPerSecond_)
-    {
       return;
-    }
+
     switch(mAnimation_)
     {
-      case FIRST_PERSON:
-        firstperson();
-        break;
-      case ORBIT:
-        orbit();
-        break;
-      case PAN:
-        pan();
-        break;
-      case ROLL:
-        roll();
-        break;
-      case ZOOM:
-        zoom();
-        break;
-      case NONE: default:
-        return;
+      case FIRST_PERSON: firstperson(); break;
+      case ORBIT:        orbit();       break;
+      case PAN:          pan();         break;
+      case ROLL:         roll();        break;
+      case ZOOM:         zoom();        break;
+      case NONE: default: return;
     }
     stopwatch();
   }
 
   double Animator::elapsedSeconds()
   {
-    std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+    auto now = std::chrono::system_clock::now();
     std::chrono::duration<double> seconds = now - mTic_;
     return seconds.count();
   }
 
   void Animator::firstperson()
   {
+    // TODO: implement first-person camera motion using GLM
   }
 
   void Animator::orbit()
   {
     Camera *c = mInteractor_->getCamera();
-    if (0 == mFrame_)
+    if (mFrame_ == 0)
     {
-      mFrames_ = 5 * mFramesPerSecond_;
-      c->setEye(1., 1., 1.);
-      c->setUp(-0., -0., 1.);
-      c->setCenter(0, 0, 0);
+      mFrames_ = static_cast<int>(5 * mFramesPerSecond_);
+      c->setEye(1.f, 1.f, 1.f);
+      c->setUp(0.f, 0.f, 1.f);
+      c->setCenter(0.f, 0.f, 0.f);
       c->update();
       mInteractor_->setCamera(c);
     }
-    double x = fmod(mFrame_*4, mWidth_);
-    double y = mHeight_ * .74;
+
+    double x = std::fmod(mFrame_ * 4.0, static_cast<double>(mWidth_));
+    double y = mHeight_ * 0.74;
     mInteractor_->setLeftClicked(true);
     mInteractor_->setClickPoint(x, y);
+
     if (++mFrame_ >= mFrames_)
     {
       mInteractor_->setLeftClicked(false);
@@ -90,6 +80,7 @@ namespace framework
 
   void Animator::pan()
   {
+    // TODO: implement pan motion
   }
 
   void Animator::reset()
@@ -100,6 +91,7 @@ namespace framework
 
   void Animator::roll()
   {
+    // TODO: implement roll motion
   }
 
   void Animator::setAnimation(AnimationType type)
@@ -125,6 +117,7 @@ namespace framework
 
   void Animator::zoom()
   {
+    // TODO: implement zoom motion
   }
 
-}
+} // namespace framework

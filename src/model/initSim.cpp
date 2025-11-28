@@ -12,12 +12,13 @@
 #include <random>
 #include <cassert>
 #include <array>
+#include "globals.h"
 
 namespace automaton
 {
   using namespace std;
 
-  constexpr double PI = std::acos(-1.0);
+  constexpr double PI = 3.14159265358979323846264338327950288;
 
   // Global variables for lattice (assuming they're vectors, not functions)
   extern std::vector<Cell> lattice_curr;
@@ -293,8 +294,8 @@ namespace automaton
     // Construir espiral base ao redor do eixo Z
     for (int i = 0; i < num_points; ++i)
     {
-       theta[i] = 2 * M_PI * i / num_points;
-       r[i] = (double)EL / (4 * M_PI) * theta[i];
+       theta[i] = 2 * PI * i / num_points;
+       r[i] = (double)EL / (4 * PI) * theta[i];
        x_curve[i] = r[i] * cos(theta[i]);
        y_curve[i] = r[i] * sin(theta[i]);
        z_curve[i] = r[i];
@@ -421,6 +422,9 @@ namespace automaton
       lattice_curr.resize(total);
       lattice_draft.resize(total);
       lattice_mirror.resize(total);
+      const size_t totalVoxels = static_cast<size_t>(EL) * EL * EL;
+      if (voxels.size() != totalVoxels)
+        voxels.resize(totalVoxels);
       return true;
     }
     catch (const std::bad_alloc& e)

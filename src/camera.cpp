@@ -1,5 +1,5 @@
 /*
- * camera.cpp
+ * camera.cpp (adapted)
  *
  * Implements the camera routines.
  */
@@ -8,7 +8,7 @@
 
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/matrix_transform.hpp> // lookAt
-#include <glm/gtc/type_ptr.hpp> // value_ptr
+#include <glm/gtc/type_ptr.hpp>         // value_ptr
 
 namespace framework
 {
@@ -18,9 +18,7 @@ namespace framework
     reset();
   }
 
-  Camera::~Camera()
-  {
-  }
+  Camera::~Camera() = default;
 
   const glm::vec3 & Camera::getCenter()
   {
@@ -49,48 +47,36 @@ namespace framework
 
   void Camera::reset()
   {
-    mEye_.x = 0.f;
-    mEye_.y = 0.f;
-    mEye_.z = 1.f;
-    mCenter_.x = 0.f;
-    mCenter_.y = 0.f;
-    mCenter_.z = 0.f;
-    mUp_.x = 0.f;
-    mUp_.y = 1.f;
-    mUp_.z = 0.f;
+    mEye_    = glm::vec3(0.f, 0.f, 1.f);
+    mCenter_ = glm::vec3(0.f, 0.f, 0.f);
+    mUp_     = glm::vec3(0.f, 1.f, 0.f);
 
-      update();
+    update();
   }
 
   void Camera::setEye(float x, float y, float z)
   {
-    mEye_.x = x;
-    mEye_.y = y;
-    mEye_.z = z;
+    mEye_ = glm::vec3(x, y, z);
   }
 
   void Camera::setEye(const glm::vec3 & e)
   {
-      mEye_ = e;
+    mEye_ = e;
   }
 
   void Camera::setCenter(float x, float y, float z)
   {
-    mCenter_.x = x;
-    mCenter_.y = y;
-    mCenter_.z = z;
+    mCenter_ = glm::vec3(x, y, z);
   }
 
   void Camera::setCenter(const glm::vec3 & c)
   {
-      mCenter_ = c;
+    mCenter_ = c;
   }
 
   void Camera::setUp(float x, float y, float z)
   {
-    mUp_.x = x;
-    mUp_.y = y;
-    mUp_.z = z;
+    mUp_ = glm::vec3(x, y, z);
   }
 
   void Camera::setUp(const glm::vec3 & u)
