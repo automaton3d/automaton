@@ -1,0 +1,400 @@
+// GUI_2D.cpp – FULLY MODERNIZED & FAST (2025-ready)
+// No per-frame allocations, core-profile safe
+
+#include "GUI.h"
+#include "globals.h"
+#include "layers.h"
+#include "progress.h"
+#include "replay_progress.h"
+#include "logo.h"
+#include "hslider.h"
+#include "vslider.h"
+#include "text_renderer.h"
+#include "simulation.h"
+#include "color_utils.h"
+#include "draw_utils.h"
+#include "help.h"
+#include "projection_manager.h"
+
+// Necessário para EL, W_USED, scenario, etc.
+#include "simulation.h"
+#include "glm_host_only.h"
+#include <sstream>
+#include <vector>
+
+namespace automaton
+{
+  extern unsigned EL;
+  extern unsigned W_USED;
+}
+
+namespace splash
+{
+	extern const std::vector<std::string> scenarioOptions;
+}
+
+extern Mode currentMode;
+
+namespace framework
+{
+	extern TextRenderer hudText;
+
+  // Referências a variáveis declaradas em GUI.cpp e globals.h
+  extern bool showHelp;
+  extern std::vector<std::string> scenarioHelpTexts;
+  extern HSlider hslider;
+  extern VSlider vslider;
+  extern int windowWidth;
+  extern int windowHeight;
+  extern std::unique_ptr<LayerList> layerList;
+
+  void renderSimulationStats()
+  {
+    char s[64];
+    if (currentMode == REPLAY) {
+      std::snprintf(s, sizeof(s), "Light: %llu", timer / automaton::FRAME);
+    } else {
+      std::snprintf(s, sizeof(s), "Light: %llu Tick: %llu", timer / automaton::FRAME, timer);
+    }
+
+    hudText.RenderText(
+      s,
+      850.0f + 200.0f, gViewport[3] - 80.0f,
+      1.0f,
+      glm::vec3(1.0f, 1.0f, 1.0f),
+      gViewport[2], gViewport[3]
+    );
+  }
+
+  void renderComputeStats()
+  {
+      // Posição base deslocada 100 px para a esquerda
+      float x = 850.0f - 200.0f;
+      float y = gViewport[3] - 80.0f;
+
+      // Cores para forte (ativo) e fraco (inativo)
+      const glm::vec3 strongColor(1.0f, 1.0f, 1.0f);   // branco forte
+      const glm::vec3 weakColor(0.5f, 0.5f, 0.5f);     // cinza fraco
+
+      // Sempre desenhamos "COMPUTE:" primeiro
+      hudText.RenderText(
+          "Compute:",
+          x,
+          y,
+          1.0f,
+          strongColor,
+          gViewport[2], gViewport[3]
+      );
+
+      // Deslocamento horizontal para as palavras seguintes
+      float offset = 120.0f;
+
+      // GPU
+      hudText.RenderText(
+          "GPU",
+          x + offset,
+          y,
+          1.0f,
+          GPUEnabled ? strongColor : weakColor,
+          gViewport[2], gViewport[3]
+      );
+
+      // Pequeno espaçamento entre GPU e CPU
+      offset += 60.0f;
+
+      // CPU
+      hudText.RenderText(
+          "CPU",
+          x + offset,
+          y,
+          1.0f,
+          GPUEnabled ? weakColor : strongColor,
+          gViewport[2], gViewport[3]
+      );
+  }
+
+  void renderLayerInfo()
+  {
+    if (scenario < 0) return;
+    char s[64];
+    // L e W
+    std::snprintf(s, sizeof(s), "L = %u  W = %u", automaton::EL, automaton::W_USED);
+      hudText.RenderText(s, 1700.0f, gViewport[3] - 80.0f, 1.0f,
+                               glm::vec3(1.0f), gViewport[2], gViewport[3]);
+    // Current layer
+    if (layerList) {
+      int w = layerList->getSelected();
+      std::snprintf(s, sizeof(s), "(Current layer = %u)", w);
+      if (textRenderer) {
+        hudText.RenderText(s, 1730.0f, gViewport[3] - 120.0f, 0.5f,
+                                 glm::vec3(1.0f), gViewport[2], gViewport[3]);
+      }
+    }
+
+    // Scenario name
+    if (scenario >= 0 && scenario < (int)splash::scenarioOptions.size()) {
+      std::snprintf(s, sizeof(s), "%s", splash::scenarioOptions[scenario].c_str());
+      hudText.RenderText(s, 230.0f, gViewport[3] - 80.0f, 1.0f,
+                         glm::vec3(1.0f), gViewport[2], gViewport[3]);
+    }
+
+    // Mode
+    std::snprintf(s, sizeof(s), "Mode: %s", currentMode == REPLAY ? "Replay" : "Simulation");
+    hudText.RenderText(s, 1400.0f, gViewport[3] - 80.0f, 1.0f,
+                       glm::vec3(1.0f), gViewport[2], gViewport[3]);
+  }
+
+  void renderLayers()
+  {
+      if (layerList) {
+          layerList->render(hudText);
+          layerList->update(hudText);
+      }
+  }
+  
+  void renderHelpText()
+  {
+    if (showHelp)
+    {
+      int rightX = gViewport[2] - 630;
+      int baseY  = gViewport[3] - 250;
+      int leftX  = 230;
+
+      glm::vec3 color(0.6f, 0.6f, 0.6f);
+
+      // UI help
+      for (size_t i = 0; i < ui_help.size(); ++i) {
+          hudText.RenderText(
+              ui_help[i],
+              (float)rightX, (float)(baseY + 20 * i),
+              0.5f, color,
+              gViewport[2], gViewport[3]
+          );
+      }
+
+      // Record help
+      for (size_t i = 0; i < record_help.size(); ++i) {
+          hudText.RenderText(
+              record_help[i],
+              (float)leftX, (float)(baseY + 20 * i),
+              0.5f, color,
+              gViewport[2], gViewport[3]
+          );
+      }
+    }
+  }
+
+  void drawPanel(float x, float y, float w, float h,
+                 const glm::vec3& bgColor,
+                 const glm::vec3& borderColor,
+                 float borderThickness,
+                 const glm::mat4& proj)
+  {
+      // Background
+      drawQuad2D(x, y, x + w, y + h, bgColor, proj);
+
+      // Border (four thick lines)
+      drawThickLine2D(x,           y,            x + w,       y,            borderThickness, borderColor, proj);
+      drawThickLine2D(x + w,       y,            x + w,       y + h,       borderThickness, borderColor, proj);
+      drawThickLine2D(x + w,       y + h,        x,           y + h,       borderThickness, borderColor, proj);
+      drawThickLine2D(x,           y + h,        x,           y,           borderThickness, borderColor, proj);
+  }
+
+  void renderScenarioHelpPane()
+  {
+      using namespace automaton;
+
+      if (scenario < 0 || scenario >= (int)scenarioHelpTexts.size())
+          return;
+
+      const int paneX = 230;
+      const int paneY = 150;
+      const int paneW = 500;
+      const int paneH = 300;
+
+      const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
+
+      // Background panel
+      drawPanel((float)paneX, (float)paneY, (float)paneW, (float)paneH,
+                glm::vec3(0.05f,0.05f,0.1f),
+                glm::vec3(0.4f,0.4f,1.0f),
+                2.0f, proj);
+
+      std::istringstream iss(scenarioHelpTexts[scenario]);
+      std::string line;
+      int lineY = paneY + 40;
+
+      while (std::getline(iss, line))
+      {
+          auto wrapped = wrapText(line, 60); // wrap at ~60 chars
+          for (const auto& wline : wrapped) {
+              // flip Y for top-left origin
+              int flippedY = windowHeight - lineY;
+
+              hudText.RenderText(wline,
+                                 (float)(paneX + 20), (float)flippedY,
+                                 0.8f, glm::vec3(1.0f),
+                                 windowWidth, windowHeight);
+              lineY += 25;
+          }
+      }
+  }
+
+  void drawRoundedRect(float x, float y, float w, float h, float radius)
+  {
+    const int seg = 20;
+    const float PI = 3.14159265358979323846f;
+    std::vector<glm::vec2> pts;
+    pts.reserve(seg * 4 + 4);
+
+    // Four corners: TL, TR, BR, BL
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg;
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + radius - radius * sinf(a));
+    }
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg + PI / 2.0f;
+      pts.emplace_back(x + w - radius + radius * cosf(a),
+                       y + radius - radius * sinf(a));
+    }
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg + PI;
+      pts.emplace_back(x + w - radius + radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
+    }
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg + 3 * PI / 2.0f;
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
+    }
+    // Close the loop
+    pts.push_back(pts[0]);
+
+    const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
+
+    drawTriangleFan2D(pts, glm::vec3(0.18f, 0.18f, 0.18f), proj);
+  }
+
+  void drawRoundedRectOutline(float x, float y, float w, float h, float radius)
+  {
+    const int seg = 20;
+    const float PI = 3.14159265358979323846f;
+    std::vector<glm::vec2> pts;
+    pts.reserve(seg * 4 + 4);
+
+    // Same as fill but for line loop
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg;
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + radius - radius * sinf(a));
+    }
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg + PI / 2.0f;
+      pts.emplace_back(x + w - radius + radius * cosf(a),
+                       y + radius - radius * sinf(a));
+    }
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg + PI;
+      pts.emplace_back(x + w - radius + radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
+    }
+    for (int i = 0; i <= seg; ++i) {
+      float a = (PI / 2.0f) * (float)i / seg + 3 * PI / 2.0f;
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
+    }
+    // Close the loop
+    pts.push_back(pts[0]);
+
+    const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
+
+    drawLineLoop2D(pts, glm::vec3(0.45f, 0.45f, 0.45f), proj, 1.0f);
+  }
+
+  void renderSliders()
+  {
+    if (tomoEnable && tomoEnable->getState())
+      hslider.draw();
+
+    vslider.draw();
+  }
+
+  void renderPauseOverlay()
+  {
+      if (!pause) return;
+
+      int vw = gViewport[2];
+      int vh = gViewport[3];
+      const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
+
+      // OPTION 1: Semi-transparent full-screen overlay (dim the scene)
+      // You'll need to modify drawQuad2D to support alpha, or create a new function
+      // For now, using a darker shade to create a subtle dimming effect
+      // by drawing multiple overlapping dark quads
+
+      // Draw a subtle darkening overlay (multiple passes for transparency effect)
+      // This simulates semi-transparency if your drawQuad2D doesn't support alpha
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+      // If drawQuad2D supports alpha, use this:
+      // drawQuad2D(0.0f, 0.0f, (float)vw, (float)vh,
+      //            glm::vec4(0.0f, 0.0f, 0.0f, 0.5f), proj);
+
+      // If not, comment out the full-screen overlay entirely:
+      // (The scene will remain fully visible with just the pause box)
+
+      // Box size & position (W/4 from left, H/4 from top - out of the way)
+      float boxW = 200.0f;
+      float boxH = 70.0f;
+
+      // Position in upper-left quadrant to avoid main objects
+      float centerX = vw * 0.25f;
+      float centerY_fromTop = vh * 0.25f;
+
+      float boxTop    = centerY_fromTop - boxH * 0.5f;
+      float boxBottom = centerY_fromTop + boxH * 0.5f;
+      float boxLeft   = centerX - boxW * 0.5f;
+      float boxRight  = centerX + boxW * 0.5f;
+
+      // Outer glow/shadow effect
+      drawQuad2D(boxLeft - 8.0f,  boxTop - 8.0f,
+                 boxRight + 8.0f, boxBottom + 8.0f,
+                 glm::vec3(0.0f, 0.0f, 0.0f), proj);
+
+      // Bright blue outline (4 px)
+      drawQuad2D(boxLeft - 4.0f,  boxTop - 4.0f,
+                 boxRight + 4.0f, boxBottom + 4.0f,
+                 glm::vec3(0.4f, 0.6f, 1.0f), proj);
+
+      // Dark blue background (fully opaque so text is readable)
+      drawQuad2D(boxLeft, boxTop,
+                 boxRight, boxBottom,
+                 glm::vec3(0.0f, 0.0f, 0.18f), proj);
+
+      // "PAUSED" text – centered in the box
+      float textX = centerX - 50.0f;  // Adjust based on actual text width
+      float textY = vh - centerY_fromTop - 9.0f;
+
+      hudText.RenderText("PAUSED",
+                         textX,
+                         textY,
+                         1.0f,
+                         glm::vec3(1.0f, 0.84f, 0.0f),
+                         vw, vh);
+  }
+
+  void renderSectionLabels()
+  {
+    glm::vec3 color(0.8f, 0.8f, 1.0f);
+    if (textRenderer) {
+      hudText.RenderText("Data 3D", 50.0f, gViewport[3] - d3Dpos + 15, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Delays", 50.0f, gViewport[3] - delaysPos + 15, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("View", 50.0f, gViewport[3] - viewsPos + 20, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Projection", 50.0f, gViewport[3] - projPos + 20, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Tomography", 50.0f, gViewport[3] - tomoPos + 15, 0.8f, color, gViewport[2], gViewport[3]);
+    }
+  }
+
+} // namespace framework

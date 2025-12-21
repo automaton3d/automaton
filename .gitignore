@@ -1,0 +1,23 @@
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.suo
+*.user
+
+# Build
+build/
+x64/
+Debug/
+Release/
+CMakeFiles/
+CMakeCache.txt
+
+# CUDA / temporários
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# Sistema
+Thumbs.db
