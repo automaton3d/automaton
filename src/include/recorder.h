@@ -8,6 +8,7 @@
 #ifndef RECORDER_H
 #define RECORDER_H
 
+#include <atomic>
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -26,7 +27,7 @@ struct TomoConfig {
   // 0: XY (fix Z), 1: YZ (fix X), 2: ZX (fix Y)
   int axis = 0;
   unsigned slice = 0;
-  
+
   inline bool match(unsigned x, unsigned y, unsigned z) const {
     if (!enabled) return true;
     if (axis == 0) return z == slice;
@@ -39,7 +40,7 @@ struct TomoConfig {
 namespace framework {
 
 // Forward declarations for globals
-extern bool recordFrames;
+extern std::atomic<bool> recordFrames;
 extern bool toastActive;
 extern double toastStartTime;
 extern std::string toastMessage;
@@ -66,7 +67,7 @@ struct Frame {
   uint32_t k;                   // Global simulation tick
   std::vector<LayerFrame> layers;
   bool isKeyframe;
-  
+
   Frame() : k(0), isKeyframe(false) {}
 };
 
@@ -126,6 +127,8 @@ public:
 private:
   size_t estimatedMemoryUsage_ = 0;
 };
+
+extern FrameRecorder recorder;
 
 } // namespace framework
 

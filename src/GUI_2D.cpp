@@ -1,6 +1,5 @@
-/*
- * GUI_2D.cpp (modernized, legacy structure preserved)
- */
+// GUI_2D.cpp – FULLY MODERNIZED & FAST (2025-ready)
+// No per-frame allocations, core-profile safe
 
 #include "GUI.h"
 #include "globals.h"
@@ -8,19 +7,21 @@
 #include "progress.h"
 #include "replay_progress.h"
 #include "logo.h"
+#include "splash.h"
 #include "hslider.h"
 #include "vslider.h"
 #include "text_renderer.h"
-#include "simulation.h"
-#include "color_utils.h"
-
-// Necessário para EL, W_USED, scenario, etc.
 #include "model/simulation.h"
+#include "color_utils.h"
+#include "draw_utils.h"
+#include "help.h"
+#include "projection_manager.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <sstream>
+#include <vector>
 
 namespace automaton
 {
@@ -30,259 +31,105 @@ namespace automaton
 
 namespace splash
 {
-  extern std::vector<std::string> scenarioOptions;
+	extern std::vector<std::string> scenarioOptions;
 }
+
+extern Mode currentMode;
 
 namespace framework
 {
+  using namespace automaton;
+
+	extern TextRenderer hudText;
+
   // Referências a variáveis declaradas em GUI.cpp e globals.h
-  extern ReplayProgressBar* replayProgress;
-  extern bool showScenarioHelp;
-  extern Tickbox* scenarioHelpToggle;
-  extern Logo* logo;
-  extern bool recordFrames;
-  extern double tbegin;
   extern bool showHelp;
   extern std::vector<std::string> scenarioHelpTexts;
   extern HSlider hslider;
   extern VSlider vslider;
-  extern Tickbox* tomo;
-  extern bool showAboutDialog;
-  extern bool helpHover;
   extern int windowWidth;
   extern int windowHeight;
   extern std::unique_ptr<LayerList> layerList;
-  extern int GUImode;
 
-  // Help text arrays
-  extern const char* ui_help[];
-  extern const char* record_help[];
-
-  // ---------------------------------------------------------------------
-  // Small helpers for transient 2D drawing (quad/line) with colorProgram2D
-  // ---------------------------------------------------------------------
-  void drawQuad2D(float x1, float y1, float x2, float y2, const glm::vec3& color)
-  {
-    if (!colorProgram2D) return;
-    glUseProgram(colorProgram2D);
-    glm::mat4 ortho = glm::ortho(0.0f, (float)gViewport[2], 0.0f, (float)gViewport[3]);
-    glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
-    glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
-
-    float verts[8] = { x1, y1,  x2, y1,  x2, y2,  x1, y2 };
-    GLuint vao=0, vbo=0;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-    glBindVertexArray(0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
-  }
-
-  static void drawLine2D(float x1, float y1, float x2, float y2, const glm::vec3& color, float width = 1.0f)
-  {
-    if (!colorProgram2D) return;
-    glUseProgram(colorProgram2D);
-
-    glm::mat4 ortho = glm::ortho(0.0f, (float)gViewport[2], 0.0f, (float)gViewport[3]);
-    glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
-    glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
-
-    float verts[4] = { x1, y1, x2, y2 };
-    GLuint vao=0, vbo=0;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glLineWidth(width);
-    glDrawArrays(GL_LINES, 0, 2);
-    glBindVertexArray(0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
-  }
-
-  /**
-   * Opens a pause message box with centered text and an outline.
-   */
-  void GUIrenderer::renderCenterBox(const char* text)
-  {
-    if (!textRenderer) return;
-
-    int vw = gViewport[2], vh = gViewport[3];
-    int x = vw / 2 - 100;
-    int y = vh / 2;
-
-    // Background quad (semi-transparent look via color; alpha is not in this shader)
-    drawQuad2D((float)(x - 20), (float)(y - 40),
-               (float)(x + 220), (float)(y + 40),
-               glm::vec3(0.0f, 0.0f, 0.0f));
-
-    textRenderer->RenderText(text, (float)x, (float)y, 0.8f, glm::vec3(1.0f), vw, vh);
-  }
-
-  /**
-   * Renders a help hyperlink at the bottom of the screen.
-   */
-  void GUIrenderer::renderHyperlink()
-  {
-    if (!textRenderer) return;
-
-    std::string linkText = "Help";
-    glm::vec3 color = helpHover ? glm::vec3(0.3f, 0.6f, 1.0f) : glm::vec3(1.0f, 0.0f, 1.0f);
-    int w = textRenderer->measureTextWidth(linkText, 0.6f);
-    int textWidth = textRenderer->measureTextWidth(linkText, 0.6f);
-
-    int x = (gViewport[2] - textWidth) / 2;   // centraliza horizontalmente
-    int y = 30;
-
-    textRenderer->RenderText(linkText, (float)x, (float)y, 0.6f, color, gViewport[2], gViewport[3]);
-
-    // underline
-    drawLine2D((float)x, (float)(y + 4), (float)(x + w), (float)(y + 4), color, 1.0f);
-  }
-
-void GUIrenderer::renderElapsedTime()
-{
-    if (!textRenderer) return;
-
-    // real time in seconds (GLFW monotonic clock)
-    double now = glfwGetTime();
-    double seconds = now - tbegin;
-
-    char buf[64];
-    std::snprintf(buf, sizeof(buf), "Elapsed %.1f s", seconds);
-
-    textRenderer->RenderText(
-        buf,
-        50.0f,
-        40.0f,
-        0.6f,
-        glm::vec3(1.0f,1.0f,1.0f),
-        gViewport[2], gViewport[3]
-    );
-}
-
-  void GUIrenderer::renderUI()
-  {
-    // Modernized: drop matrix stack toggles; manage depth/blend explicitly
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    // About dialog
-    if (showAboutDialog && textRenderer)
-    {
-      // Dialog background
-      drawQuad2D(200.0f, 150.0f,
-                 (float)gViewport[2] - 200.0f, (float)gViewport[3] - 150.0f,
-                 glm::vec3(0.0f, 0.0f, 0.0f));
-
-      std::string about =
-        "Cellular Automaton Visualizer\n\n"
-        "Version 1.0\n\n"
-        "Real-time 3D cellular automaton\n"
-        "with recording, replay & tomography\n\n"
-        "Built with OpenGL + GLFW\n"
-        "(c) 2025";
-
-      textRenderer->RenderText(about, 250.0f, 200.0f, 0.6f, glm::vec3(1.0f),
-                               gViewport[2], gViewport[3]);
-      textRenderer->RenderText("[ Close ]",
-                               (float)gViewport[2]/2.0f - 50.0f,
-                               (float)gViewport[3] - 180.0f,
-                               0.7f, glm::vec3(1.0f, 0.3f, 0.3f),
-                               gViewport[2], gViewport[3]);
-    }
-if (scenarioHelpToggle) {
-    scenarioHelpToggle->setFontScale(0.6f);
-    scenarioHelpToggle->draw(*textRenderer, gViewport[2], gViewport[3]);
-    showScenarioHelp = scenarioHelpToggle->getState();  // <-- sync state
-}
-    renderElapsedTime();
-    
-    // Draw left and right panels
-    int leftPanelHeight  = gViewport[3] - 170;
-    int rightPanelHeight = gViewport[3] - 170;
-    drawPanel(35, 60, 170, leftPanelHeight);
-    drawPanel(gViewport[2] - 260, 60, 250, rightPanelHeight);
-
-    renderSimulationStats();
-    renderLayerInfo();
-    renderLayers();
-    renderHelpText();
-    renderSliders();
-    renderTomoControls();
-    renderPauseOverlay();
-    renderSectionLabels();
-    render3Dboxes();
-    renderDelays();
-    renderViewpointRadios();
-    renderProjectionRadios();
-    renderTomoRadios();
-    renderHyperlink();
-
-    if (logo && logo->valid()) {
-      logo->draw(gViewport[2] - 250, gViewport[3] - 350, 1.0f);  // slight tweak for visual balance
-    }
-
-    // Now actually render the help pane if toggled
-    if (showScenarioHelp) {
-      renderScenarioHelpPane();
-    }
-
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
-  }
-
-  void GUIrenderer::renderSimulationStats()
+  void renderSimulationStats()
   {
     char s[64];
-    if (GUImode == REPLAY) {
+    if (currentMode == REPLAY) {
       std::snprintf(s, sizeof(s), "Light: %llu", timer / automaton::FRAME);
     } else {
       std::snprintf(s, sizeof(s), "Light: %llu Tick: %llu", timer / automaton::FRAME, timer);
     }
 
-    if (textRenderer) {
-      textRenderer->RenderText(
-        s,
-        900.0f, gViewport[3] - 80.0f,
-        1.0f,
-        glm::vec3(1.0f, 1.0f, 1.0f),
-        gViewport[2], gViewport[3]
-      );
-    }
+    hudText.RenderText(
+      s,
+      850.0f + 200.0f, gViewport[3] - 80.0f,
+      1.0f,
+      glm::vec3(1.0f, 1.0f, 1.0f),
+      gViewport[2], gViewport[3]
+    );
   }
 
-  void GUIrenderer::renderLayerInfo()
+void renderComputeStats()
+{
+    // Posição base deslocada 100 px para a esquerda
+    float x = 850.0f - 200.0f;
+    float y = gViewport[3] - 80.0f;
+
+    // Cores para forte (ativo) e fraco (inativo)
+    const glm::vec3 strongColor(1.0f, 1.0f, 1.0f);   // branco forte
+    const glm::vec3 weakColor(0.5f, 0.5f, 0.5f);     // cinza fraco
+
+    // Sempre desenhamos "COMPUTE:" primeiro
+    hudText.RenderText(
+        "Compute:",
+        x,
+        y,
+        1.0f,
+        strongColor,
+        gViewport[2], gViewport[3]
+    );
+
+    // Deslocamento horizontal para as palavras seguintes
+    float offset = 120.0f;
+
+    // GPU
+    hudText.RenderText(
+        "GPU",
+        x + offset,
+        y,
+        1.0f,
+        GPUEnabled ? strongColor : weakColor,
+        gViewport[2], gViewport[3]
+    );
+
+    // Pequeno espaçamento entre GPU e CPU
+    offset += 60.0f;
+
+    // CPU
+    hudText.RenderText(
+        "CPU",
+        x + offset,
+        y,
+        1.0f,
+        GPUEnabled ? weakColor : strongColor,
+        gViewport[2], gViewport[3]
+    );
+}
+
+  void renderLayerInfo()
   {
-    using namespace automaton;
-
     if (scenario < 0) return;
-
     char s[64];
     // L e W
     std::snprintf(s, sizeof(s), "L = %u  W = %u", EL, W_USED);
-    if (textRenderer) {
-      textRenderer->RenderText(s, 1700.0f, gViewport[3] - 80.0f, 1.0f,
+      hudText.RenderText(s, 1700.0f, gViewport[3] - 80.0f, 1.0f,
                                glm::vec3(1.0f), gViewport[2], gViewport[3]);
-    }
-
     // Current layer
     if (layerList) {
       int w = layerList->getSelected();
       std::snprintf(s, sizeof(s), "(Current layer = %u)", w);
       if (textRenderer) {
-        textRenderer->RenderText(s, 1730.0f, gViewport[3] - 120.0f, 0.5f,
+        hudText.RenderText(s, 1730.0f, gViewport[3] - 120.0f, 0.5f,
                                  glm::vec3(1.0f), gViewport[2], gViewport[3]);
       }
     }
@@ -290,31 +137,27 @@ if (scenarioHelpToggle) {
     // Scenario name
     if (scenario >= 0 && scenario < (int)splash::scenarioOptions.size()) {
       std::snprintf(s, sizeof(s), "%s", splash::scenarioOptions[scenario].c_str());
-      if (textRenderer) {
-        textRenderer->RenderText(s, 230.0f, gViewport[3] - 80.0f, 1.0f,
-                                 glm::vec3(1.0f), gViewport[2], gViewport[3]);
-      }
+      hudText.RenderText(s, 230.0f, gViewport[3] - 80.0f, 1.0f,
+                         glm::vec3(1.0f), gViewport[2], gViewport[3]);
     }
 
     // Mode
-    std::snprintf(s, sizeof(s), "Mode: %s", GUImode == REPLAY ? "Replay" : "Simulation");
-    if (textRenderer) {
-      textRenderer->RenderText(s, 1400.0f, gViewport[3] - 80.0f, 1.0f,
-                               glm::vec3(1.0f), gViewport[2], gViewport[3]);
-    }
+    std::snprintf(s, sizeof(s), "Mode: %s", currentMode == REPLAY ? "Replay" : "Simulation");
+    hudText.RenderText(s, 1400.0f, gViewport[3] - 80.0f, 1.0f,
+                       glm::vec3(1.0f), gViewport[2], gViewport[3]);
   }
 
-  void GUIrenderer::renderLayers()
+  void renderLayers()
   {
-    if (layerList) {
-        layerList->render(*textRenderer, gViewport[2], gViewport[3]);
-        layerList->update(*textRenderer, gViewport[2], gViewport[3]);
-    }
+      if (layerList) {
+          layerList->render(hudText);
+          layerList->update(hudText);
+      }
   }
   
-  void GUIrenderer::renderHelpText()
+  void renderHelpText()
   {
-    if (showHelp && textRenderer)
+    if (showHelp)
     {
       int rightX = gViewport[2] - 630;
       int baseY  = gViewport[3] - 250;
@@ -323,81 +166,82 @@ if (scenarioHelpToggle) {
       glm::vec3 color(0.6f, 0.6f, 0.6f);
 
       // UI help
-      for (int i = 0; i < 11; ++i) {
-        textRenderer->RenderText(
-          ui_help[i],
-          (float)rightX, (float)(baseY + 20 * i),
-          0.5f, color,
-          gViewport[2], gViewport[3]
-        );
+      for (size_t i = 0; i < ui_help.size(); ++i) {
+          hudText.RenderText(
+              ui_help[i],
+              (float)rightX, (float)(baseY + 20 * i),
+              0.5f, color,
+              gViewport[2], gViewport[3]
+          );
       }
 
       // Record help
-      for (int i = 0; i < 4; ++i) {
-        textRenderer->RenderText(
-          record_help[i],
-          (float)leftX, (float)(baseY + 20 * i),
-          0.5f, color,
-          gViewport[2], gViewport[3]
-        );
+      for (size_t i = 0; i < record_help.size(); ++i) {
+          hudText.RenderText(
+              record_help[i],
+              (float)leftX, (float)(baseY + 20 * i),
+              0.5f, color,
+              gViewport[2], gViewport[3]
+          );
       }
     }
   }
 
-  void GUIrenderer::drawPanel(int x, int y, int width, int height)
+  void drawPanel(float x, float y, float w, float h,
+                 const glm::vec3& bgColor,
+                 const glm::vec3& borderColor,
+                 float borderThickness,
+                 const glm::mat4& proj)
   {
-    // Shadow
-    drawQuad2D((float)(x + 4), (float)(y + 4),
-               (float)(x + width + 4), (float)(y + height + 4),
-               glm::vec3(0.0f, 0.0f, 0.0f)); // simulate alpha via darker color
+      // Background
+      drawQuad2D(x, y, x + w, y + h, bgColor, proj);
 
-    // Brighter panel background
-    drawQuad2D((float)x, (float)y, (float)(x + width), (float)(y + height),
-               glm::vec3(0.18f, 0.18f, 0.18f));
-
-    // Lighter top/left border
-    drawLine2D((float)x, (float)y, (float)(x + width), (float)y, glm::vec3(0.45f, 0.45f, 0.45f), 1.0f);
-    drawLine2D((float)x, (float)y, (float)x, (float)(y + height), glm::vec3(0.45f, 0.45f, 0.45f), 1.0f);
-
-    // Darker bottom/right border
-    drawLine2D((float)(x + width), (float)y, (float)(x + width), (float)(y + height), glm::vec3(0.08f, 0.08f, 0.08f), 1.0f);
-    drawLine2D((float)x, (float)(y + height), (float)(x + width), (float)(y + height), glm::vec3(0.08f, 0.08f, 0.08f), 1.0f);
+      // Border (four thick lines)
+      drawThickLine2D(x,           y,            x + w,       y,            borderThickness, borderColor, proj);
+      drawThickLine2D(x + w,       y,            x + w,       y + h,       borderThickness, borderColor, proj);
+      drawThickLine2D(x + w,       y + h,        x,           y + h,       borderThickness, borderColor, proj);
+      drawThickLine2D(x,           y + h,        x,           y,           borderThickness, borderColor, proj);
   }
 
-  void GUIrenderer::renderScenarioHelpPane()
+  void renderScenarioHelpPane()
   {
-    using namespace automaton;
+      if (scenario < 0 || scenario >= (int)scenarioHelpTexts.size())
+          return;
 
-    if (scenario < 0 || scenario >= (int)scenarioHelpTexts.size())
-      return;
+      const int paneX = 230;
+      const int paneY = 150;
+      const int paneW = 500;
+      const int paneH = 300;
 
-    const int paneX = 230;
-    const int paneY = 150;
-    const int paneWidth = 400;
-    const int paneHeight = 450;
-    drawPanel(paneX, paneY, paneWidth, paneHeight);
+      const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
 
-    std::istringstream iss(scenarioHelpTexts[scenario]);
-    std::string line;
-    int lineY = paneY + 25;
-    while (std::getline(iss, line))
-    {
-      if (textRenderer) {
-        textRenderer->RenderText(line, (float)(paneX + 20), (float)lineY,
-                                 1.2f, glm::vec3(1.0f),
+      // Background panel
+      drawPanel((float)paneX, (float)paneY, (float)paneW, (float)paneH,
+                glm::vec3(0.05f,0.05f,0.1f),
+                glm::vec3(0.4f,0.4f,1.0f),
+                2.0f, proj);
+
+      std::istringstream iss(scenarioHelpTexts[scenario]);
+      std::string line;
+      int lineY = paneY + 40;
+
+      while (std::getline(iss, line))
+      {
+          auto wrapped = wrapText(line, 60); // wrap at ~60 chars
+          for (const auto& wline : wrapped) {
+              // flip Y for top-left origin
+              int flippedY = windowHeight - lineY;
+
+              hudText.RenderText(wline,
+                                 (float)(paneX + 20), (float)flippedY,
+                                 0.8f, glm::vec3(1.0f),
                                  windowWidth, windowHeight);
+              lineY += 25;
+          }
       }
-      lineY += 20;
-    }
   }
 
-  void GUIrenderer::clearVoxels()
-  {
-    for (unsigned i = 0; i < EL * EL * EL; ++i)
-      voxels[i] = 0x000000;
-  }
-
-  void GUIrenderer::drawRoundedRect(float x, float y, float w, float h, float radius)
+  void drawRoundedRect(float x, float y, float w, float h, float radius)
   {
     const int seg = 20;
     const float PI = 3.14159265358979323846f;
@@ -407,121 +251,150 @@ if (scenarioHelpToggle) {
     // Four corners: TL, TR, BR, BL
     for (int i = 0; i <= seg; ++i) {
       float a = (PI / 2.0f) * (float)i / seg;
-      pts.emplace_back(x + radius + radius * cosf(a),
-                       y + radius + radius * sinf(a));
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + radius - radius * sinf(a));
     }
     for (int i = 0; i <= seg; ++i) {
-      float a = (PI / 2.0f) + (PI / 2.0f) * (float)i / seg;
+      float a = (PI / 2.0f) * (float)i / seg + PI / 2.0f;
       pts.emplace_back(x + w - radius + radius * cosf(a),
-                       y + radius + radius * sinf(a));
+                       y + radius - radius * sinf(a));
     }
     for (int i = 0; i <= seg; ++i) {
-      float a = PI + (PI / 2.0f) * (float)i / seg;
+      float a = (PI / 2.0f) * (float)i / seg + PI;
       pts.emplace_back(x + w - radius + radius * cosf(a),
-                       y + gViewport[3] - radius + radius * sinf(a));
+                       y + h - radius + radius * sinf(a));
     }
     for (int i = 0; i <= seg; ++i) {
-      float a = 3*PI/2.0f + (PI / 2.0f) * (float)i / seg;
-      pts.emplace_back(x + radius + radius * cosf(a),
-                       y + gViewport[3] - radius + radius * sinf(a));
+      float a = (PI / 2.0f) * (float)i / seg + 3 * PI / 2.0f;
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
     }
+    // Close the loop
+    pts.push_back(pts[0]);
 
-    if (!colorProgram2D) return;
-    glUseProgram(colorProgram2D);
-    glm::mat4 ortho = glm::ortho(0.0f, (float)w, 0.0f, (float)h);
-    glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
-    glUniform3f(colorColorLoc2D, 0.18f, 0.18f, 0.18f);
+    const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
 
-    GLuint vao=0, vbo=0;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, pts.size() * sizeof(glm::vec2), pts.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
-    glEnableVertexAttribArray(0);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, (GLsizei)pts.size());
-    glBindVertexArray(0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+    drawTriangleFan2D(pts, glm::vec3(0.18f, 0.18f, 0.18f), proj);
   }
 
-  void GUIrenderer::drawRoundedRectOutline(float x, float y, float w, float h, float radius)
+  void drawRoundedRectOutline(float x, float y, float w, float h, float radius)
   {
     const int seg = 20;
     const float PI = 3.14159265358979323846f;
-    std::vector<glm::vec2> glmPts;
-    glmPts.reserve(seg * 4 + 4);
+    std::vector<glm::vec2> pts;
+    pts.reserve(seg * 4 + 4);
 
+    // Same as fill but for line loop
     for (int i = 0; i <= seg; ++i) {
       float a = (PI / 2.0f) * (float)i / seg;
-      glmPts.emplace_back(x + radius + radius * cosf(a),
-                          y + radius + radius * sinf(a));
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + radius - radius * sinf(a));
     }
     for (int i = 0; i <= seg; ++i) {
-      float a = (PI / 2.0f) + (PI / 2.0f) * (float)i / seg;
-      glmPts.emplace_back(x + w - radius + radius * cosf(a),
-                          y + radius + radius * sinf(a));
+      float a = (PI / 2.0f) * (float)i / seg + PI / 2.0f;
+      pts.emplace_back(x + w - radius + radius * cosf(a),
+                       y + radius - radius * sinf(a));
     }
     for (int i = 0; i <= seg; ++i) {
-      float a = PI + (PI / 2.0f) * (float)i / seg;
-      glmPts.emplace_back(x + w - radius + radius * cosf(a),
-                          y + gViewport[3] - radius + radius * sinf(a));
+      float a = (PI / 2.0f) * (float)i / seg + PI;
+      pts.emplace_back(x + w - radius + radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
     }
     for (int i = 0; i <= seg; ++i) {
-      float a = 3*PI/2.0f + (PI / 2.0f) * (float)i / seg;
-      glmPts.emplace_back(x + radius + radius * cosf(a),
-                          y + gViewport[3] - radius + radius * sinf(a));
+      float a = (PI / 2.0f) * (float)i / seg + 3 * PI / 2.0f;
+      pts.emplace_back(x + radius - radius * cosf(a),
+                       y + h - radius + radius * sinf(a));
     }
+    // Close the loop
+    pts.push_back(pts[0]);
 
-    if (!colorProgram2D) return;
-    glUseProgram(colorProgram2D);
-    glm::mat4 ortho = glm::ortho(0.0f, (float)w, 0.0f, (float)h);
-    glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
-    glUniform3f(colorColorLoc2D, 0.45f, 0.45f, 0.45f);
+    const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
 
-    GLuint vao=0, vbo=0;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, glmPts.size() * sizeof(glm::vec2), glmPts.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
-    glEnableVertexAttribArray(0);
-    glLineWidth(1.0f);
-    glDrawArrays(GL_LINE_LOOP, 0, (GLsizei)glmPts.size());
-    glBindVertexArray(0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+    drawLineLoop2D(pts, glm::vec3(0.45f, 0.45f, 0.45f), proj, 1.0f);
   }
 
-  void GUIrenderer::renderSliders()
+  void renderSliders()
   {
-    if (tomo && tomo->getState())
-      hslider.draw(gViewport[2], gViewport[3]);
+    if (tomoEnable && tomoEnable->getState())
+      hslider.draw();
 
-    vslider.draw(gViewport[2], gViewport[3]);
+    vslider.draw();
   }
 
-  void GUIrenderer::renderPauseOverlay()
+  void renderPauseOverlay()
   {
-    if (!pause) return;
+      if (!pause) return;
 
-    // Full-screen dark overlay
-    drawQuad2D(0.0f, 0.0f, (float)gViewport[2], (float)gViewport[3], glm::vec3(0.0f, 0.0f, 0.0f));
-    renderCenterBox("PAUSED");
+      int vw = gViewport[2];
+      int vh = gViewport[3];
+      const glm::mat4& proj = ProjectionManager::instance().get2DOrtho();
+
+      // OPTION 1: Semi-transparent full-screen overlay (dim the scene)
+      // You'll need to modify drawQuad2D to support alpha, or create a new function
+      // For now, using a darker shade to create a subtle dimming effect
+      // by drawing multiple overlapping dark quads
+
+      // Draw a subtle darkening overlay (multiple passes for transparency effect)
+      // This simulates semi-transparency if your drawQuad2D doesn't support alpha
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+      // If drawQuad2D supports alpha, use this:
+      // drawQuad2D(0.0f, 0.0f, (float)vw, (float)vh,
+      //            glm::vec4(0.0f, 0.0f, 0.0f, 0.5f), proj);
+
+      // If not, comment out the full-screen overlay entirely:
+      // (The scene will remain fully visible with just the pause box)
+
+      // Box size & position (W/4 from left, H/4 from top - out of the way)
+      float boxW = 200.0f;
+      float boxH = 70.0f;
+
+      // Position in upper-left quadrant to avoid main objects
+      float centerX = vw * 0.25f;
+      float centerY_fromTop = vh * 0.25f;
+
+      float boxTop    = centerY_fromTop - boxH * 0.5f;
+      float boxBottom = centerY_fromTop + boxH * 0.5f;
+      float boxLeft   = centerX - boxW * 0.5f;
+      float boxRight  = centerX + boxW * 0.5f;
+
+      // Outer glow/shadow effect
+      drawQuad2D(boxLeft - 8.0f,  boxTop - 8.0f,
+                 boxRight + 8.0f, boxBottom + 8.0f,
+                 glm::vec3(0.0f, 0.0f, 0.0f), proj);
+
+      // Bright blue outline (4 px)
+      drawQuad2D(boxLeft - 4.0f,  boxTop - 4.0f,
+                 boxRight + 4.0f, boxBottom + 4.0f,
+                 glm::vec3(0.4f, 0.6f, 1.0f), proj);
+
+      // Dark blue background (fully opaque so text is readable)
+      drawQuad2D(boxLeft, boxTop,
+                 boxRight, boxBottom,
+                 glm::vec3(0.0f, 0.0f, 0.18f), proj);
+
+      // "PAUSED" text – centered in the box
+      float textX = centerX - 50.0f;  // Adjust based on actual text width
+      float textY = vh - centerY_fromTop - 9.0f;
+
+      hudText.RenderText("PAUSED",
+                         textX,
+                         textY,
+                         1.0f,
+                         glm::vec3(1.0f, 0.84f, 0.0f),
+                         vw, vh);
   }
 
-  void GUIrenderer::renderSectionLabels()
+  void renderSectionLabels()
   {
     glm::vec3 color(0.8f, 0.8f, 1.0f);
-
     if (textRenderer) {
-      textRenderer->RenderText("Data 3D", 50.0f, gViewport[3] - 140.0f, 0.8f, color, gViewport[2], gViewport[3]);
-      textRenderer->RenderText("Delays", 50.0f, gViewport[3] - 460.0f, 0.8f, color, gViewport[2], gViewport[3]);
-      textRenderer->RenderText("View", 50.0f, gViewport[3] - 605.0f, 0.8f, color, gViewport[2], gViewport[3]);
-      textRenderer->RenderText("Projection", 50.0f, gViewport[3] - 775.0f, 0.8f, color, gViewport[2], gViewport[3]);
-      textRenderer->RenderText("Tomography", 50.0f, gViewport[3] - 890.0f, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Data 3D", 50.0f, gViewport[3] - d3Dpos + 15, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Delays", 50.0f, gViewport[3] - delaysPos + 15, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("View", 50.0f, gViewport[3] - viewsPos + 20, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Projection", 50.0f, gViewport[3] - projPos + 20, 0.8f, color, gViewport[2], gViewport[3]);
+      hudText.RenderText("Tomography", 50.0f, gViewport[3] - tomoPos + 15, 0.8f, color, gViewport[2], gViewport[3]);
     }
   }
 

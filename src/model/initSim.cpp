@@ -4,7 +4,7 @@
  * Gather all initialization routines.
  */
 
-#include "simulation.h"
+#include "model/simulation.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -13,10 +13,14 @@
 #include <cassert>
 #include <array>
 #include "globals.h"
+#include "layers.h"//debug
 
 namespace automaton
 {
   using namespace std;
+
+  // DEBUG
+  void relocateAllWRandom();
 
   constexpr double PI = 3.14159265358979323846264338327950288;
 
@@ -222,42 +226,50 @@ namespace automaton
             puts("initMomentum ok.");  // ← Add this to match other functions
             }
 
-  void initSine2()
-  {
-    double cx = EL / 2.0;
-    double cy = cx;
-    double cz = cx;
-    double R = EL / 2.0;
-    // Fixed seed for deterministic behavior
+void initSine2()
+{
+    const double cx = (EL - 1) / 2.0;
+    const double cy = cx;
+    const double cz = cx;
+    const double R  = EL / 2.0;
+
     std::mt19937 gen(42);
     std::uniform_real_distribution<double> dis(0.0, 1.0);
+
     for (unsigned w = 0; w < W_USED; w++)
     {
-      for (unsigned i = 0; i < EL; ++i)
-      {
-        double dx = i - cx;
-        for (unsigned j = 0; j < EL; ++j)
+        for (unsigned i = 0; i < EL; ++i)
         {
-          double dy = j - cy;
-          for (unsigned k = 0; k < EL; ++k)
-          {
-            double dz = k - cz;
-            double r = std::sqrt(dx * dx + dy * dy + dz * dz);
-            if (r > R + 1e-6) continue; // Small epsilon for floating-point precision
-            double theta = PI * r / R;
-            double prob = std::sin(theta) * std::sin(theta);
-            if (dis(gen) < prob)
-            {
-              getCell(lattice_curr, i, j, k, w).phiB = true;
-            }
-          }
-        }
-      }
-    }
-    puts("initSine2 ok.");
-  }
+            double dx = i - cx;
 
-  // Helper: rotate vector p around axis k by angle theta (Rodrigues' formula)
+            for (unsigned j = 0; j < EL; ++j)
+            {
+                double dy = j - cy;
+
+                for (unsigned k = 0; k < EL; ++k)
+                {
+                    double dz = k - cz;
+
+                    double r = std::sqrt(dx*dx + dy*dy + dz*dz);
+                    if (r > R) continue;
+
+                    double theta = PI * r / R;
+                    double prob = std::sin(theta);
+                    prob *= prob; // sin^2
+
+                    if (dis(gen) < prob)
+                    {
+                        getCell(lattice_curr, i, j, k, w).phiB = true;
+                    }
+                }
+            }
+        }
+    }
+
+    puts("initSine2 ok.");
+}
+
+// Helper: rotate vector p around axis k by angle theta (Rodrigues' formula)
   void rotateAroundAxis(const double p[3], const double k[3], double theta, double result[3])
   {
     double cosT = cos(theta);
@@ -365,8 +377,6 @@ namespace automaton
     std::copy(lattice_curr.begin(),
             lattice_curr.begin() + BLOCK,
             lattice_draft.begin());
-    //
-    puts("initDraft ok");
   }
 
   /**
@@ -394,16 +404,20 @@ namespace automaton
         printParams();
         break;
       case 5:
+    	// DEBUG
+    	relocateAllWRandom();
+   	    break;
+      case 6:
         replicate();
         std::copy(lattice_curr.begin(),
                   lattice_curr.begin() + BLOCK,
                   lattice_mirror.begin());
         break;
-      case 6:
+      case 7:
         assert(sanityTest());
         break;
       default:
-      return true;
+        return true;
     }
     return false;
   }

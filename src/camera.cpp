@@ -1,92 +1,54 @@
-/*
- * camera.cpp (adapted)
- *
- * Implements the camera routines.
- */
-
+// camera.cpp
 #include "camera.h"
+#include "projection_manager.h"
 
-#define GLM_FORCE_RADIANS
-#include <glm/gtc/matrix_transform.hpp> // lookAt
-#include <glm/gtc/type_ptr.hpp>         // value_ptr
+glm::vec3 OrbitCamera::getPosition() const {
+    return target + glm::vec3(
+        distance * cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+        distance * sin(glm::radians(pitch)),
+        distance * sin(glm::radians(yaw)) * cos(glm::radians(pitch))
+    );
+}
 
-namespace framework
-{
+glm::mat4 OrbitCamera::GetViewMatrix() const {
+    return glm::lookAt(getPosition(), target, glm::vec3(0.0f, 1.0f, 0.0f));
+}
 
-  Camera::Camera()
-  {
-    reset();
-  }
+glm::mat4 OrbitCamera::GetProjectionMatrix(float aspect) const {
+    if (Orthographic) {
+        float s = OrthoSize;
+        return glm::ortho(-s * aspect, s * aspect, -s, s, 0.1f, 200.0f);
+    }
+//    return glm::perspective(glm::radians(Zoom), aspect, 0.1f, 200.0f);
 
-  Camera::~Camera() = default;
 
-  const glm::vec3 & Camera::getCenter()
-  {
-    return mCenter_;
-  }
 
-  const glm::vec3 & Camera::getEye()
-  {
-    return mEye_;
-  }
+    return ProjectionManager::instance().get3DPerspective();
 
-  const glm::mat4 & Camera::getMatrix()
-  {
-    return mMatrix_;
-  }
+}
 
-  const float* Camera::getMatrixFlat()
-  {
-    return glm::value_ptr(mMatrix_);
-  }
+void OrbitCamera::ProcessMiddleMouseOrbit(float xoffset, float yoffset) {
+    yaw   += xoffset * orbitSpeed;
+    pitch += yoffset * orbitSpeed;
+    pitch = glm::clamp(pitch, -89.9f, 89.9f);
+}
 
-  const glm::vec3 & Camera::getUp()
-  {
-    return mUp_;
-  }
+void OrbitCamera::ProcessMiddleMousePan(float xoffset, float yoffset) {
+    glm::vec3 front = glm::normalize(target - getPosition());
+    glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+    glm::vec3 up    = glm::vec3(0.0f, 1.0f, 0.0f);
+    target += right * (-xoffset * panSpeed * distance);
+    target += up    * ( yoffset * panSpeed * distance);
+}
 
-  void Camera::reset()
-  {
-    mEye_    = glm::vec3(0.f, 0.f, 1.f);
-    mCenter_ = glm::vec3(0.f, 0.f, 0.f);
-    mUp_     = glm::vec3(0.f, 1.f, 0.f);
+void OrbitCamera::ProcessMouseScroll(float yoffset) {
+    if (Orthographic) {
+        OrthoSize = glm::max(OrthoSize - yoffset * 0.5f, 0.5f);
+    } else {
+        distance = glm::clamp(distance - yoffset * zoomSpeed, minDistance, maxDistance);
+    }
+}
 
-    update();
-  }
-
-  void Camera::setEye(float x, float y, float z)
-  {
-    mEye_ = glm::vec3(x, y, z);
-  }
-
-  void Camera::setEye(const glm::vec3 & e)
-  {
-    mEye_ = e;
-  }
-
-  void Camera::setCenter(float x, float y, float z)
-  {
-    mCenter_ = glm::vec3(x, y, z);
-  }
-
-  void Camera::setCenter(const glm::vec3 & c)
-  {
-    mCenter_ = c;
-  }
-
-  void Camera::setUp(float x, float y, float z)
-  {
-    mUp_ = glm::vec3(x, y, z);
-  }
-
-  void Camera::setUp(const glm::vec3 & u)
-  {
-    mUp_ = u;
-  }
-
-  void Camera::update()
-  {
-    mMatrix_ = glm::lookAt(mEye_, mCenter_, mUp_);
-  }
-
-} // end namespace framework
+void OrbitCamera::ToggleProjection() {
+    Orthographic = !Orthographic;
+}

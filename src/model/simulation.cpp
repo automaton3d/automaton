@@ -8,7 +8,14 @@
 #include <chrono>
 #include <algorithm>
 #include <array>
-#include "simulation.h"
+#include "model/simulation.h"
+
+#ifdef USE_CUDA
+// Forward declarations for CUDA functions implemented in bridge.cpp and cuda files
+extern void cudaSimulationStepWrapper();
+extern bool isCudaEnabled();
+extern void updateMirrorOnGPU();  // New helper function we'll create
+#endif
 
 namespace automaton
 {
@@ -62,43 +69,32 @@ namespace automaton
   }
 
   /*
-   * Executes a one tick operation in every cell.
+   * CPU implementation of update_lattice
    */
-  void update_lattice()
+  void update_lattice_cpu()
   {
-    // Sweep each layer
-    // Simulate a parallel execution in all cells
     for (unsigned w = 0; w < W_USED; ++w)
     {
-   	  if (w == 0)
-   	  {
-    	const Cell& first = lattice_curr.front();
-    	if (convol_delay && first.k < CONVOL)
-    	{
-    	  std::this_thread::sleep_for(std::chrono::milliseconds(120));
-   	    }
-    	else if (diffuse_delay && first.k >= CONVOL && first.k < DIFFUSION)
-    	{
-    	  std::this_thread::sleep_for(std::chrono::milliseconds(80));
-    	}
-    	else if (reloc_delay && first.k >= DIFFUSION && first.k < RELOC)
-    	{
-    	  std::this_thread::sleep_for(std::chrono::milliseconds(120));
-    	}
-      }
-      // Sweep a 3D space
-      for (unsigned x = 0; x < EL; ++x)
-      {
-        for (unsigned y = 0; y < EL; ++y)
+        if (w == 0)
         {
-          for (unsigned z = 0; z < EL; ++z)
-          {
-          // Generate references to the working cells
+            const Cell& first = lattice_curr.front();
+            if (convol_delay && first.k < CONVOL)
+                std::this_thread::sleep_for(std::chrono::milliseconds(120));
+            else if (diffuse_delay && first.k >= CONVOL && first.k < DIFFUSION)
+                std::this_thread::sleep_for(std::chrono::milliseconds(80));
+            else if (reloc_delay && first.k >= DIFFUSION && first.k < RELOC)
+                std::this_thread::sleep_for(std::chrono::milliseconds(120));
+        }
+
+        for (unsigned x = 0; x < EL; ++x)
+        for (unsigned y = 0; y < EL; ++y)
+        for (unsigned z = 0; z < EL; ++z)
+        {
             Cell &curr   = getCell(lattice_curr, x, y, z, w);
             Cell &draft  = getCell(lattice_draft, x, y, z, w);
             Cell &mirror = getCell(lattice_mirror, x, y, z, w);
             draft = curr;
-            // Calculate neighbors
+
             Cell &forward = curr.getNeighbor(FORWARD);
             Cell &north   = curr.getNeighbor(NORTH);
             Cell &west    = curr.getNeighbor(WEST);
@@ -106,69 +102,63 @@ namespace automaton
             Cell &south   = curr.getNeighbor(SOUTH);
             Cell &east    = curr.getNeighbor(EAST);
             Cell &up      = curr.getNeighbor(UP);
-            /****** CONVOLUTION ******/
-            if (curr.k < CONVOL)
-            {
-              convolute(curr, draft, mirror);
+
+            if (curr.k < CONVOL) {
+                convolute(curr, draft, mirror);
+            } else if (curr.k < DIFFUSION) {
+                diffuse(curr, draft, forward, north, west, down, south, east, up);
+            } else if (curr.k < RELOC) {
+                relocate(curr, draft, north, west, down);
+            } else if (curr.k < REISSUE) {
+                reissue(curr, draft, forward, north, west, down, south, east, up);
+            } else if (curr.k < FLOOD) {
+                flood(curr, draft, forward, north, west, down, south, east, up);
             }
-            /****** DIFFUSION ******/
-            else if (curr.k < DIFFUSION)
-            {
-              diffuse(curr, draft, forward, north, west, down, south, east, up);
+
+            if (curr.d == 0) {
+                trackCenter(x, y, z, w);
             }
-            /****** RELOCATION ******/
-            else if (curr.k < RELOC)
-            {
-              relocate(curr, draft, north, west, down);
-            }
-            /****** REISSUE ******/
-            else if (curr.k < REISSUE)
-            {
-              reissue(curr, draft, forward, north, west, down, south, east, up);
-            }
-            /****** FLOOD ******/
-            else if (curr.k < FLOOD)
-            {
-              flood(curr, draft, forward, north, west, down, south, east, up);
-            }
-            /****** UPDATE LAYER TRACKING ******/
-            if (curr.d == 0)
-            {
-              trackCenter(x, y, z, w);
-            }
-            /****** UPDATE COUNTERS ******/
-            // Update tick counter
+
             draft.k = (curr.k + 1) % FRAME;
-            // Update light counter
-            if (draft.k == 0)
-            {
-              if (curr.a == W_USED && curr.t <= RMAX )
-              {
-            	draft.t++;
-              }
-              else
-              {
-                draft.t = (curr.t + 1) % RMAX;
-              }
+            if (draft.k == 0) {
+                if (curr.a == W_USED && curr.t <= RMAX)
+                    draft.t++;
+                else
+                    draft.t = (curr.t + 1) % RMAX;
             }
-          }
         }
-      }
     }
   }
 
-  /**
-   * Swaps lattices after an update.
-   * (Counter k is always identical in all cells)
+  /*
+   * Executes a one tick operation in every cell.
    */
-  bool swap_lattices()
+  void update_lattice()
   {
-	bool newLightFrame = false;
+#ifdef USE_CUDA
+    // Use GPU if CUDA is enabled at runtime, otherwise fall back to CPU
+    if (isCudaEnabled()) {
+        cudaSimulationStepWrapper();
+        return;
+    }
+#endif
+    // CPU implementation
+    update_lattice_cpu();
+  }
+
+  /**
+   * CPU implementation of swap_lattices
+   */
+  bool swap_lattices_cpu()
+  {
+    bool newLightFrame = false;
+    
     // Update the current lattice
     std::copy(
         lattice_draft.begin(),
         lattice_draft.begin() + BLOCK,
         lattice_curr.begin());
+    
     // Take the first cell to represent the others
     Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
     if (repr.k == 0)
@@ -192,14 +182,42 @@ namespace automaton
       }
       newLightFrame = true;
     }
+    
     if (repr.k < CONVOL)
     {
       shiftMirror();
     }
+    
     return newLightFrame;
   }
 
-  //extern int count;
+  /**
+   * Swaps lattices after an update.
+   * (Counter k is always identical in all cells)
+   */
+  bool swap_lattices()
+  {
+#ifdef USE_CUDA
+    // If CUDA is enabled, the swap is handled inside cudaSimulationStepWrapper
+    // We still need to handle the mirror update
+    if (isCudaEnabled()) {
+        // The GPU wrapper already handles the lattice swap
+        // Mirror update logic would go here if needed
+        // For now, return false as GPU handles this internally
+        
+        // Check if we're at a new light frame
+        Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
+        bool newLightFrame = (repr.k == 0);
+        
+        // If you need mirror updates on GPU, call a separate function
+        // updateMirrorOnGPU();
+        
+        return newLightFrame;
+    }
+#endif
+    // CPU implementation
+    return swap_lattices_cpu();
+  }
 
   /*
    * One step of the CA.
@@ -236,4 +254,18 @@ namespace automaton
     return getCell(lattice_curr, nx, ny, nz, nw);
   }
 
+  // Cleanup function
+  void DeleteAutomaton()
+  {
+#ifdef USE_CUDA
+    // Clean up CUDA resources if enabled
+    if (isCudaEnabled()) {
+        disableCuda();  // This will call free_cuda_memory internally
+    }
+#endif
+    // Clear CPU vectors
+    lattice_curr.clear();
+    lattice_draft.clear();
+    lattice_mirror.clear();
+  }
 }

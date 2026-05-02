@@ -19,7 +19,8 @@ public:
     void drawAsHyperlink(TextRenderer& renderer, bool hovered,
                          int screenWidth, int screenHeight);  // Removed const
 
-    bool contains(int px, int py) const;
+    bool contains(int mouseX, int mouseY, int h) const;
+
     void setDefault(bool value) { isDefault_ = value; }
     bool getDefault() const { return isDefault_; }
     const std::string& getLabel() const { return label_; }

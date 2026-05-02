@@ -19,6 +19,8 @@ class TextRenderer;
 // Callback type for menu actions
 using MenuCallback = std::function<void()>;
 
+class Menu;
+
 // ---------------- MenuItem ----------------
 class MenuItem {
 public:
@@ -45,6 +47,7 @@ private:
 
 // ---------------- Menu ----------------
 class Menu {
+
 public:
     explicit Menu(const std::string& title);
 
@@ -57,8 +60,8 @@ public:
 
     void Render(TextRenderer* renderer, float x, float y,
                 float width, bool open, class MenuBar* menuBar = nullptr);
-    bool HandleMouse(float mouseX, float mouseY,
-                     float x, float y, float width, bool& open);
+    void HandleMouse(double mouseX, double mouseY,
+                     int windowWidth, int windowHeight, bool isPress);
     void Close();
 
 private:
@@ -76,7 +79,7 @@ public:
     void AddMenu(std::unique_ptr<Menu> menu);
     void Render();
     void HandleMouse(double mouseX, double mouseY,
-                     int windowWidth, int windowHeight);
+                     int windowWidth, int windowHeight, bool isPress);
 
     void Resize(float newWidth, float newHeight);
 
@@ -84,6 +87,8 @@ public:
     float GetHeight() const { return height; }
 
     void RenderQuad(float x, float y, float w, float h, glm::vec4 color);
+    bool IsMenuOpen();
+    static constexpr float TITLE_BAR_OFFSET = 15.0f;
 
 private:
     TextRenderer* textRenderer;

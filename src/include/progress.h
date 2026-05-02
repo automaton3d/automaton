@@ -30,6 +30,8 @@ namespace framework
     GLuint vaoSections[3];
     GLuint vboSections[3];
     GLuint vaoOutline;
+    GLuint vaoLegend;
+    GLuint vboLegend;
     GLuint vboOutline;
     GLuint vaoPointer;
     GLuint vboPointer;
@@ -45,7 +47,7 @@ namespace framework
 
     // Shaders
     const char* vertexShaderSource = R"(
-      #version 460 core
+      #version 330 core
       layout (location = 0) in vec2 aPos;
       uniform mat4 mvp;
       void main() {
@@ -54,7 +56,7 @@ namespace framework
     )";
 
     const char* fragmentShaderSource = R"(
-      #version 460 core
+      #version 330 core
       out vec4 FragColor;
       uniform vec3 color;
       void main() {

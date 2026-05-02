@@ -7,7 +7,7 @@
 #ifndef REPLAY_PROGRESS_H
 #define REPLAY_PROGRESS_H
 
-#include <glad/glad.h>
+//#include <glad/glad.h>
 
 class ReplayProgressBar
 {

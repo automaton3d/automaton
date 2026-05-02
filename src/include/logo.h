@@ -5,11 +5,16 @@
 #ifndef LOGO_H_
 #define LOGO_H_
 
-#include <glad/glad.h> 
+#include <glad/glad.h>
 #include <string>
+
+
+extern int textureMvpLoc;
+extern unsigned int textureProgram2D;
 
 namespace framework
 {
+
   class Logo
   {
   public:

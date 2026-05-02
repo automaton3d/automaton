@@ -1,47 +1,32 @@
-/*
- * camera.h
- *
- * Declares the camera routines.
- */
-
+// camera.h
 #pragma once
-
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>  // ✅ para lookAt, perspective, etc.
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
-namespace framework
-{
-
-class Camera
-{
+class OrbitCamera {
 public:
-  Camera();
-  ~Camera();
+    glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);  // Look at origin, not (0,1,0)
+    float distance   = 1.0f;  // Changed from 10.0f to 2.0f (closer by 5×)
+    float yaw        = -90.0f;
+    float pitch      = 0.0f;
 
-  // Accessors
-  const glm::mat4 & getMatrix();
-  const float* getMatrixFlat();
-  const glm::vec3 & getCenter();
-  const glm::vec3 & getEye();
-  const glm::vec3 & getUp();
+    float panSpeed    = 0.01f;
+    float orbitSpeed  = 0.2f;
+    float zoomSpeed   = 0.05f;
+    float minDistance = 0.1f;
+    float maxDistance = 200.0f;
 
-  // Mutators
-  void reset();
-  void setCenter(float x, float y, float z);
-  void setCenter(const glm::vec3 & c);
-  void setEye(float x, float y, float z);
-  void setEye(const glm::vec3 & e);
-  void setUp(float x, float y, float z);
-  void setUp(const glm::vec3 & u);
+    bool  Orthographic = false;
+    float OrthoSize    = 1.0f;  // Also adjust ortho size from 10.0f to 2.0f
+    float Zoom         = 45.0f;
 
-  // Update internal matrix (usually after changing eye/center/up)
-  void update();
+    glm::vec3 getPosition() const;
+    glm::mat4 GetViewMatrix() const;
+    glm::mat4 GetProjectionMatrix(float aspect) const;
 
-private:
-  glm::vec3 mCenter_;
-  glm::vec3 mEye_;
-  glm::vec3 mUp_;
-  glm::mat4 mMatrix_;
+    void ProcessMiddleMouseOrbit(float xoffset, float yoffset);
+    void ProcessMiddleMousePan(float xoffset, float yoffset);
+    void ProcessMouseScroll(float yoffset);
+    void ToggleProjection();
 };
-
-} // end namespace framework

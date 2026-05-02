@@ -1,161 +1,117 @@
 /*
- * projection.cpp (adaptado para GLAD)
+ * projection.cpp (Corrigido para usar automaton::L3)
  */
 
-#include "GUI.h"
-#include <glad/glad.h>              // ✅ GLAD em vez de GLEW/GL
+#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
+#include <algorithm>
+#include <cmath>
+#include "GUI.h"
 #include "projection.h"
+#include "projection_manager.h"
+#include "globals.h"
 
 namespace framework
 {
-  AxisThumb thumb;
+  extern AxisThumb thumb;
+  extern glm::mat4 mProjection_;
+  extern int vis_dx, vis_dy, vis_dz;
 
   void map3DTo2D(const glm::vec3& pt,
                  double mouseX, double mouseY,
+                 const glm::mat4& modelMat,
+                 const glm::mat4& projMat,
+                 const glm::vec4& viewport,
                  float depth,
                  float axisLength)
   {
-    GLfloat model[16], proj[16];
-    GLint viewport[4];
-    glGetFloatv(GL_MODELVIEW_MATRIX, model);
-    glGetFloatv(GL_PROJECTION_MATRIX, proj);
-    glGetIntegerv(GL_VIEWPORT, viewport);
+      glm::vec3 winPos(mouseX, viewport[3] - mouseY, depth);
+      glm::vec3 world = glm::unProject(winPos, modelMat, projMat, viewport);
 
-    glm::mat4 modelMat = glm::make_mat4(model);
-    glm::mat4 projMat  = glm::make_mat4(proj);
-    glm::vec4 viewportVec(viewport[0], viewport[1], viewport[2], viewport[3]);
+      float raw_pos = 0.0f;
+      if (thumb.axis == 0)      raw_pos = world.x;
+      else if (thumb.axis == 1) raw_pos = world.y;
+      else if (thumb.axis == 2) raw_pos = world.z;
 
-    // Unproject mouse position (mouseY must be bottom-origin)
-    glm::vec3 world = glm::unProject(glm::vec3(mouseX, mouseY, depth),
-                                     modelMat, projMat, viewportVec);
+      float delta_world = raw_pos - thumb.initialPosition;
+      thumb.position = thumb.initialPosition + delta_world;
 
-    if (thumb.axis == 0)
-      thumb.position = glm::clamp(world.x, 0.0f, axisLength);
-    else if (thumb.axis == 1)
-      thumb.position = glm::clamp(world.y, 0.0f, axisLength);
-    else if (thumb.axis == 2)
-      thumb.position = glm::clamp(world.z, 0.0f, axisLength);
+      float wrapped = std::fmod(thumb.position, axisLength);
+      if (wrapped < 0.0f) wrapped += axisLength;
+      thumb.position = wrapped;
+
+      float laps = delta_world / axisLength;
+      
+      // Ajustado para L3 conforme sugestão do erro de compilação
+      int delta_cells = static_cast<int>(std::round(laps * automaton::L3));
+
+      if (thumb.axis == 0) vis_dx = thumb.startOffset[0] + delta_cells;
+      if (thumb.axis == 1) vis_dy = thumb.startOffset[1] + delta_cells;
+      if (thumb.axis == 2) vis_dz = thumb.startOffset[2] + delta_cells;
+
+      auto wrap = [](int& v) {
+          // Ajustado para L3 aqui também
+          v = (v % automaton::L3 + automaton::L3) % automaton::L3;
+      };
+      wrap(vis_dx); wrap(vis_dy); wrap(vis_dz);
   }
 
-  /**
-   * Sets 2D orthographic projection for UI overlays.
-   */
-  void setOrthographicProjection()
-  {
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(0, viewport[2], 0, viewport[3], -1, 1);
-    glScalef(1, -1, 1);
-    glTranslatef(0, -viewport[3], 0);
-    glMatrixMode(GL_MODELVIEW);
-  }
-
-  /**
-   * Restores 3D perspective projection.
-   */
-  void resetPerspectiveProjection()
-  {
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-  }
-
-  /**
-   * Projects a 3D point into 2D window coordinates.
-   */
   bool projectPoint(const float obj[3],
-                    const GLfloat modelview[16],
-                    const GLfloat projection[16],
-                    const GLint viewport[4],
+                    const glm::mat4& mv,
+                    const glm::mat4& pj,
+                    const glm::vec4& vp,
                     float &winX, float &winY)
   {
-    // Transform to eye space
-    double eye[4] =
-    {
-      modelview[0]*obj[0] + modelview[4]*obj[1] + modelview[8]*obj[2] + modelview[12],
-      modelview[1]*obj[0] + modelview[5]*obj[1] + modelview[9]*obj[2] + modelview[13],
-      modelview[2]*obj[0] + modelview[6]*obj[1] + modelview[10]*obj[2] + modelview[14],
-      modelview[3]*obj[0] + modelview[7]*obj[1] + modelview[11]*obj[2] + modelview[15]
-    };
-
-    // Transform to clip space
-    double clip[4] =
-    {
-      projection[0]*eye[0] + projection[4]*eye[1] + projection[8]*eye[2] + projection[12]*eye[3],
-      projection[1]*eye[0] + projection[5]*eye[1] + projection[9]*eye[2] + projection[13]*eye[3],
-      projection[2]*eye[0] + projection[6]*eye[1] + projection[10]*eye[2] + projection[14]*eye[3],
-      projection[3]*eye[0] + projection[7]*eye[1] + projection[11]*eye[2] + projection[15]*eye[3]
-    };
-
-    if (clip[3] == 0.0) return false; // Behind camera
-
-    // Perspective division
-    clip[0] /= clip[3];
-    clip[1] /= clip[3];
-
-    // Convert to window coordinates
-    winX = (clip[0] * 0.5f + 0.5f) * viewport[2] + viewport[0];
-    winY = (clip[1] * 0.5f + 0.5f) * viewport[3] + viewport[1];
-    return true;
+    glm::vec3 screen = glm::project(glm::vec3(obj[0], obj[1], obj[2]), mv, pj, vp);
+    winX = screen.x;
+    winY = screen.y;
+    return screen.z >= 0.0f && screen.z <= 1.0f;
   }
 
-  /**
-   * Distance from point to segment in 2D.
-   */
   float distanceToSegment(float px, float py, float ax, float ay, float bx, float by)
   {
     float dx = bx - ax;
     float dy = by - ay;
     float denom = dx*dx + dy*dy;
-    if (denom == 0.0f)
-      return sqrtf((px - ax)*(px - ax) + (py - ay)*(py - ay));
-    float t = ((px - ax) * dx + (py - ay) * dy) / denom;
-    t = std::max(0.0f, std::min(1.0f, t));
-    float cx = ax + t * dx;
-    float cy = ay + t * dy;
-    return sqrtf((px - cx)*(px - cx) + (py - cy)*(py - cy));
+    if (denom < 1e-8f) return sqrtf(powf(px - ax, 2) + powf(py - ay, 2));
+
+    float t = std::max(0.0f, std::min(1.0f, ((px - ax) * dx + (py - ay) * dy) / denom));
+    return sqrtf(powf(px - (ax + t * dx), 2) + powf(py - (ay + t * dy), 2));
   }
 
-  /**
-   * Compute closest point between ray and segment.
-   * Returns t in [0,1] along the segment, and sets outDist to the distance.
-   */
   float closestPointOnSegmentToRay(const glm::vec3& rayO, const glm::vec3& rayD,
                                    const glm::vec3& segA, const glm::vec3& segB,
                                    float& outDist)
   {
-    glm::vec3 u = rayD;           // ray direction
-    glm::vec3 v = segB - segA;    // segment direction
-    glm::vec3 w0 = rayO - segA;
-
-    float A = glm::dot(u,u);      // = 1 if rayD normalized
-    float B = glm::dot(u,v);
-    float C = glm::dot(v,v);
-    float D = glm::dot(u,w0);
-    float E = glm::dot(v,w0);
-
-    float denom = A*C - B*B;
+    glm::vec3 u = rayD, v = segB - segA, w0 = rayO - segA;
+    float a = glm::dot(u,u), b = glm::dot(u,v), c = glm::dot(v,v), d = glm::dot(u,w0), e = glm::dot(v,w0);
+    float denom = a*c - b*b;
     float sc, tc;
+
     if (denom < 1e-8f) {
-      // Nearly parallel
       sc = 0.0f;
-      tc = glm::clamp(E / (C + 1e-8f), 0.0f, 1.0f);
+      tc = glm::clamp(e / c, 0.0f, 1.0f);
     } else {
-      sc = (B*E - C*D) / denom;
-      tc = glm::clamp((A*E - B*D) / denom, 0.0f, 1.0f);
+      sc = (b*e - c*d) / denom;
+      tc = glm::clamp((a*e - b*d) / denom, 0.0f, 1.0f);
     }
 
-    glm::vec3 Pc = rayO + sc*u;
-    glm::vec3 Qc = segA + tc*v;
-    outDist = glm::length(Pc - Qc);
+    outDist = glm::length((rayO + sc*u) - (segA + tc*v));
     return tc;
+  }
+
+  void updateProjection()
+  {
+      if (projectRads.empty()) return;
+      float ratio = gViewport[2] > 0 ? (float)gViewport[2] / gViewport[3] : 1.0f;
+      const float orthoSize = 0.6f;
+
+      if (projectRads[0].isSelected()) {
+          mProjection_ = glm::ortho(-orthoSize * ratio, orthoSize * ratio, -orthoSize, orthoSize, 0.01f, 100.0f);
+      } else if (projectRads[1].isSelected()) {
+          mProjection_ = ProjectionManager::instance().get3DPerspective(65.0f, 0.01f, 100.0f);
+      }
   }
 }

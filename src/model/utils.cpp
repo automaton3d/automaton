@@ -12,7 +12,7 @@
 #include <set>
 #include <random>
 
-#include "simulation.h"
+#include "model/simulation.h"
 
 namespace automaton
 {
@@ -389,6 +389,7 @@ namespace automaton
    */
   bool sanityTest()
   {
+    /*
     cout << "RMAX\t" << RMAX << endl;
     cout << "CONVOL\t" << CONVOL << endl;
     cout << "SLOT1\t" << SLOT1 << endl;
@@ -397,6 +398,7 @@ namespace automaton
     cout << "SLOT4\t" << SLOT4 << endl;
     cout << "DIFFUSION\t" << DIFFUSION << endl;
     cout << "RELOC\t" << RELOC << endl;
+    */
     return (CONVOL < SLOT1 && SLOT1 < SLOT2 && SLOT2 < SLOT3 && SLOT3 < SLOT4 && SLOT4 < DIFFUSION && DIFFUSION < RELOC && RELOC < REISSUE);
   }
 

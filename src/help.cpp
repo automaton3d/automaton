@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include "globals.h"
+#include "help.h"
 
 namespace framework
 {
@@ -33,7 +34,7 @@ namespace framework
   };
 
   // Textos de ajuda para cenários
-  const std::vector<std::string> scenarioHelpTexts = {
+  std::vector<std::string> scenarioHelpTexts = {
     // Scenario 0
     "Scenario 0: Wrapping Test\n\n"
     "This test checks the lattice's ability to wrap around its edges.\n"

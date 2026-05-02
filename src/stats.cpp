@@ -1,5 +1,5 @@
 /*
- * stats.cpp (adaptado para GLAD/GLFW, multiplataforma)
+ * stats.cpp - Refactored single-window version with improved thread management
  */
 
 #include <glad/glad.h>
@@ -7,45 +7,47 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <cstdarg>
 #include <chrono>
+#include <iomanip>
 #include "model/simulation.h"
 #include "stats.h"
 #include "text_renderer.h"
 #include "globals.h"
-#include "shader_utils.h"
+#include "shader.h"
 
 extern unsigned long long timer;
-
-namespace automaton {
-  extern unsigned EL;
-  bool initSimulation(int step);
-  extern std::vector<Cell> lattice_curr;
-}
+extern TextRenderer* textRenderer;
 
 namespace stats {
 
-#define MAXTICKS 10000
-
-int windowWidth = 600;
-int windowHeight = 480;
-
-// Controle de thread
-volatile bool simulationRunning = false;
-volatile bool pauseSimulation = false;
-volatile bool stopSimulation = false;
+// Thread-safe state management
+std::atomic<bool> simulationRunning{false};
+std::atomic<bool> pauseSimulation{false};
+std::atomic<bool> stopSimulation{false};
 std::thread simulationThread;
 std::chrono::steady_clock::time_point tbegin;
 
-// Buffer de console
+// Console management
 std::vector<std::string> consoleLines;
 std::mutex consoleMutex;
 const int MAX_CONSOLE_LINES = 50;
 
-// Funcao de log
+// Renderer
+static TextRenderer* rendererPtr = nullptr;
+
+// Forward declarations
+void stop();
+bool start(GLFWwindow* window, TextRenderer* sharedRenderer);
+
+// ============================================================================
+// Console Logging
+// ============================================================================
+
 void consolePrintf(const char* format, ...) {
   char buffer[512];
   va_list args;
@@ -55,168 +57,256 @@ void consolePrintf(const char* format, ...) {
 
   {
     std::lock_guard<std::mutex> lock(consoleMutex);
-    consoleLines.push_back(buffer);
-    if (consoleLines.size() > MAX_CONSOLE_LINES)
+    consoleLines.push_back(std::string(buffer));
+    if (consoleLines.size() > MAX_CONSOLE_LINES) {
       consoleLines.erase(consoleLines.begin());
+    }
   }
-
-  std::cout << buffer;
+  std::cout << buffer << std::flush;
 }
 
-// Loop da simulacao em thread separada
+// ============================================================================
+// Simulation Thread
+// ============================================================================
+
 void SimulationLoop() {
   consolePrintf("Launching statistics simulation thread...\n");
-  for (int step = 0; automaton::initSimulation(step); step++);
+
+  // Initialize simulation
+  int step = 0;
+  while (automaton::initSimulation(step++)) {}
   automaton::swap_lattices();
+
   tbegin = std::chrono::steady_clock::now();
   simulationRunning = true;
 
+  // Main simulation loop
   while (!stopSimulation) {
     if (!pauseSimulation) {
       automaton::simulation();
-      collectData();
       timer++;
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(80));
     }
   }
+
   simulationRunning = false;
-  consolePrintf("Simulation thread ended.\n");
+  consolePrintf("Statistics simulation thread ended.\n");
 }
 
-// Renderizacao
-void display(GLFWwindow* window, TextRenderer& renderer) {
-  glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
+// ============================================================================
+// Rendering
+// ============================================================================
 
-  // Tempo decorrido
+void renderStatusBar(int width, int height) {
+  if (!rendererPtr) return;
+
+  // Title
+  rendererPtr->RenderText(
+    "Toy Universe Statistics",
+    20, height - 90,
+    1.0f,
+    glm::vec3(0.7f, 0.8f, 1.0f),
+    width, height
+  );
+
+  // Elapsed time
   if (simulationRunning) {
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - tbegin).count();
-    std::stringstream ss;
-    ss << "Elapsed " << (millis / 1000.0) << "s";
-    renderer.RenderText(ss.str(), 20, 30, 0.8f,
-                        glm::vec3(1.0f, 1.0f, 0.0f),
-                        windowWidth, windowHeight);
-  }
+        std::chrono::steady_clock::now() - tbegin
+    ).count();
 
-  // Titulo
-  renderer.RenderText("Toy universe statistics", 20, 60, 1.0f,
-                      glm::vec3(0.7f, 0.8f, 1.0f),
-                      windowWidth, windowHeight);
+    std::stringstream ss;
+    ss << "Elapsed: " << std::fixed << std::setprecision(1)
+       << (millis / 1000.0) << " s";
+
+    rendererPtr->RenderText(
+      ss.str(),
+      20, height - 50,
+      0.8f,
+      glm::vec3(1.0f, 1.0f, 0.0f),
+      width, height
+    );
+  }
 
   // Status
   std::stringstream status;
-  status << "Simulation Status: " << (pauseSimulation ? "Paused" : "Running");
-  renderer.RenderText(status.str(), 20, 100, 0.7f,
-                      glm::vec3(1.0f, 1.0f, 1.0f),
-                      windowWidth, windowHeight);
+  status << "Status: " << (pauseSimulation ? "PAUSED" : "RUNNING");
+  rendererPtr->RenderText(
+    status.str(),
+    20, height - 130,
+    0.7f,
+    glm::vec3(1.0f, 1.0f, 1.0f),
+    width, height
+  );
 
-  // Timer
+  // Steps
   std::stringstream steps;
   steps << "Steps: " << timer;
-  renderer.RenderText(steps.str(), 20, 130, 0.7f,
-                      glm::vec3(1.0f, 1.0f, 1.0f),
-                      windowWidth, windowHeight);
-
-  // Console
-  {
-    std::lock_guard<std::mutex> lock(consoleMutex);
-    int y = 160;
-    for (auto& line : consoleLines) {
-      renderer.RenderText(line, 20, y, 0.6f,
-                          glm::vec3(0.0f, 1.0f, 0.0f),
-                          windowWidth, windowHeight);
-      y += 20;
-    }
-  }
-
-  glfwSwapBuffers(window);
+  rendererPtr->RenderText(
+    steps.str(),
+    20, height - 160,
+    0.7f,
+    glm::vec3(1.0f, 1.0f, 1.0f),
+    width, height
+  );
 }
 
-// Entrada de teclado
-void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/) {
-  if (action == GLFW_PRESS) {
-    switch (key) {
-      case GLFW_KEY_ESCAPE:
-        consolePrintf("Stopping simulation...\n");
-        stopSimulation = true;
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-        break;
-      case GLFW_KEY_SPACE:
-        pauseSimulation = !pauseSimulation;
-        consolePrintf(pauseSimulation ? "Simulation paused\n" : "Simulation resumed\n");
-        break;
-      case GLFW_KEY_T:
-        consolePrintf("Test message at step %llu\n", timer);
-        break;
-    }
+void renderConsole(int width, int height) {
+  if (!rendererPtr) return;
+
+  std::lock_guard<std::mutex> lock(consoleMutex);
+
+  int y = 40;
+  for (auto it = consoleLines.rbegin();
+       it != consoleLines.rend() && y < height - 200;
+       ++it) {
+    rendererPtr->RenderText(
+      *it,
+      20, y,
+      0.55f,
+      glm::vec3(0.0f, 1.0f, 0.3f),
+      width, height
+    );
+    y += 18;
   }
 }
 
-int run() {
-  if (!glfwInit()) {
-    std::cerr << "Failed to init GLFW\n";
-    return -1;
+void display(GLFWwindow* window) {
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+  glViewport(0, 0, width, height);
+
+  glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  // Initialize renderer if needed
+  if (!rendererPtr && textRenderer) {
+    rendererPtr = textRenderer;
   }
 
-  GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "Statistics", nullptr, nullptr);
-  if (!window) {
-    glfwTerminate();
-    return -1;
+  if (!rendererPtr) return;
+
+  renderStatusBar(width, height);
+  renderConsole(width, height);
+}
+
+// ============================================================================
+// Input Handling
+// ============================================================================
+
+void keyCallback(GLFWwindow* window, int key, int, int action, int) {
+  if (action != GLFW_PRESS && action != GLFW_REPEAT) return;
+
+  switch (key) {
+    case GLFW_KEY_ESCAPE:
+      stop();
+      glfwSetWindowShouldClose(window, GLFW_TRUE);
+      break;
+
+    case GLFW_KEY_SPACE:
+      pauseSimulation = !pauseSimulation;
+      consolePrintf(
+        pauseSimulation ? "Simulation paused\n" : "Simulation resumed\n"
+      );
+      break;
+
+    case GLFW_KEY_T:
+      consolePrintf("Test message at step %llu\n", timer);
+      break;
   }
-  glfwMakeContextCurrent(window);
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-    std::cerr << "Failed to init GLAD\n";
-    return -1;
+}
+
+// ============================================================================
+// Lifecycle Management
+// ============================================================================
+
+bool isRunning() {
+  return simulationThread.joinable() && simulationRunning;
+}
+
+bool start(GLFWwindow* window, TextRenderer* sharedRenderer) {
+  // Auto-cleanup if already running
+  if (simulationThread.joinable()) {
+    consolePrintf("Statistics thread already running - stopping first...\n");
+    stop();
   }
 
+  // Setup renderer
+  rendererPtr = sharedRenderer ? sharedRenderer : textRenderer;
+  if (!rendererPtr) {
+    std::cerr << "[Stats] ERROR: No TextRenderer available!\n";
+    return false;
+  }
+
+  // Setup callbacks
   glfwSetKeyCallback(window, keyCallback);
 
-  // Inicializar TextRenderer
-  // NOTE: You need to compile and load your text shader first
-  unsigned int shaderID = framework::compileTextShader();
-  TextRenderer renderer;
-  if (!renderer.init("fonts/arial.ttf", 18, shaderID)) {
-    std::cerr << "Failed to initialize TextRenderer\n";
-    // Continue anyway or return -1
+  // Reset state
+  consolePrintf("Initializing statistics mode...\n");
+  stopSimulation = false;
+  pauseSimulation = false;
+
+  // Launch simulation thread
+  try {
+    simulationThread = std::thread(SimulationLoop);
+  } catch (const std::exception& e) {
+    std::cerr << "[Stats] ERROR: Failed to start thread: " << e.what() << "\n";
+    return false;
   }
 
-  // Lancar thread de simulacao
-  simulationThread = std::thread(SimulationLoop);
-
-  while (!glfwWindowShouldClose(window)) {
-    display(window, renderer);
-    glfwPollEvents();
-  }
-
-  stopSimulation = true;
-  if (simulationThread.joinable())
-    simulationThread.join();
-
-  glfwDestroyWindow(window);
-  glfwTerminate();
-  return 0;
+  consolePrintf("Statistics mode started successfully.\n");
+  return true;
 }
 
-// Coleta de dados
-void collectData() {
-  unsigned index3D = 0;
-  for (unsigned x = 0; x < automaton::EL; x++)
-    for (unsigned y = 0; y < automaton::EL; y++)
-      for (unsigned z = 0; z < automaton::EL; z++) {
-        automaton::Cell &cell = automaton::getCell(automaton::lattice_curr, x, y, z, 0);
-        if (cell.t == cell.d) {
-          // Process awakened cells here if needed
-        }
-        index3D++;
-      }
+void stop() {
+  if (!simulationThread.joinable()) {
+    return;  // Already stopped
+  }
+
+  consolePrintf("Stopping statistics mode...\n");
+
+  stopSimulation = true;
+
+  // Wait for thread to finish with timeout protection
+  if (simulationThread.joinable()) {
+    simulationThread.join();
+  }
+
+  consolePrintf("Statistics mode stopped.\n");
+}
+
+void cleanup() {
+  stop();
+  consoleLines.clear();
+  rendererPtr = nullptr;
 }
 
 } // namespace stats
 
-// Wrapper global
-int runStatistics() {
-  return stats::run();
+// ============================================================================
+// Global Entry Points
+// ============================================================================
+
+int runStatistics(GLFWwindow* window, TextRenderer* renderer) {
+  if (!window || !renderer) {
+    std::cerr << "[Stats] ERROR: Invalid window or renderer!\n";
+    return -1;
+  }
+
+  if (!stats::start(window, renderer)) {
+    std::cerr << "[Stats] ERROR: Failed to start statistics mode!\n";
+    return -1;
+  }
+
+  return 0;
+}
+
+void stopStatistics() {
+  stats::stop();
+}
+
+bool isStatisticsRunning() {
+  return stats::isRunning();
 }

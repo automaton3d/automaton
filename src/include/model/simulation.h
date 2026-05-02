@@ -74,6 +74,10 @@ namespace automaton
 
   extern unsigned EL;
   extern unsigned W_USED;
+  extern bool convol_delay;
+  extern bool diffuse_delay;
+  extern bool reloc_delay;
+  extern std::vector<std::array<unsigned, 3>> lcenters;
 
   struct Point
   {
@@ -147,6 +151,7 @@ namespace automaton
     return lattice[((x * EL + y) * EL + z) * W_USED + w];
   }
 
+  
   inline const Cell& getCell(const vector<Cell>& lattice, int x, int y, int z, int w)
   {
     return lattice[((x * EL + y) * EL + z) * W_USED + w];
@@ -223,6 +228,11 @@ namespace automaton
   extern unsigned FLOOD;
   extern unsigned FRAME;
 
+/// Cross variables ///
+extern std::vector<Cell> lattice_curr;
+extern std::vector<Cell> lattice_draft; // Adicionar ou verificar
+extern std::vector<Cell> lattice_mirror; // Adicionar ou verificar
+
   /**
    * Tests if two vectors are equal.
    */
@@ -237,6 +247,38 @@ namespace automaton
     return true;
   }
 
+// ===================================================================
+  // CUDA ACCELERATION FUNCTIONS
+  // ===================================================================
+  
+  // These functions are always declared, regardless of USE_CUDA
+  // When USE_CUDA is defined: implemented in cuda_automaton.cu
+  // When USE_CUDA is NOT defined: implemented in bridge.cpp as stubs
+  
+  bool tryEnableCuda();
+  void disableCuda();
+  bool isCudaEnabled();
+  
+#ifdef USE_CUDA
+  // Internal GPU wrapper functions - only declared when CUDA is enabled
+  // Implementations are in cuda_automaton.cu
+  void ca_update_gpu_wrapper();
+  void ca_update_gpu_wrapper(
+      unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
+      unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
+      unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
+      unsigned FLOOD, unsigned FRAME, unsigned RMAX
+  );
+  bool swap_lattices_gpu();
+  
+  // Pointers for Device (GPU) memory
+  extern Cell* d_lattice_curr;
+  extern Cell* d_lattice_draft;
+  extern Cell* d_lattice_mirror;
+  
+#endif // USE_CUDA
+  
 }
 
 #endif /* SIMULATION_H_ */
+  

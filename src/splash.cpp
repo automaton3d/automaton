@@ -1,573 +1,395 @@
 /*
- * splash.cpp
+ * splash.cpp - Single-window version
+ * Runs inside existing GLFW window passed from main.cpp
  */
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <vector>
 #include <string>
-#include <cmath>
-#include <map>
+#include <atomic>
+#include <windows.h>
 
+#include "model/simulation.h"
 #include "button.h"
-#include "ca_window.h"
 #include "draw_utils.h"
-#include "dropdown.h"
+#include "cortina.h"
 #include "globals.h"
-#include "shader_utils.h"
 #include "logo.h"
 #include "text_renderer.h"
 #include "tickbox.h"
+#include "shader.h"
+#include "projection_manager.h"
+#include "splash.h"
 
-// Simple color shader (from test_button.cpp)
-const char* colorVertexShader = R"(
-  #version 460 core
-  layout (location = 0) in vec2 aPos;
-  uniform mat4 uMVP;
-  void main() {
-    gl_Position = uMVP * vec4(aPos, 0.0, 1.0);
-  }
-)";
+// External globals from main.cpp
+extern TextRenderer* textRenderer;
+extern unsigned int colorProgram2D;
+extern unsigned int textProgram;
 
-const char* colorFragmentShader = R"(
-  #version 460 core
-  out vec4 FragColor;
-  uniform vec3 uColor;
-  void main() {
-    FragColor = vec4(uColor, 1.0);
-  }
-)";
+// ---------------------------------------------------------------------
+// Forward declarations of input callbacks
+// ---------------------------------------------------------------------
+static int winW();
+static int winH();
+static void getMousePos(int& mx, int& my);
+static int myTopDown(int my_bottom);
 
-// Text shader (Unified with shader_utils)
-const char* textVertexShader = R"(
-  #version 460 core
-  layout (location = 0) in vec4 vertex; // <vec2 pos, vec2 tex>
-  out vec2 TexCoords;
-  uniform mat4 projection;
-  void main() {
-    gl_Position = projection * vec4(vertex.xy, 0.0, 1.0);
-    TexCoords = vertex.zw;
-  }
-)";
+void mouseButtonCallback(GLFWwindow*, int, int, int);
+void scrollCallback(GLFWwindow*, double, double);
+void keyCallback(GLFWwindow*, int, int, int, int);
+void passiveMotionCallback(GLFWwindow*, double, double);
 
-const char* textFragmentShader = R"(
-  #version 460 core
-  in vec2 TexCoords;
-  out vec4 color;
-  uniform sampler2D text;
-  uniform vec3 textColor;
-  void main() {
-    float alpha = texture(text, TexCoords).r;
-    color = vec4(textColor, alpha);
-  }
-)";
-
-constexpr int WINDOW_WIDTH = 600;
-constexpr int WINDOW_HEIGHT = 600;
+// ---------------------------------------------------------------------
+// Helpers (2D projection, panels, title)
+// ---------------------------------------------------------------------
+static const glm::mat4& proj2D() { return ProjectionManager::instance().get2DOrtho(); }
+static int winW() { return ProjectionManager::instance().getWidth(); }
+static int winH() { return ProjectionManager::instance().getHeight(); }
 
 namespace splash {
 
-    int lattice_size = 21;
-    int numLayers    = 10;
-    int selection    = -1;
-    bool shouldExit  = false;
-    bool helpHover   = false;
+static void setupUI();
 
-    // UI widgets - all pointers to forward-declared types
-    Button* simBtn      = nullptr;
-    Button* statBtn     = nullptr;
-    Button* replayBtn   = nullptr;
-    Button* helpLink    = nullptr;
-    Tickbox* startPausedBox = nullptr;
-    Dropdown* sizeDropdown  = nullptr;
-    Dropdown* layerDropdown = nullptr;
-    Dropdown* scenarioDropdown = nullptr;
-    framework::Logo* logo_splash   = nullptr;  // Use full namespace qualifier
-    std::vector<std::string> scenarioOptions = {
-        "Scenario 1: Wave Propagation",
-        "Scenario 2: Particle Collision",
-        "Scenario 3: Pattern Formation",
-        // Adicione mais conforme necessário
-    };
+} // namespace splash
 
-    static GLFWwindow* g_window = nullptr;
-    void setWindow(GLFWwindow* w) { g_window = w; }
-}
-     
-// ---------------------------------------------------------------------
-// Utility: draw raised panel
-// ---------------------------------------------------------------------
-void drawRaisedPanel(float x, float y, float w, float h, int winW, int winH) {
-    drawQuad2D(x, y, x+w, y+h,
-               glm::vec3(0.85f,0.85f,0.9f),
-               winW, winH);
-
-    drawLineLoop2D({{x,y},{x+w,y},{x+w,y+h},{x,y+h}},
-                   glm::vec3(0.7f,0.7f,0.8f),
-                   winW, winH, 1.0f);
+static void drawRaisedPanel(float x, float y, float w, float h)
+{
+    drawQuad2D(x, y, x + w, y + h, glm::vec3(0.85f, 0.85f, 0.9f), proj2D());
+    drawLineLoop2D({{x, y}, {x + w, y}, {x + w, y + h}, {x, y + h}},
+                   glm::vec3(0.7f, 0.7f, 0.8f), proj2D(), 2.0f);
 }
 
-// ---------------------------------------------------------------------
-// Title drawing
-// ---------------------------------------------------------------------
-void drawTitle(int w, int h) {
+static void drawTitle()
+{
     if (!textRenderer) return;
 
     const std::string title = "It from bit: a concrete attempt";
     float scale = 0.6f;
 
-    float textWidth = textRenderer->measureTextWidth(title, scale);
-    float tx = (w - textWidth) / 2.0f;
+    float textW = textRenderer->measureTextWidth(title, scale);
+    float x = (winW() - textW) * 0.5f;
+    float y = winH() - 40.0f;
 
-    // Place 50 pixels below the top edge
-    float ty = h - 50.0f;
+    glUseProgram(textProgram);
+    const glm::mat4& P = proj2D();
+    glUniformMatrix4fv(glGetUniformLocation(textProgram, "projection"), 1,
+                       GL_FALSE, glm::value_ptr(P));
 
-    textRenderer->RenderText(title, tx, ty, scale,
-                             glm::vec3(0.4f, 0.7f, 1.0f),
-                             w, h);
+    textRenderer->RenderText(title, x, y, scale, glm::vec3(0.2f, 0.4f, 0.9f),
+                             winW(), winH());
+    glUseProgram(0);
 }
 
 // ---------------------------------------------------------------------
-// Display function
+// Namespace splash: state, setup, API
 // ---------------------------------------------------------------------
-void display(GLFWwindow* window) {
-    glClearColor(0.95f, 0.95f, 0.97f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+namespace splash {
+    int lattice_size = 21;
+    int numLayers = 10;
+    int selection = -1;
+    bool shouldExit = false;
+    bool helpHover = false;
 
-    drawTitle(WINDOW_WIDTH, WINDOW_HEIGHT);
+    Button* simBtn = nullptr;
+    Button* statBtn = nullptr;
+    Button* replayBtn = nullptr;
+    Button* helpLink = nullptr;
+    Tickbox* startPausedBox = nullptr;
+    Cortina* sizeDropdown = nullptr;
+    Cortina* layerDropdown = nullptr;
+    Cortina* scenarioDropdown = nullptr;
+    framework::Logo* logo_splash = nullptr;
 
-    if (splash::logo_splash)
-        splash::logo_splash->draw((WINDOW_WIDTH - 200) / 2, 80, 1.0f);
+    // window atual (para obter cursor, maximizar, etc.)
+    GLFWwindow* window = nullptr;
 
-    drawRaisedPanel(30, 125, WINDOW_WIDTH - 50, 180, WINDOW_WIDTH, WINDOW_HEIGHT);
-    drawRaisedPanel(WINDOW_WIDTH - 260, 210, 220, 80, WINDOW_WIDTH, WINDOW_HEIGHT);
+    std::vector<std::string> scenarioOptions = {
+        "Wrapping test", "Relocate test", "Orphan test", "Contraction test",
+        "Hunting test", "Reissue test", "Dispersion test", "Full simulation"
+    };
 
-    if (textRenderer) {
-        if (splash::simBtn)
-            splash::simBtn->draw(colorProgram2D, *textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-        if (splash::statBtn)
-            splash::statBtn->draw(colorProgram2D, *textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-        if (splash::replayBtn)
-            splash::replayBtn->draw(colorProgram2D, *textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-        if (splash::helpLink)
-            splash::helpLink->drawAsHyperlink(*textRenderer,
-                                              splash::helpHover,
-                                              WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    splash::sizeDropdown->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-    splash::layerDropdown->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-    splash::scenarioDropdown->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-    splash::startPausedBox->setFontScale(0.3f);
-    splash::startPausedBox->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    // Draw all dropdowns *again* (only open ones will draw their list,
-    // which puts them on top of everything else)
-    if (splash::sizeDropdown && splash::sizeDropdown->isOpen_)
-        splash::sizeDropdown->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-    if (splash::layerDropdown && splash::layerDropdown->isOpen_)
-        splash::layerDropdown->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-    if (splash::scenarioDropdown && splash::scenarioDropdown->isOpen_)
-        splash::scenarioDropdown->draw(*textRenderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-
+    void close_drops_callback(int i) {
+        sizeDropdown->close();
+        layerDropdown->close();
+        scenarioDropdown->close();
     }
 
-    glfwSwapBuffers(window);
-}
+    // Criação de widgets, sem loop interno
+    static void setupUI()
+    {
+        int rightX = winW() - 250;
+        int screenH = winH();
 
-// ---------------------------------------------------------------------
-// Callbacks
-// ---------------------------------------------------------------------
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-    if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_LEFT) {
-        double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
+        simBtn    = new Button(rightX, screenH - 260, 200, 40, "Simulation");
+        statBtn   = new Button(rightX, screenH - 180, 200, 40, "Statistics");
+        replayBtn = new Button(rightX, screenH - 110, 200, 40, "Replay");
+        helpLink  = new Button((winW() - 100)/2, screenH - 45, 100, 20, "Help");
 
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
+        std::vector<std::string> sizes, layers;
+        for (int s = 5; s <= 89; s += 2) sizes.push_back(std::to_string(s));
+        for (int l : {10,12,14,16,18,20,24,28,32,38,44,52,60,70,82,96,112,130,
+                      150,174,200,230,264,300,320,340,360,364})
+            layers.push_back(std::to_string(l));
+            
+        sizeDropdown      = new Cortina(50, screenH - 280, 200, 30, sizes, 0, close_drops_callback);
+        layerDropdown     = new Cortina(50, screenH - 230, 200, 30, layers, 0, close_drops_callback);
+        scenarioDropdown  = new Cortina(50, screenH - 180, 200, 30, scenarioOptions, 0, close_drops_callback);
+        startPausedBox    = new Tickbox(rightX, 315, "Start Paused");
 
-        // Invert Y coordinate (GLFW uses top-left, OpenGL uses bottom-left)
-        int mouseX = (int)xpos;
-        int mouseY = height - (int)ypos;
+        // Logo depois de shader estar pronto (feito em main antes)
+        logo_splash = new framework::Logo("logo_bar.png");
 
-        // Check which dropdown was clicked (header or items)
-        Dropdown* clickedDropdown = nullptr;
-        bool clickedOnHeader = false;
-        
-        if (splash::sizeDropdown && splash::sizeDropdown->containsHeader(mouseX, mouseY, width, height)) {
-            clickedDropdown = splash::sizeDropdown;
-            clickedOnHeader = true;
-        }
-        else if (splash::layerDropdown && splash::layerDropdown->containsHeader(mouseX, mouseY, width, height)) {
-            clickedDropdown = splash::layerDropdown;
-            clickedOnHeader = true;
-        }
-        else if (splash::scenarioDropdown && splash::scenarioDropdown->containsHeader(mouseX, mouseY, width, height)) {
-            clickedDropdown = splash::scenarioDropdown;
-            clickedOnHeader = true;
-        }
-        
-        // If clicking a header, close all OTHER dropdowns first
-        if (clickedOnHeader) {
-            if (splash::sizeDropdown && splash::sizeDropdown != clickedDropdown)
-                splash::sizeDropdown->close();
-            if (splash::layerDropdown && splash::layerDropdown != clickedDropdown)
-                splash::layerDropdown->close();
-            if (splash::scenarioDropdown && splash::scenarioDropdown != clickedDropdown)
-                splash::scenarioDropdown->close();
-        }
-        
-        // Now handle the actual dropdown clicks
-        bool dropdownHandled = false;
-        
-        if (splash::sizeDropdown) {
-            if (splash::sizeDropdown->handleClick(mouseX, mouseY, width, height))
-                dropdownHandled = true;
-        }
-        if (splash::layerDropdown) {
-            if (splash::layerDropdown->handleClick(mouseX, mouseY, width, height))
-                dropdownHandled = true;
-        }
-        if (splash::scenarioDropdown) {
-            if (splash::scenarioDropdown->handleClick(mouseX, mouseY, width, height))
-                dropdownHandled = true;
-        }
-
-        // If a dropdown item was selected, we're done
-        if (dropdownHandled) {
-            return;
-        }
-
-        // If click was outside all dropdowns, close them all
-        bool clickedInsideAnyDropdown = false;
-        if (splash::sizeDropdown && splash::sizeDropdown->isMouseOver(mouseX, mouseY, width, height))
-            clickedInsideAnyDropdown = true;
-        if (splash::layerDropdown && splash::layerDropdown->isMouseOver(mouseX, mouseY, width, height))
-            clickedInsideAnyDropdown = true;
-        if (splash::scenarioDropdown && splash::scenarioDropdown->isMouseOver(mouseX, mouseY, width, height))
-            clickedInsideAnyDropdown = true;
-
-        if (!clickedInsideAnyDropdown) {
-            if (splash::sizeDropdown) splash::sizeDropdown->close();
-            if (splash::layerDropdown) splash::layerDropdown->close();
-            if (splash::scenarioDropdown) splash::scenarioDropdown->close();
-        }
-
-        // Check buttons
-        if (splash::simBtn && splash::simBtn->contains(mouseX, mouseY)) {
-            automaton::calculateParameters(splash::lattice_size, splash::numLayers);
-            if (!automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
-                // show error message
-            }
-            else {
-              splash::selection = 0;
-              splash::shouldExit = true;
-            }
-        }
-        else if (splash::statBtn && splash::statBtn->contains(mouseX, mouseY)) {
-            automaton::calculateParameters(splash::lattice_size, splash::numLayers);
-            if (!automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
-                // show error message
-            }
-            else {
-              splash::selection = 2;
-              scenario = 7; // full simulation for statistics
-              splash::shouldExit = true;
-            }
-        }
-        else if (splash::replayBtn && splash::replayBtn->contains(mouseX, mouseY)) {
-            automaton::calculateParameters(splash::lattice_size, splash::numLayers);
-            if (!automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
-              // show error message
-            }
-            else {
-              splash::selection = 1;
-              splash::shouldExit = true;
-            }
-        }
-        else if (splash::helpLink && splash::helpLink->contains(mouseX, mouseY)) {
-            // Platform-independent URL opening
-#if defined(_WIN32)
-            std::system("start https://github.com/automaton3d/automaton/blob/master/help.md");
-#elif defined(__APPLE__)
-            std::system("open https://github.com/automaton3d/automaton/blob/master/help.md");
-#else
-            std::system("xdg-open https://github.com/automaton3d/automaton/blob/master/help.md");
-#endif
-        }
-
-        // Check tickbox
-        if (splash::startPausedBox)
-            splash::startPausedBox->onMouseButton(mouseX, mouseY, true);
+        sizeDropdown->setSelectedIndex(8);   // 21
+        layerDropdown->setSelectedIndex(0);  // 10
     }
+
+    // -----------------------------------------------------------------
+    // Public API: initialize, render, cleanup
+    // -----------------------------------------------------------------
+    int initialize(GLFWwindow* win)
+    {
+        window = win;
+        shouldExit = false;
+        helpHover = false;
+
+        // Registrar callbacks
+        glfwSetMouseButtonCallback(window, mouseButtonCallback);
+        glfwSetScrollCallback(window, scrollCallback);
+        glfwSetKeyCallback(window, keyCallback);
+        glfwSetCursorPosCallback(window, passiveMotionCallback);
+
+        // Criar widgets
+        setupUI();
+        return 0;
+    }
+
+    void cleanup()
+    {
+        delete simBtn; simBtn = nullptr;
+        delete statBtn; statBtn = nullptr;
+        delete replayBtn; replayBtn = nullptr;
+        delete helpLink; helpLink = nullptr;
+        delete startPausedBox; startPausedBox = nullptr;
+        delete sizeDropdown; sizeDropdown = nullptr;
+        delete layerDropdown; layerDropdown = nullptr;
+        delete scenarioDropdown; scenarioDropdown = nullptr;
+        delete logo_splash; logo_splash = nullptr;
+    }
+
+    void render()
+    {
+        glClearColor(0.95f, 0.95f, 0.97f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Título
+        drawTitle();
+
+        // Logo
+        if (logo_splash) {
+            logo_splash->draw((winW() - 200) / 2, 60, 1.0f);
+        }
+
+        int w = winW(), h = winH();
+
+        // Link de ajuda
+        if (helpLink) helpLink->drawAsHyperlink(*textRenderer, helpHover, w, h);
+
+        // Painéis
+        drawRaisedPanel(30, 295, w - 60, 180);
+        drawRaisedPanel(w - 260, w - 290, 220, 80);
+
+        // Botões
+        if (simBtn)    simBtn->draw(colorProgram2D, *textRenderer, w, h);
+        if (statBtn)   statBtn->draw(colorProgram2D, *textRenderer, w, h);
+        if (replayBtn) replayBtn->draw(colorProgram2D, *textRenderer, w, h);
+
+        // Dropdowns
+        if (scenarioDropdown) scenarioDropdown->render(textRenderer);
+        if (layerDropdown)    layerDropdown->render(textRenderer);
+        if (sizeDropdown)     sizeDropdown->render(textRenderer);
+
+        // Tickbox
+        if (startPausedBox) {
+            startPausedBox->setFontScale(0.32f);
+            startPausedBox->draw(*textRenderer);
+        }
+    }
+} // namespace splash
+
+static void getMousePos(int& mx, int& my)
+{
+    double x, y;
+    glfwGetCursorPos(splash::window, &x, &y);
+    mx = static_cast<int>(x);
+    my = winH() - static_cast<int>(y); // bottom-up for Button
 }
 
-void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
-    // Handle dropdown scrolling if any dropdown is open
-    if (splash::sizeDropdown && splash::sizeDropdown->isOpen_)
-        splash::sizeDropdown->scroll(yoffset > 0 ? -1 : 1);
-    if (splash::layerDropdown && splash::layerDropdown->isOpen_)
-        splash::layerDropdown->scroll(yoffset > 0 ? -1 : 1);
-    if (splash::scenarioDropdown && splash::scenarioDropdown->isOpen_)
-        splash::scenarioDropdown->scroll(yoffset > 0 ? -1 : 1);
+static int myTopDown(int my_bottom)
+{
+    return winH() - my_bottom;
 }
 
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_ESCAPE) {
-            splash::selection = -1;
+void mouseButtonCallback(GLFWwindow*, int button, int action, int)
+{
+    if (button != GLFW_MOUSE_BUTTON_LEFT || action != GLFW_PRESS) return;
+    
+    // Pegue as coordenadas RAW do GLFW (top-down, origem no canto superior esquerdo)
+    double xpos, ypos;
+    glfwGetCursorPos(splash::window, &xpos, &ypos);
+    
+    int mx = static_cast<int>(xpos);
+    int my_raw = static_cast<int>(ypos);  // Top-down raw
+    
+    // Para dropdowns: converta para bottom-up baseado em onde eles REALMENTE estão
+    int my_dropdown = winH() - my_raw;  // Bottom-up
+    
+    // Para botões: o código já espera bottom-up
+    int my_button = winH() - my_raw;
+    
+    // Dropdowns recebem coordenadas bottom-up
+    bool handled = false;
+    if (splash::sizeDropdown)     handled = splash::sizeDropdown->handleMouseClick(mx, my_dropdown);
+    if (!handled && splash::layerDropdown)    handled = splash::layerDropdown->handleMouseClick(mx, my_dropdown);
+    if (!handled && splash::scenarioDropdown) handled = splash::scenarioDropdown->handleMouseClick(mx, my_dropdown);
+
+    if (!handled) {
+        if (splash::sizeDropdown)     splash::sizeDropdown->close();
+        if (splash::layerDropdown)    splash::layerDropdown->close();
+        if (splash::scenarioDropdown) splash::scenarioDropdown->close();
+    }
+
+    // Botões (usa conversão para top-down se necessário)
+    if (splash::simBtn && splash::simBtn->contains(mx, my_button, winH())) {
+        int sizeIndex = splash::sizeDropdown->getSelectedIndex();
+        splash::lattice_size = 5 + (sizeIndex * 2);  // Formula for sizes: 5,7,9,...,89
+
+        int layerIndex = splash::layerDropdown->getSelectedIndex();
+        std::vector<int> layerOptions = {10,12,14,16,18,20,24,28,32,38,44,52,60,70,82,96,112,130,150,174,200,230,264,300,320,340,360,364};
+        splash::numLayers = layerOptions[layerIndex];
+        automaton::calculateParameters(splash::lattice_size, splash::numLayers);
+        if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
+            currentMode = SIMULATION;
+            glfwMaximizeWindow(splash::window);
+
+            int w, h;
+            glfwGetFramebufferSize(splash::window, &w, &h);
+            ProjectionManager::instance().setViewport(w, h);
+
+            // FIXED: Set globals to actual values, not indices
+            latticeSize = splash::lattice_size;
+            numLayers   = splash::numLayers;
+            scenario    = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : scenario;
+            initPaused  = splash::startPausedBox ? splash::startPausedBox->getState() : false;
             splash::shouldExit = true;
         }
-        else if (key == GLFW_KEY_ENTER) {
-            automaton::calculateParameters(splash::lattice_size, splash::numLayers);
-            if (!automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
-                // show error message
-            } else {
-                splash::selection = 0;
-                splash::shouldExit = true;
-            }
+        else {
+            MessageBoxA(NULL,
+              "Failed to allocate lattice.\nPlease try other parameters.",
+              "Allocation Error",
+              MB_OK | MB_ICONERROR);
+        }
+    }
+    else if (splash::statBtn && splash::statBtn->contains(mx, my_button, winH())) {
+        int sizeIndex = splash::sizeDropdown->getSelectedIndex();
+        splash::lattice_size = 5 + (sizeIndex * 2);
+
+        int layerIndex = splash::layerDropdown->getSelectedIndex();
+        std::vector<int> layerOptions = {10,12,14,16,18,20,24,28,32,38,44,52,60,70,82,96,112,130,150,174,200,230,264,300,320,340,360,364};
+        splash::numLayers = layerOptions[layerIndex];
+
+        automaton::calculateParameters(splash::lattice_size, splash::numLayers);
+        if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
+            currentMode = STATISTICS;
+            scenario    = 7;
+            splash::shouldExit = true;
+        }
+        else {
+            MessageBoxA(NULL,
+              "Failed to allocate lattice.\nPlease try other parameters.",
+              "Allocation Error",
+              MB_OK | MB_ICONERROR);
+        }
+    }
+    else if (splash::replayBtn && splash::replayBtn->contains(mx, my_button, winH())) {
+        int sizeIndex = splash::sizeDropdown->getSelectedIndex();
+        splash::lattice_size = 5 + (sizeIndex * 2);
+
+        int layerIndex = splash::layerDropdown->getSelectedIndex();
+        std::vector<int> layerOptions = {10,12,14,16,18,20,24,28,32,38,44,52,60,70,82,96,112,130,150,174,200,230,264,300,320,340,360,364};
+        splash::numLayers = layerOptions[layerIndex];
+
+        automaton::calculateParameters(splash::lattice_size, splash::numLayers);
+        if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
+            currentMode = REPLAY;
+            glfwMaximizeWindow(splash::window);
+
+            int w, h;
+            glfwGetFramebufferSize(splash::window, &w, &h);
+            ProjectionManager::instance().setViewport(w, h);
+            splash::shouldExit = true;
+        }
+        else {
+            MessageBoxA(NULL,
+              "Failed to allocate lattice.\nPlease try other parameters.",
+              "Allocation Error",
+              MB_OK | MB_ICONERROR);
+        }
+    }
+    else if (splash::helpLink && splash::helpLink->contains(mx, my_button, winH())) {
+      system("start https://github.com/automaton3d/automaton/blob/master/help.md");
+    }
+
+    if (splash::startPausedBox) {
+        int myTopDown = winH() - my_button;  // Convert bottom-up to top-down
+        splash::startPausedBox->onClick(mx, myTopDown);
+    }
+}
+
+void scrollCallback(GLFWwindow*, double xoffset, double yoffset)
+{
+    int mx, my;
+    getMousePos(mx, my);  // Get current mouse position
+    
+    if (splash::sizeDropdown && splash::sizeDropdown->isExpanded())
+        splash::sizeDropdown->handleMouseScroll(mx, my, yoffset);
+    if (splash::layerDropdown && splash::layerDropdown->isExpanded())
+        splash::layerDropdown->handleMouseScroll(mx, my, yoffset);
+    if (splash::scenarioDropdown && splash::scenarioDropdown->isExpanded())
+        splash::scenarioDropdown->handleMouseScroll(mx, my, yoffset);
+}
+
+void keyCallback(GLFWwindow*, int key, int, int action, int)
+{
+    if (action != GLFW_PRESS) return;
+    if (key == GLFW_KEY_ESCAPE) {
+    }
+    else if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+        automaton::calculateParameters(splash::lattice_size, splash::numLayers);
+        if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
+            currentMode = SIMULATION;
+            scenario    = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : scenario;
+            pause       = splash::startPausedBox ? splash::startPausedBox->getState() : false;
+            splash::shouldExit = true;
         }
     }
 }
 
-void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-    gViewport[2] = width;
-    gViewport[3] = height;
-}
+void passiveMotionCallback(GLFWwindow*, double xpos, double ypos)
+{
+    int mx = (int)xpos;
+    int my = winH() - (int)ypos;
+    int my_top = myTopDown(my);
 
-void closeCallback(GLFWwindow* window) {
-    splash::selection = -1;
-    splash::shouldExit = true;
-}
-
-void passiveMotionCallback(GLFWwindow* window, double xpos, double ypos) {
-    splash::helpHover = splash::helpLink && splash::helpLink->contains((int)xpos, (int)ypos);
-    
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    
-    // Update dropdown hover states
-    if (splash::sizeDropdown)
-        splash::sizeDropdown->updateHover((int)xpos, (int)ypos, width, height);
-    if (splash::layerDropdown)
-        splash::layerDropdown->updateHover((int)xpos, (int)ypos, width, height);
-    if (splash::scenarioDropdown)
-        splash::scenarioDropdown->updateHover((int)xpos, (int)ypos, width, height);
-}
-
-// --- Shader Compilation Utility (Add this after the sources) ---
-
-unsigned int compileShader(const char* vSrc, const char* fSrc) {
-    unsigned int vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &vSrc, nullptr);
-    glCompileShader(vs);
-
-    // TODO: Add error checking for vs compilation
-    
-    unsigned int fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &fSrc, nullptr);
-    glCompileShader(fs);
-
-    // TODO: Add error checking for fs compilation
-
-    unsigned int prog = glCreateProgram();
-    glAttachShader(prog, vs);
-    glAttachShader(prog, fs);
-    glLinkProgram(prog);
-
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-    return prog;
-}
-
-// ---------------------------------------------------------------------
-// main()
-// ---------------------------------------------------------------------
-int main(int argc, char** argv) {
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return -1;
-    }
-    std::cout << "GLFW init OK" << std::endl;
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
-
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Toy Universe", nullptr, nullptr);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    std::cout << "Window created OK" << std::endl;
-
-    glfwMakeContextCurrent(window);
-    //glfwSwapInterval(1); // Enable vsync
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    std::cout << "GLAD init OK" << std::endl;
-
-    glEnable(GL_MULTISAMPLE);
-    glDisable(GL_DEPTH_TEST); 
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
-
-    gViewport[2] = width;
-    gViewport[3] = height;
-
-    // 1. Compile Texture Shader (Used by Logo, assuming framework::compileTextureShader() is available)
-    textureProgram2D = framework::compileTextureShader();
-    textureMvpLoc    = glGetUniformLocation(textureProgram2D, "uMVP");
-    textureSamplerLoc= glGetUniformLocation(textureProgram2D, "uTexture");
-    
-    // 2. Compile Color Shader (FIX: Used by Button/Tickbox/Dropdown background)
-    colorProgram2D  = compileShader(colorVertexShader, colorFragmentShader); 
-    colorMvpLoc2D   = glGetUniformLocation(colorProgram2D, "uMVP");
-    colorColorLoc2D = glGetUniformLocation(colorProgram2D, "uColor");
-    
-    // 3. Compile Text Shader (FIX: Used by TextRenderer)
-    textProgram = framework::compileTextShader();
-    
-    splash::setWindow(window);
-
-    // Register callbacks
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-    glfwSetMouseButtonCallback(window, mouseButtonCallback);
-    glfwSetScrollCallback(window, scrollCallback);
-    glfwSetKeyCallback(window, keyCallback);
-    glfwSetWindowCloseCallback(window, closeCallback);
-    glfwSetCursorPosCallback(window, passiveMotionCallback);
-
-    textRenderer = new TextRenderer();
-    bool fontLoaded = false;
-
-    // Candidate font paths (platform‑aware fallbacks)
-    const char* fontPaths[] = {
-        "fonts/arial.ttf",
-        "arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-        nullptr
-    };
-
-    for (int i = 0; fontPaths[i] != nullptr; ++i) {
-        // FIX: Pass the compiled text program to the init function
-        if (textRenderer->init(fontPaths[i], 48, textProgram)) {
-            std::cout << "Font loaded successfully: " << fontPaths[i] << std::endl;
-            fontLoaded = true;
-            break;
-        }
-    }
-
-    if (!fontLoaded) {
-        std::cerr << "WARNING: Could not load any font! Text will not render.\n"
-                  << "Please place Arial.ttf in a 'fonts/' folder next to the executable.\n";
-    }
-
-    int xpos = WINDOW_WIDTH - 250;
-    splash::simBtn    = new Button(xpos, 220, 200, 40, "Simulation");
-    splash::statBtn   = new Button(xpos, 140, 200, 40, "Statistics");
-    splash::replayBtn = new Button(xpos, 70, 200, 40, "Replay");
-
-    // Desired dimensions
-    int helpW = 100;
-    int helpH = 20;
-
-    // Center horizontally
-    int helpX = (WINDOW_WIDTH - helpW) / 2;
-
-    // Place 50 pixels above the bottom
-    int helpY = 25;  // measured from bottom
-
-    splash::helpLink = new Button(helpX, helpY, helpW, helpH, "Help");
-
-    std::vector<std::string> sizeOptions = {
-      "5", "7", "9", "11", "13", "15", "17", "19", "21", "23", "25", "27", "29", "31",
-      "35", "37", "39", "41", "43", "45", "47", "49", "51", "53", "55", "57", "59",
-      "61", "63", "65", "67", "69", "71", "73", "75", "77", "79", "81", "83", "85", "87", "89"
-    };
-
-    splash::sizeDropdown = new Dropdown(50, 253, 200, 30, sizeOptions, "Lattice Size");
-
-    std::vector<std::string> layerOptions = {
-      "10", "12", "14", "16", "18", "20", "24", "28", "32", "38", "44",
-      "52", "60", "70", "82", "96", "112", "130", "150", "174",
-      "200", "230", "264", "300", "320", "340", "360", "364"
-    };
-
-    splash::layerDropdown = new Dropdown(50, 203, 200, 30, layerOptions, "Layers");
-
-    std::vector<std::string> scenarioOptions =
-    {
-      "Wrapping test",
-      "Relocate test",
-      "Orphan test",
-      "Contraction test",
-      "Hunting test",
-      "Reissue test",
-      "Dispersion test",
-      "Full simulation"
-    };
- 
-    splash::scenarioDropdown = new Dropdown(50, 153, 200, 30, scenarioOptions, "Scenario");
-
-    splash::startPausedBox = new Tickbox(xpos, 263, "Start Paused");
-    float labelCol[3] = {0.0f, 0.0f, 0.0f};
-    splash::startPausedBox->setColor(nullptr, labelCol, nullptr, nullptr);
-    // Initialize logo
-    splash::logo_splash = new framework::Logo("logo_bar.png");
-
-    // Main loop
-    while (!glfwWindowShouldClose(window) && !splash::shouldExit) {
-        display(window);
-        glfwPollEvents();
-    }
-
-    // Cleanup
-    delete splash::simBtn;
-    delete splash::statBtn;
-    delete splash::replayBtn;
-    delete splash::helpLink;
-    delete splash::startPausedBox;
-    delete splash::sizeDropdown;
-    delete splash::layerDropdown;
-    delete splash::scenarioDropdown;
-    delete splash::logo_splash;
-    delete textRenderer;
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-
-    // Handle selection
-    switch (splash::selection) {
-        case -1: 
-            return 0;
-        case 0:  
-            return runSimulation(splash::scenarioDropdown->getSelectedIndex(),
-                                 splash::startPausedBox->getState());
-        case 1:  
-            return runReplay();
-        case 2:  
-            return runStatistics();
-        default: 
-            return 0;
-    }
+    if (splash::helpLink) splash::helpHover = splash::helpLink->contains(mx, my_top, winH());
+    if (splash::sizeDropdown)     splash::sizeDropdown->updateHover(mx, my);
+    if (splash::layerDropdown)    splash::layerDropdown->updateHover(mx, my);
+    if (splash::scenarioDropdown) splash::scenarioDropdown->updateHover(mx, my);
 }

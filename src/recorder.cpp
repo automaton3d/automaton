@@ -16,14 +16,18 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <zlib.h>
+#include <atomic>
 
 namespace framework {
 
 // External declarations from GUI/window module
-extern bool recordFrames;
+//extern bool recordFrames;
 extern std::string toastMessage;
 extern double toastStartTime;
 extern bool toastActive;
+
+std::atomic<bool> recordFrames{false};
+FrameRecorder recorder;
 
 size_t FrameRecorder::estimateFrameMemory(const Frame& f) const {
   size_t total = sizeof(Frame);

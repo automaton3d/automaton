@@ -1,5 +1,5 @@
 /*
- * projection.h (adapted for GLFW + GLAD)
+ * projection.h (Versão Corrigida)
  */
 
 #ifndef PROJECTION_H_
@@ -10,46 +10,33 @@
 
 namespace framework
 {
-  struct AxisThumb {
-    bool active = false;
-    int axis = -1;
-    float position = 0.0f;
-    bool dragging = false;
-    float initialPosition = 0.0f;
-    int startOffset[3] = {0, 0, 0};
-  };
+    extern int vis_dx;
+    extern int vis_dy;
+    extern int vis_dz;
 
-  extern AxisThumb thumb;
-
-  // Configura projeção ortográfica
-  void setOrthographicProjection();
-
-  // Restaura projeção perspectiva
-  void resetPerspectiveProjection();
-
-  // Projeta um ponto 3D para espaço de janela
-  bool projectPoint(const float obj[3],
-                    const GLfloat modelview[16],
-                    const GLfloat projection[16],
-                    const GLint viewport[4],
+    bool projectPoint(const float obj[3],
+                    const glm::mat4& modelview,
+                    const glm::mat4& projection,
+                    const glm::vec4& viewport,
                     float &winX, float &winY);
 
-  // Converte mouse para mundo e restringe ao eixo ativo
-  void map3DTo2D(const glm::vec3& pt,
+    void map3DTo2D(const glm::vec3& pt,
                  double mouseX, double mouseY,
+                 const glm::mat4& modelMat,
+                 const glm::mat4& projMat,
+                 const glm::vec4& viewport,
                  float depth,
                  float axisLength);
 
-  // Distância 2D de ponto a segmento (hit-testing de eixo)
-  float distanceToSegment(float px, float py,
+    float distanceToSegment(float px, float py,
                           float ax, float ay,
                           float bx, float by);
 
-  // Ponto mais próximo em segmento para um raio
-  float closestPointOnSegmentToRay(const glm::vec3& rayO, const glm::vec3& rayD,
+    float closestPointOnSegmentToRay(const glm::vec3& rayO, const glm::vec3& rayD,
                                    const glm::vec3& segA, const glm::vec3& segB,
                                    float& outDist);
 
-} // namespace framework
+    void updateProjection();
+}
 
-#endif /* PROJECTION_H_ */
+#endif

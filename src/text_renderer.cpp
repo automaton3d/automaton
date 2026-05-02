@@ -1,9 +1,7 @@
 /*
  * text_renderer.cpp
- *
- *  Created on: 26 de out. de 2025
- *      Author: Alexandre
  */
+//#pragma message("ft2build.h incluído de: " __FILE__)
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -14,76 +12,70 @@
 
 bool TextRenderer::init(const std::string& fontPath, int fontSize, unsigned int shader)
 {
-    shaderID = shader;
+	shaderID = shader;
 
-    FT_Library ft;
-    if (FT_Init_FreeType(&ft))
-    {
-        std::cerr << "ERROR::FREETYPE: Could not init FreeType Library\n";
-        return false;
-    }
+	    FT_Library ft;
+	    if (FT_Init_FreeType(&ft)) {
+	        std::cerr << "ERROR::FREETYPE: Could not init FreeType Library\n";
+	        return false;
+	    }
 
-    FT_Face face;
-    if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
-    {
-        std::cerr << "ERROR::FREETYPE: Failed to load font '" << fontPath << "'\n";
-        FT_Done_FreeType(ft);
-        return false;
-    }
+	    FT_Face face;
+	    if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
+	        std::cerr << "ERROR::FREETYPE: Failed to load font '" << fontPath << "'\n";
+	        FT_Done_FreeType(ft);
+	        return false;
+	    }
 
-    FT_Set_Pixel_Sizes(face, 0, fontSize);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);   // for all glyphs
+	    FT_Set_Pixel_Sizes(face, 0, fontSize);
+	    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    for (unsigned char c = 0; c < 128; ++c)
-    {
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER))
-        {
-            std::cerr << "ERROR::FREETYPE: Failed to load glyph '" << c << "'\n";
-            continue;
-        }
+	    // ✅ Guardar métricas globais da fonte (uma vez só)
+	    fontSizePx = fontSize;
+	    float scale = static_cast<float>(fontSize) / static_cast<float>(face->units_per_EM);
+	    ascenderPx  = face->ascender  * scale;
+	    descenderPx = face->descender * scale;
 
-        // -------------------------------------------------------------
-        //  Generate texture for the glyph
-        // -------------------------------------------------------------
-        unsigned int texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RED,
-            face->glyph->bitmap.width,
-            face->glyph->bitmap.rows,
-            0,
-            GL_RED,
-            GL_UNSIGNED_BYTE,
-            face->glyph->bitmap.buffer
-        );
+	    // Carregar os glyphs
+	    for (unsigned char c = 0; c < 128; ++c) {
+	        if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+	            std::cerr << "ERROR::FREETYPE: Failed to load glyph '" << c << "'\n";
+	            continue;
+	        }
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        // Map single-channel (red) glyph texture to alpha; RGB forced to 1.0 (white)
-        GLint swizzleMask[] = { GL_ONE, GL_ONE, GL_ONE, GL_RED };
-        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
+	        unsigned int texture;
+	        glGenTextures(1, &texture);
+	        glBindTexture(GL_TEXTURE_2D, texture);
+	        glTexImage2D(
+	            GL_TEXTURE_2D,
+	            0,
+	            GL_RED,
+	            face->glyph->bitmap.width,
+	            face->glyph->bitmap.rows,
+	            0,
+	            GL_RED,
+	            GL_UNSIGNED_BYTE,
+	            face->glyph->bitmap.buffer
+	        );
 
+	        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	        GLint swizzleMask[] = { GL_ONE, GL_ONE, GL_ONE, GL_RED };
+	        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
 
+	        Character character = {
+	            texture,
+	            glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
+	            glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+	            static_cast<unsigned int>(face->glyph->advance.x)
+	        };
+	        Characters.emplace(c, character);
+	    }
 
-
-
-
-        Character character = {
-            texture,
-            glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-            glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-            static_cast<unsigned int>(face->glyph->advance.x)
-        };
-        Characters.emplace(c, character);
-    }
-
-    FT_Done_Face(face);
-    FT_Done_FreeType(ft);
+	    FT_Done_Face(face);
+	    FT_Done_FreeType(ft);
 
     // -------------------------------------------------------------
     //  VAO / VBO for rendering quads
@@ -113,6 +105,7 @@ void TextRenderer::RenderText(const std::string& text,
                                       static_cast<float>(screenHeight));
 
     glUseProgram(shaderID);
+    glDisable(GL_DEPTH_TEST);  // No depth testing for text
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -154,6 +147,8 @@ void TextRenderer::RenderText(const std::string& text,
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);  // ✅ Add this
+    glUseProgram(0);  // ✅ Add this if not presen
 }
 
 void TextRenderer::RenderText(const std::string& text,

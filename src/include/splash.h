@@ -1,38 +1,38 @@
-/*
- * splash.h (merged core + legacy)
- */
+// splash.h - Single-window version (2025 fixed)
+#pragma once
 
-#ifndef SPLASH_H_
-#define SPLASH_H_
-
-#include <iostream>
-#include <vector>
-#include <string>
-#include <cstdio>
 #include <GLFW/glfw3.h>
-#include "model/simulation.h"
-#include "stb_image.h"
 
-// ✅ Window dimensions
-constexpr int WINDOW_WIDTH  = 600;
-constexpr int WINDOW_HEIGHT = 700; // taller to fit Replay button etc.
+// Forward declaration — this is the only function main.cpp should call
+int runSplash(GLFWwindow* existingWindow);
+void display();
 
-// ✅ Forward declarations for simulation entry points
-int runSimulation(int scenario, bool paused);
-int runReplay();
-int runStatistics();
+/* -------------------------------------------------------------
+   Public data that main.cpp needs after splash screen
+   ------------------------------------------------------------- */
+namespace splash {
+    // User-selected lattice parameters
+    extern int lattice_size;
+    extern int numLayers;
 
-// ✅ Utility functions
-void drawRaisedPanel(float x, float y, float w, float h);
-void drawTitle(int w, int h);
-void display(GLFWwindow* window);
+    extern std::vector<std::string> scenarioOptions;
 
-// ✅ Callbacks
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-void closeCallback(GLFWwindow* window);
-void passiveMotionCallback(GLFWwindow* window, double xpos, double ypos);
+    // Selected scenario index (0..7)
+    inline int getSelectedScenario() {
+        extern int getSelectedScenarioImpl(); // implemented in splash.cpp
+        return getSelectedScenarioImpl();
+    }
 
-#endif /* SPLASH_H_ */
+    // Whether "Start Paused" was checked
+    inline bool getStartPaused() {
+        extern bool getStartPausedImpl();
+        return getStartPausedImpl();
+    }
+
+    // Call this if you want to reset to defaults (optional)
+    void resetDefaults();
+
+
+    int initialize(GLFWwindow* window);
+    void cleanup();
+}

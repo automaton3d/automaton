@@ -42,6 +42,9 @@ public:
 
     // Para a versão simples funcionar, precisamos saber o tamanho da janela
     void setScreenSize(int width, int height) { screenW = width; screenH = height; }
+    float getAscenderPx() const { return ascenderPx; }
+    float getDescenderPx() const { return descenderPx; }
+    int   getFontSizePx() const { return fontSizePx; }
 
 private:
     std::map<char, Character> Characters;
@@ -50,6 +53,9 @@ private:
 
     // Tamanho da janela atual (usado pelas versões simplificadas)
     int screenW = 800, screenH = 600;
+    float ascenderPx = 0.0f;
+    float descenderPx = 0.0f;
+    int fontSizePx = 0;
 };
 
 #endif // TEXT_RENDERER_H

@@ -1,6 +1,8 @@
 // MenuSystem.cpp
 #include "menubar.h"
 #include "text_renderer.h"
+#include "projection_manager.h"
+#include "globals.h"
 
 // MenuItem Implementation
 MenuItem::MenuItem(const std::string& label,
@@ -20,8 +22,8 @@ void MenuItem::Render(TextRenderer* r, float x, float y, float w, float h, bool 
     
     // Render text with smaller scale (0.4 instead of 0.8)
     glm::vec3 color = hovered ? glm::vec3(1.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
-    float textY = y + 8.0f;  // Position text 8 pixels up from bottom
-    r->RenderText(label, x + 12.0f, textY, 0.6f, color, screenW, screenH);
+    float textY = y - 8.0f;
+    r->RenderText(label, x + 12.0f, textY, 0.35f, color, screenW, screenH);
 }
 
 bool MenuItem::HandleClick(float mouseX, float mouseY, float x, float y, float width, float height) {
@@ -42,8 +44,6 @@ void Menu::AddItem(const std::string& label,
 
 void Menu::Render(TextRenderer* r, float x, float y, float w, bool open, MenuBar* menuBar)
 {
-    float barHeight = 30.0f;
-
     if (!r) {
         std::cerr << "ERROR: Menu textRenderer is NULL!" << std::endl;
         return;
@@ -52,26 +52,29 @@ void Menu::Render(TextRenderer* r, float x, float y, float w, bool open, MenuBar
     int screenW = menuBar ? (int)menuBar->GetWidth() : 1920;
     int screenH = menuBar ? (int)menuBar->GetHeight() : 1080;
 
-    float titleY = y + 8.0f;
-    r->RenderText(title, x + 12.0f, titleY, 0.6f,
+    // Render the menu title text (y is the top edge of the bar)
+    float titleY = y - 7.0f;
+    r->RenderText(title, x + 12.0f, titleY, 0.35f,
                   glm::vec3(1.0f, 1.0f, 1.0f), screenW, screenH);
 
+    // Only render dropdown if menu is open
     if (!open) return;
 
     float ih = 26.0f;
     float dw = 180.0f;
     float dh = items.size() * ih;
 
-    // Dropdown starts just below the bar
-    float dropdownY = y - dh;
+    // Dropdown extends downward from the bar
+    float dropdownY = MenuBar::TITLE_BAR_OFFSET + 17;
 
+    // Render dropdown background
     if (menuBar) {
         menuBar->RenderQuad(x, dropdownY, dw, dh, glm::vec4(0.2f, 0.2f, 0.2f, 0.95f));
     }
 
+    // Render dropdown items
     for (size_t i = 0; i < items.size(); ++i) {
         bool hov = (int)i == hoveredItem;
-        // Each item goes downward from the top of the dropdown
         float itemY = y - (i + 1) * ih;
 
         if (hov && menuBar) {
@@ -142,7 +145,7 @@ void MenuBar::RenderQuad(float x, float y, float w, float h, glm::vec4 col)
     glUseProgram(shaderProgram);
 
     // Use BOTTOM-left origin to match TextRenderer
-    glm::mat4 proj = glm::ortho(0.0f, width, 0.0f, height, -1.0f, 1.0f);
+    glm::mat4 proj = ProjectionManager::instance().get2DOrtho();
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(proj));
     glUniform4fv(glGetUniformLocation(shaderProgram, "color"), 1, glm::value_ptr(col));
@@ -167,6 +170,7 @@ void MenuBar::RenderQuad(float x, float y, float w, float h, glm::vec4 col)
 }
 
 void MenuBar::Render() {
+    float screenH = height;
     // Save current OpenGL state
     GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
     GLboolean blendEnabled = glIsEnabled(GL_BLEND);
@@ -182,23 +186,15 @@ void MenuBar::Render() {
     }
     
     // Render bar background at the TOP of the screen
-    // In bottom-origin coordinates, top = height - barHeight
-    float barY = height - barHeight;
-    RenderQuad(0.0f, barY, width, barHeight, glm::vec4(0.15f, 0.15f, 0.15f, 1.0f));
+    float barY = screenH - TITLE_BAR_OFFSET;
+    float barBottomY = gViewport[3] - (barY + barHeight / 2);     // Bottom edge of the bar
+    RenderQuad(0.0f, barBottomY, width, barHeight, glm::vec4(0.2f, 0.2f, 0.2f, 1.0f));
 
     float menuWidth = 100.0f;
     float currentX = 0.0f;
 
-    // Debug output
-    static bool debugOnce = true;
-    if (debugOnce) {
-        std::cout << "MenuBar Render: width=" << width << " height=" << height 
-                  << " barY=" << barY << " menus=" << menus.size() << std::endl;
-        debugOnce = false;
-    }
-
     for (size_t i = 0; i < menus.size(); ++i) {
-        bool open = (i == activeMenu);
+        bool open = (i == (size_t)activeMenu);
         menus[i]->Render(textRenderer, currentX, barY, menuWidth, open, this);
         currentX += menuWidth;
     }
@@ -208,7 +204,8 @@ void MenuBar::Render() {
     if (!blendEnabled) glDisable(GL_BLEND);
 }
 
-void MenuBar::HandleMouse(double mouseX, double mouseY, int windowWidth, int windowHeight) {
+// Replace the MenuBar::HandleMouse function in menubar.cpp with this:
+void MenuBar::HandleMouse(double mouseX, double mouseY, int windowWidth, int windowHeight, bool isPress) {
     // Convert mouse Y from top-origin to bottom-origin
     float bottomMouseY = windowHeight - mouseY;
 
@@ -217,6 +214,11 @@ void MenuBar::HandleMouse(double mouseX, double mouseY, int windowWidth, int win
 
     // Bar bounds
     bool insideBar = (bottomMouseY >= barY && bottomMouseY <= barY + barHeight);
+
+    // ONLY handle clicks on PRESS events, not RELEASE
+    if (!isPress) {
+        return;
+    }
 
     // If click is inside the bar, handle toggling/opening
     if (insideBar) {
@@ -265,4 +267,8 @@ void MenuBar::HandleMouse(double mouseX, double mouseY, int windowWidth, int win
 void MenuBar::Resize(float newWidth, float newHeight) {
     width = newWidth;
     height = newHeight;
+}
+
+bool MenuBar::IsMenuOpen() {
+    return activeMenu != -1;
 }

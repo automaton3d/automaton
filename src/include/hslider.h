@@ -1,7 +1,5 @@
 /*
- * hslider.h
- *
- * A horizontal slider object
+ * hslider.h — FIXED VERSION with callback support
  */
 
 #ifndef HSLIDER_H_
@@ -9,226 +7,177 @@
 
 #include <glm/glm.hpp>
 #include <algorithm>
+#include <functional>
 #include <GLFW/glfw3.h>
 #include "draw_utils.h"
+#include "projection_manager.h"
 
 namespace framework
 {
-  class HSlider
-  {
-  private:
-    float x_, y_;           // Bottom-left corner of the track
-    float width_, height_;  // Dimensions of the track
-    float thumbX_;          // Current X position of the thumb
-    float thumbWidth_;      // Width of the thumb
-    bool dragging_;         // Is the thumb being dragged?
-    float dragOffsetX_;     // Offset from thumb left edge when drag started
-    bool hoverReset_;       // Is mouse hovering over reset triangle?
-
-  public:
-    HSlider(float x, float y, float width, float height, float thumbWidth)
-        : x_(x), y_(y), width_(width), height_(height),
-          thumbX_(x), thumbWidth_(thumbWidth),
-          dragging_(false), dragOffsetX_(0.0f), hoverReset_(false)
-    {}
-
-    // Default constructor for deferred initialization
-    HSlider()
-        : x_(0.0f), y_(0.0f), width_(100.0f), height_(20.0f),
-          thumbX_(0.0f), thumbWidth_(20.0f),
-          dragging_(false), dragOffsetX_(0.0f), hoverReset_(false)
-    {}
-
-    void draw(int winW, int winH) const
+    class HSlider
     {
-      // Track background
-      drawQuad2D(x_, y_, x_ + width_, y_ + height_,
-                 glm::vec3(0.6f, 0.6f, 0.6f), winW, winH);
+    private:
+        float x_ = 0.0f, y_ = 0.0f;           // Top-left corner (top-left origin)
+        float width_ = 200.0f, height_ = 20.0f;
+        float thumbX_ = 0.0f;
+        float thumbWidth_ = 30.0f;
+        bool dragging_ = false;
+        float dragOffsetX_ = 0.0f;
+        bool hoverReset_ = false;
 
-      // Thumb
-      drawQuad2D(thumbX_, y_, thumbX_ + thumbWidth_, y_ + height_,
-                 glm::vec3(0.2f, 0.2f, 0.8f), winW, winH);
+        // Callback for when value changes
+        std::function<void(float)> onValueChanged_;
 
-      // Thumb outline
-      drawLineLoop2D({{thumbX_ - 1, y_ - 1},
-                      {thumbX_ + thumbWidth_ + 1, y_ - 1},
-                      {thumbX_ + thumbWidth_ + 1, y_ + height_ + 1},
-                      {thumbX_ - 1, y_ + height_ + 1}},
-                     glm::vec3(0.0f, 0.7f, 0.9f), winW, winH, 1.0f);
+        const glm::mat4& proj() const { return ProjectionManager::instance().get2DOrtho(); }
 
-      // Reset triangle (ABOVE track, pointing DOWNWARD)
-      float triBaseX = x_ + width_ * 0.5f;
-      float triBaseY = y_ + height_ + 10.0f;  // Above the track
-      float triSize  = 10.0f;
+    public:
+        HSlider() = default;
+        HSlider(float x, float y, float width, float height = 20.0f, float thumbWidth = 30.0f)
+            : x_(x), y_(y), width_(width), height_(height),
+              thumbX_(x), thumbWidth_(thumbWidth) {}
 
-      glm::vec3 triColor = hoverReset_ ? glm::vec3(1.0f, 0.7f, 0.1f)
-                                       : glm::vec3(0.8f, 0.3f, 0.2f);
-
-      // Triangle pointing DOWN (tip at bottom)
-      drawTriangle2D({{triBaseX - triSize / 2.0f, triBaseY + triSize},  // top-left
-                      {triBaseX + triSize / 2.0f, triBaseY + triSize},  // top-right
-                      {triBaseX, triBaseY}},                             // bottom (tip)
-                     triColor, winW, winH);
-
-      drawLineLoop2D({{triBaseX - triSize / 2.0f, triBaseY + triSize},
-                      {triBaseX + triSize / 2.0f, triBaseY + triSize},
-                      {triBaseX, triBaseY}},
-                     glm::vec3(0.2f, 0.2f, 0.2f), winW, winH, 1.0f);
-    }
-
-    // Handle mouse button events
-    void onMouseButton(int button, int action, int mouseX, int mouseY, int windowHeight)
-    {
-      // Convert mouseY from top-origin to bottom-origin
-      float bottomY = windowHeight - mouseY;
-
-      if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
-      {
-        // Check thumb click
-        if (mouseX >= thumbX_ && mouseX <= thumbX_ + thumbWidth_ &&
-            bottomY >= y_ && bottomY <= y_ + height_)
+        void draw() const
         {
-          dragging_ = true;
-          dragOffsetX_ = mouseX - thumbX_;
-          return;
+            const glm::mat4& P = proj();
+
+            // Track
+            drawQuad2D(x_, y_, x_ + width_, y_ + height_,
+                       glm::vec3(0.60f, 0.60f, 0.65f), P);
+
+            // Thumb
+            drawQuad2D(thumbX_, y_, thumbX_ + thumbWidth_, y_ + height_,
+                       glm::vec3(0.20f, 0.20f, 0.80f), P);
+
+            // Thumb outline
+            drawLineLoop2D({
+                {thumbX_ - 1, y_ - 1},
+                {thumbX_ + thumbWidth_ + 1, y_ - 1},
+                {thumbX_ + thumbWidth_ + 1, y_ + height_ + 1},
+                {thumbX_ - 1, y_ + height_ + 1}
+            }, glm::vec3(0.0f, 0.7f, 1.0f), P, 2.0f);
+
+            // Reset triangle ABOVE track, pointing DOWN
+            float triBaseX = x_ + width_ * 0.5f;
+            float triBaseY = y_ - 12.0f;  // ABOVE the slider (negative Y in top-left origin)
+            float triSize  = 10.0f;
+
+            glm::vec3 triColor = hoverReset_ ? glm::vec3(1.0f, 0.75f, 0.2f)
+                                             : glm::vec3(0.9f, 0.4f, 0.1f);
+
+            // Triangle pointing DOWN: tip at bottom
+            std::vector<glm::vec2> tri = {
+                {triBaseX - triSize/2, triBaseY - triSize},  // top-left
+                {triBaseX + triSize/2, triBaseY - triSize},  // top-right
+                {triBaseX,             triBaseY}             // bottom tip (pointing down)
+            };
+
+            std::vector<glm::vec2> fan = {
+                {triBaseX, triBaseY - triSize/2},  // center
+                tri[0], tri[1], tri[2], tri[0]
+            };
+            drawTriangleFan2D(fan, triColor, P);
+            drawLineLoop2D(tri, glm::vec3(0.1f), P, 2.0f);
         }
 
-        // Check reset triangle click (downward-pointing triangle above track)
-        float triBaseX = x_ + width_ * 0.5f;
-        float triBaseY = y_ + height_ + 10.0f;
-        float triSize  = 10.0f;
-        float minX = triBaseX - triSize / 2.0f;
-        float maxX = triBaseX + triSize / 2.0f;
-        float minY = triBaseY;                    // tip of triangle
-        float maxY = triBaseY + triSize;          // base of triangle
-
-        if (mouseX >= minX && mouseX <= maxX &&
-            bottomY >= minY && bottomY <= maxY)
+        void onMouseButton(int button, int action, int mouseX, int mouseY)
         {
-          setThumbPosition(0.5f);
-          return;
+            if (button != GLFW_MOUSE_BUTTON_LEFT) return;
+
+            if (action == GLFW_PRESS)
+            {
+                // Click on thumb → start dragging
+                if (mouseX >= thumbX_ && mouseX <= thumbX_ + thumbWidth_ &&
+                    mouseY >= y_ && mouseY <= y_ + height_)
+                {
+                    dragging_ = true;
+                    dragOffsetX_ = mouseX - thumbX_;
+                    return;
+                }
+
+                // Click on reset triangle → center slider
+                float triBaseX = x_ + width_ * 0.5f;
+                float triBaseY = y_ - 12.0f;
+                float triSize = 10.0f;
+
+                if (mouseX >= triBaseX - triSize/2 && mouseX <= triBaseX + triSize/2 &&
+                    mouseY >= triBaseY - triSize && mouseY <= triBaseY)
+                {
+                    setValue(0.5f);
+                    // Trigger callback when reset is clicked
+                    if (onValueChanged_) {
+                        onValueChanged_(0.5f);
+                    }
+                }
+            }
+            else if (action == GLFW_RELEASE)
+            {
+                dragging_ = false;
+            }
         }
-      }
-      else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-      {
-        dragging_ = false;
-      }
-    }
 
-    void onMouseMove(int mouseX, int mouseY, int windowHeight)
-    {
-      // Convert mouseY from top-origin to bottom-origin
-      float bottomY = windowHeight - mouseY;
+        void onMouseMove(int mouseX, int mouseY)
+        {
+            float triBaseX = x_ + width_ * 0.5f;
+            float triBaseY = y_ - 12.0f;
+            float triSize = 10.0f;
 
-      float triBaseX = x_ + width_ * 0.5f;
-      float triBaseY = y_ + height_ + 10.0f;
-      float triSize  = 10.0f;
-      float minX = triBaseX - triSize / 2.0f;
-      float maxX = triBaseX + triSize / 2.0f;
-      float minY = triBaseY;
-      float maxY = triBaseY + triSize;
+            hoverReset_ = (mouseX >= triBaseX - triSize/2 && mouseX <= triBaseX + triSize/2 &&
+                           mouseY >= triBaseY - triSize && mouseY <= triBaseY);
+        }
 
-      hoverReset_ = (mouseX >= minX && mouseX <= maxX &&
-                     bottomY >= minY && bottomY <= maxY);
-    }
+        void onMouseDrag(int mouseX, int /*mouseY*/)
+        {
+            if (dragging_)
+            {
+                float oldValue = getValue();
+                thumbX_ = mouseX - dragOffsetX_;
+                thumbX_ = std::clamp(thumbX_, x_, x_ + width_ - thumbWidth_);
 
-    void onMouseDrag(int mouseX, int mouseY, int windowHeight)
-    {
-      if (dragging_)
-      {
-        thumbX_ = mouseX - dragOffsetX_;
-        thumbX_ = std::clamp(thumbX_, x_, x_ + width_ - thumbWidth_);
-      }
-    }
+                // Trigger callback if value changed during drag
+                float newValue = getValue();
+                if (onValueChanged_ && std::abs(newValue - oldValue) > 0.001f) {
+                    onValueChanged_(newValue);
+                }
+            }
+        }
 
-    /**
-     * Resize and recenter the slider horizontally when window size changes.
-     * Maintains the current slider value (thumb position ratio).
-     */
-    void resize(int winW, int winH)
-    {
-      // Save current value (0.0 to 1.0)
-      float currentValue = getValue();
-      
-      // Recalculate centered X position
-      x_ = (winW - width_) / 2.0f;
-      
-      // Restore thumb position based on saved value
-      setValue(currentValue);
-    }
+        float getValue() const
+        {
+            if (width_ <= thumbWidth_) return 0.0f;
+            return (thumbX_ - x_) / (width_ - thumbWidth_);
+        }
 
-    // Value operations (0.0 to 1.0)
-    float getValue() const 
-    { 
-      if (width_ <= thumbWidth_) return 0.0f;
-      return (thumbX_ - x_) / (width_ - thumbWidth_); 
-    }
+        void setValue(float v)
+        {
+            float clamped = std::clamp(v, 0.0f, 1.0f);
+            thumbX_ = x_ + clamped * (width_ - thumbWidth_);
+        }
 
-    void setValue(float value) 
-    {
-      float clamped = std::clamp(value, 0.0f, 1.0f);
-      thumbX_ = x_ + clamped * (width_ - thumbWidth_);
-    }
+        void recenter(int windowWidth)
+        {
+            float v = getValue();
+            x_ = (windowWidth - width_) * 0.5f;
+            setValue(v);
+        }
 
-    void setThumbPosition(float pos) 
-    {
-      setValue(pos); // Use setValue for consistency
-    }
+        // Set callback for value changes
+        void setOnValueChanged(std::function<void(float)> callback) {
+            onValueChanged_ = callback;
+        }
 
-    // Index-based operations for scrolling/selection
-    int getFirstIndex(int totalItems, int windowSize = 25) const 
-    {
-      if (totalItems <= windowSize) return 0;
-      int maxFirst = totalItems - windowSize;
-      float v = getValue();
-      int index = static_cast<int>(v * maxFirst + 0.5f);
-      return std::clamp(index, 0, maxFirst);
-    }
+        // Getters
+        float getX()      const { return x_; }
+        float getY()      const { return y_; }
+        float getWidth()  const { return width_; }
+        float getHeight() const { return height_; }
+        bool  isDragging() const { return dragging_; }
+        bool  isHoveringReset() const { return hoverReset_; }
 
-    int getSliceIndex(int totalSlices) const 
-    {
-      if (totalSlices <= 1) return 0;
-      float v = getValue();
-      int index = static_cast<int>(v * (totalSlices - 1) + 0.5f);
-      return std::clamp(index, 0, totalSlices - 1);
-    }
-
-    // State queries
-    bool isDragging() const { return dragging_; }
-    bool isHoveringReset() const { return hoverReset_; }
-
-    // Getters for layout
-    float getX() const { return x_; }
-    float getY() const { return y_; }
-    float getWidth() const { return width_; }
-    float getHeight() const { return height_; }
-    float getThumbX() const { return thumbX_; }
-    float getThumbWidth() const { return thumbWidth_; }
-
-    // Setters for repositioning
-    void setPosition(float x, float y) 
-    { 
-      float currentValue = getValue();
-      x_ = x; 
-      y_ = y; 
-      setValue(currentValue); // Preserve slider position
-    }
-
-    void setSize(float width, float height) 
-    { 
-      float currentValue = getValue();
-      width_ = width; 
-      height_ = height; 
-      setValue(currentValue); // Preserve slider position
-    }
-
-    void setThumbWidth(float thumbWidth)
-    {
-      float currentValue = getValue();
-      thumbWidth_ = thumbWidth;
-      setValue(currentValue); // Preserve slider position
-    }
-  };
+        // Setters
+        void setPosition(float x, float y) { float v = getValue(); x_ = x; y_ = y; setValue(v); }
+        void setSize(float w, float h)     { float v = getValue(); width_ = w; height_ = h; setValue(v); }
+        void setThumbWidth(float w)        { float v = getValue(); thumbWidth_ = w; setValue(v); }
+    };
 
 } // namespace framework
 

@@ -9,6 +9,8 @@
 #include "text_renderer.h"
 #include "dropdown.h"
 #include "globals.h"
+#include "projection.h"
+#include "tomography.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -16,9 +18,9 @@
 #include <map>
 #include <iostream>
 #include <cmath>
+#include "app_context.h"
 
-AxisProjection gAxisProj[3];
-bool gAxisProjValid = false;
+extern AppContext ctx;
 
 namespace automaton {
   extern unsigned EL;
@@ -29,16 +31,16 @@ namespace automaton {
   extern std::vector<Cell> lattice_curr;
 }
 
+// From core (shared color shader)
+extern GLuint colorProgram3D;
+extern GLint colorMvpLoc3D, colorColorLoc3D;
+extern Mode currentMode;
+
 namespace framework {
-  extern int GUImode;
-  extern bool MULTICUBE_MODE;
-  extern Tickbox *tomo;
+  extern TextRenderer hudText;
   extern std::unique_ptr<LayerList> layerList;
   extern std::vector<Tickbox> data3D;
 
-  // From core (shared color shader)
-  extern GLuint colorProgram3D;
-  extern GLint colorMvpLoc3D, colorColorLoc3D;
 
   // Variáveis de visualização (declaradas como extern, definidas em GUI.cpp)
   extern int vis_dx;
@@ -46,6 +48,10 @@ namespace framework {
   extern int vis_dz;
 
   using namespace automaton;
+
+  inline int mod(int a, int b) {
+      return ((a % b) + b) % b;
+  }
 
   // ---------------------------------------------------------------------
   // Helpers: shader-based primitive drawing
@@ -127,11 +133,7 @@ namespace framework {
     glDeleteVertexArrays(1, &vao);
   }
 
-  // ---------------------------------------------------------------------
-  // Legacy functions modernized
-  // ---------------------------------------------------------------------
-
-  void GUIrenderer::renderMomentum()
+  void renderMomentum(AppContext& ctx)
   {
     const float GRID_SIZE = 0.5f / EL;
     const int CENTER_INT = EL / 2;
@@ -145,7 +147,7 @@ namespace framework {
           int wz=(z+vis_dz+EL)%EL;
           if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
             float px,py,pz;
-            if (GUImode==REPLAY) {
+            if (currentMode==REPLAY) {
               auto& c=lcenters[layerList->getSelected()];
               px=(int)(x-c[0])*GRID_SIZE;
               py=(int)(y-c[1])*GRID_SIZE;
@@ -159,12 +161,15 @@ namespace framework {
           }
         }
 
-    // MVP is set by outer matrices (mProjection_ * camera), here we draw in local space
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
     drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 4.0f);
   }
 
-  void GUIrenderer::renderSpin()
+  void renderSpin()
   {
     const float GRID_SIZE=0.5f/EL;
     const int CENTER_INT=EL/2;
@@ -176,7 +181,7 @@ namespace framework {
           int wx=(x+vis_dx+EL)%EL;
           int wy=(y+vis_dy+EL)%EL;
           int wz=(z+vis_dz+EL)%EL;
-          if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
+          if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).sB) {
             float px=(int)(x-CENTER_INT)*GRID_SIZE;
             float py=(int)(y-CENTER_INT)*GRID_SIZE;
             float pz=(int)(z-CENTER_INT)*GRID_SIZE;
@@ -184,36 +189,48 @@ namespace framework {
           }
         }
 
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
+
+
     drawPoints(pts, glm::vec3(0.0f,1.0f,1.0f), mvp, 4.0f);
   }
 
-  void GUIrenderer::renderSineMask()
+  void renderSineMask()
   {
-    const float GRID_SIZE=0.5f/EL;
-    const int CENTER_INT=EL/2;
-    std::vector<glm::vec3> pts;
+      const float GRID_SIZE=0.5f/EL;
+      const int CENTER_INT=EL/2;
+      std::vector<glm::vec3> pts;
 
-    for (unsigned x=0;x<EL;x++)
-      for (unsigned y=0;y<EL;y++)
-        for (unsigned z=0;z<EL;z++) {
-          if (!isVoxelVisible(x,y,z)) continue;
-          int wx=(x+vis_dx+EL)%EL;
-          int wy=(y+vis_dy+EL)%EL;
-          int wz=(z+vis_dz+EL)%EL;
-          if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
-            float px=(int)(x-CENTER_INT)*GRID_SIZE;
-            float py=(int)(y-CENTER_INT)*GRID_SIZE;
-            float pz=(int)(z-CENTER_INT)*GRID_SIZE;
-            pts.emplace_back(px,py,pz);
+      for (unsigned x=0;x<EL;x++)
+        for (unsigned y=0;y<EL;y++)
+          for (unsigned z=0;z<EL;z++) {
+            // Use tomography::isVoxelVisible instead of framework::isVoxelVisible
+            if (tomoEnable && tomoEnable->getState() && !tomography::isVoxelVisible(x,y,z)) continue;
+
+            int wx=(x+vis_dx+EL)%EL;
+            int wy=(y+vis_dy+EL)%EL;
+            int wz=(z+vis_dz+EL)%EL;
+            if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).phiB) {
+              float px=(int)(x-CENTER_INT)*GRID_SIZE;
+              float py=(int)(y-CENTER_INT)*GRID_SIZE;
+              float pz=(int)(z-CENTER_INT)*GRID_SIZE;
+              pts.emplace_back(px,py,pz);
+            }
           }
-        }
 
-    glm::mat4 mvp = glm::mat4(1.0f);
-    drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 1.0f);
+      glm::mat4 view = ctx.camera.GetViewMatrix();
+      glm::mat4 projection = framework::mProjection_;
+      glm::mat4 model = glm::mat4(1.0f);
+      glm::mat4 mvp = projection * view * model;
+
+      drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 1.7f);
   }
 
-  void GUIrenderer::renderHunting()
+  void renderHunting()
   {
     const float GRID_SIZE=0.5f/EL;
     const int CENTER_INT=EL/2;
@@ -233,37 +250,49 @@ namespace framework {
           }
         }
 
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
+
     drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 5.0f);
   }
 
-  void GUIrenderer::renderWavefront()
+  void renderWavefront()
   {
-    const float GRID_SIZE=0.5f/EL;
-    const int CENTER_INT=EL/2;
-    std::vector<glm::vec3> pts;
+	  const float CELL_SPACING = 0.5f / EL;  // Changed from 1.0f to 0.5f
+	  const float VOXEL_SIZE = CELL_SPACING / 4.0f;
+      const int CENTER_INT = EL / 2;
+      std::vector<glm::vec3> faces;
 
-    for (unsigned x=0;x<EL;x++)
-      for (unsigned y=0;y<EL;y++)
-        for (unsigned z=0;z<EL;z++) {
-          uint32_t color=voxels[x*automaton::L2+y*EL+z];
-          if (color==0) continue;
-          float px=((int)((x+vis_dx)%EL)-CENTER_INT)*GRID_SIZE;
-          float py=((int)((y+vis_dy)%EL)-CENTER_INT)*GRID_SIZE;
-          float pz=((int)((z+vis_dz)%EL)-CENTER_INT)*GRID_SIZE;
-          pts.emplace_back(px,py,pz);
-        }
+      for (unsigned x=0;x<EL;x++)
+        for (unsigned y=0;y<EL;y++)
+          for (unsigned z=0;z<EL;z++) {
+            uint32_t color = voxels[x*automaton::L2 + y*EL + z];
+            if (color==0) continue;
 
-    glm::mat4 mvp = glm::mat4(1.0f);
-    drawPoints(pts, glm::vec3(1.0f,0.5f,0.0f), mvp, 3.0f);
-    enhanceVoxel();
+            float px = (mod(x+vis_dx, EL) - CENTER_INT) * CELL_SPACING;
+            float py = (mod(y+vis_dy, EL) - CENTER_INT) * CELL_SPACING;
+            float pz = (mod(z+vis_dz, EL) - CENTER_INT) * CELL_SPACING;
+
+            auto cube = makeCube(px, py, pz, VOXEL_SIZE);
+            faces.insert(faces.end(), cube.begin(), cube.end());
+          }
+
+      glm::mat4 view = ctx.camera.GetViewMatrix();
+      glm::mat4 projection = framework::mProjection_;
+      glm::mat4 model = glm::mat4(1.0f);
+      glm::mat4 mvp = projection * view * model;
+
+      drawQuads(faces, glm::vec3(1.0f,0.5f,0.0f), mvp);
   }
 
-  void GUIrenderer::renderCenters()
+  void renderCenters()
   {
     screenPositions_.clear();
 
-    const float GRID_SIZE = 0.5f / EL;
+    const float GRID_SIZE = 0.5f / EL;  // Changed from 1.0f / EL
     const int CENTER_INT = EL / 2;
     std::vector<glm::vec3> pts;
     std::vector<glm::vec3> colors;
@@ -276,9 +305,9 @@ namespace framework {
       unsigned cz = center[2];
       Cell &cell = getCell(lattice_curr, cx, cy, cz, w);
 
-      float px = ((int)((int)cell.x[0] + vis_dx) - CENTER_INT) * GRID_SIZE;
-      float py = ((int)((int)cell.x[1] + vis_dy) - CENTER_INT) * GRID_SIZE;
-      float pz = ((int)((int)cell.x[2] + vis_dz) - CENTER_INT) * GRID_SIZE;
+      float px = ((int)(((int)cell.x[0] + vis_dx) % EL) - CENTER_INT) * GRID_SIZE;
+      float py = ((int)(((int)cell.x[1] + vis_dy) % EL) - CENTER_INT) * GRID_SIZE;
+      float pz = ((int)(((int)cell.x[2] + vis_dz) % EL) - CENTER_INT) * GRID_SIZE;
 
       float r = 0.7f + (w & 1) * 0.3f;
       float g = 0.7f + ((w >> 1) & 1) * 0.3f;
@@ -289,168 +318,142 @@ namespace framework {
     }
 
     // Draw centers per color
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
+
+
     for (size_t i=0;i<pts.size();++i) {
       drawPoints(std::vector<glm::vec3>{pts[i]}, colors[i], mvp, 8.0f);
     }
   }
 
-  /*
-  void GUIrenderer::renderAxes()
+  /**
+   * Renders the cartesian positive axes with labels and thumb indicator.
+   * Also caches axis projections for click detection.
+   */
+  void renderAxes()
   {
-    const float fullSize = 0.5f;
-    const float axisLength = fullSize * 0.75f;
-    const glm::vec3 colX(0.6f, 0.0f, 0.0f);
-    const glm::vec3 colY(0.0f, 0.6f, 0.0f);
-    const glm::vec3 colZ(0.3f, 0.3f, 0.8f);
+      const float fullSize = 0.5f;
+      const float axisLength = fullSize * 0.75f;
+      const float labelOffset = 0.02f;
 
-    std::vector<glm::vec3> linesX = { {0.f,0.f,0.f}, {axisLength,0.f,0.f} };
-    std::vector<glm::vec3> linesY = { {0.f,0.f,0.f}, {0.f,axisLength,0.f} };
-    std::vector<glm::vec3> linesZ = { {0.f,0.f,0.f}, {0.f,0.f,axisLength} };
+      // === 1. PREPARE MATRICES ===
+      glm::mat4 view = ctx.camera.GetViewMatrix();
+      glm::mat4 projection = framework::mProjection_;
+      glm::mat4 model = glm::mat4(1.0f);
+      glm::mat4 mvp = projection * view * model;
 
-    //glm::mat4 mvp = glm::mat4(1.0f);
-    //drawLines(linesX, colX, mvp, 2.0f);
-    //drawLines(linesY, colY, mvp, 2.0f);
-    //drawLines(linesZ, colZ, mvp, 2.0f);
+      // === 2. RENDER AXIS LINES ===
+      struct Vertex {
+          glm::vec3 pos;
+          glm::vec3 color;
+      };
 
-    // Labels (approximate; requires proper projection)
-    //if (textRenderer) {
-    //  textRenderer->RenderText("X", axisLength + 0.02f, -0.02f, 0.7f, 
-    //                           glm::vec3(1.f,0.f,0.f), w, h);
-    //  textRenderer->RenderText("Y", -0.02f, axisLength + 0.02f, 0.7f, 
-    //                           glm::vec3(0.f,1.f,0.f), w, h);
-    //  textRenderer->RenderText("Z", 0.0f, -0.02f, 0.7f, 
-    //                           glm::vec3(0.3f,0.3f,0.8f), w, h);
-    //}
-   glm::mat4 mvp = glm::mat4(1.0f);
-   drawLines(linesX, colX, mvp, 2.0f);
-   drawLines(linesY, colY, mvp, 2.0f);
-   drawLines(linesZ, colZ, mvp, 2.0f);
-    // Labels: render in screen space to avoid occlusion
-    if (textRenderer) {
-      glDisable(GL_DEPTH_TEST);
-      textRenderer->RenderText("X", gViewport[2]-40, gViewport[3]/2, 0.7f,
-                               glm::vec3(1.f,0.f,0.f), gViewport[2], gViewport[3]);
-      textRenderer->RenderText("Y", gViewport[2]/2, gViewport[3]-40, 0.7f,
-                               glm::vec3(0.f,1.f,0.f), gViewport[2], gViewport[3]);
-      textRenderer->RenderText("Z", 40, gViewport[3]/2, 0.7f,
-                               glm::vec3(0.3f,0.3f,0.8f), gViewport[2], gViewport[3]);
-      glEnable(GL_DEPTH_TEST);
-    }
+      std::vector<Vertex> axisVerts = {
+          // X-axis (red)
+          {{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+          {{axisLength, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+          // Y-axis (green)
+          {{0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+          {{0.0f, axisLength, 0.0f}, {0.0f, 1.0f, 0.0f}},
+          // Z-axis (blue)
+          {{0.0f, 0.0f, 0.0f}, {0.3f, 0.3f, 0.8f}},
+          {{0.0f, 0.0f, axisLength}, {0.3f, 0.3f, 0.8f}}
+      };
 
-    // Update axis projections for picking
-    gAxisProj[0].x0 = gAxisProj[1].x0 = gAxisProj[2].x0 = 0.0f;
-    gAxisProj[0].y0 = gAxisProj[1].y0 = gAxisProj[2].y0 = 0.0f;
-    gAxisProj[0].x1 = axisLength; gAxisProj[0].y1 = 0.0f;
-    gAxisProj[1].x1 = 0.0f;       gAxisProj[1].y1 = axisLength;
-    gAxisProj[2].x1 = 0.0f;       gAxisProj[2].y1 = axisLength;
-    gAxisProjValid = true;
+      glUseProgram(ctx.shader);
+      glUniformMatrix4fv(glGetUniformLocation(ctx.shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+      glUniformMatrix4fv(glGetUniformLocation(ctx.shader, "view"), 1, GL_FALSE, glm::value_ptr(view));
+      glUniformMatrix4fv(glGetUniformLocation(ctx.shader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+      GLuint vao, vbo;
+      glGenVertexArrays(1, &vao);
+      glGenBuffers(1, &vbo);
+      glBindVertexArray(vao);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBufferData(GL_ARRAY_BUFFER, axisVerts.size() * sizeof(Vertex), axisVerts.data(), GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+      glEnableVertexAttribArray(0);
+      glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
+      glEnableVertexAttribArray(1);
+
+      glLineWidth(2.0f);
+      glDrawArrays(GL_LINES, 0, (GLsizei)axisVerts.size());
+      glLineWidth(1.0f);
+
+      glBindVertexArray(0);
+      glDeleteBuffers(1, &vbo);
+      glDeleteVertexArrays(1, &vao);
+
+      // === 3. RENDER AXIS LABELS ===
+      hudText.RenderText("x", axisLength + labelOffset, -labelOffset, 0.7f,
+                         glm::vec3(1.0f, 0.0f, 0.0f), gViewport[2], gViewport[3]);
+      hudText.RenderText("y", -labelOffset, axisLength + labelOffset, 0.7f,
+                         glm::vec3(0.0f, 1.0f, 0.0f), gViewport[2], gViewport[3]);
+      hudText.RenderText("z", 0.0f, -labelOffset + axisLength, 0.7f,
+                         glm::vec3(0.3f, 0.3f, 0.8f), gViewport[2], gViewport[3]);
+
+      // === 4. RENDER THUMB INDICATOR (screen-space version – never lags) ===
+      if (thumb.active && gAxisProjValid)
+      {
+          float t = glm::clamp(thumb.position / axisLength, 0.0f, 1.0f);
+
+          float sx = gAxisProj[thumb.axis].x0 + t * (gAxisProj[thumb.axis].x1 - gAxisProj[thumb.axis].x0);
+          float sy = gAxisProj[thumb.axis].y0 + t * (gAxisProj[thumb.axis].y1 - gAxisProj[thumb.axis].y0);
+
+          hudText.RenderText("●", sx - 8, sy - 8, 1.0f,
+                             glm::vec3(0.0f, 1.0f, 1.0f), gViewport[2], gViewport[3]);
+      }
+
+      // === 5. CACHE AXIS PROJECTIONS FOR CLICK DETECTION ===
+      // Helper lambda to project 3D world position to 2D screen coordinates
+      auto project3Dto2D = [&](const glm::vec3& worldPos) -> glm::vec2 {
+          glm::vec4 clipSpace = mvp * glm::vec4(worldPos, 1.0f);
+          if (std::abs(clipSpace.w) < 1e-6f) return glm::vec2(0.0f);
+
+          glm::vec3 ndc = glm::vec3(clipSpace) / clipSpace.w;
+
+          // NDC -> screen (agora SEM inverter Y!)
+          float screenX = (ndc.x + 1.0f) * 0.5f * gViewport[2];
+          float screenY = (1.0f - ndc.y) * 0.5f * gViewport[3];  // ← AQUI ESTÁ A CORREÇÃO!
+
+          return glm::vec2(screenX, screenY);
+      };
+
+      // Project origin and all three axis endpoints
+      glm::vec2 origin = project3Dto2D(glm::vec3(0.0f, 0.0f, 0.0f));
+      glm::vec2 xEnd = project3Dto2D(glm::vec3(axisLength, 0.0f, 0.0f));
+      glm::vec2 yEnd = project3Dto2D(glm::vec3(0.0f, axisLength, 0.0f));
+      glm::vec2 zEnd = project3Dto2D(glm::vec3(0.0f, 0.0f, axisLength));
+
+      // Store in global axis projection array for click detection
+      // X axis
+      gAxisProj[0].x0 = origin.x;
+      gAxisProj[0].y0 = origin.y;
+      gAxisProj[0].x1 = xEnd.x;
+      gAxisProj[0].y1 = xEnd.y;
+
+      // Y axis
+      gAxisProj[1].x0 = origin.x;
+      gAxisProj[1].y0 = origin.y;
+      gAxisProj[1].x1 = yEnd.x;
+      gAxisProj[1].y1 = yEnd.y;
+
+      // Z axis
+      gAxisProj[2].x0 = origin.x;
+      gAxisProj[2].y0 = origin.y;
+      gAxisProj[2].x1 = zEnd.x;
+      gAxisProj[2].y1 = zEnd.y;
+
+      // Mark projections as valid
+      gAxisProjValid = true;
   }
-    */
 
-    /**
- * Renders the cartesian positive axes with labels.
- */
-void GUIrenderer::renderAxes()
-{
-    const float fullSize = 0.5f;
-    const float axisLength = fullSize * 0.75f;
-    const float labelOffset = 0.02f;
-
-    // --- Modern OpenGL axis lines ---
-    struct Vertex { glm::vec3 pos; glm::vec3 color; };
-    std::vector<Vertex> axisVerts = {
-        // X-axis
-        {{0.0f, 0.0f, 0.0f}, {0.6f, 0.0f, 0.0f}},
-        {{axisLength, 0.0f, 0.0f}, {0.6f, 0.0f, 0.0f}},
-        // Y-axis
-        {{0.0f, 0.0f, 0.0f}, {0.0f, 0.6f, 0.0f}},
-        {{0.0f, axisLength, 0.0f}, {0.0f, 0.6f, 0.0f}},
-        // Z-axis
-        {{0.0f, 0.0f, 0.0f}, {0.3f, 0.3f, 0.8f}},
-        {{0.0f, 0.0f, axisLength}, {0.3f, 0.3f, 0.8f}}
-    };
-
-    GLuint vao, vbo;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, axisVerts.size() * sizeof(Vertex),
-                 axisVerts.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                          (void*)offsetof(Vertex, color));
-    glEnableVertexAttribArray(1);
-
-    glLineWidth(2);
-    glDrawArrays(GL_LINES, 0, (GLsizei)axisVerts.size());
-    glLineWidth(1);
-
-    glBindVertexArray(0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
-
-    // --- Axis labels (logic unchanged, still using your text renderer) ---
-    textRenderer_.RenderText("x", axisLength + labelOffset, -labelOffset, 0.7f,
-                             glm::vec3(1.0f,0.0f,0.0f), gViewport[2], gViewport[3]);
-    textRenderer_.RenderText("y", -labelOffset, axisLength + labelOffset, 0.7f,
-                             glm::vec3(0.0f,1.0f,0.0f), gViewport[2], gViewport[3]);
-    textRenderer_.RenderText("z", 0.0f, -labelOffset + axisLength, 0.7f,
-                             glm::vec3(0.3f,0.3f,0.8f), gViewport[2], gViewport[3]);
-
-    // --- Thumb point (modernized) ---
-    if (thumb.active) {
-        glm::vec3 pos;
-        if (thumb.axis == 0) pos = {thumb.position, 0.0f, 0.0f};
-        if (thumb.axis == 1) pos = {0.0f, thumb.position, 0.0f};
-        if (thumb.axis == 2) pos = {0.0f, 0.0f, thumb.position};
-
-        GLuint vao2, vbo2;
-        glGenVertexArrays(1, &vao2);
-        glGenBuffers(1, &vbo2);
-        glBindVertexArray(vao2);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo2);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3), &pos, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glPointSize(10.0f);
-        // set color via uniform in your shader, or add color attribute
-        glDrawArrays(GL_POINTS, 0, 1);
-
-        glBindVertexArray(0);
-        glDeleteBuffers(1, &vbo2);
-        glDeleteVertexArrays(1, &vao2);
-    }
-
-    // === Projection caching (unchanged) ===
-    GLfloat model[16], proj[16];
-    GLint viewport[4];
-    glGetFloatv(GL_MODELVIEW_MATRIX, model);
-    glGetFloatv(GL_PROJECTION_MATRIX, proj);
-    glGetIntegerv(GL_VIEWPORT, viewport);
-
-    float ox, oy;
-    projectPoint((float[3]){0.0f, 0.0f, 0.0f}, model, proj, viewport, ox, oy);
-    gAxisProj[0].x0 = gAxisProj[1].x0 = gAxisProj[2].x0 = ox;
-    gAxisProj[0].y0 = gAxisProj[1].y0 = gAxisProj[2].y0 = oy;
-
-    projectPoint((float[3]){axisLength, 0.0f, 0.0f}, model, proj, viewport,
-                 gAxisProj[0].x1, gAxisProj[0].y1);
-    projectPoint((float[3]){0.0f, axisLength, 0.0f}, model, proj, viewport,
-                 gAxisProj[1].x1, gAxisProj[1].y1);
-    projectPoint((float[3]){0.0f, 0.0f, axisLength}, model, proj, viewport,
-                 gAxisProj[2].x1, gAxisProj[2].y1);
-
-    gAxisProjValid = true;
-}
-
-
-  void GUIrenderer::renderCube()
+  void renderCube()
   {
     const float a = 0.25f;
     std::vector<glm::vec3> faces;
@@ -474,11 +477,19 @@ void GUIrenderer::renderAxes()
     faces.push_back({-a,-a,-a}); faces.push_back({ a,-a,-a});
     faces.push_back({ a, a,-a}); faces.push_back({-a, a,-a});
 
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
+
     drawQuads(faces, glm::vec3(0.45f,0.13f,0.13f), mvp);
   }
 
-  void GUIrenderer::renderPlane()
+  /**
+   * Horizontal reference grid.
+   */
+  void renderGrid()
   {
     const float GRID_SIZE = 0.5f / EL;
     const float half = EL * GRID_SIZE / 2.0f;
@@ -494,18 +505,24 @@ void GUIrenderer::renderAxes()
       grid.push_back({  half, eps, p });
     }
 
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
+
+
     drawLines(grid, glm::vec3(1.0f,1.0f,1.0f), mvp, 1.0f);
   }
 
-  void GUIrenderer::enhanceVoxel()
+  void enhanceVoxel()
   {
     unsigned w = layerList->getSelected();
     const float GRID_SIZE = 0.5f / EL;
 
     float cx, cy, cz;
 
-    if (GUImode == REPLAY)
+    if (currentMode == REPLAY)
     {
       const auto& center = automaton::lcenters[w];
       cx = ((center[0] + vis_dx) - EL / 2) * GRID_SIZE;
@@ -533,7 +550,13 @@ void GUIrenderer::renderAxes()
       pts.emplace_back(cx + dx, cy + dy, cz + dz);
     }
 
-    glm::mat4 mvp = glm::mat4(1.0f);
+    glm::mat4 view = ctx.camera.GetViewMatrix();
+    glm::mat4 projection = framework::mProjection_;
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 mvp = projection * view * model;
+
+
+
     drawPoints(pts, glm::vec3(0.70f,0.70f,0.70f), mvp, 2.0f);
   }
 
@@ -541,18 +564,18 @@ void GUIrenderer::renderAxes()
    * Renders 3D objects
    * A transformação MVP deve ser gerenciada pelo GUIrenderer antes de chamar esta função
    */
-  void GUIrenderer::renderObjects()
+  void render3DObjects()
   {
     glEnable(GL_DEPTH_TEST);
-/*
+
     if (scenario >= 0)
     {
-      if (data3D.size() > 0 && data3D[0].getState()) renderWavefront();
-      if (data3D.size() > 1 && data3D[1].getState()) renderMomentum();
-      if (data3D.size() > 2 && data3D[2].getState()) renderSpin();
-      if (data3D.size() > 3 && data3D[3].getState()) renderSineMask();
-      if (data3D.size() > 4 && data3D[4].getState()) renderHunting();
-      if (data3D.size() > 5 && data3D[5].getState()) renderCenters();
+      if (data3D[0].getState()) renderWavefront();
+      if (data3D[1].getState()) renderMomentum(ctx);
+      if (data3D[2].getState()) renderSpin();
+      if (data3D[3].getState()) renderSineMask();
+      if (data3D[4].getState()) renderHunting();
+      if (data3D[5].getState()) renderCenters();
     }
     if (data3D.size() > 6 && data3D[6].getState())
     {
@@ -560,12 +583,9 @@ void GUIrenderer::renderAxes()
       renderCube();
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
-      */
-    if (data3D.size() > 7 && data3D[7].getState()) renderAxes();
-    /*
-    if (data3D.size() > 8 && data3D[8].getState()) renderPlane();
-    if (tomo && tomo->getState()) renderTomoPlane();
-    */
+    if (data3D[7].getState()) renderAxes();
+    if (data3D[8].getState()) renderGrid();
+    if (tomoEnable && tomoEnable->getState()) tomography::renderTomoPlane();
   }
 
 } // namespace framework

@@ -1,173 +1,162 @@
 /*
  * layers.h
- *
- * Manages the list of 4D layers displayed in the visualization window.
- * Each layer corresponds to a W-slice of the cellular automaton lattice.
  */
 
 #ifndef LAYERS_H_
 #define LAYERS_H_
 
 #include <vector>
-#include <cstdio>
 #include <array>
+#include <iostream>
 #include <glm/glm.hpp>
 #include "vslider.h"
 #include "radio.h"
 #include "model/simulation.h"
 #include "text_renderer.h"
-#include "draw_utils.h"   // helpers modernos
+#include "projection_manager.h"
+#include "globals.h"
 
 namespace automaton
 {
-  extern unsigned CENTER;
-  extern unsigned W_USED;
-  extern std::vector<Cell> lattice_curr;
-  extern std::vector<std::array<unsigned, 3>> lcenters;
+    extern unsigned CENTER;
+    extern unsigned W_USED;
+    extern std::vector<Cell> lattice_curr;
+    extern std::vector<std::array<unsigned, 3>> lcenters;
 }
 
 namespace framework
 {
-  using namespace std;
-  using namespace automaton;
+    extern VSlider vslider;  // defined in your main .cpp
 
-  extern VSlider vslider;
-
-  class LayerList
-  {
-  public:
-    LayerList(unsigned wDim, int visibleLayers = 25)
-      : wDim_(wDim), visibleLayers_(visibleLayers), lastFirstIndex_(-1)
+    class LayerList
     {
-      lastCellCoordinates_.resize(wDim_);
-      for (unsigned w = 0; w < wDim_; w++)
-      {
-        lastCellCoordinates_[w][0] = CENTER;
-        lastCellCoordinates_[w][1] = CENTER;
-        lastCellCoordinates_[w][2] = CENTER;
-      }
-      char s[100];
-      for (unsigned w = 0; w < wDim_; w++)
-      {
-        sprintf(s, "Layer %2d", w);
-        layers_.push_back(Radio(1700, 120 + 25 * w, s));
-        layers_.back().setFontScale(0.6f);
-      }
-      if (!layers_.empty())
-        layers_[0].setSelected(true);
-    }
-
-    ~LayerList() = default;
-    LayerList(const LayerList&) = delete;
-    LayerList& operator=(const LayerList&) = delete;
-
-    // Return index of selected layer (-1 if none)
-    int getSelected() const
-    {
-      for (size_t i = 0; i < layers_.size(); ++i)
-      {
-        if (layers_[i].isSelected())
-          return static_cast<int>(i);
-      }
-      return -1;
-    }
-
-// Update cell position display (with change highlighting)
-void update(TextRenderer& renderer, int screenWidth, int screenHeight)
-{
-  int endLimit = std::min<int>(visibleLayers_, wDim_);
-  for (int w = 0; w < endLimit; w++)
-  {
-    const auto& center = automaton::lcenters[w];
-    Cell &cell = getCell(lattice_curr, center[0], center[1], center[2], w);
-    bool changed = (cell.x[0] != lastCellCoordinates_[w][0] ||
-                    cell.x[1] != lastCellCoordinates_[w][1] ||
-                    cell.x[2] != lastCellCoordinates_[w][2]);
-
-    glm::vec3 color = changed ? glm::vec3(1.0f,0.0f,1.0f)
-                              : glm::vec3(1.0f,1.0f,0.0f);
-
-    char s[100];
-    sprintf(s, "(%u, %u, %u)", cell.x[0], cell.x[1], cell.x[2]);
-
-    // CHANGE THIS LINE: Convert Y from top-origin to bottom-origin
-    renderer.RenderText(s, 1780, screenHeight - (148 + 25 * w), 0.6f,
-                        color,
-                        screenWidth, screenHeight);
-
-    lastCellCoordinates_[w][0] = cell.x[0];
-    lastCellCoordinates_[w][1] = cell.x[1];
-    lastCellCoordinates_[w][2] = cell.x[2];
-  }
-}
-    // Render visible portion of the layer list (with scrolling)
-    void render(TextRenderer& renderer, int screenWidth, int screenHeight)
-    {
-      const int first = vslider.getFirstIndex(wDim_, visibleLayers_);
-      glDisable(GL_DEPTH_TEST);
-
-      const int endLimit = std::min<int>(visibleLayers_, static_cast<int>(wDim_));
-      for (int i = 0; i < endLimit; ++i)
-      {
-        const int logicalIndex = i + first;
-        if (logicalIndex >= static_cast<int>(wDim_)) break;
-    
-        // CHANGE: Convert from top-origin to bottom-origin
-        const int displayY = screenHeight - (145 + 25 * i);
-    
-        layers_[logicalIndex].drawAt(renderer, 1680, displayY,
-                                 screenWidth, screenHeight);
-      }
-    }
-    // Poll mouse click – returns true if a radio was clicked
-    bool poll(int xpos, int ypos)
-    {
-      Radio* clickedOption = nullptr;
-      const int first = vslider.getFirstIndex(wDim_, visibleLayers_);
-      const int selectedIndex = getSelected();
-      Radio* currentSelected = (selectedIndex != -1) ? &layers_[selectedIndex] : nullptr;
-      const int endLimit = std::min<int>(visibleLayers_, static_cast<int>(wDim_));
-      for (int i = 0; i < endLimit; ++i)
-      {
-        const int logicalIndex = i + first;
-        if (logicalIndex >= static_cast<int>(wDim_)) break;
-        const int displayY = 145 + 25 * i;
-        if (layers_[logicalIndex].clickedAt(xpos, ypos, 1680, displayY))
+    public:
+        LayerList(unsigned wDim, int visibleLayers = 25)
+            : wDim_(wDim), visibleLayers_(visibleLayers), lastFirstIndex_(-1)
         {
-          clickedOption = &layers_[logicalIndex];
-          break;
-        }
-      }
-      if (clickedOption)
-      {
-        if (clickedOption != currentSelected)
-        {
-          if (currentSelected) currentSelected->setSelected(false);
-          clickedOption->setSelected(true);
-        }
-        lastFirstIndex_ = first;
-      }
-      else if (first != lastFirstIndex_)
-      {
-        // Auto-select first visible layer when scrolling
-        if (first >= 0 && static_cast<unsigned>(first) < wDim_ && first != selectedIndex)
-        {
-          if (currentSelected) currentSelected->setSelected(false);
-          layers_[first].setSelected(true);
-        }
-        lastFirstIndex_ = first;
-      }
-      return clickedOption != nullptr;
-    }
+            lastCellCoordinates_.resize(wDim_);
+            for (unsigned w = 0; w < wDim_; ++w)
+                lastCellCoordinates_[w] = {automaton::CENTER, automaton::CENTER, automaton::CENTER};
 
-  private:
-    unsigned wDim_;
-    int visibleLayers_;
-    std::vector<Radio> layers_;
-    std::vector<std::array<unsigned, 3>> lastCellCoordinates_;
-    int lastFirstIndex_;
-  };
+            char buf[32];
+            for (unsigned w = 0; w < wDim_; ++w)
+            {
+                snprintf(buf, sizeof(buf), "Layer %2u", w);
+                layers_.emplace_back(1680, 145 + 25 * static_cast<int>(w), buf);
+                layers_.back().setFontScale(0.58f);
+            }
+            if (!layers_.empty())
+                layers_[0].setSelected(true);
+        }
+
+        int getSelected() const
+        {
+            for (size_t i = 0; i < layers_.size(); ++i)
+                if (layers_[i].isSelected())
+                    return static_cast<int>(i);
+            return -1;
+        }
+
+        void update(TextRenderer& renderer)
+        {
+            const int first = vslider.getFirstVisibleIndex(wDim_, visibleLayers_);
+
+            for (int i = 0; i < visibleLayers_ && (first + i) < static_cast<int>(wDim_); ++i)
+            {
+                unsigned w = first + i;
+
+                const auto& center = automaton::lcenters[w];
+                const automaton::Cell& cell = getCell(automaton::lattice_curr,
+                                           center[0], center[1], center[2], w);
+
+                bool changed = (cell.x[0] != lastCellCoordinates_[w][0] ||
+                                cell.x[1] != lastCellCoordinates_[w][1] ||
+                                cell.x[2] != lastCellCoordinates_[w][2]);
+
+                glm::vec3 color = changed ? glm::vec3(1.0f, 0.0f, 1.0f)   // magenta = changed
+                                          : glm::vec3(1.0f, 1.0f, 0.0f);  // yellow = same
+
+                char buf[64];
+                snprintf(buf, sizeof(buf), "(%u,%u,%u)", cell.x[0], cell.x[1], cell.x[2]);
+
+                // Radio buttons are at Y (from top): 145 + 25 * i
+                // TextRenderer uses Y from bottom, so convert:
+                // Y_bottom = viewport_height - Y_top
+                float radioY_top = 145.0f + 25.0f * i;
+                float textY = gViewport[3] - radioY_top;
+
+                float textX = 1780.0f;
+
+                // Render coordinates text to the right of the radio button
+                renderer.RenderText(buf, textX, textY, 0.58f, color,
+                                   gViewport[2], gViewport[3]);
+
+                lastCellCoordinates_[w] = {cell.x[0], cell.x[1], cell.x[2]};
+            }
+        }
+
+        void render(TextRenderer& renderer)
+        {
+            const int first = vslider.getFirstVisibleIndex(wDim_, visibleLayers_);
+
+            for (int i = 0; i < visibleLayers_ && (first + i) < static_cast<int>(wDim_); ++i)
+            {
+                unsigned w = first + i;
+
+                // Radio buttons use their stored position from constructor
+                layers_[w].draw(renderer);
+            }
+        }
+
+        bool poll(int mouseX, int mouseY)
+        {
+            const int first = vslider.getFirstVisibleIndex(wDim_, visibleLayers_);
+            int currentSel = getSelected();
+
+            Radio* clicked = nullptr;
+
+            for (int i = 0; i < visibleLayers_ && (first + i) < static_cast<int>(wDim_); ++i)
+            {
+                unsigned w = first + i;
+
+                if (layers_[w].contains(mouseX, mouseY))
+                {
+                    clicked = &layers_[w];
+                    break;
+                }
+            }
+
+            if (clicked)
+            {
+                if (!clicked->isSelected())
+                {
+                    if (currentSel != -1)
+                        layers_[currentSel].setSelected(false);
+                    clicked->setSelected(true);
+                }
+                lastFirstIndex_ = first;
+                return true;
+            }
+
+            if (first != lastFirstIndex_ && first < static_cast<int>(wDim_))
+            {
+                if (currentSel != -1)
+                    layers_[currentSel].setSelected(false);
+                layers_[first].setSelected(true);
+                lastFirstIndex_ = first;
+            }
+
+            return false;
+        }
+
+    private:
+        unsigned wDim_;
+        int visibleLayers_;
+        std::vector<Radio> layers_;
+        std::vector<std::array<unsigned, 3>> lastCellCoordinates_;
+        int lastFirstIndex_;
+    };
 
 } // namespace framework
 
-#endif /* LAYERS_H_ */
+#endif // LAYERS_H_

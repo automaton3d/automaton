@@ -6,13 +6,22 @@
 #include "stb_image.h"
 #include <iostream>
 #include <vector>
+#include <atomic>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "globals.h"
+#include "projection_manager.h"
+
+
+extern unsigned int textureProgram2D;
+extern int textureMvpLoc;
+extern int textureSamplerLoc;
 
 namespace framework
 {
+
+
   Logo::Logo(const std::string& path)
   {
     // Candidate paths to search
@@ -29,7 +38,6 @@ namespace framework
     for (const auto& tryPath : searchPaths) {
         data = stbi_load(tryPath.c_str(), &mWidth_, &mHeight_, &channels, 4);
         if (data) {
-            std::cout << "Logo loaded from: " << tryPath << std::endl;
             break;
         }
     }
@@ -55,9 +63,6 @@ namespace framework
                  GL_RGBA, GL_UNSIGNED_BYTE, data);
 
     stbi_image_free(data);
-
-    std::cout << "Logo texture created: ID=" << mTexture_
-              << " size=" << mWidth_ << "x" << mHeight_ << std::endl;
   }
 
   Logo::~Logo()
@@ -65,75 +70,77 @@ namespace framework
     if (mTexture_) glDeleteTextures(1, &mTexture_);
   }
 
+
+
   void Logo::draw(int x, int y, float scale) const
   {
-    if (!mTexture_) {
-        std::cerr << "Logo::draw() - texture not loaded\n";
-        return;
-    }
+      if (!mTexture_) {
+          std::cerr << "Logo::draw() - texture not loaded\n";
+          return;
+      }
+      if (!textureProgram2D) {
+          std::cerr << "Logo::draw() - textureProgram2D is 0 (shader not initialized)\n";
+          return;
+      }
 
-    if (!textureProgram2D) {
-        std::cerr << "Logo::draw() - textureProgram2D is 0\n";
-        return;
-    }
+      GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+      glDisable(GL_DEPTH_TEST);
 
-    if (textureMvpLoc == -1 || textureSamplerLoc == -1) {
-        std::cerr << "Logo::draw() - invalid uniform locations (MVP: "
-                  << textureMvpLoc << ", Sampler: " << textureSamplerLoc << ")\n";
-        return;
-    }
+      // 🔎 Step 4: disable blending to rule out alpha transparency
+      glDisable(GL_BLEND);
 
-    // Normalize to ~200px width
-    const int targetW = 200;
-    const int targetH = (mHeight_ * targetW) / mWidth_;
+      // Target width ~200px (same as splash screen design)
+      const int targetW = 200;
+      const int targetH = static_cast<int>(mHeight_ * targetW / (float)mWidth_);
+      const int w = static_cast<int>(targetW * scale);
+      const int h = static_cast<int>(targetH * scale);
 
-    const int w = static_cast<int>(targetW * scale);
-    const int h = static_cast<int>(targetH * scale);
+      struct Vertex { float x, y, u, v; };
+      Vertex verts[4] = {
+          { (float)x,       (float)y,       0.0f, 1.0f }, // top-left
+          { (float)(x + w), (float)y,       1.0f, 1.0f }, // top-right
+          { (float)(x + w), (float)(y + h), 1.0f, 0.0f }, // bottom-right
+          { (float)x,       (float)(y + h), 0.0f, 0.0f }  // bottom-left
+      };
 
-    struct Vertex { glm::vec2 pos; glm::vec2 uv; };
-    std::vector<Vertex> verts = {
-        {{x,     y},     {0.f, 1.f}},
-        {{x + w, y},     {1.f, 1.f}},
-        {{x + w, y + h}, {1.f, 0.f}},
-        {{x,     y + h}, {0.f, 0.f}}
-    };
+      GLuint vao, vbo;
+      glGenVertexArrays(1, &vao);
+      glGenBuffers(1, &vbo);
 
-    glUseProgram(textureProgram2D);
+      glBindVertexArray(vao);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 
-    // Top-origin coordinate system (y increases downward)
-    glm::mat4 ortho = glm::ortho(
-        0.0f, static_cast<float>(gViewport[2]),
-        static_cast<float>(gViewport[3]), 0.0f,
-        -1.0f, 1.0f
-    );
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+      glEnableVertexAttribArray(0);
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(2 * sizeof(float)));
+      glEnableVertexAttribArray(1);
 
-    glUniformMatrix4fv(textureMvpLoc, 1, GL_FALSE, glm::value_ptr(ortho));
-    glUniform1i(textureSamplerLoc, 0);
+      // Use the texture shader
+      glUseProgram(textureProgram2D);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, mTexture_);
+      // Set MVP matrix
+      const glm::mat4& ortho = ProjectionManager::instance().get2DOrtho();
+      glUniformMatrix4fv(textureMvpLoc, 1, GL_FALSE, glm::value_ptr(ortho));
 
-    GLuint vao, vbo;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+      // Bind texture
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, mTexture_);
+      glUniform1i(textureSamplerLoc, 0);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-    glEnableVertexAttribArray(1);
+      // Draw quad
+      glBindVertexArray(vao);
+      glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      glBindVertexArray(0);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+      // Cleanup
+      glDeleteBuffers(1, &vbo);
+      glDeleteVertexArrays(1, &vao);
 
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+      if (depthWasEnabled) glEnable(GL_DEPTH_TEST);
   }
+
+
+
 
 } // namespace framework

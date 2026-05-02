@@ -1,5 +1,252 @@
-/Debug/
-/include/
-/shaders/
-/src/glad.c
-/frames.dat
+
+E:\automaton>build   
+=========================
+CONFIGURANDO MSVC
+=========================
+**********************************************************************
+** Visual Studio 2026 Developer Command Prompt v18.0
+** Copyright (c) 2025 Microsoft Corporation
+**********************************************************************
+[DEBUG:ext\vcvars.bat] Found potential v145 version file: 'Microsoft.VCToolsVersion.VC.14.50.18.0.txt'
+[DEBUG:ext\vcvars.bat] Testing v145 version file: 'Microsoft.VCToolsVersion.VC.14.50.18.0.txt'
+[vcvarsall.bat] Environment initialized for: 'x64'
+MSVC carregado com sucesso
+
+=========================
+LIMPEZA
+=========================
+=========================
+COMPILANDO CUDA (.cu)
+=========================
+cuda_automaton.cu
+E:\automaton\src\cuda\cuda_automaton.cu(12): warning #20044-D: extern declaration of the entity dev_EL is treated as a static definition
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+E:\automaton\src\cuda\cuda_automaton.cu(13): warning #20044-D: extern declaration of the entity dev_W_USED is treated as a static definition
+
+E:\automaton\src\cuda\cuda_automaton.cu(14): warning #20044-D: extern declaration of the entity dev_RMAX is treated as a static definition
+
+tmpxft_00002288_00000000-7_cuda_automaton.cudafe1.cpp
+cuda_constants.cu
+tmpxft_00005e40_00000000-7_cuda_constants.cudafe1.cpp
+CUDA OK.
+
+=========================
+COMPILANDO C++ + LINKAGEM
+=========================
+Microsoft (R) C/C++ Optimizing Compiler Versão 19.50.35729 para x64
+Copyright (C) Microsoft Corporation. Todos os direitos reservados.
+
+cl src/button.cpp 
+   src/callback.cpp 
+   src/camera.cpp 
+   src/core.cpp 
+   src/cortina.cpp 
+   src/draw_utils.cpp 
+   src/dropdown.cpp 
+   src/glad/glad.c
+   src/globals.cpp 
+   src/GUI.cpp 
+   src/GUI_2D.cpp 
+   src/GUI_3D.cpp 
+   src/GUI_Init.cpp 
+   src/GUI_Panels.cpp 
+   src/help.cpp 
+   src/hud.cpp 
+   src/input.cpp 
+   src/logo.cpp 
+   src/main.cpp 
+   src/menubar.cpp 
+   src/progress.cpp 
+   src/projection.cpp 
+   src/projection_manager.cpp 
+   src/radio.cpp 
+   src/recorder.cpp 
+   src/replay.cpp 
+   src/replay_progress.cpp 
+   src/scene.cpp 
+   src/shader.cpp 
+   src/sound.cpp 
+   src/splash.cpp 
+   src/stats.cpp 
+   src/stb_impl.cpp 
+   src/text_renderer.cpp 
+   src/tickbox.cpp 
+   src/tomography.cpp 
+   src/tinyfiledialogs.c 
+   src/model/bridge.cpp 
+   src/model/convolutes.cpp 
+   src/model/debug.cpp 
+   src/model/initSim.cpp 
+   src/model/interaction.cpp 
+   src/model/simulation.cpp 
+   src/model/utils.cpp 
+
+button.cpp
+callback.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared\minwindef.h(130): warning C4005: 'APIENTRY': redefinição de macro
+E:\automaton\src\include\glad/glad.h(32): note: ver a definição anterior de "APIENTRY"
+src/callback.cpp(120): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(120): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(121): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(121): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(265): warning C4244: '=': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(266): warning C4244: '=': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(273): warning C4244: '=': conversão de 'int' para 'float', possível perda de dados
+src/callback.cpp(274): warning C4244: '=': conversão de 'int' para 'float', possível perda de dados
+src/callback.cpp(275): warning C4244: '=': conversão de 'int' para 'float', possível perda de dados
+src/callback.cpp(348): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(348): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(349): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+src/callback.cpp(349): warning C4244: 'argumento': conversão de 'double' para 'int', possível perda de dados
+camera.cpp
+core.cpp
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared\minwindef.h(130): warning C4005: 'APIENTRY': redefinição de macro
+E:\automaton\src\include\glad/glad.h(32): note: ver a definição anterior de "APIENTRY"
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\recorder.h(20): warning C4099: 'automaton::Cell': nome de tipo visto primeiro usando 'class', agora visto usando 'struct'
+E:\automaton\src\include\model/simulation.h(100): note: consulte a declaração de 'automaton::Cell'
+cortina.cpp
+E:\automaton\src\include\cortina.h(83): warning C4244: '=': conversão de 'double' para 'int', possível perda de dados
+E:\automaton\src\include\cortina.h(83): warning C4244: '=': conversão de 'double' para 'int', possível perda de dados
+draw_utils.cpp
+dropdown.cpp
+Gerando Código...
+Compilando...
+glad.c
+Gerando Código...
+Compilando...
+globals.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+GUI.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+GUI_2D.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+src/GUI_2D.cpp(393): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/GUI_2D.cpp(394): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/GUI_2D.cpp(395): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/GUI_2D.cpp(396): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/GUI_2D.cpp(397): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+GUI_3D.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+GUI_Init.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+src/GUI_Init.cpp(69): warning C4244: 'argumento': conversão de 'float' para 'int', possível perda de dados
+src/GUI_Init.cpp(205): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/GUI_Init.cpp(205): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+GUI_Panels.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+help.cpp
+hud.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+src/hud.cpp(191): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/hud.cpp(192): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/hud.cpp(192): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/hud.cpp(229): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/hud.cpp(229): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+input.cpp
+logo.cpp
+main.cpp
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared\minwindef.h(130): warning C4005: 'APIENTRY': redefinição de macro
+E:\automaton\src\include\glad/glad.h(32): note: ver a definição anterior de "APIENTRY"
+menubar.cpp
+src/menubar.cpp(210): warning C4244: 'inicializando': conversão de 'double' para 'float', possível perda de dados
+progress.cpp
+projection.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+projection_manager.cpp
+radio.cpp
+src/radio.cpp(39): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+src/radio.cpp(40): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+src/radio.cpp(79): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+recorder.cpp
+E:\automaton\src\include\recorder.h(20): warning C4099: 'automaton::Cell': nome de tipo visto primeiro usando 'class', agora visto usando 'struct'
+E:\automaton\src\include\model/simulation.h(100): note: consulte a declaração de 'automaton::Cell'
+src/recorder.cpp(193): warning C4244: 'argumento': conversão de 'float' para 'int', possível perda de dados
+src/recorder.cpp(193): warning C4244: 'argumento': conversão de 'float' para 'int', possível perda de dados
+src/recorder.cpp(193): warning C4244: 'argumento': conversão de 'float' para 'int', possível perda de dados
+src/recorder.cpp(279): warning C4267: 'argumento': conversão de 'size_t' para 'uLong', possível perda de dados
+src/recorder.cpp(284): warning C4267: 'argumento': conversão de 'size_t' para 'uLong', possível perda de dados
+replay.cpp
+E:\automaton\src\include\recorder.h(20): warning C4099: 'automaton::Cell': nome de tipo visto primeiro usando 'class', agora visto usando 'struct'
+E:\automaton\src\include\model/simulation.h(100): note: consulte a declaração de 'automaton::Cell'
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+replay_progress.cpp
+scene.cpp
+src/scene.cpp(5): fatal error C1083: Não é possível abrir arquivo incluir: 'glm_host_only.h': No such file or directory
+Gerando Código...
+Compilando...
+shader.cpp
+sound.cpp
+splash.cpp
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared\minwindef.h(130): warning C4005: 'APIENTRY': redefinição de macro
+E:\automaton\src\include\glad/glad.h(32): note: ver a definição anterior de "APIENTRY"
+E:\automaton\src\include\cortina.h(83): warning C4244: '=': conversão de 'double' para 'int', possível perda de dados
+E:\automaton\src\include\cortina.h(83): warning C4244: '=': conversão de 'double' para 'int', possível perda de dados
+src/splash.cpp(128): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(128): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(129): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(129): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(130): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(130): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(131): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(131): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(139): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(140): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(141): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(206): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(207): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/splash.cpp(207): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+stats.cpp
+src/stats.cpp(108): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/stats.cpp(126): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/stats.cpp(138): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/stats.cpp(149): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/stats.cpp(167): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+stb_impl.cpp
+text_renderer.cpp
+tickbox.cpp
+src/tickbox.cpp(32): warning C4244: 'inicializando': conversão de 'const int' para 'float', possível perda de dados
+src/tickbox.cpp(35): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+src/tickbox.cpp(35): warning C4244: 'argumento': conversão de 'const int' para 'float', possível perda de dados
+src/tickbox.cpp(63): warning C4244: 'argumento': conversão de 'int' para 'float', possível perda de dados
+tomography.cpp
+src/tomography.cpp(6): fatal error C1083: Não é possível abrir arquivo incluir: 'simulation.h': No such file or directory
+Gerando Código...
+Compilando...
+tinyfiledialogs.c
+Gerando Código...
+Compilando...
+bridge.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+convolutes.cpp
+debug.cpp
+initSim.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+src/model/initSim.cpp(176): warning C4267: 'inicializando': conversão de 'size_t' para 'int', possível perda de dados
+src/model/initSim.cpp(529): warning C4244: '=': conversão de 'double' para 'unsigned int', possível perda de dados
+src/model/initSim.cpp(531): warning C4244: '=': conversão de 'double' para 'unsigned int', possível perda de dados
+interaction.cpp
+simulation.cpp
+utils.cpp
+E:\automaton\src\include\vslider.h(73): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+E:\automaton\src\include\vslider.h(97): warning C4244: 'inicializando': conversão de 'int' para 'float', possível perda de dados
+Gerando Código...
+
+ERRO: Falha na compilacao ou linkagem final.
+Verifique se draw_utils.cpp contem as implementacoes solicitadas.

@@ -11,4 +11,6 @@ namespace stats
   int run();
 }
 
+int runStatistics();
+
 #endif /* STATS_H_ */

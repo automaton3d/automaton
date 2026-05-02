@@ -5,6 +5,7 @@
 #include "replay_progress.h"
 #include "text_renderer.h"
 #include "globals.h"
+#include "projection_manager.h"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -54,10 +55,7 @@ void ReplayProgressBar::render()
 {
     if (gViewport[2] <= 0 || gViewport[3] <= 0) return;
 
-    glm::mat4 ortho = glm::ortho(
-        0.0f, static_cast<float>(gViewport[2]),
-        0.0f, static_cast<float>(gViewport[3])
-    );
+    glm::mat4 ortho = ProjectionManager::instance().get2DOrtho();
 
     // Lambda helper for drawing quads
     auto drawQuad2D = [&](float x1, float y1, float x2, float y2, const glm::vec3& color) {

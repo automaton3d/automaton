@@ -7,7 +7,7 @@
 
 #include <cassert>
 #include <algorithm>
-#include "simulation.h"
+#include "model/simulation.h"
 #include "globals.h"
 
 namespace automaton
