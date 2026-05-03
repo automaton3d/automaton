@@ -164,3 +164,6 @@ extern double debugClickX;
 extern double debugClickY;
 extern bool showDebugClick;
 extern bool GPUEnabled;
+
+extern GLuint transparentProgram;   // programa para o plano transparente
+extern GLint transparentMvpLoc, transparentColorLoc, transparentAlphaLoc;

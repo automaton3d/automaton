@@ -19,13 +19,24 @@
 
 using namespace SceneConstants;
 
+// Em globals.h ou no topo de scene.cpp
+GLuint transparentProgram = 0;
+GLint transparentMvpLoc = -1;
+GLint transparentColorLoc = -1;
+GLint transparentAlphaLoc = -1;
+
 void initScene(AppContext& ctx) {
+    // Inicializa o sistema de tomografia (já compila o shader transparente internamente)
     tomography::init();
-    
+
+    // Compila o shader principal da cena (objetos 3D)
     ctx.shader = compileShader(vertexShaderSource, fragmentShaderSource);
     if (ctx.shader == 0) {
         throw std::runtime_error("Failed to compile scene shaders");
     }
+
+    // NOTA: O shader transparente NÃO é compilado aqui, pois já foi compilado dentro de tomography::init().
+    // As variáveis globais transparentProgram etc. (se existirem) não são mais necessárias.
 }
 
 void renderScene(AppContext& ctx) {

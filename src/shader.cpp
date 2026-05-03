@@ -36,7 +36,7 @@ void main() {
 // ============================================================================
 const char* textVertexShaderSource = R"(
 #version 330 core
-layout (location = 0) in vec4 vertex; // position.xy, texcoord.xy
+layout (location = 0) in vec4 vertex;
 out vec2 TexCoords;
 uniform mat4 projection;
 void main() {
@@ -62,7 +62,7 @@ void main() {
 // ============================================================================
 const char* colorVertexShaderSource = R"(
 #version 330 core
-layout(location = 0) in vec3 aPos;   // agora é vec3
+layout(location = 0) in vec3 aPos;
 uniform mat4 uMVP;
 void main() {
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -79,24 +79,17 @@ void main() {
 )";
 
 // ============================================================================
-// OIT
+// OIT (Order Independent Transparency) - se não for usado, pode manter
 // ============================================================================
-
 const char* oitFragmentShader = R"(
 #version 330 core
-
 out vec4 accum;
 layout(location = 1) out float reveal;
-
 uniform vec3 uColor;
 uniform float uAlpha;
-
-void main()
-{
+void main() {
     vec4 color = vec4(uColor, uAlpha);
-
     float weight = max(0.01, pow(color.a + 0.01, 4.0));
-
     accum = vec4(color.rgb * color.a, color.a) * weight;
     reveal = color.a;
 }
@@ -128,10 +121,31 @@ void main() {
 )";
 
 // ============================================================================
+// Transparent Plane Shader (única definição, sem duplicata)
+// ============================================================================
+const char* transparentVertexShaderSource = R"(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+uniform mat4 uMVP;
+void main() {
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+)";
+
+const char* transparentFragmentShaderSource = R"(
+#version 330 core
+out vec4 FragColor;
+uniform vec3 uColor;
+uniform float uAlpha;
+void main() {
+    FragColor = vec4(uColor, uAlpha);
+}
+)";
+
+// ============================================================================
 // Internal Helper Functions
 // ============================================================================
-static bool checkShaderCompileStatus(unsigned int shader, const char* type)
-{
+static bool checkShaderCompileStatus(unsigned int shader, const char* type) {
     int success = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
@@ -146,8 +160,7 @@ static bool checkShaderCompileStatus(unsigned int shader, const char* type)
     return true;
 }
 
-static bool checkProgramLinkStatus(unsigned int program)
-{
+static bool checkProgramLinkStatus(unsigned int program) {
     int success = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (!success) {
@@ -165,13 +178,10 @@ static bool checkProgramLinkStatus(unsigned int program)
 // ============================================================================
 // Generic Shader Compiler
 // ============================================================================
-unsigned int compileShader(const char* vs, const char* fs)
-{
-    // Create shaders
+unsigned int compileShader(const char* vs, const char* fs) {
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    // Compile vertex shader
     glShaderSource(vertexShader, 1, &vs, nullptr);
     glCompileShader(vertexShader);
     if (!checkShaderCompileStatus(vertexShader, "VERTEX")) {
@@ -180,7 +190,6 @@ unsigned int compileShader(const char* vs, const char* fs)
         return 0;
     }
 
-    // Compile fragment shader
     glShaderSource(fragmentShader, 1, &fs, nullptr);
     glCompileShader(fragmentShader);
     if (!checkShaderCompileStatus(fragmentShader, "FRAGMENT")) {
@@ -189,7 +198,6 @@ unsigned int compileShader(const char* vs, const char* fs)
         return 0;
     }
 
-    // Link program
     unsigned int program = glCreateProgram();
     glAttachShader(program, vertexShader);
     glAttachShader(program, fragmentShader);
@@ -201,37 +209,34 @@ unsigned int compileShader(const char* vs, const char* fs)
         return 0;
     }
 
-    // Clean up shaders (they're linked into the program now)
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-
     return program;
 }
 
 // ============================================================================
 // Convenience Functions
 // ============================================================================
-unsigned int compileSceneShader()
-{
+unsigned int compileSceneShader() {
     return compileShader(vertexShaderSource, fragmentShaderSource);
 }
 
-unsigned int compileTextShader()
-{
+unsigned int compileTextShader() {
     return compileShader(textVertexShaderSource, textFragmentShaderSource);
 }
 
-unsigned int compileColorShader()
-{
+unsigned int compileColorShader() {
     return compileShader(colorVertexShaderSource, colorFragmentShaderSource);
 }
 
-unsigned int compileTextureShader()
-{
+unsigned int compileTextureShader() {
     return compileShader(textureVertexShaderSource, textureFragmentShaderSource);
 }
 
-unsigned int compileOITShader()
-{
+unsigned int compileOITShader() {
     return compileShader(colorVertexShaderSource, oitFragmentShader);
+}
+
+unsigned int compileTransparentShader() {
+    return compileShader(transparentVertexShaderSource, transparentFragmentShaderSource);
 }
