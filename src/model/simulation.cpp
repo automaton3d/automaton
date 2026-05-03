@@ -14,7 +14,7 @@
 // Forward declarations for CUDA functions implemented in bridge.cpp and cuda files
 extern void cudaSimulationStepWrapper();
 extern bool isCudaEnabled();
-extern void updateMirrorOnGPU();  // New helper function we'll create
+extern void updateMirrorOnGPU();
 #endif
 
 namespace automaton
@@ -224,7 +224,6 @@ namespace automaton
    */
   bool simulation()
   {
-    // Run one step of the simulation
     update_lattice();
     return swap_lattices();
   }

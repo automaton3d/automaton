@@ -33,7 +33,7 @@ void cudaSimulationStep(
     unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
     unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
     unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-    unsigned FLOOD, unsigned FRAME, unsigned RMAX
+    unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario
 );
 
 // Update voxel rendering for a specific layer

@@ -12,9 +12,17 @@
 #include <memory>
 #include <cstring>
 
-#ifdef USE_CUDA
+/*
+ * When building with CUDA and using bridge_cuda.cu (compiled by nvcc),
+ * compile this file with /DCUDA_BRIDGE_CU so that only the GUI-dependent
+ * helpers (isVisibleInTomogram, updateBufferCPU) are provided here.
+ * The CUDA management functions come from bridge_cuda.cu.
+ *
+ * For CPU-only builds, compile without any special flags.
+ */
+
+#if defined(USE_CUDA) && !defined(CUDA_BRIDGE_CU)
 #include "cuda_sim_optimized.h"
-// Forward declare the function implemented in cuda_automaton.cu
 extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX);
 static bool useCuda = false;
 #endif
@@ -40,10 +48,18 @@ namespace automaton
 // ===================================================================
 void updateBufferCPU();
 
+// Helper for bridge_cuda.cu (nvcc cannot use std::array directly)
+void updateLCenter(unsigned w, unsigned x, unsigned y, unsigned z)
+{
+    automaton::lcenters[w][0] = x;
+    automaton::lcenters[w][1] = y;
+    automaton::lcenters[w][2] = z;
+}
+
 // ===================================================================
 // Tomografia: verifica se o voxel deve ser desenhado
 // ===================================================================
-static bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
+bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
 {
   if (!tomoEnable || !tomoEnable->getState())
     return true;
@@ -58,7 +74,7 @@ static bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
   return true;
 }
 
-#ifdef USE_CUDA
+#if defined(USE_CUDA) && !defined(CUDA_BRIDGE_CU)
 // ===================================================================
 // CUDA Helper: Convert CPU Cell to CellDevice
 // Note: Using GLOBAL ::CellDevice type (not automaton::CellDevice)
@@ -190,7 +206,8 @@ void cudaSimulationStepWrapper()
         automaton::REISSUE,
         automaton::FLOOD,
         automaton::FRAME,
-        automaton::RMAX
+        automaton::RMAX,
+        scenario
     );
     
     // After kernel execution, download results back to CPU
@@ -241,16 +258,24 @@ void updateBufferCuda()
         updateBufferCPU();
     }
 }
-#endif
+#endif // USE_CUDA && !CUDA_BRIDGE_CU
 
 // ===================================================================
 // updateBuffer() - CPU version (original)
 // ===================================================================
+#ifdef CUDA_BRIDGE_CU
+// When bridge_cuda.cu is linked, sync the selected layer for CUDA rendering
+extern unsigned g_cuda_selectedLayer;
+#endif
+
 void updateBufferCPU()
 {
     unsigned selectedW = (framework::layerList && framework::layerList.get())
                          ? framework::layerList->getSelected()
                          : 0u;
+#ifdef CUDA_BRIDGE_CU
+    g_cuda_selectedLayer = selectedW;
+#endif
     size_t idx = 0;
 
     for (unsigned x = 0; x < automaton::EL; ++x)
@@ -285,6 +310,9 @@ void updateBufferCPU()
 // ===================================================================
 // Public API - dispatch to CPU or CUDA
 // ===================================================================
+#if !defined(CUDA_BRIDGE_CU)
+// When CUDA_BRIDGE_CU is defined, these symbols come from bridge_cuda.cu.
+
 #ifndef USE_CUDA
 // CPU-only version
 void automaton::updateBuffer()
@@ -292,7 +320,7 @@ void automaton::updateBuffer()
     updateBufferCPU();
 }
 #else
-// CUDA-enabled version
+// CUDA-enabled version (bridge.cpp compiled with USE_CUDA directly)
 void automaton::updateBuffer()
 {
     if (useCuda) {
@@ -301,10 +329,9 @@ void automaton::updateBuffer()
         updateBufferCPU();
     }
 }
+#endif // USE_CUDA
 
-// ===================================================================
-// Enable/disable CUDA at runtime
-// ===================================================================
+#ifdef USE_CUDA
 namespace automaton
 {
     bool tryEnableCuda()
@@ -317,9 +344,9 @@ namespace automaton
         bool success = initializeCudaSimulation();
         if (success) {
             useCuda = true;
-            printf("✓ CUDA acceleration ENABLED\n");
+            printf("CUDA acceleration ENABLED\n");
         } else {
-            printf("✗ CUDA acceleration not available - using CPU\n");
+            printf("CUDA acceleration not available - using CPU\n");
         }
         return success;
     }
@@ -331,7 +358,6 @@ namespace automaton
             return;
         }
         
-        // Download final state back to CPU
         size_t totalCells = (size_t)EL * EL * EL * W_USED;
         std::vector<::CellDevice> deviceCells(totalCells);
         
@@ -347,7 +373,7 @@ namespace automaton
         
         cudaCleanup();
         useCuda = false;
-        printf("✓ CUDA acceleration DISABLED\n");
+        printf("CUDA acceleration DISABLED\n");
     }
     
     bool isCudaEnabled()
@@ -355,12 +381,8 @@ namespace automaton
         return useCuda;
     }
 }
-#endif // USE_CUDA
-
-#ifndef USE_CUDA
-// ===================================================================
-// CUDA stub implementations for non-CUDA builds
-// ===================================================================
+#else
+// CPU-only stubs
 namespace automaton
 {
     bool tryEnableCuda()
@@ -379,4 +401,6 @@ namespace automaton
         return false;
     }
 }
-#endif // !USE_CUDA
+#endif // USE_CUDA
+
+#endif // !CUDA_BRIDGE_CU

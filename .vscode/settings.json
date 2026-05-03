@@ -14,5 +14,6 @@
             "icon": "terminal-bash"
         }
     },
-    "search.useIgnoreFiles": false
+    "search.useIgnoreFiles": false,
+    "cmake.sourceDirectory": "E:/automaton/src/include/glm"
 }

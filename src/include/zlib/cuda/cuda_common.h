@@ -7,7 +7,7 @@ struct CellDevice
     uint8_t pB, sB;
     uint32_t a;
 
-    uint32_t x[3];
+    uint32_t x[4];
     uint32_t d;
     uint32_t phiB;
     uint32_t t;

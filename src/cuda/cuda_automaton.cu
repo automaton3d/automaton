@@ -8,13 +8,39 @@
 #include <iostream>
 #include <algorithm>
 
-// Declare the constant memory symbols (defined in cuda_constants.cu)
-extern __constant__ unsigned dev_EL;
-extern __constant__ unsigned dev_W_USED;
-extern __constant__ unsigned dev_RMAX;
+// Constant memory (must be in the SAME compilation unit as kernels
+// that use them; without -rdc=true, extern __constant__ across .cu
+// files is not supported)
+__constant__ unsigned dev_EL;
+__constant__ unsigned dev_W_USED;
+__constant__ unsigned dev_RMAX;
 
-// Forward declare the function from cuda_constants.cu
-extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX);
+extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
+{
+    cudaError_t err;
+    printf("Setting dev_EL = %u\n", EL);
+    err = cudaMemcpyToSymbol(dev_EL, &EL, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_EL: %s\n", cudaGetErrorString(err));
+        return;
+    }
+    printf("Setting dev_W_USED = %u\n", W_USED);
+    err = cudaMemcpyToSymbol(dev_W_USED, &W_USED, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_W_USED: %s\n", cudaGetErrorString(err));
+        return;
+    }
+    printf("Setting dev_RMAX = %u\n", RMAX);
+    err = cudaMemcpyToSymbol(dev_RMAX, &RMAX, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_RMAX: %s\n", cudaGetErrorString(err));
+        return;
+    }
+    printf("All constants set successfully\n");
+}
+
+// Scenario selector (defined in globals.cpp)
+extern int scenario;
 
 // ===================================================================
 // GLOBAL DEVICE VARIABLES
@@ -79,6 +105,229 @@ static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
 
 #define ZERO_C(c) (!(c[0] | c[1] | c[2]))
 
+// Charge-bit access for CellDevice (mirrors Cell::W1(), Q(), etc.)
+#define DEV_W1(cell)  ((cell).ch & 0x20)
+#define DEV_W0(cell)  ((cell).ch & 0x10)
+#define DEV_Q(cell)   ((cell).ch & 0x08)
+#define DEV_C2(cell)  ((cell).ch & 0x04)
+#define DEV_C1(cell)  ((cell).ch & 0x02)
+#define DEV_C0(cell)  ((cell).ch & 0x01)
+
+// One-shot ctrl for scenarios 1-5 (fire once per simulation run, like CPU)
+__device__ int dev_ctrl = 1;
+
+// Simple hash PRNG (for convolute1 random c[] values)
+__device__ inline unsigned dev_hash_random(unsigned seed, unsigned mod)
+{
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    seed *= 2654435761u;
+    return seed % mod;
+}
+
+// ===================================================================
+// DEVICE CONVOLUTE FUNCTIONS (mirror convolutes.cpp)
+// w = the 4th-dimension coordinate (CPU: curr.x[3])
+// ===================================================================
+
+__device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*draft*/,
+                                      ::CellDevice& /*mirror*/, unsigned /*w*/, unsigned /*tid*/)
+{
+    // Scenario 0: no interaction
+}
+
+__device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& /*mirror*/, unsigned w, unsigned tid)
+{
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
+    {
+        int old = atomicExch(&dev_ctrl, 0);
+        if (old == 1)
+        {
+            draft.c[0] = dev_hash_random(tid * 3 + 1, dev_EL);
+            draft.c[1] = dev_hash_random(tid * 3 + 2, dev_EL);
+            draft.c[2] = dev_hash_random(tid * 3 + 3, dev_EL);
+        }
+    }
+}
+
+__device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
+{
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
+    {
+        int old = atomicExch(&dev_ctrl, 0);
+        if (old == 1)
+        {
+            draft.a = dev_W_USED;
+        }
+    }
+}
+
+__device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
+{
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
+    {
+        int old = atomicExch(&dev_ctrl, 0);
+        if (old == 1)
+        {
+            draft.a = dev_W_USED;
+            draft.cB = 1;
+        }
+    }
+}
+
+__device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
+{
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && curr.sB && w == 0)
+    {
+        int old = atomicExch(&dev_ctrl, 0);
+        if (old == 1)
+        {
+            draft.hB = 1;
+        }
+    }
+}
+
+__device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
+{
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && curr.pB && w == 0 &&
+        !curr.cB && curr.a != dev_W_USED)
+    {
+        int old = atomicExch(&dev_ctrl, 0);
+        if (old == 1)
+        {
+            draft.c[0] = curr.x[0];
+            draft.c[1] = curr.x[1];
+            draft.c[2] = curr.x[2];
+            draft.cB = 1;
+            draft.a = dev_W_USED;
+        }
+    }
+}
+
+__device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
+{
+    if (curr.t == curr.d && mirror.t == mirror.d)
+    {
+        if (curr.x[0] == mirror.x[0] &&
+            curr.x[1] == mirror.x[1] &&
+            curr.x[2] == mirror.x[2])
+        {
+            if (curr.a != dev_W_USED &&
+                DEV_W1(curr) != DEV_W1(mirror) &&
+                !curr.cB &&
+                curr.t == dev_RMAX / 2)
+            {
+                if (curr.pB && mirror.sB)
+                {
+                    draft.c[0] = curr.x[0];
+                    draft.c[1] = curr.x[1];
+                    draft.c[2] = curr.x[2];
+                    draft.cB = 1;
+                    draft.a = dev_W_USED;
+                }
+                else if (curr.sB && !mirror.pB)
+                {
+                    draft.hB = 1;
+                    draft.cB = 1;
+                    draft.a = dev_W_USED;
+                }
+            }
+        }
+    }
+}
+
+__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
+{
+    if (curr.t == curr.d && mirror.t == mirror.d)
+    {
+        if (curr.x[0] == mirror.x[0] &&
+            curr.x[1] == mirror.x[1] &&
+            curr.x[2] == mirror.x[2])
+        {
+            if (DEV_W1(curr) != DEV_W1(mirror) &&
+                curr.t == dev_RMAX / 2 &&
+                !curr.cB &&
+                curr.a != dev_W_USED)
+            {
+                if (curr.pB && !mirror.pB)
+                {
+                    draft.c[0] = curr.x[0];
+                    draft.c[1] = curr.x[1];
+                    draft.c[2] = curr.x[2];
+                    draft.cB = 1;
+                }
+                if (!curr.pB && mirror.pB)
+                {
+                    draft.hB = 1;
+                    draft.cB = 1;
+                }
+            }
+            else if (curr.f == curr.t && mirror.f == mirror.t)
+            {
+                if (DEV_W1(curr) != DEV_W1(mirror))
+                {
+                    if (curr.pB && mirror.pB)
+                    {
+                        draft.f += curr.t;
+                        draft.s2B &= curr.phiB;
+                        draft.a = min(curr.a, mirror.a);
+                    }
+                }
+                else if ((DEV_Q(curr)  ^ DEV_Q(mirror))  &&
+                         (DEV_W1(curr) == DEV_W1(mirror)) &&
+                         (DEV_W0(curr) ^ DEV_W0(mirror))  &&
+                         (DEV_C2(curr) == DEV_C2(mirror)) &&
+                         (DEV_C1(curr) == DEV_C1(mirror)) &&
+                         (DEV_C0(curr) == DEV_C0(mirror)))
+                {
+                    draft.f += curr.t;
+                    draft.s2B &= curr.phiB;
+                    draft.a = min(curr.a, mirror.a);
+                    draft.bB = 1;
+                }
+                else if ((curr.ch == 0 && mirror.ch == 0) ||
+                         (curr.ch == 63 && mirror.ch == 63))
+                {
+                    draft.f += curr.t;
+                    draft.s2B &= curr.phiB;
+                    draft.a = min(curr.a, mirror.a);
+                }
+            }
+        }
+        else
+        {
+            if (DEV_W1(curr) == DEV_W1(mirror))
+            {
+                if (curr.ch == mirror.ch &&
+                    curr.f == curr.t &&
+                    mirror.f == mirror.t)
+                {
+                    if (curr.a > mirror.a)
+                    {
+                        draft.c[0] = curr.x[0];
+                        draft.c[1] = curr.x[1];
+                        draft.c[2] = curr.x[2];
+                        draft.a = min(curr.a, mirror.a);
+                    }
+                    else
+                    {
+                        draft.hB = 1;
+                        draft.a = min(curr.a, mirror.a);
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ===================================================================
 // MAIN UPDATE KERNEL - COMPLETE CA LOGIC
 // ===================================================================
@@ -86,7 +335,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                                  unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
                                  unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6,
                                  unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE,
-                                 unsigned FLOOD, unsigned FRAME)
+                                 unsigned FLOOD, unsigned FRAME, int scenario)
 {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int total_cells = dev_EL * dev_EL * dev_EL * dev_W_USED;
@@ -104,21 +353,30 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     ::CellDevice draft = curr;  // Start with copy
     ::CellDevice mirror = d_getCell(d_mirror, x, y, z, w);
     
-    // Get neighbors
+    // Get neighbors (indices must match CPU: NORTH=0, EAST=1, SOUTH=2, WEST=3, UP=4, DOWN=5, FORWARD=6)
     ::CellDevice forward = d_getNeighbor(d_curr, x, y, z, w, 6); // FORWARD
     ::CellDevice north   = d_getNeighbor(d_curr, x, y, z, w, 0); // NORTH
-    ::CellDevice west    = d_getNeighbor(d_curr, x, y, z, w, 2); // WEST
-    ::CellDevice down    = d_getNeighbor(d_curr, x, y, z, w, 4); // DOWN
-    ::CellDevice south   = d_getNeighbor(d_curr, x, y, z, w, 1); // SOUTH
-    ::CellDevice east    = d_getNeighbor(d_curr, x, y, z, w, 3); // EAST
-    ::CellDevice up      = d_getNeighbor(d_curr, x, y, z, w, 5); // UP
+    ::CellDevice east    = d_getNeighbor(d_curr, x, y, z, w, 1); // EAST
+    ::CellDevice south   = d_getNeighbor(d_curr, x, y, z, w, 2); // SOUTH
+    ::CellDevice west    = d_getNeighbor(d_curr, x, y, z, w, 3); // WEST
+    ::CellDevice up      = d_getNeighbor(d_curr, x, y, z, w, 4); // UP
+    ::CellDevice down    = d_getNeighbor(d_curr, x, y, z, w, 5); // DOWN
 
     // ===================================================================
     // CONVOLUTION PHASE (k < CONVOL)
     // ===================================================================
     if (curr.k < CONVOL) {
-        // Simplified convolute logic - you can expand based on scenario
-        // For now, just basic update (full logic would need scenario parameter)
+        switch (scenario) {
+            case 0: dev_convolute0(curr, draft, mirror, w, idx); break;
+            case 1: dev_convolute1(curr, draft, mirror, w, idx); break;
+            case 2: dev_convolute2(curr, draft, mirror, w, idx); break;
+            case 3: dev_convolute3(curr, draft, mirror, w, idx); break;
+            case 4: dev_convolute4(curr, draft, mirror, w, idx); break;
+            case 5: dev_convolute5(curr, draft, mirror, w, idx); break;
+            case 6: dev_convolute6(curr, draft, mirror, w, idx); break;
+            case 7: dev_convolute7(curr, draft, mirror, w, idx); break;
+            default: break;
+        }
     }
     
     // ===================================================================
@@ -308,7 +566,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
             draft.t++;
         } else {
-            draft.t = (curr.t + 1) % (dev_RMAX + 1);
+            draft.t = (curr.t + 1) % dev_RMAX;
         }
     }
 
@@ -317,7 +575,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
 }
 
 // ===================================================================
-// MIRROR UPDATE KERNEL
+// MIRROR UPDATE KERNEL (only runs when k == 0)
 // ===================================================================
 __global__ void updateMirrorKernel(CellDevice* lattice_curr,
                                    CellDevice* lattice_mirror,
@@ -328,6 +586,32 @@ __global__ void updateMirrorKernel(CellDevice* lattice_curr,
 
     lattice_mirror[tid] = lattice_curr[tid];
     lattice_mirror[tid].f = lattice_mirror[tid].t;
+}
+
+// ===================================================================
+// SHIFT-MIRROR KERNEL
+// Cyclic shift of the mirror lattice along the w-dimension:
+//   new_mirror[x,y,z,w] = old_mirror[x,y,z, (w + W_USED - 1) % W_USED]
+// Reads from src (copy of mirror), writes to dst (mirror).
+// ===================================================================
+__global__ void shiftMirrorKernel(const CellDevice* src,
+                                  CellDevice* dst,
+                                  unsigned totalCells)
+{
+    unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid >= totalCells) return;
+
+    // Decompose linear index into (x, y, z, w)
+    unsigned w     = tid % dev_W_USED;
+    unsigned idx3d = tid / dev_W_USED;
+
+    // Source w index: one slice "earlier" with wrap-around
+    unsigned src_w = (w + dev_W_USED - 1) % dev_W_USED;
+
+    // Compute source linear index (same x,y,z but different w)
+    unsigned src_tid = idx3d * dev_W_USED + src_w;
+
+    dst[tid] = src[src_tid];
 }
 
 // ===================================================================
@@ -488,7 +772,7 @@ void cudaSimulationStep(
     unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
     unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
     unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-    unsigned FLOOD, unsigned FRAME, unsigned RMAX)
+    unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario)
 {
     if (!g_cuda_initialized) {
         fprintf(stderr, "ERROR: CUDA not initialized\n");
@@ -498,24 +782,14 @@ void cudaSimulationStep(
     const int BLOCK_SIZE = 256;
     unsigned int total_cells = automaton::EL * automaton::EL * automaton::EL * automaton::W_USED;
     int GRID = (total_cells + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    cudaError_t err;
     
-    // Step 1: Check if we need to update mirror (k == 0)
-    // For simplicity, we update mirror every frame
-    // In production, you'd check the k value first
-    updateMirrorKernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr, d_lattice_mirror, total_cells);
-    
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Mirror kernel failed: %s\n", cudaGetErrorString(err));
-        return;
-    }
-    
-    // Step 2: Run main update kernel
+    // Step 1: Run main update kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
         d_lattice_curr, d_lattice_draft, d_lattice_mirror,
         CONVOL, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
         SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE,
-        FLOOD, FRAME
+        FLOOD, FRAME, scenario
     );
 
     err = cudaGetLastError();
@@ -530,10 +804,50 @@ void cudaSimulationStep(
         return;
     }
     
-    // Step 3: Swap pointers
+    // Step 2: Swap curr <-> draft (now d_lattice_curr has the updated state)
     ::CellDevice* temp = d_lattice_curr;
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
+    
+    // Step 3: Read new k value from the first cell to decide mirror ops.
+    //         In the CA every cell shares the same k, so reading one suffices.
+    unsigned new_k = 0;
+    err = cudaMemcpy(&new_k, &d_lattice_curr[0].k,
+                     sizeof(unsigned), cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Failed to read k from device: %s\n", cudaGetErrorString(err));
+        return;
+    }
+    
+    // Step 4: Mirror snapshot (only at the start of a new light frame)
+    if (new_k == 0) {
+        updateMirrorKernel<<<GRID, BLOCK_SIZE>>>(
+            d_lattice_curr, d_lattice_mirror, total_cells);
+        err = cudaDeviceSynchronize();
+        if (err != cudaSuccess) {
+            fprintf(stderr, "Mirror update kernel failed: %s\n", cudaGetErrorString(err));
+            return;
+        }
+    }
+    
+    // Step 5: Cyclic w-shift of the mirror (during convolution phase)
+    if (new_k < CONVOL) {
+        // Use d_lattice_draft as temporary buffer (not needed until next tick)
+        size_t size = (size_t)total_cells * sizeof(::CellDevice);
+        err = cudaMemcpy(d_lattice_draft, d_lattice_mirror, size,
+                         cudaMemcpyDeviceToDevice);
+        if (err != cudaSuccess) {
+            fprintf(stderr, "Mirror copy for shift failed: %s\n", cudaGetErrorString(err));
+            return;
+        }
+        shiftMirrorKernel<<<GRID, BLOCK_SIZE>>>(
+            d_lattice_draft, d_lattice_mirror, total_cells);
+        err = cudaDeviceSynchronize();
+        if (err != cudaSuccess) {
+            fprintf(stderr, "ShiftMirror kernel failed: %s\n", cudaGetErrorString(err));
+            return;
+        }
+    }
 }
 
 void cudaUpdateVoxelsLayer(unsigned selectedW)
@@ -619,7 +933,7 @@ void ca_update_gpu_wrapper(
     cudaSimulationStep(
         CONVOL, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
         SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-        FLOOD, FRAME, RMAX
+        FLOOD, FRAME, RMAX, scenario
     );
 }
 
