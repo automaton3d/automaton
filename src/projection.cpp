@@ -12,6 +12,7 @@
 #include "projection.h"
 #include "projection_manager.h"
 #include "globals.h"
+#include "config.h"
 
 namespace framework
 {
@@ -104,14 +105,40 @@ namespace framework
 
   void updateProjection()
   {
-      if (projectRads.empty()) return;
-      float ratio = gViewport[2] > 0 ? (float)gViewport[2] / gViewport[3] : 1.0f;
-      const float orthoSize = 0.6f;
+    if (projectRads.empty()) return;
 
-      if (projectRads[0].isSelected()) {
-          mProjection_ = glm::ortho(-orthoSize * ratio, orthoSize * ratio, -orthoSize, orthoSize, 0.01f, 100.0f);
-      } else if (projectRads[1].isSelected()) {
-          mProjection_ = ProjectionManager::instance().get3DPerspective(65.0f, 0.01f, 100.0f);
-      }
+    float ratio = gViewport[2] > 0 ? (float)gViewport[2] / gViewport[3] : 1.0f;
+
+    // Decide modo (GUI tem prioridade, senão usa config)
+    bool usePerspective;
+
+    if (projectRads[0].isSelected())
+        usePerspective = false;
+    else if (projectRads[1].isSelected())
+        usePerspective = true;
+    else
+        usePerspective = gConfig.perspective;
+
+    if (usePerspective)
+    {
+        mProjection_ = ProjectionManager::instance().get3DPerspective(
+            gConfig.fov,
+            gConfig.near_plane,
+            gConfig.far_plane
+        );
+    }
+    else
+    {
+        float scale = gConfig.zoom;
+
+        mProjection_ = glm::ortho(
+            -scale * ratio,
+             scale * ratio,
+            -scale,
+             scale,
+            gConfig.near_plane,
+            gConfig.far_plane
+        );
+    }
   }
 }
