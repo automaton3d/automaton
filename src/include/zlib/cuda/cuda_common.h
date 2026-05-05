@@ -18,4 +18,7 @@ struct CellDevice
     uint32_t s2B;
 
     uint32_t kB, bB, hB, cB;
+
+    uint32_t gB;
+    int32_t  g[3];
 };

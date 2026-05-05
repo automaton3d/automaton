@@ -293,11 +293,16 @@ void updateBufferCPU()
 
         uint32_t color = 0x00000000u;
 
-        if (cell.t == cell.d)
+        unsigned eff_t = automaton::effective_t(cell.t);
+        if (cell.gB)
+        {
+            color = makeColor(255, 255, 80, 255); // Yellow: glider in transit
+        }
+        else if (cell.d == eff_t)
         {
             if (cell.a == automaton::W_USED)
                 color = makeColor(255, 80, 80, 255);
-            else if (cell.t == 0)
+            else if (eff_t == 0)
                 color = makeColor(80, 255, 80, 255);
             else
                 color = makeColor(200, 200, 255, 255);

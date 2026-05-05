@@ -9,9 +9,9 @@
 #include <algorithm>
 #include <array>
 #include "model/simulation.h"
+#include "config.h"
 
 #ifdef USE_CUDA
-// Forward declarations for CUDA functions implemented in bridge.cpp and cuda files
 extern void cudaSimulationStepWrapper();
 extern bool isCudaEnabled();
 extern void updateMirrorOnGPU();
@@ -33,6 +33,7 @@ namespace automaton
   unsigned CONTRACT = 0;
   unsigned UPDATE = 0;
   unsigned CONVOL = 0;
+  unsigned GSLOT_X = 0, GSLOT_Y = 0, GSLOT_Z = 0;
   unsigned SLOT1 = 0, SLOT2 = 0, SLOT3 = 0, SLOT4 = 0, SLOT5 = 0;
   unsigned SLOT6 = 0, SLOT7 = 0, SLOT8 = 0;
   unsigned DIFFUSION = 0;
@@ -44,22 +45,36 @@ namespace automaton
   unsigned CENTER;
   unsigned FCENTER;
 
-  // The CA lattices
+  // Lattices
   std::vector<Cell> lattice_curr;
   std::vector<Cell> lattice_draft;
   std::vector<Cell> lattice_mirror;
 
-  // Support for visualization delays
-
-  bool convol_delay  = false;
-  bool diffuse_delay = false;
-  bool reloc_delay   = false;
-
   string lastAllocationError;
-
-  // Layer tracking
-
   std::vector<std::array<unsigned, 3>> lcenters;
+
+  // ============================================================
+  // SPHERICAL (ANTIPODAL) WRAPPING
+  // ============================================================
+
+  inline void spherical_wrap(int& x, int& y, int& z, int& w)
+  {
+    if (x < 0 || x >= (int)EL ||
+        y < 0 || y >= (int)EL ||
+        z < 0 || z >= (int)EL ||
+        w < 0 || w >= (int)W_USED)
+    {
+        x = EL - 1 - x;
+        y = EL - 1 - y;
+        z = EL - 1 - z;
+        w = W_USED - 1 - w;
+
+        x = (x % (int)EL + EL) % EL;
+        y = (y % (int)EL + EL) % EL;
+        z = (z % (int)EL + EL) % EL;
+        w = (w % (int)W_USED + W_USED) % W_USED;
+    }
+  }
 
   void trackCenter(unsigned x, unsigned y, unsigned z, unsigned w)
   {
@@ -68,9 +83,10 @@ namespace automaton
     lcenters[w][2] = z;
   }
 
-  /*
-   * CPU implementation of update_lattice
-   */
+  // ============================================================
+  // CPU UPDATE
+  // ============================================================
+
   void update_lattice_cpu()
   {
     for (unsigned w = 0; w < W_USED; ++w)
@@ -78,7 +94,7 @@ namespace automaton
         if (w == 0)
         {
             const Cell& first = lattice_curr.front();
-            if (convol_delay && first.k < CONVOL)
+            if (gConfig.delays.convol && first.k < CONVOL)
                 std::this_thread::sleep_for(std::chrono::milliseconds(120));
             else if (diffuse_delay && first.k >= CONVOL && first.k < DIFFUSION)
                 std::this_thread::sleep_for(std::chrono::milliseconds(80));
@@ -93,7 +109,14 @@ namespace automaton
             Cell &curr   = getCell(lattice_curr, x, y, z, w);
             Cell &draft  = getCell(lattice_draft, x, y, z, w);
             Cell &mirror = getCell(lattice_mirror, x, y, z, w);
+
             draft = curr;
+
+            // 🔥 GARANTIR COORDENADAS CORRETAS
+            curr.x[0] = x;
+            curr.x[1] = y;
+            curr.x[2] = z;
+            curr.x[3] = w;
 
             Cell &forward = curr.getNeighbor(FORWARD);
             Cell &north   = curr.getNeighbor(NORTH);
@@ -105,6 +128,8 @@ namespace automaton
 
             if (curr.k < CONVOL) {
                 convolute(curr, draft, mirror);
+            } else if (curr.k < GSLOT_Z) {
+                // glider slots
             } else if (curr.k < DIFFUSION) {
                 diffuse(curr, draft, forward, north, west, down, south, east, up);
             } else if (curr.k < RELOC) {
@@ -120,151 +145,98 @@ namespace automaton
             }
 
             draft.k = (curr.k + 1) % FRAME;
+
             if (draft.k == 0) {
                 if (curr.a == W_USED && curr.t <= RMAX)
                     draft.t++;
                 else
-                    draft.t = (curr.t + 1) % RMAX;
+                    draft.t = (curr.t + 1) % (2 * RMAX);
             }
         }
     }
   }
 
-  /*
-   * Executes a one tick operation in every cell.
-   */
   void update_lattice()
   {
 #ifdef USE_CUDA
-    // Use GPU if CUDA is enabled at runtime, otherwise fall back to CPU
     if (isCudaEnabled()) {
         cudaSimulationStepWrapper();
         return;
     }
 #endif
-    // CPU implementation
     update_lattice_cpu();
   }
 
-  /**
-   * CPU implementation of swap_lattices
-   */
   bool swap_lattices_cpu()
   {
     bool newLightFrame = false;
-    
-    // Update the current lattice
+
     std::copy(
         lattice_draft.begin(),
         lattice_draft.begin() + BLOCK,
         lattice_curr.begin());
-    
-    // Take the first cell to represent the others
+
     Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
+
     if (repr.k == 0)
     {
       for (unsigned w = 0; w < W_USED; ++w)
+      for (unsigned x = 0; x < EL; ++x)
+      for (unsigned y = 0; y < EL; ++y)
+      for (unsigned z = 0; z < EL; ++z)
       {
-        for (unsigned x = 0; x < EL; ++x)
-        {
-          for (unsigned y = 0; y < EL; ++y)
-          {
-            for (unsigned z = 0; z < EL; ++z)
-            {
-              Cell &curr = getCell(lattice_curr, x, y, z, w);
-              Cell &mirror = getCell(lattice_mirror, x, y, z, w);
-              mirror = curr;
-              // Reset f for the next convolution
-              mirror.f = mirror.t;
-            }
-          }
-        }
+          Cell &curr = getCell(lattice_curr, x, y, z, w);
+          Cell &mirror = getCell(lattice_mirror, x, y, z, w);
+          mirror = curr;
+          mirror.f = mirror.t;
       }
       newLightFrame = true;
     }
-    
+
     if (repr.k < CONVOL)
-    {
-      shiftMirror();
-    }
-    
+        shiftMirror();
+
     return newLightFrame;
   }
 
-  /**
-   * Swaps lattices after an update.
-   * (Counter k is always identical in all cells)
-   */
   bool swap_lattices()
   {
 #ifdef USE_CUDA
-    // If CUDA is enabled, the swap is handled inside cudaSimulationStepWrapper
-    // We still need to handle the mirror update
     if (isCudaEnabled()) {
-        // The GPU wrapper already handles the lattice swap
-        // Mirror update logic would go here if needed
-        // For now, return false as GPU handles this internally
-        
-        // Check if we're at a new light frame
         Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
-        bool newLightFrame = (repr.k == 0);
-        
-        // If you need mirror updates on GPU, call a separate function
-        // updateMirrorOnGPU();
-        
-        return newLightFrame;
+        return (repr.k == 0);
     }
 #endif
-    // CPU implementation
     return swap_lattices_cpu();
   }
 
-  /*
-   * One step of the CA.
-   */
   bool simulation()
   {
     update_lattice();
     return swap_lattices();
   }
 
-  /*
-   * Finds neighbor in one of eight von Neumann directions.
-   */
+  // ============================================================
+  // 🔥 FIX REAL AQUI
+  // ============================================================
+
   Cell &Cell::getNeighbor(int i)
   {
-    // Displacements for 8 von Neumann directions (4D)
     static int disp[8][4] =
     {
-      {+1,  0,  0,  0}, // +x
-      {-1,  0,  0,  0}, // -x
-      { 0, +1,  0,  0}, // +y
-      { 0, -1,  0,  0}, // -y
-      { 0,  0, +1,  0}, // +z
-      { 0,  0, -1,  0}, // -z
-      { 0,  0,  0, +1}, // +w
-      { 0,  0,  0, -1}  // -w
+        {+1,0,0,0},{-1,0,0,0},
+        {0,+1,0,0},{0,-1,0,0},
+        {0,0,+1,0},{0,0,-1,0},
+        {0,0,0,+1},{0,0,0,-1}
     };
 
-    int nx = (x[0] + disp[i][0] + EL) % EL;
-    int ny = (x[1] + disp[i][1] + EL) % EL;
-    int nz = (x[2] + disp[i][2] + EL) % EL;
-    int nw = (x[3] + disp[i][3] + W_USED)  % W_USED;
+    int nx = x[0] + disp[i][0];
+    int ny = x[1] + disp[i][1];
+    int nz = x[2] + disp[i][2];
+    int nw = x[3] + disp[i][3];
+
+    spherical_wrap(nx, ny, nz, nw);
+
     return getCell(lattice_curr, nx, ny, nz, nw);
   }
-
-  // Cleanup function
-  void DeleteAutomaton()
-  {
-#ifdef USE_CUDA
-    // Clean up CUDA resources if enabled
-    if (isCudaEnabled()) {
-        disableCuda();  // This will call free_cuda_memory internally
-    }
-#endif
-    // Clear CPU vectors
-    lattice_curr.clear();
-    lattice_draft.clear();
-    lattice_mirror.clear();
-  }
-}
+} // namespace automaton

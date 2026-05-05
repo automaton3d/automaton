@@ -68,7 +68,9 @@ namespace automaton
     extern unsigned W_USED;
     extern unsigned FRAME;
     extern unsigned RMAX;
+    extern unsigned CENTER;
     extern unsigned CONVOL;
+    extern unsigned GSLOT_X, GSLOT_Y, GSLOT_Z;
     extern unsigned SLOT1, SLOT2, SLOT3, SLOT4, SLOT5;
     extern unsigned SLOT6, SLOT7, SLOT8;
     extern unsigned DIFFUSION;
@@ -122,6 +124,10 @@ static void convertCellToCellDevice(const automaton::Cell& src,
     dst.bB  = src.bB  ? 1 : 0;
     dst.hB  = src.hB  ? 1 : 0;
     dst.cB  = src.cB  ? 1 : 0;
+
+    dst.gB  = src.gB  ? 1 : 0;
+    for (int i = 0; i < 3; ++i)
+        dst.g[i] = static_cast<int32_t>(src.g[i]);
 }
 
 static void convertCellDeviceToCell(const CellDevice& src,
@@ -149,6 +155,10 @@ static void convertCellDeviceToCell(const CellDevice& src,
     dst.bB  = (src.bB != 0);
     dst.hB  = (src.hB != 0);
     dst.cB  = (src.cB != 0);
+
+    dst.gB  = (src.gB != 0);
+    for (int i = 0; i < 3; ++i)
+        dst.g[i] = static_cast<int>(src.g[i]);
 }
 
 // -----------------------------------------------------------------
@@ -237,6 +247,7 @@ void cudaSimulationStepWrapper()
 
         cudaSimulationStep(
             automaton::CONVOL,
+            automaton::GSLOT_Z,
             automaton::SLOT1, automaton::SLOT2,
             automaton::SLOT3, automaton::SLOT4,
             automaton::DIFFUSION,
@@ -269,6 +280,17 @@ void cudaSimulationStepWrapper()
 
     // Final download (always needed)
     downloadAndSync();
+
+    // Diagnostic: print t and effective_t after each light frame
+    {
+        const automaton::Cell& center =
+            automaton::getCell(automaton::lattice_curr,
+                               automaton::CENTER, automaton::CENTER,
+                               automaton::CENTER, 0);
+        unsigned eff = automaton::effective_t(center.t);
+        printf("[GPU] t=%u  eff_t=%u  RMAX=%u  center.gB=%d\n",
+               center.t, eff, automaton::RMAX, (int)center.gB);
+    }
 }
 
 // -----------------------------------------------------------------

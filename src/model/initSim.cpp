@@ -47,48 +47,56 @@ namespace automaton
   /**
    * Function to initialize the lattice with general data.
    */
+/**
+   * Function to initialize the lattice with general data.
+   */
   void initGeneral()
+{
+  for (unsigned w = 0; w < W_USED; ++w)
+  for (unsigned x = 0; x < EL; ++x)
+  for (unsigned y = 0; y < EL; ++y)
+  for (unsigned z = 0; z < EL; ++z)
   {
-    for (unsigned w = 0; w < static_cast<unsigned>(W_USED); ++w)
-    {
-      for (unsigned x = 0; x < static_cast<unsigned>(EL); ++x)
-      {
-        for (unsigned y = 0; y < static_cast<unsigned>(EL); ++y)
-        {
-          for (unsigned z = 0; z < static_cast<unsigned>(EL); ++z)
-          {
-            // Reference to the current cell
-            Cell& cell = getCell(lattice_curr, x, y, z, w);
-            char w0 = w % 2;
-            char w1 = (w >> 1) % 2;
-            char q = w0 ^ w1;
-            // Set charge
-            cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
-            // Initialize coordinates
-            cell.x[0] = x;
-            cell.x[1] = y;
-            cell.x[2] = z;
-            cell.x[3] = w;
-            cell.a = w;
-            // Reference to the central cell in the current layer
-            Cell& cell0 = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-            // Initialize properties of the cell
-            cell.ch = cell0.ch;
-            // Calculate distance from center
-            double dx = static_cast<double>(x) - static_cast<double>(CENTER);
-            double dy = static_cast<double>(y) - static_cast<double>(CENTER);
-            double dz = static_cast<double>(z) - static_cast<double>(CENTER);
-            double d  = std::sqrt(dx * dx + dy * dy + dz * dz);
-            // Set Euclidean distance
-            cell.d = static_cast<unsigned>(std::ceil(d));
-          }
-        }
-      }
-    }
-    // Initialize lattice_mirror for safety
-    lattice_mirror.assign(lattice_mirror.size(), Cell());
-    puts("initGeneral ok.");
+    Cell& cell = getCell(lattice_curr, x, y, z, w);
+
+    char w0 = w % 2;
+    char w1 = (w >> 1) % 2;
+    char q  = w0 ^ w1;
+
+    cell.ch = (w % 8) | (q << 3) | (w0 << 4) | (w1 << 5);
+
+    cell.x[0] = x;
+    cell.x[1] = y;
+    cell.x[2] = z;
+    cell.x[3] = w;
+
+    cell.a = w;
+
+    Cell& cell0 = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
+    cell.ch = cell0.ch;
+
+    // 🔥 distância esférica correta (antipodal)
+    double dx1 = (double)x - CENTER;
+    double dy1 = (double)y - CENTER;
+    double dz1 = (double)z - CENTER;
+    double d1  = sqrt(dx1*dx1 + dy1*dy1 + dz1*dz1);
+
+    int ax = EL - 1 - CENTER;
+    int ay = EL - 1 - CENTER;
+    int az = EL - 1 - CENTER;
+
+    double dx2 = (double)x - ax;
+    double dy2 = (double)y - ay;
+    double dz2 = (double)z - az;
+    double d2  = sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2);
+
+    double d = std::min(d1, d2);
+
+    cell.d = (unsigned)ceil(d);
   }
+
+  lattice_mirror.assign(lattice_mirror.size(), Cell());
+}
 
   /*
    * initMomentum function fixed to use uniform sphere points generation.
@@ -469,37 +477,45 @@ void initSine2()
   /**
    * Calculates the simulation parameters.
    */
-  void calculateParameters(unsigned L, unsigned W)
-  {
-    EL        = L;
-    L2        = (EL*EL);
-    W_DIM     = (3 * L2 + 1);
-    W_USED    = W;
-    L3        = L2 * EL;
-    ORDER     = ((int)round(log2(EL)));   // Number of bits
-    CENTER    = ((EL - 1) / 2);
-    FCENTER   = (EL/2.0);
-    BLOCK     = L3 * W_USED;
-    DIAG      = (unsigned) EL* sqrt(3);
-    RMAX      = DIAG / 2;
-    CONTRACT  = static_cast<int>(floor(sqrt(3.0) * CENTER));
-    // Time slots
-    CONVOL    = W_USED;
-    SLOT1     = CONVOL + RMAX;
-    SLOT2     = SLOT1 + 3 * (EL - 1);
-    SLOT3     = SLOT2 + 3 * (EL - 1);
-    SLOT4     = SLOT3 + 2 * W_USED;
-    SLOT5     = SLOT4 + 3 * (L - 1);
-    DIFFUSION = SLOT5;
-    SLOT6     = DIFFUSION + (EL - 1);
-    SLOT7     = SLOT6 + (EL - 1);
-    SLOT8     = SLOT7 + (EL - 1);
-    RELOC     = SLOT8;
-    REISSUE   = RELOC + 1;
-    FLOOD     = REISSUE + 3 * (L - 1);
-    FRAME     = FLOOD;
+void calculateParameters(unsigned L, unsigned W)
+{
+  EL        = L;
+  L2        = (EL*EL);
+  W_DIM     = (3 * L2 + 1);
+  W_USED    = W;
+  L3        = L2 * EL;
+  ORDER     = ((int)round(log2(EL)));
+  CENTER    = ((EL - 1) / 2);
+  FCENTER   = (EL/2.0);
+  BLOCK     = L3 * W_USED;
+  DIAG      = (unsigned) EL * sqrt(3);
 
-    // Centers will be used by the frame recorder
-    initCenters(W_USED);
-  }
+  // 🔥 CORREÇÃO CRÍTICA
+  RMAX      = L / 2;   // antes: L/4  ❌
+
+  CONTRACT  = static_cast<int>(floor(sqrt(3.0) * CENTER));
+
+  CONVOL    = W_USED;
+  GSLOT_X   = CONVOL + 2 * RMAX;
+  GSLOT_Y   = GSLOT_X + 2 * RMAX;
+  GSLOT_Z   = GSLOT_Y + 2 * RMAX;
+
+  SLOT1     = GSLOT_Z + RMAX;
+  SLOT2     = SLOT1 + 3 * (EL - 1);
+  SLOT3     = SLOT2 + 3 * (EL - 1);
+  SLOT4     = SLOT3 + 2 * W_USED;
+  SLOT5     = SLOT4 + 3 * (L - 1);
+
+  DIFFUSION = SLOT5;
+  SLOT6     = DIFFUSION + (EL - 1);
+  SLOT7     = SLOT6 + (EL - 1);
+  SLOT8     = SLOT7 + (EL - 1);
+
+  RELOC     = SLOT8;
+  REISSUE   = RELOC + 1;
+  FLOOD     = REISSUE + 3 * (L - 1);
+  FRAME     = FLOOD;
+
+  initCenters(W_USED);
 }
+} // namespace automaton

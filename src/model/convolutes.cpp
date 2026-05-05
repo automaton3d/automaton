@@ -19,7 +19,7 @@ namespace automaton
 
   bool convolute1(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && curr.t == RMAX / 2 && curr.x[3] == 0 && ctrl)
+    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
       draft.c[0] = getRandomUnsigned(EL);
       draft.c[1] = getRandomUnsigned(EL);
@@ -31,7 +31,7 @@ namespace automaton
 
   bool convolute2(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && curr.t == RMAX / 2 && curr.x[3] == 0 && ctrl)
+    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
       draft.a = W_USED;
       ctrl = false;
@@ -41,7 +41,7 @@ namespace automaton
 
   bool convolute3(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && curr.t == RMAX / 2 && curr.x[3] == 0 && ctrl)
+    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
       draft.a = W_USED;
       draft.cB = true;
@@ -52,7 +52,7 @@ namespace automaton
 
   bool convolute4(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && curr.t == RMAX / 2 && curr.sB && curr.x[3] == 0 && ctrl)
+    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.sB && curr.x[3] == 0 && ctrl)
     {
       draft.hB = true;
       ctrl = false;
@@ -62,7 +62,7 @@ namespace automaton
 
   bool convolute5(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && curr.t == RMAX / 2 && curr.pB && curr.x[3] == 0 &&
+    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.pB && curr.x[3] == 0 &&
        !curr.cB && curr.a != W_USED && ctrl)
     {
       draft.c[0] = curr.x[0];
@@ -77,7 +77,7 @@ namespace automaton
 
   bool convolute6(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && mirror.t == mirror.d)
+    if (curr.d == effective_t(curr.t) && mirror.d == effective_t(mirror.t))
     {
       if (curr.x[0] == mirror.x[0] &&
           curr.x[1] == mirror.x[1] &&
@@ -86,7 +86,7 @@ namespace automaton
         if (curr.a != W_USED &&
             curr.W1() != mirror.W1() &&
             !curr.cB &&
-            curr.t == RMAX / 2)
+            effective_t(curr.t) == RMAX / 2)
         {
           if (curr.pB && mirror.sB)
           {
@@ -110,14 +110,14 @@ namespace automaton
 
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.t == curr.d && mirror.t == mirror.d)
+    if (curr.d == effective_t(curr.t) && mirror.d == effective_t(mirror.t))
     {
       if (curr.x[0] == mirror.x[0] &&
           curr.x[1] == mirror.x[1] &&
           curr.x[2] == mirror.x[2])
       {
         if (curr.W1() != mirror.W1() &&
-            curr.t == RMAX / 2 &&
+            effective_t(curr.t) == RMAX / 2 &&
             !curr.cB &&
             curr.a != W_USED)
         {
@@ -135,7 +135,7 @@ namespace automaton
             draft.cB = true;
           }
         }
-        else if (curr.f == curr.t && mirror.f == mirror.t)
+        else if (curr.f == effective_t(curr.t) && mirror.f == effective_t(mirror.t))
         {
           if (curr.W1() != mirror.W1())
           {
@@ -172,8 +172,8 @@ namespace automaton
         if (curr.W1() == mirror.W1())
         {
           if (curr.ch == mirror.ch &&
-              curr.f == curr.t &&
-              mirror.f == mirror.t)
+              curr.f == effective_t(curr.t) &&
+              mirror.f == effective_t(mirror.t))
           {
             // ✅ CORREÇÃO AQUI
             if (curr.a > mirror.a)

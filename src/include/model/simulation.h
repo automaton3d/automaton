@@ -120,14 +120,19 @@ namespace automaton
       bool bB;            // Blob flag
       bool hB;            // Hunt flag
       bool cB;            // Contraction flag
+      // Glider (antipodal transport)
+      bool gB;            // Glider active flag
+      int  g[3] = {0,0,0}; // Signed displacement to antipodal
       // Default constructor
       Cell()
         : ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
-          k(0), s2B(false), kB(false), bB(false), hB(false), cB(false)
+          k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
+          gB(false)
       {
         fill(begin(x), end(x), 0);
         fill(begin(c), end(c), 0);
+        fill(begin(g), end(g), 0);
       }
       // Serialization functions
       void serialize(ofstream& out) const;
@@ -214,6 +219,9 @@ namespace automaton
   extern unsigned RMAX;
   extern unsigned CONTRACT;
   extern unsigned CONVOL;
+  extern unsigned GSLOT_X;
+  extern unsigned GSLOT_Y;
+  extern unsigned GSLOT_Z;
   extern unsigned SLOT1;
   extern unsigned SLOT2;
   extern unsigned SLOT3;
@@ -227,6 +235,14 @@ namespace automaton
   extern unsigned REISSUE;
   extern unsigned FLOOD;
   extern unsigned FRAME;
+
+  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0)
+  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX
+  inline unsigned effective_t(unsigned t) {
+      unsigned period = 2 * RMAX;
+      unsigned raw = t % period;
+      return (raw <= RMAX) ? raw : (2 * RMAX - raw);
+  }
 
 /// Cross variables ///
 extern std::vector<Cell> lattice_curr;

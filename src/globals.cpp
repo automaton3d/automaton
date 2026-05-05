@@ -161,6 +161,13 @@ std::vector<glm::vec3> makeCube(float cx, float cy, float cz, float size) {
 bool helpHover = false;
 bool GPUEnabled = false;
 
+namespace automaton
+{
+    bool convol_delay  = false;
+    bool diffuse_delay = false;
+    bool reloc_delay   = false;
+}
+
 #ifdef DEBUG
 double debugClickX = -1;
 double debugClickY = -1;

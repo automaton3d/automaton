@@ -167,3 +167,10 @@ extern bool GPUEnabled;
 
 extern GLuint transparentProgram;   // programa para o plano transparente
 extern GLint transparentMvpLoc, transparentColorLoc, transparentAlphaLoc;
+
+namespace automaton
+{
+    extern bool convol_delay;
+    extern bool diffuse_delay;
+    extern bool reloc_delay;
+}

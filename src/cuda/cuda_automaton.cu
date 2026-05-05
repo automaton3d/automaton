@@ -14,10 +14,12 @@
 __constant__ unsigned dev_EL;
 __constant__ unsigned dev_W_USED;
 __constant__ unsigned dev_RMAX;
+__constant__ unsigned dev_CENTER;
 
 extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
 {
     cudaError_t err;
+    unsigned CENTER = (EL - 1) / 2;
     printf("Setting dev_EL = %u\n", EL);
     err = cudaMemcpyToSymbol(dev_EL, &EL, sizeof(unsigned));
     if (err != cudaSuccess) {
@@ -36,7 +38,21 @@ extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
         fprintf(stderr, "Error setting dev_RMAX: %s\n", cudaGetErrorString(err));
         return;
     }
+    printf("Setting dev_CENTER = %u\n", CENTER);
+    err = cudaMemcpyToSymbol(dev_CENTER, &CENTER, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_CENTER: %s\n", cudaGetErrorString(err));
+        return;
+    }
     printf("All constants set successfully\n");
+}
+
+// Device helper: effective wavefront radius (triangle wave)
+// Period = 2*RMAX, amplitude = RMAX
+static __device__ inline unsigned dev_effective_t(unsigned t) {
+    unsigned period = 2 * dev_RMAX;
+    unsigned raw = t % period;
+    return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
 }
 
 // Scenario selector (defined in globals.cpp)
@@ -140,7 +156,8 @@ __device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*dr
 __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned tid)
 {
-    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
+    unsigned eff = dev_effective_t(curr.t);
+    if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -155,7 +172,8 @@ __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
+    unsigned eff = dev_effective_t(curr.t);
+    if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -168,7 +186,8 @@ __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
+    unsigned eff = dev_effective_t(curr.t);
+    if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -182,7 +201,8 @@ __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && curr.sB && w == 0)
+    unsigned eff = dev_effective_t(curr.t);
+    if (curr.d == eff && eff == dev_RMAX / 2 && curr.sB && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -195,7 +215,8 @@ __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && curr.pB && w == 0 &&
+    unsigned eff = dev_effective_t(curr.t);
+    if (curr.d == eff && eff == dev_RMAX / 2 && curr.pB && w == 0 &&
         !curr.cB && curr.a != dev_W_USED)
     {
         int old = atomicExch(&dev_ctrl, 0);
@@ -213,7 +234,7 @@ __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
-    if (curr.t == curr.d && mirror.t == mirror.d)
+    if (curr.d == dev_effective_t(curr.t) && mirror.d == dev_effective_t(mirror.t))
     {
         if (curr.x[0] == mirror.x[0] &&
             curr.x[1] == mirror.x[1] &&
@@ -222,7 +243,7 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
             if (curr.a != dev_W_USED &&
                 DEV_W1(curr) != DEV_W1(mirror) &&
                 !curr.cB &&
-                curr.t == dev_RMAX / 2)
+                dev_effective_t(curr.t) == dev_RMAX / 2)
             {
                 if (curr.pB && mirror.sB)
                 {
@@ -246,14 +267,14 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
-    if (curr.t == curr.d && mirror.t == mirror.d)
+    if (curr.d == dev_effective_t(curr.t) && mirror.d == dev_effective_t(mirror.t))
     {
         if (curr.x[0] == mirror.x[0] &&
             curr.x[1] == mirror.x[1] &&
             curr.x[2] == mirror.x[2])
         {
             if (DEV_W1(curr) != DEV_W1(mirror) &&
-                curr.t == dev_RMAX / 2 &&
+                dev_effective_t(curr.t) == dev_RMAX / 2 &&
                 !curr.cB &&
                 curr.a != dev_W_USED)
             {
@@ -270,7 +291,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                     draft.cB = 1;
                 }
             }
-            else if (curr.f == curr.t && mirror.f == mirror.t)
+            else if (curr.f == dev_effective_t(curr.t) && mirror.f == dev_effective_t(mirror.t))
             {
                 if (DEV_W1(curr) != DEV_W1(mirror))
                 {
@@ -307,8 +328,8 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
             if (DEV_W1(curr) == DEV_W1(mirror))
             {
                 if (curr.ch == mirror.ch &&
-                    curr.f == curr.t &&
-                    mirror.f == mirror.t)
+                    curr.f == dev_effective_t(curr.t) &&
+                    mirror.f == dev_effective_t(mirror.t))
                 {
                     if (curr.a > mirror.a)
                     {
@@ -332,7 +353,8 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
 // MAIN UPDATE KERNEL - COMPLETE CA LOGIC
 // ===================================================================
 __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::CellDevice* d_mirror,
-                                 unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
+                                 unsigned CONVOL, unsigned GSLOT_Z,
+                                 unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
                                  unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6,
                                  unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE,
                                  unsigned FLOOD, unsigned FRAME, int scenario)
@@ -363,9 +385,15 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     ::CellDevice down    = d_getNeighbor(d_curr, x, y, z, w, 5); // DOWN
 
     // ===================================================================
+    // GLIDER TRANSPARENCY: skip all phases for cells in transit
+    // ===================================================================
+    if (curr.gB) {
+        // Cell is in glider transit — frozen, skip all phases
+    }
+    // ===================================================================
     // CONVOLUTION PHASE (k < CONVOL)
     // ===================================================================
-    if (curr.k < CONVOL) {
+    else if (curr.k < CONVOL) {
         switch (scenario) {
             case 0: dev_convolute0(curr, draft, mirror, w, idx); break;
             case 1: dev_convolute1(curr, draft, mirror, w, idx); break;
@@ -377,6 +405,13 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             case 7: dev_convolute7(curr, draft, mirror, w, idx); break;
             default: break;
         }
+    }
+
+    // ===================================================================
+    // GSLOT PHASES (k < GSLOT_Z) — timing for glider transport
+    // ===================================================================
+    else if (curr.k < GSLOT_Z) {
+        // Timing slots — actual transport done by separate kernel
     }
     
     // ===================================================================
@@ -404,7 +439,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (up.a    == dev_W_USED && curr.d >= up.d)) {
                 draft.a = dev_W_USED;
             }
-            if (curr.d == curr.t) {
+            if (curr.d == dev_effective_t(curr.t)) {
                 if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; curr.sB = !draft.hB; }
                 else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; curr.sB = !draft.hB; }
                 else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % dev_EL; curr.sB = !draft.hB; }
@@ -531,7 +566,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         draft.hB = 0;
         draft.bB = 0;
         
-        if (curr.t == curr.d) {
+        if (curr.d == dev_effective_t(curr.t)) {
             if (north.d == curr.d + 1) draft.a = north.a;
             if (south.d == curr.d + 1) draft.a = south.a;
             if (east.d == curr.d + 1)  draft.a = east.a;
@@ -566,7 +601,15 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
             draft.t++;
         } else {
-            draft.t = (curr.t + 1) % dev_RMAX;
+            draft.t = (curr.t + 1) % (2 * dev_RMAX);
+        }
+        // Glider activation: when effective_t reaches RMAX
+        unsigned eff = dev_effective_t(draft.t);
+        if (eff == dev_RMAX && curr.d == dev_RMAX && !curr.gB) {
+            draft.gB = 1;
+            draft.g[0] = 2 * ((int)dev_CENTER - (int)x);
+            draft.g[1] = 2 * ((int)dev_CENTER - (int)y);
+            draft.g[2] = 2 * ((int)dev_CENTER - (int)z);
         }
     }
 
@@ -612,6 +655,69 @@ __global__ void shiftMirrorKernel(const CellDevice* src,
     unsigned src_tid = idx3d * dev_W_USED + src_w;
 
     dst[tid] = src[src_tid];
+}
+
+// ===================================================================
+// GLIDER TRANSPORT KERNEL
+// For each gB cell, swap content with its antipodal position.
+// Two-pass approach: first mark, then swap to avoid race conditions.
+// ===================================================================
+__global__ void gliderTransportKernel(CellDevice* lattice,
+                                      unsigned totalCells)
+{
+    unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid >= totalCells) return;
+
+    unsigned w     = tid % dev_W_USED;
+    unsigned idx3d = tid / dev_W_USED;
+    unsigned z     = idx3d % dev_EL;
+    unsigned y     = (idx3d / dev_EL) % dev_EL;
+    unsigned x     = idx3d / (dev_EL * dev_EL);
+
+    CellDevice& cell = lattice[tid];
+    if (!cell.gB) return;
+
+    // Compute antipodal position
+    unsigned ax = 2 * dev_CENTER - x;
+    unsigned ay = 2 * dev_CENTER - y;
+    unsigned az = 2 * dev_CENTER - z;
+
+    // Skip if same position (center)
+    if (ax == x && ay == y && az == z) {
+        cell.gB = 0;
+        cell.g[0] = cell.g[1] = cell.g[2] = 0;
+        return;
+    }
+
+    // Only process if this cell has a lower linear index than its antipodal
+    // to avoid double-processing
+    unsigned a_tid = ((ax * dev_EL + ay) * dev_EL + az) * dev_W_USED + w;
+    if (tid > a_tid) return;
+
+    CellDevice& dest = lattice[a_tid];
+
+    if (!dest.gB) {
+        // One-way: copy cell to antipodal, mark source as orphan
+        CellDevice temp = cell;
+        dest = temp;
+        dest.gB = 0;
+        dest.g[0] = dest.g[1] = dest.g[2] = 0;
+        dest.x[0] = ax; dest.x[1] = ay; dest.x[2] = az;
+        cell.gB = 0;
+        cell.g[0] = cell.g[1] = cell.g[2] = 0;
+        cell.a = dev_W_USED;
+    } else {
+        // Both are glider cells — swap
+        CellDevice temp = dest;
+        dest = cell;
+        dest.gB = 0;
+        dest.g[0] = dest.g[1] = dest.g[2] = 0;
+        dest.x[0] = ax; dest.x[1] = ay; dest.x[2] = az;
+        cell = temp;
+        cell.gB = 0;
+        cell.g[0] = cell.g[1] = cell.g[2] = 0;
+        cell.x[0] = x; cell.x[1] = y; cell.x[2] = z;
+    }
 }
 
 // ===================================================================
@@ -769,7 +875,8 @@ bool downloadLatticeFromCuda(::CellDevice* hostCells, size_t totalCells)
 }
 
 void cudaSimulationStep(
-    unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
+    unsigned CONVOL, unsigned GSLOT_Z,
+    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
     unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
     unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
     unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario)
@@ -787,7 +894,7 @@ void cudaSimulationStep(
     // Step 1: Run main update kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
         d_lattice_curr, d_lattice_draft, d_lattice_mirror,
-        CONVOL, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
+        CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
         SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE,
         FLOOD, FRAME, scenario
     );
@@ -809,6 +916,20 @@ void cudaSimulationStep(
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
     
+    // Step 2b: Read k to check if we need glider transport
+    unsigned cur_k = 0;
+    err = cudaMemcpy(&cur_k, &d_lattice_curr[0].k,
+                     sizeof(unsigned), cudaMemcpyDeviceToHost);
+    if (err == cudaSuccess && cur_k == GSLOT_Z) {
+        gliderTransportKernel<<<GRID, BLOCK_SIZE>>>(
+            d_lattice_curr, total_cells);
+        err = cudaDeviceSynchronize();
+        if (err != cudaSuccess) {
+            fprintf(stderr, "Glider transport kernel failed: %s\n", cudaGetErrorString(err));
+            return;
+        }
+    }
+
     // Step 3: Read new k value from the first cell to decide mirror ops.
     //         In the CA every cell shares the same k, so reading one suffices.
     unsigned new_k = 0;
@@ -891,6 +1012,9 @@ namespace automaton
     dst.bB = src.bB ? 1 : 0;
     dst.hB = src.hB ? 1 : 0;
     dst.cB = src.cB ? 1 : 0;
+
+    dst.gB = src.gB ? 1 : 0;
+    for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int32_t>(src.g[i]);
     
     return dst;
 }
@@ -917,6 +1041,9 @@ void convertToHost(const ::CellDevice& src, Cell& dst)
     dst.bB = src.bB != 0;
     dst.hB = src.hB != 0;
     dst.cB = src.cB != 0;
+
+    dst.gB = src.gB != 0;
+    for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int>(src.g[i]);
 }
 
 bool swap_lattices_gpu()
@@ -925,13 +1052,14 @@ bool swap_lattices_gpu()
 }
 
 void ca_update_gpu_wrapper(
-    unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
+    unsigned CONVOL, unsigned GSLOT_Z,
+    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
     unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
     unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
     unsigned FLOOD, unsigned FRAME, unsigned RMAX)
 {
     cudaSimulationStep(
-        CONVOL, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
+        CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
         SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
         FLOOD, FRAME, RMAX, scenario
     );
@@ -940,7 +1068,7 @@ void ca_update_gpu_wrapper(
 void ca_update_gpu_wrapper()
 {
     ca_update_gpu_wrapper(
-        CONVOL, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
+        CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
         SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
         FLOOD, FRAME, RMAX
     );

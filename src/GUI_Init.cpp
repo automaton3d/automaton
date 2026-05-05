@@ -1,4 +1,5 @@
 // GUI_InitWidgets.cpp
+#include "config.h"
 #include "GUI.h"
 #include "tickbox.h"
 #include "radio.h"
@@ -107,9 +108,16 @@ namespace framework
             Tickbox(50, d3Dpos + 7*RAD_SEP, "Axes"),
             Tickbox(50, d3Dpos + 8*RAD_SEP, "Plane")
         };
+        /*
         data3D[0].setState(true);
         data3D[5].setState(true);
         data3D[7].setState(true);
+        */
+        
+        for (int i = 0; i < 9; ++i)
+        {
+            data3D[i].setState(gConfig.data3D[i]);
+        }
 
         // ------------------------------------------------------------
         // Delay tickboxes

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "globals.h"
+#include "config.h"
 #include "projection_manager.h"
 #include "text_renderer.h"
 #include "shader.h"
@@ -216,6 +217,7 @@ void cleanupReplay()
 // =============================================================================
 int main()
 {
+    loadConfig("automaton.cfg");
 	glfwSetErrorCallback(glfwErrorCallback);
 
     // Initialize GLFW

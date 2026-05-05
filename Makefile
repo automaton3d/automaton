@@ -25,7 +25,7 @@ OBJ_COMMON = glad.obj tinyfiledialogs.obj button.obj callback.obj camera.obj cor
              radio.obj recorder.obj replay.obj replay_progress.obj scene.obj shader.obj \
              sound.obj splash.obj stats.obj stb_impl.obj text_renderer.obj tickbox.obj \
              tomography.obj convolutes.obj initSim.obj interaction.obj simulation.obj \
-             utils.obj debug.obj
+             utils.obj debug.obj config.obj
 
 !IF $(ENABLE_CUDA)
 OBJ = $(OBJ_COMMON) bridge.obj bridge_cuda.obj cuda_automaton.obj
@@ -79,6 +79,9 @@ cuda_automaton.obj: src\cuda\cuda_automaton.cu
 
 # Regras explícitas para objetos
 button.obj: src\button.cpp
+    $(CC) $(CFLAGS) /c $** /Fo$@
+
+config.obj: src\config.cpp
     $(CC) $(CFLAGS) /c $** /Fo$@
 
 callback.obj: src\callback.cpp
