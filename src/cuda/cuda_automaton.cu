@@ -385,15 +385,9 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     ::CellDevice down    = d_getNeighbor(d_curr, x, y, z, w, 5); // DOWN
 
     // ===================================================================
-    // GLIDER TRANSPARENCY: skip all phases for cells in transit
-    // ===================================================================
-    if (curr.gB) {
-        // Cell is in glider transit — frozen, skip all phases
-    }
-    // ===================================================================
     // CONVOLUTION PHASE (k < CONVOL)
     // ===================================================================
-    else if (curr.k < CONVOL) {
+    if (curr.k < CONVOL) {
         switch (scenario) {
             case 0: dev_convolute0(curr, draft, mirror, w, idx); break;
             case 1: dev_convolute1(curr, draft, mirror, w, idx); break;
@@ -439,13 +433,17 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (up.a    == dev_W_USED && curr.d >= up.d)) {
                 draft.a = dev_W_USED;
             }
+            // Hunting: accumulate c[] from hB neighbors on the wavefront.
+            // Note: CPU also does `curr.sB = !draft.hB` here, which modifies
+            // lattice_curr directly (scan-order side effect). The GPU cannot
+            // replicate this safely in parallel, so sB is left unchanged.
             if (curr.d == dev_effective_t(curr.t)) {
-                if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; curr.sB = !draft.hB; }
-                else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; curr.sB = !draft.hB; }
-                else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % dev_EL; curr.sB = !draft.hB; }
-                else if (south.hB) { draft.c[0] = (south.c[0] + 1) % dev_EL; curr.sB = !draft.hB; }
-                else if (east.hB)  { draft.c[1] = (east.c[1] + 1) % dev_EL; curr.sB = !draft.hB; }
-                else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % dev_EL; curr.sB = !draft.hB; }
+                if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; }
+                else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; }
+                else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % dev_EL; }
+                else if (south.hB) { draft.c[1] = (south.c[1] + 1) % dev_EL; }
+                else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % dev_EL; }
+                else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % dev_EL; }
             }
         }
         // SLOT III
@@ -603,14 +601,6 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         } else {
             draft.t = (curr.t + 1) % (2 * dev_RMAX);
         }
-        // Glider activation: when effective_t reaches RMAX
-        unsigned eff = dev_effective_t(draft.t);
-        if (eff == dev_RMAX && curr.d == dev_RMAX && !curr.gB) {
-            draft.gB = 1;
-            draft.g[0] = 2 * ((int)dev_CENTER - (int)x);
-            draft.g[1] = 2 * ((int)dev_CENTER - (int)y);
-            draft.g[2] = 2 * ((int)dev_CENTER - (int)z);
-        }
     }
 
     // Write result
@@ -655,69 +645,6 @@ __global__ void shiftMirrorKernel(const CellDevice* src,
     unsigned src_tid = idx3d * dev_W_USED + src_w;
 
     dst[tid] = src[src_tid];
-}
-
-// ===================================================================
-// GLIDER TRANSPORT KERNEL
-// For each gB cell, swap content with its antipodal position.
-// Two-pass approach: first mark, then swap to avoid race conditions.
-// ===================================================================
-__global__ void gliderTransportKernel(CellDevice* lattice,
-                                      unsigned totalCells)
-{
-    unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= totalCells) return;
-
-    unsigned w     = tid % dev_W_USED;
-    unsigned idx3d = tid / dev_W_USED;
-    unsigned z     = idx3d % dev_EL;
-    unsigned y     = (idx3d / dev_EL) % dev_EL;
-    unsigned x     = idx3d / (dev_EL * dev_EL);
-
-    CellDevice& cell = lattice[tid];
-    if (!cell.gB) return;
-
-    // Compute antipodal position
-    unsigned ax = 2 * dev_CENTER - x;
-    unsigned ay = 2 * dev_CENTER - y;
-    unsigned az = 2 * dev_CENTER - z;
-
-    // Skip if same position (center)
-    if (ax == x && ay == y && az == z) {
-        cell.gB = 0;
-        cell.g[0] = cell.g[1] = cell.g[2] = 0;
-        return;
-    }
-
-    // Only process if this cell has a lower linear index than its antipodal
-    // to avoid double-processing
-    unsigned a_tid = ((ax * dev_EL + ay) * dev_EL + az) * dev_W_USED + w;
-    if (tid > a_tid) return;
-
-    CellDevice& dest = lattice[a_tid];
-
-    if (!dest.gB) {
-        // One-way: copy cell to antipodal, mark source as orphan
-        CellDevice temp = cell;
-        dest = temp;
-        dest.gB = 0;
-        dest.g[0] = dest.g[1] = dest.g[2] = 0;
-        dest.x[0] = ax; dest.x[1] = ay; dest.x[2] = az;
-        cell.gB = 0;
-        cell.g[0] = cell.g[1] = cell.g[2] = 0;
-        cell.a = dev_W_USED;
-    } else {
-        // Both are glider cells — swap
-        CellDevice temp = dest;
-        dest = cell;
-        dest.gB = 0;
-        dest.g[0] = dest.g[1] = dest.g[2] = 0;
-        dest.x[0] = ax; dest.x[1] = ay; dest.x[2] = az;
-        cell = temp;
-        cell.gB = 0;
-        cell.g[0] = cell.g[1] = cell.g[2] = 0;
-        cell.x[0] = x; cell.x[1] = y; cell.x[2] = z;
-    }
 }
 
 // ===================================================================
@@ -916,20 +843,6 @@ void cudaSimulationStep(
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
     
-    // Step 2b: Read k to check if we need glider transport
-    unsigned cur_k = 0;
-    err = cudaMemcpy(&cur_k, &d_lattice_curr[0].k,
-                     sizeof(unsigned), cudaMemcpyDeviceToHost);
-    if (err == cudaSuccess && cur_k == GSLOT_Z) {
-        gliderTransportKernel<<<GRID, BLOCK_SIZE>>>(
-            d_lattice_curr, total_cells);
-        err = cudaDeviceSynchronize();
-        if (err != cudaSuccess) {
-            fprintf(stderr, "Glider transport kernel failed: %s\n", cudaGetErrorString(err));
-            return;
-        }
-    }
-
     // Step 3: Read new k value from the first cell to decide mirror ops.
     //         In the CA every cell shares the same k, so reading one suffices.
     unsigned new_k = 0;

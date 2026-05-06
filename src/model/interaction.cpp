@@ -92,8 +92,8 @@ namespace automaton
         if (north.hB) { draft.c[0] = (north.c[0] + 1) % EL; curr.sB = !draft.hB; }
         else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % EL; curr.sB = !draft.hB; }
         else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % EL; curr.sB = !draft.hB; }
-        else if (south.hB) { draft.c[0] = (south.c[0] + 1) % EL; curr.sB = !draft.hB; }
-        else if (east.hB)  { draft.c[1] = (east.c[1] + 1) % EL; curr.sB = !draft.hB; }
+        else if (south.hB) { draft.c[1] = (south.c[1] + 1) % EL; curr.sB = !draft.hB; }
+        else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % EL; curr.sB = !draft.hB; }
         else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % EL; curr.sB = !draft.hB; }
       }
     }

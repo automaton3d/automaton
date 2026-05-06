@@ -63,7 +63,7 @@ LDFLAGS = /link /LIBPATH:"lib" /LIBPATH:"$(VCPKG_ROOT)/lib" \
           comdlg32.lib
 !ENDIF
 
-all: $(BUILD_DIR)\$(TARGET) dlls
+all: $(BUILD_DIR)\$(TARGET) dlls copy_config
 
 $(BUILD_DIR)\$(TARGET): $(OBJ)
     if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
@@ -232,6 +232,10 @@ clean:
         del /Q $(BUILD_DIR)\*.pdb 2>nul
     )
 
+copy_config:
+    if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
+    if exist automaton.cfg copy automaton.cfg $(BUILD_DIR)\automaton.cfg
+    
 run: all
     cd $(BUILD_DIR) && $(TARGET)
 

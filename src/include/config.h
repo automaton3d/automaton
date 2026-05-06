@@ -54,6 +54,13 @@ struct Config
     } projection;
 
     // =========================
+    // SIMULATION
+    // =========================
+    struct {
+        int scenario = -1;  // -1 = use splash selection
+    } simulation;
+
+    // =========================
     // TOMOGRAPHY
     // =========================
     struct {
