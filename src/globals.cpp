@@ -116,11 +116,6 @@ namespace framework
     VSlider vslider;
 
     AxisThumb thumb;  // Default initialization
-    int vis_dx = 0;
-    int vis_dy = 0;
-    int vis_dz = 0;
-
-    //
 
     // Projection matrices used in camera/projection system
     glm::mat4 mProjection_ = glm::mat4(1.0f);

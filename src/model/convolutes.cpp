@@ -12,11 +12,23 @@ namespace automaton
 
   extern bool ctrl;
 
+  /*
+   * Convolutes: functions that define the rules of interaction between cells.
+   * Each function takes the current cell, a draft cell for writing updates,
+   * and a mirror cell for symmetric interactions. They return true if they
+   * made an update to the draft.
+   *
+   * Note: The actual logic of these convolutes is just a placeholder and
+   * should be replaced with the intended behavior of the cellular automaton.
+   */
   bool convolute0(Cell& curr, Cell &draft, Cell &mirror)
   {
     return false;
   }
 
+  /*
+   * This is a simple test of the relocation mechanism.   
+   */
   bool convolute1(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
@@ -29,6 +41,9 @@ namespace automaton
     return false;
   }
 
+  /*
+    * This scenario illustrates the orphan mechanism.
+  */
   bool convolute2(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
@@ -39,6 +54,9 @@ namespace automaton
     return false;
   }
 
+  /*
+   * This scenario illustrates de contraction mechanism
+   */
   bool convolute3(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
@@ -50,6 +68,9 @@ namespace automaton
     return false;
   }
 
+  /*
+   * This scenario illustrates de hunting mechanism
+   */
   bool convolute4(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.sB && curr.x[3] == 0 && ctrl)
@@ -60,6 +81,9 @@ namespace automaton
     return false;
   }
 
+  /*
+   * This scenario illustrates the affinity propagation.
+   */
   bool convolute5(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.pB && curr.x[3] == 0 &&
@@ -75,6 +99,9 @@ namespace automaton
     return false;
   }
 
+  /*
+   * This scenario illustrates de convolution process.
+   */
   bool convolute6(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && mirror.d == effective_t(mirror.t))
@@ -108,6 +135,9 @@ namespace automaton
     return false;
   }
 
+  /*
+   * This is the full CA scenario.
+   */
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (curr.d == effective_t(curr.t) && mirror.d == effective_t(mirror.t))

@@ -20,22 +20,56 @@ struct Config
     } delays;
 
     // =========================
-    // view (SIMPLIFICADO)
+    // VIEW (estado real da câmera)
     // =========================
-    float camera_speed      = 1.0f;
-    float mouse_sensitivity = 0.1f;
-    float zoom              = 45.0f;
+    struct {
+        float rot_x = 0.0f;
+        float rot_y = 0.0f;
+
+        float cam_dist = 3.0f;
+
+        float zoom = 45.0f;
+
+        int vis_dx = 0;
+        int vis_dy = 0;
+        int vis_dz = 0;
+    } view;
 
     // =========================
-    // projection
+    // INPUT (separado da view)
     // =========================
-    float fov         = 45.0f;
-    float near_plane  = 0.1f;
-    float far_plane   = 1000.0f;
-    bool  perspective = true;
+    struct {
+        float camera_speed      = 1.0f;
+        float mouse_sensitivity = 0.1f;
+    } input;
+
+    // =========================
+    // PROJECTION
+    // =========================
+    struct {
+        float fov         = 45.0f;
+        float near_plane  = 0.1f;
+        float far_plane   = 1000.0f;
+        bool  perspective = true;
+    } projection;
+
+    // =========================
+    // TOMOGRAPHY
+    // =========================
+    struct {
+        bool enabled = false;
+
+        int axis = 2;           // 0=X,1=Y,2=Z
+        float slice = 0.5f;     // normalizado
+
+        bool invert = false;
+        bool animate = false;
+
+        float thickness = 0.01f;
+    } tomography;
 };
 
-// global config
+// global
 extern Config gConfig;
 
 // loader

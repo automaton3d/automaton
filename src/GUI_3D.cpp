@@ -41,12 +41,6 @@ namespace framework {
   extern std::unique_ptr<LayerList> layerList;
   extern std::vector<Tickbox> data3D;
 
-
-  // Variáveis de visualização (declaradas como extern, definidas em GUI.cpp)
-  extern int vis_dx;
-  extern int vis_dy;
-  extern int vis_dz;
-
   using namespace automaton;
 
   inline int mod(int a, int b) {
@@ -142,9 +136,9 @@ namespace framework {
     for (unsigned x=0;x<EL;x++)
       for (unsigned y=0;y<EL;y++)
         for (unsigned z=0;z<EL;z++) {
-          int wx=(x+vis_dx+EL)%EL;
-          int wy=(y+vis_dy+EL)%EL;
-          int wz=(z+vis_dz+EL)%EL;
+          int wx=(x+gConfig.view.vis_dx+EL)%EL;
+          int wy=(y+gConfig.view.vis_dy+EL)%EL;
+          int wz=(z+gConfig.view.vis_dz+EL)%EL;
           if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
             float px,py,pz;
             if (currentMode==REPLAY) {
@@ -178,9 +172,9 @@ namespace framework {
     for (unsigned x=0;x<EL;x++)
       for (unsigned y=0;y<EL;y++)
         for (unsigned z=0;z<EL;z++) {
-          int wx=(x+vis_dx+EL)%EL;
-          int wy=(y+vis_dy+EL)%EL;
-          int wz=(z+vis_dz+EL)%EL;
+          int wx=(x+gConfig.view.vis_dx+EL)%EL;
+          int wy=(y+gConfig.view.vis_dy+EL)%EL;
+          int wz=(z+gConfig.view.vis_dz+EL)%EL;
           if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).sB) {
             float px=(int)(x-CENTER_INT)*GRID_SIZE;
             float py=(int)(y-CENTER_INT)*GRID_SIZE;
@@ -211,9 +205,9 @@ namespace framework {
             // Use tomography::isVoxelVisible instead of framework::isVoxelVisible
             if (tomoEnable && tomoEnable->getState() && !tomography::isVoxelVisible(x,y,z)) continue;
 
-            int wx=(x+vis_dx+EL)%EL;
-            int wy=(y+vis_dy+EL)%EL;
-            int wz=(z+vis_dz+EL)%EL;
+            int wx=(x+gConfig.view.vis_dx+EL)%EL;
+            int wy=(y+gConfig.view.vis_dy+EL)%EL;
+            int wz=(z+gConfig.view.vis_dz+EL)%EL;
             if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).phiB) {
               float px=(int)(x-CENTER_INT)*GRID_SIZE;
               float py=(int)(y-CENTER_INT)*GRID_SIZE;
@@ -239,9 +233,9 @@ namespace framework {
     for (unsigned x=0;x<EL;x++)
       for (unsigned y=0;y<EL;y++)
         for (unsigned z=0;z<EL;z++) {
-          int wx=(x+vis_dx+EL)%EL;
-          int wy=(y+vis_dy+EL)%EL;
-          int wz=(z+vis_dz+EL)%EL;
+          int wx=(x+gConfig.view.vis_dx+EL)%EL;
+          int wy=(y+gConfig.view.vis_dy+EL)%EL;
+          int wz=(z+gConfig.view.vis_dz+EL)%EL;
           if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
             float px=(int)(x-CENTER_INT)*GRID_SIZE;
             float py=(int)(y-CENTER_INT)*GRID_SIZE;
@@ -272,9 +266,9 @@ namespace framework {
             uint32_t color = voxels[x*automaton::L2 + y*EL + z];
             if (color==0) continue;
 
-            float px = (mod(x+vis_dx, EL) - CENTER_INT) * CELL_SPACING;
-            float py = (mod(y+vis_dy, EL) - CENTER_INT) * CELL_SPACING;
-            float pz = (mod(z+vis_dz, EL) - CENTER_INT) * CELL_SPACING;
+            float px = (mod(x+gConfig.view.vis_dx, EL) - CENTER_INT) * CELL_SPACING;
+            float py = (mod(y+gConfig.view.vis_dy, EL) - CENTER_INT) * CELL_SPACING;
+            float pz = (mod(z+gConfig.view.vis_dz, EL) - CENTER_INT) * CELL_SPACING;
 
             auto cube = makeCube(px, py, pz, VOXEL_SIZE);
             faces.insert(faces.end(), cube.begin(), cube.end());
@@ -305,9 +299,9 @@ namespace framework {
       unsigned cz = center[2];
       Cell &cell = getCell(lattice_curr, cx, cy, cz, w);
 
-      float px = ((int)(((int)cell.x[0] + vis_dx) % EL) - CENTER_INT) * GRID_SIZE;
-      float py = ((int)(((int)cell.x[1] + vis_dy) % EL) - CENTER_INT) * GRID_SIZE;
-      float pz = ((int)(((int)cell.x[2] + vis_dz) % EL) - CENTER_INT) * GRID_SIZE;
+      float px = ((int)(((int)cell.x[0] + gConfig.view.vis_dx) % EL) - CENTER_INT) * GRID_SIZE;
+      float py = ((int)(((int)cell.x[1] + gConfig.view.vis_dy) % EL) - CENTER_INT) * GRID_SIZE;
+      float pz = ((int)(((int)cell.x[2] + gConfig.view.vis_dz) % EL) - CENTER_INT) * GRID_SIZE;
 
       float r = 0.7f + (w & 1) * 0.3f;
       float g = 0.7f + ((w >> 1) & 1) * 0.3f;
@@ -525,16 +519,16 @@ namespace framework {
     if (currentMode == REPLAY)
     {
       const auto& center = automaton::lcenters[w];
-      cx = ((center[0] + vis_dx) - EL / 2) * GRID_SIZE;
-      cy = ((center[1] + vis_dy) - EL / 2) * GRID_SIZE;
-      cz = ((center[2] + vis_dz) - EL / 2) * GRID_SIZE;
+      cx = ((center[0] + gConfig.view.vis_dx) - EL / 2) * GRID_SIZE;
+      cy = ((center[1] + gConfig.view.vis_dy) - EL / 2) * GRID_SIZE;
+      cz = ((center[2] + gConfig.view.vis_dz) - EL / 2) * GRID_SIZE;
     }
     else
     {
       Cell &cell = getCell(lattice_curr, CENTER, CENTER, CENTER, w);
-      cx = ((cell.x[0] + vis_dx) - EL / 2) * GRID_SIZE;
-      cy = ((cell.x[1] + vis_dy) - EL / 2) * GRID_SIZE;
-      cz = ((cell.x[2] + vis_dz) - EL / 2) * GRID_SIZE;
+      cx = ((cell.x[0] + gConfig.view.vis_dx) - EL / 2) * GRID_SIZE;
+      cy = ((cell.x[1] + gConfig.view.vis_dy) - EL / 2) * GRID_SIZE;
+      cz = ((cell.x[2] + gConfig.view.vis_dz) - EL / 2) * GRID_SIZE;
     }
 
     const int POINT_COUNT = 12;

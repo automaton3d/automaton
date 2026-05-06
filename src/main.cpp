@@ -24,7 +24,6 @@
 #include "tickbox.h"
 #include <atomic>
 #include "cuda/cuda_api.h"
-//#include "cuda_constants.h"
 #include "cuda/cuda_api.h"
 
 #include <limits.h>
@@ -38,8 +37,6 @@
 #include "core.h"
 #include "callbacks.h"
 #include "tomography.h"
-
-// EM E:\automaton\src\main.cpp
 
 // =============================================================================
 // Global Variables
@@ -218,6 +215,9 @@ void cleanupReplay()
 int main()
 {
     loadConfig("automaton.cfg");
+    gConfig.view.vis_dx = gConfig.view.vis_dx;
+    gConfig.view.vis_dy = gConfig.view.vis_dy;
+    gConfig.view.vis_dz = gConfig.view.vis_dz;
 	glfwSetErrorCallback(glfwErrorCallback);
 
     // Initialize GLFW

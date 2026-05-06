@@ -18,9 +18,6 @@ extern GLint colorMvpLoc3D, colorColorLoc3D;
 
 namespace framework {
     extern glm::mat4 mProjection_;
-    extern int vis_dx;
-    extern int vis_dy;
-    extern int vis_dz;
 
 }
 
@@ -196,9 +193,9 @@ void renderSlice() {
                 float r = ((color >> 16) & 0xFF) / 255.0f;
                 float g = ((color >> 8)  & 0xFF) / 255.0f;
                 float b = ( color        & 0xFF) / 255.0f;
-                float px = (mod((int)x + framework::vis_dx, automaton::EL) - CENTER_INT) * CELL_SPACING;
-                float py = (mod((int)y + framework::vis_dy, automaton::EL) - CENTER_INT) * CELL_SPACING;
-                float pz = (mod((int)z + framework::vis_dz, automaton::EL) - CENTER_INT) * CELL_SPACING;
+                float px = (mod((int)x + gConfig.view.vis_dx, automaton::EL) - CENTER_INT) * CELL_SPACING;
+                float py = (mod((int)y + gConfig.view.vis_dy, automaton::EL) - CENTER_INT) * CELL_SPACING;
+                float pz = (mod((int)z + gConfig.view.vis_dz, automaton::EL) - CENTER_INT) * CELL_SPACING;
 
                 auto cube = makeCube(px, py, pz, VOXEL_SIZE);
                 drawQuads(cube, glm::vec3(r, g, b), mvp);

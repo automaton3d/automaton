@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 #include "radio.h"
 #include "menubar.h"
+#include "config.h"
 
 #define RAD_SEP 25
 
@@ -141,7 +142,6 @@ namespace framework {
 
     extern AxisThumb thumb;
     extern float axisLength;
-    extern int vis_dx, vis_dy, vis_dz;
     extern float vis_offset_x;
     extern float vis_offset_y;
     extern float vis_offset_z;
@@ -156,7 +156,6 @@ extern bool gAxisProjValid;
 extern bool helpHover;
 
 namespace framework {
-    extern int vis_dx, vis_dy, vis_dz;
     extern float axisLength;
 }
 

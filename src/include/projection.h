@@ -10,10 +10,6 @@
 
 namespace framework
 {
-    extern int vis_dx;
-    extern int vis_dy;
-    extern int vis_dz;
-
     bool projectPoint(const float obj[3],
                     const glm::mat4& modelview,
                     const glm::mat4& projection,

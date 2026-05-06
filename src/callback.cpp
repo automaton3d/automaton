@@ -35,9 +35,9 @@ namespace framework
     extern Tickbox *scenarioHelpToggle;
     extern bool showAboutDialog;
     extern float axisLength;
-    extern int vis_dx;
-    extern int vis_dy;
-    extern int vis_dz;
+//    extern int vis_dx;
+  //  extern int vis_dy;
+    //extern int vis_dz;
     extern ReplayProgressBar *replayProgress;
 
     void onDelayToggled(Tickbox* toggled);
@@ -270,16 +270,17 @@ namespace framework
                                     thumb.position        = bestT * axisLength;  // For rendering
 
                                     // Store starting offsets as FLOATS for smooth interpolation
-                                    thumb.startOffsetF[0] = vis_dx;  // or vis_offset_x if using floats
-                                    thumb.startOffsetF[1] = vis_dy;
-                                    thumb.startOffsetF[2] = vis_dz;
+                                    thumb.startOffsetF[0] = gConfig.view.vis_dx;  // or vis_offset_x if using floats
+                                    thumb.startOffsetF[1] = gConfig.view.vis_dy;
+                                    thumb.startOffsetF[2] = gConfig.view.vis_dz;
 
-                                    thumb.startOffset[0] = vis_dx;
-                                    thumb.startOffset[1] = vis_dy;
-                                    thumb.startOffset[2] = vis_dz;
+                                    thumb.startOffset[0] = gConfig.view.vis_dx;
+                                    thumb.startOffset[1] = gConfig.view.vis_dy;
+                                    thumb.startOffset[2] = gConfig.view.vis_dz;
 
                                     return;
-                                }                            }
+                                }                            
+                            }
                         }
 
                         // Normal orbit only if nothing was picked
@@ -447,13 +448,13 @@ namespace framework
             int newVisOffset = static_cast<int>(std::round(newOffset));
 
             if (thumb.axis == 0) {
-                vis_dx = newVisOffset;
+                gConfig.view.vis_dx = newVisOffset;
             }
             else if (thumb.axis == 1) {
-                vis_dy = newVisOffset;
+                gConfig.view.vis_dy = newVisOffset;
             }
             else if (thumb.axis == 2) {
-                vis_dz = newVisOffset;
+                gConfig.view.vis_dz = newVisOffset;
             }
         }
     }
@@ -536,9 +537,9 @@ namespace framework
                         if (action == GLFW_PRESS) {
                             pause = !pause;
                             if (!pause && currentMode == SIMULATION) {
-                                vis_dx = 0;
-                                vis_dy = 0;
-                                vis_dz = 0;
+                                gConfig.view.vis_dx = 0;
+                                gConfig.view.vis_dx = 0;
+                                gConfig.view.vis_dx = 0;
                             }
                             glfwPostEmptyEvent();
                         }

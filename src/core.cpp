@@ -212,8 +212,6 @@ void SimulateThread()
             }
             prevTomoState = currentTomoState;
         }
-
-        // Small sleep to prevent 100% CPU
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
