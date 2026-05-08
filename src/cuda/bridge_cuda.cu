@@ -24,6 +24,7 @@
 #include "cuda_sim_optimized.h"   // isCudaAvailable, cudaSimulationStep, …
 #include "cuda/cuda_common.h"     // CellDevice
 #include "model/simulation.h"     // automaton::Cell, getCell (no OpenGL)
+#include "config.h"
 
 #include <cstdio>
 #include <vector>
@@ -47,7 +48,6 @@ extern bool isVisibleInTomogram(unsigned x,        // bridge.cpp
 extern void updateBufferCPU();                     // bridge.cpp
 extern void updateLCenter(unsigned w, unsigned x,  // bridge.cpp
                           unsigned y, unsigned z);
-extern int scenario;                               // globals.cpp
 extern unsigned long long timer;                   // globals.cpp
 extern std::mutex timerMutex;                      // globals.cpp
 extern std::mutex gVoxelBufferMutex;               // core.cpp
@@ -258,7 +258,7 @@ void cudaSimulationStepWrapper()
             automaton::FLOOD,
             automaton::FRAME,
             automaton::RMAX,
-            scenario
+            gConfig.simulation.scenario
         );
 
         if (wantDelay) {

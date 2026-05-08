@@ -162,7 +162,6 @@ int initializeReplay(GLFWwindow* window)
     initScene(ctx);
     setupInputCallbacks(window, &ctx);
     StartSimulationThread();
-    scenario = -1;
 
     return 0;
 }
@@ -215,9 +214,6 @@ void cleanupReplay()
 int main()
 {
     loadConfig("automaton.cfg");
-    gConfig.view.vis_dx = gConfig.view.vis_dx;
-    gConfig.view.vis_dy = gConfig.view.vis_dy;
-    gConfig.view.vis_dz = gConfig.view.vis_dz;
 	glfwSetErrorCallback(glfwErrorCallback);
 
     // Initialize GLFW

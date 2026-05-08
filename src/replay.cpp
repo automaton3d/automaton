@@ -102,7 +102,7 @@ namespace framework
 	                try {
 	                    recorder.loadFromFile(filename);
 	                    timer = recorder.savedTimer;
-	                    scenario = recorder.savedScenario;
+	                    gConfig.simulation.scenario = recorder.savedScenario;
 	                    loadPopup = true;
 	                }
 	                catch (const std::exception& e) {

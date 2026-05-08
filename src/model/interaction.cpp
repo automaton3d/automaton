@@ -29,7 +29,7 @@ namespace automaton
    */
   bool convolute(Cell& curr, Cell &draft, Cell &mirror)
   {
-    switch(scenario)
+    switch(gConfig.simulation.scenario)
     {
       case 0:
         return convolute0(curr, draft, mirror);

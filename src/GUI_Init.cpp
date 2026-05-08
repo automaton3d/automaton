@@ -165,6 +165,19 @@ namespace framework
             Radio(80, tomoPos + 3*RAD_SEP + 10, "ZX")
         };
 
+        // Garantir que sempre tenha uma direção selecionada
+        if (!tomoDirs.empty()) {
+            tomoDirs[0].setSelected(true);
+        }
+
+        // Configuração do Tickbox de tomografia
+        if (tomoEnable) {
+            tomoEnable->onToggle = [](bool state) {
+                if (state) {
+                    tomography::requestUpdate();
+                }
+            };
+        }
         // ------------------------------------------------------------
         // Progress bar segment widths
         // ------------------------------------------------------------
@@ -235,6 +248,13 @@ namespace framework
         	showAboutDialog = true;
         });
         menuBar->AddMenu(std::move(editMenu));
+
+
+
+
+
+        tomography::init();
+std::cout << "[Init] Tomography initialized\n";
     }
 
 } // namespace framework

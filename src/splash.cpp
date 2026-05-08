@@ -25,6 +25,7 @@
 #include "shader.h"
 #include "projection_manager.h"
 #include "splash.h"
+#include "config.h"
 
 // External globals from main.cpp
 extern TextRenderer* textRenderer;
@@ -144,9 +145,19 @@ namespace splash {
         // Logo depois de shader estar pronto (feito em main antes)
         logo_splash = new framework::Logo("logo_bar.png");
 
-        sizeDropdown->setSelectedIndex(8);   // 21
-        layerDropdown->setSelectedIndex(0);  // 10
-    }
+sizeDropdown->setSelectedIndex(8);   // 21
+layerDropdown->setSelectedIndex(0);  // 10
+
+// Initialize scenario dropdown from config
+if (gConfig.simulation.scenario >= 0 &&
+    gConfig.simulation.scenario < (int)scenarioOptions.size())
+{
+    scenarioDropdown->setSelectedIndex(gConfig.simulation.scenario);
+}
+else
+{
+    scenarioDropdown->setSelectedIndex(0);
+}    }
 
     // -----------------------------------------------------------------
     // Public API: initialize, render, cleanup
@@ -286,7 +297,7 @@ void mouseButtonCallback(GLFWwindow*, int button, int action, int)
             // FIXED: Set globals to actual values, not indices
             latticeSize = splash::lattice_size;
             numLayers   = splash::numLayers;
-            scenario    = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : scenario;
+            gConfig.simulation.scenario = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : gConfig.simulation.scenario;
             initPaused  = splash::startPausedBox ? splash::startPausedBox->getState() : false;
             splash::shouldExit = true;
         }
@@ -308,7 +319,7 @@ void mouseButtonCallback(GLFWwindow*, int button, int action, int)
         automaton::calculateParameters(splash::lattice_size, splash::numLayers);
         if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
             currentMode = STATISTICS;
-            scenario    = 7;
+            gConfig.simulation.scenario    = 7;
             splash::shouldExit = true;
         }
         else {
@@ -375,7 +386,7 @@ void keyCallback(GLFWwindow*, int key, int, int action, int)
         automaton::calculateParameters(splash::lattice_size, splash::numLayers);
         if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
             currentMode = SIMULATION;
-            scenario    = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : scenario;
+            gConfig.simulation.scenario    = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : gConfig.simulation.scenario;
             pause       = splash::startPausedBox ? splash::startPausedBox->getState() : false;
             splash::shouldExit = true;
         }

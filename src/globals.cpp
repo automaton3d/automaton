@@ -27,7 +27,6 @@ unsigned tomo_z = 0;
 // Splash state
 int latticeSize = -1;
 int numLayers = -1;
-int scenario = -1;
 bool initPaused = false;
 
 // Simulation state

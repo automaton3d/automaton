@@ -562,7 +562,7 @@ namespace framework {
   {
     glEnable(GL_DEPTH_TEST);
 
-    if (scenario >= 0)
+    if (gConfig.simulation.scenario >= 0)
     {
       if (data3D[0].getState()) renderWavefront();
       if (data3D[1].getState()) renderMomentum(ctx);
@@ -579,7 +579,11 @@ namespace framework {
     }
     if (data3D[7].getState()) renderAxes();
     if (data3D[8].getState()) renderGrid();
-    if (tomoEnable && tomoEnable->getState()) tomography::renderTomoPlane();
+    if (tomoEnable && tomoEnable->getState()) 
+    {
+      tomography::renderSlice();
+      tomography::renderTomoPlane();
+    }
   }
 
 } // namespace framework

@@ -214,7 +214,7 @@ void renderHUD(int screenW, int screenH)
 
     if (currentMode == SIMULATION)
     {
-        if (scenario >= 0 && progress)
+        if (gConfig.simulation.scenario >= 0 && progress)
         {
             unsigned long long safeTimer;
             {

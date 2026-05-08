@@ -58,7 +58,6 @@ extern int gViewport[4];
 extern unsigned long long timer;
 extern int latticeSize;
 extern int numLayers;
-extern int scenario;
 extern bool initPaused;
 
 // Flags de controle

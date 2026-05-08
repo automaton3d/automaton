@@ -5,6 +5,18 @@
 #include <glm/glm.hpp>
 
 namespace tomography {
+
+    struct VoxelData {
+        glm::vec3 pos;
+        uint32_t color;
+    };
+
+    // No tomography.cpp
+    struct VoxelSnapshot {
+        glm::vec3 pos;
+        uint32_t color;
+    };
+
     // Initialize tomography system (call once at startup)
     void init();
 
@@ -28,6 +40,9 @@ namespace tomography {
 
     // Set slice position (0.0 to 1.0)
     void setSlicePosition(float pos);
+
+    // Request an update of the tomography snapshot
+    void requestUpdate();
 
     // Handle mouse clicks for tomography controls
     void handleMouseClick(int mouseX, int mouseY);

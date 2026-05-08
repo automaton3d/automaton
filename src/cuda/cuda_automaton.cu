@@ -7,6 +7,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
 #include <algorithm>
+#include "config.h"
 
 // Constant memory (must be in the SAME compilation unit as kernels
 // that use them; without -rdc=true, extern __constant__ across .cu
@@ -54,9 +55,6 @@ static __device__ inline unsigned dev_effective_t(unsigned t) {
     unsigned raw = t % period;
     return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
 }
-
-// Scenario selector (defined in globals.cpp)
-extern int scenario;
 
 // ===================================================================
 // GLOBAL DEVICE VARIABLES
@@ -388,6 +386,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     // CONVOLUTION PHASE (k < CONVOL)
     // ===================================================================
     if (curr.k < CONVOL) {
+
         switch (scenario) {
             case 0: dev_convolute0(curr, draft, mirror, w, idx); break;
             case 1: dev_convolute1(curr, draft, mirror, w, idx); break;
@@ -974,7 +973,7 @@ void ca_update_gpu_wrapper(
     cudaSimulationStep(
         CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
         SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-        FLOOD, FRAME, RMAX, scenario
+        FLOOD, FRAME, RMAX, gConfig.simulation.scenario
     );
 }
 
