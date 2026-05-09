@@ -80,3 +80,8 @@ void drawLineLoop2D(const std::vector<glm::vec2>& points,
                     const glm::vec3& color,
                     int winW, int winH,
                     float thickness = 1.0f);
+
+void drawQuads(
+    const std::vector<glm::vec3>& verts,
+    const glm::vec3& color,
+    const glm::mat4& mvp);

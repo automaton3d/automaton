@@ -52,6 +52,11 @@ static const glm::mat4& proj2D() { return ProjectionManager::instance().get2DOrt
 static int winW() { return ProjectionManager::instance().getWidth(); }
 static int winH() { return ProjectionManager::instance().getHeight(); }
 
+int Cortina::getSelectedIndex() const
+{
+    return selectedIndex;
+}
+
 namespace splash {
 
 static void setupUI();
@@ -286,6 +291,7 @@ void mouseButtonCallback(GLFWwindow*, int button, int action, int)
         std::vector<int> layerOptions = {10,12,14,16,18,20,24,28,32,38,44,52,60,70,82,96,112,130,150,174,200,230,264,300,320,340,360,364};
         splash::numLayers = layerOptions[layerIndex];
         automaton::calculateParameters(splash::lattice_size, splash::numLayers);
+
         if (automaton::tryAllocate(splash::lattice_size, splash::numLayers)) {
             currentMode = SIMULATION;
             glfwMaximizeWindow(splash::window);
@@ -357,7 +363,6 @@ void mouseButtonCallback(GLFWwindow*, int button, int action, int)
     else if (splash::helpLink && splash::helpLink->contains(mx, my_button, winH())) {
       system("start https://github.com/automaton3d/automaton/blob/master/help.md");
     }
-
     if (splash::startPausedBox) {
         int myTopDown = winH() - my_button;  // Convert bottom-up to top-down
         splash::startPausedBox->onClick(mx, myTopDown);

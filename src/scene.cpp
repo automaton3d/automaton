@@ -102,7 +102,6 @@ void renderScene(AppContext& ctx)
     // ========================================================
 
     tomography::renderTomoPlane();
-    tomography::renderSlice();
 
     // ========================================================
     // Restore state para GUI

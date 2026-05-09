@@ -7,8 +7,15 @@
 #ifndef GUI_H
 #define GUI_H
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <windows.h>
+
 #include "menubar.h"
 #include "renderer.h"
+
 #include <cstdlib>
 #include <iostream>
 #include <cstdio>
@@ -20,6 +27,7 @@
 #include <map>
 #include <memory>
 #include <atomic>
+
 #include "button.h"
 #include "dropdown.h"
 
@@ -58,13 +66,13 @@ namespace framework
   extern ProgressBar *progress;
   extern bool helpHover;
   extern bool active;
+
   extern std::vector<Tickbox> data3D;
   extern std::unique_ptr<LayerList> layerList;
   extern std::vector<Tickbox> delays;
   extern std::vector<Radio> views;
   extern std::vector<Radio> projectRads;
 
-  //extern bool replayFrames;
   extern unsigned long long replayTimer;
   extern std::atomic<bool> replayFrames;
 
@@ -73,7 +81,6 @@ namespace framework
   void clearVoxels();
   void initMenuDropdowns();
   void handleMenuSelection();
-  // ✅ Novo: acesso ao TextRenderer
 
   // Internal rendering methods
   void renderAxes();
@@ -107,17 +114,20 @@ namespace framework
   void renderProjectionRadios();
   void renderTomoRadios();
   void renderHyperlink();
-  void renderSlice();
   void renderScenarioHelpPane();
-  // In GUI.h – replace the old declaration with this:
+
   void drawPanel(float x, float y, float w, float h,
                  const glm::vec3& bgColor = glm::vec3(0.05f, 0.05f, 0.1f),
                  const glm::vec3& borderColor = glm::vec3(0.3f, 0.3f, 0.8f),
                  float borderThickness = 2.0f,
                  const glm::mat4& proj = ProjectionManager::instance().get2DOrtho());
+
   void drawRoundedRect(float x, float y, float w, float h, float radius);
+
   void drawRoundedRectOutline(float x, float y, float w, float h, float radius);
+
   void renderExitDialog();
+
   void enhanceVoxel();
 
   // Helper methods
@@ -137,12 +147,40 @@ namespace framework
   extern std::vector<std::array<float, 2>> screenPositions_;
   extern std::map<std::pair<int,int>, int> counts_;
 
-  // ✅ Novo membro para texto
+  // HUD text renderer
   extern TextRenderer hudText;
 
   void initializeWidgets(AppContext& ctx);
+
   void promptExit();
 
-} // end namespace framework
+} // namespace framework
+
+// ============================================================================
+// Tomography
+// ============================================================================
+
+namespace tomography {
+
+    void init();
+
+    void cleanup();
+
+    void update();
+
+    void requestUpdate();
+
+    float getSlicePosition();
+
+    void setSlicePosition(float pos);
+
+    bool isVoxelVisible(unsigned x,
+                        unsigned y,
+                        unsigned z);
+
+    void renderTomoPlane();
+
+    void renderControls();
+}
 
 #endif // GUI_H

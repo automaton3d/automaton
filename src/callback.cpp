@@ -24,6 +24,7 @@
 #include "replay_progress.h"
 #include "tomography.h"
 #include "app_context.h"
+#include "render_pipeline.h"
 
 void toggleFullscreen(GLFWwindow* window);
 
@@ -185,31 +186,83 @@ namespace framework
                         }
 
                         // Tomography controls
-                        if (tomoEnable && tomoEnable->contains(mouseX, mouseY)) {
-                            tomoEnable->onClick(mouseX, mouseY);
-                            for (Radio& radio : tomoDirs) radio.setSelected(false);
+// ============================================================
+// Tomography controls
+// ============================================================
 
-                            if (tomoEnable->getState()) {
-                                if (!tomoDirs.empty()) {
-                                    tomoDirs[0].setSelected(true);
-                                    tomographyNeedsUpdate = true; // <-- flag instead of direct update
-                                }
-                            }
-                            return;
-                        }
+if (tomoEnable && tomoEnable->contains(mouseX, mouseY))
+{
+    tomoEnable->onClick(mouseX, mouseY);
 
-                        else if (tomoEnable && tomoEnable->getState()) {
-                            // Handle clicks on direction radios safely
-                            for (Radio& radio : tomoDirs) {
-                                if (radio.contains(mouseX, mouseY)) {
-                                    for (Radio& r : tomoDirs) r.setSelected(false);
-                                    radio.setSelected(true);
-                                    tomography::update();
-                                    return;
-                                }
-                            }
-                        }
+    // ========================================================
+    // DISABLE TOMOGRAPHY
+    // ========================================================
 
+    if (!tomoEnable->getState())
+    {
+        setPipelineState(RenderPipelineState::FULL_VOLUME);
+        return;
+    }
+
+    // ========================================================
+    // ENABLE TOMOGRAPHY
+    // ========================================================
+
+    for (Radio& r : tomoDirs)
+        r.setSelected(false);
+
+    if (!tomoDirs.empty())
+    {
+        tomoDirs[0].setSelected(true);
+
+        setPipelineState(
+            RenderPipelineState::TOMOGRAPHY_XY
+        );
+    }
+
+    return;
+}
+
+// ============================================================
+// Tomography direction radios
+// ============================================================
+
+else if (tomoEnable && tomoEnable->getState())
+{
+    for (size_t i = 0; i < tomoDirs.size(); ++i)
+    {
+        if (tomoDirs[i].contains(mouseX, mouseY))
+        {
+            for (Radio& r : tomoDirs)
+                r.setSelected(false);
+
+            tomoDirs[i].setSelected(true);
+
+            switch (i)
+            {
+                case 0:
+                    setPipelineState(
+                        RenderPipelineState::TOMOGRAPHY_XY);
+                    break;
+
+                case 1:
+                    setPipelineState(
+                        RenderPipelineState::TOMOGRAPHY_YZ);
+                    break;
+
+                case 2:
+                    setPipelineState(
+                        RenderPipelineState::TOMOGRAPHY_ZX);
+                    break;
+
+                default:
+                    break;
+            }
+
+            return;
+        }
+    }
+}
                         if (gHelpLink) {
                             int mx = (int)xpos;
                             int my = (int)ypos;
@@ -516,18 +569,42 @@ namespace framework
                     setSpeed(0.1f);
                     break;
 
-                case GLFW_KEY_T:
-                    // Toggle tomography (optional shortcut)
-                    if (tomoEnable) {
-                        tomoEnable->toggle();
-                        if (tomoEnable->getState() && !tomoDirs.empty()) {
-                            for (auto& r : tomoDirs) r.setSelected(false);
-                            tomoDirs[0].setSelected(true);
-                            tomography::update();
-                        }
-                    }
-                    break;
+case GLFW_KEY_T:
 
+    if (tomoEnable)
+    {
+        tomoEnable->toggle();
+
+        // ============================================
+        // DISABLE TOMOGRAPHY
+        // ============================================
+
+        if (!tomoEnable->getState())
+        {
+            setPipelineState(
+                RenderPipelineState::FULL_VOLUME);
+        }
+
+        // ============================================
+        // ENABLE TOMOGRAPHY
+        // ============================================
+
+        else
+        {
+            for (auto& r : tomoDirs)
+                r.setSelected(false);
+
+            if (!tomoDirs.empty())
+            {
+                tomoDirs[0].setSelected(true);
+
+                setPipelineState(
+                    RenderPipelineState::TOMOGRAPHY_XY);
+            }
+        }
+    }
+
+    break;
                 case GLFW_KEY_M:
                     sound(true);
                     break;

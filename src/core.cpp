@@ -153,7 +153,11 @@ void SimulateThread()
     }
     gThreadReadyCV.notify_one();
 
+        std::cout << ">>>> SO FAR... 1" << std::endl;
+
     automaton::swap_lattices();
+
+    std::cout << ">>>> SO FAR... 2" << std::endl;
 
     while (!framework::stopSimThread.load(std::memory_order_acquire))
     {

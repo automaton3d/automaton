@@ -32,6 +32,9 @@ extern unsigned tomo_x;
 extern unsigned tomo_y;
 extern unsigned tomo_z;
 
+extern std::vector<uint32_t> fullVolumeVoxels;
+extern std::vector<uint32_t> sliceVoxels;
+
 extern std::vector<Radio> tomoDirs;
 
 extern GLFWwindow* window;

@@ -1,78 +1,89 @@
 @echo off
-setlocal enabledelayedexpansion
+cls
+setlocal
 
-REM === PATHS ===
-set ROOT=%~dp0
-set SRC=%ROOT%src
-set BUILD=%ROOT%build
-set LIBDIR=%ROOT%lib
+set MODE=%1
 
-REM === VCPKG ===
-set VCPKG_ROOT=E:\vcpkg
-set VCPKG_INC=%VCPKG_ROOT%\installed\x64-windows\include
-set VCPKG_LIB=%VCPKG_ROOT%\installed\x64-windows\lib
-set VCPKG_BIN=%VCPKG_ROOT%\installed\x64-windows\bin
+rem =====================================
+rem ROUTER
+rem =====================================
 
-REM === VISUAL STUDIO ===
-set VS_PATH=E:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat
-call "%VS_PATH%"
+if "%MODE%"=="" goto build
+if "%MODE%"=="?" goto help
+if "%MODE%"=="help" goto help
+if "%MODE%"=="clean" goto clean
+if "%MODE%"=="cuda" goto cuda
+if "%MODE%"=="run" goto run
+if "%MODE%"=="rebuild" goto rebuild
 
-if not exist "%BUILD%" mkdir "%BUILD%"
+goto build
 
-REM === INCLUDES (vcpkg primeiro) ===
-set INCLUDES=/I"%VCPKG_INC%" /I"%SRC%\include" /I"%SRC%\include\zlib" /I"%SRC%"
-
-REM === SOURCE FILES ===
-set FILES="%ROOT%principal.cpp" "%ROOT%glad\glad.c" "%SRC%\tinyfiledialogs.c"
-
-for /R "%SRC%" %%f in (*.cpp) do (
-    set FILES=!FILES! "%%f"
-)
-
-pushd "%BUILD%"
-
-echo Compilando...
-
-cl /std:c++20 /O2 /EHsc /MD %INCLUDES% !FILES! ^
-    /link ^
-    /LIBPATH:"%LIBDIR%" ^
-    /LIBPATH:"%VCPKG_LIB%" ^
-    opengl32.lib ^
-    glfw3dll.lib ^
-    freetype.lib ^
-    brotlidec.lib ^
-    brotlicommon.lib ^
-    bz2.lib ^
-    zlib.lib ^
-    user32.lib ^
-    gdi32.lib ^
-    shell32.lib ^
-    kernel32.lib ^
-    ole32.lib ^
-    comdlg32.lib ^
-    /OUT:automaton.exe
-
-if %errorlevel% neq 0 (
-    echo.
-    echo ERRO NA COMPILACAO
-    popd
-    pause
-    exit /b 1
-)
-
+rem =====================================
+rem HELP
+rem =====================================
+:help
+echo =====================================
+echo Automaton Build Script (build.bat)
+echo =====================================
 echo.
-echo Copiando DLLs necessarias...
-copy "%VCPKG_BIN%\glfw3.dll"     . >nul 2>nul || echo AVISO: glfw3.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\freetype.dll"  . >nul 2>nul || echo AVISO: freetype.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\zlib1.dll"     . >nul 2>nul || echo AVISO: zlib1.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\bz2.dll"       . >nul 2>nul || echo AVISO: bz2.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\brotlidec.dll" . >nul 2>nul || echo AVISO: brotlidec.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\brotlicommon.dll" . >nul 2>nul || echo AVISO: brotlicommon.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\brotlienc.dll" . >nul 2>nul || echo AVISO: brotlienc.dll nao encontrada no vcpkg
-copy "%VCPKG_BIN%\libpng16.dll"  . >nul 2>nul || echo AVISO: libpng16.dll nao encontrada no vcpkg
-
+echo Usage:
+echo   build.bat           ^> build (CPU)
+echo   build.bat clean     ^> clean project
+echo   build.bat cuda      ^> build with CUDA
+echo   build.bat run       ^> build + run
+echo   build.bat rebuild   ^> clean + build + run
+echo   build.bat ?         ^> show this help
+echo   build.bat help      ^> show this help
 echo.
-echo BUILD CONCLUIDO COM SUCESSO - automaton.exe gerado
-popd
+goto end
+
+rem =====================================
+rem BUILD (CPU)
+rem =====================================
+:build
+echo === Building (CPU) ===
+nmake
+goto end
+
+rem =====================================
+rem CLEAN
+rem =====================================
+:clean
+echo === Cleaning ===
+nmake clean
+goto end
+
+rem =====================================
+rem CUDA BUILD
+rem =====================================
+:cuda
+echo === Building (CUDA ENABLED) ===
+nmake USE_CUDA=1
+if errorlevel 1 goto end
+goto run
+
+rem =====================================
+rem REBUILD
+rem =====================================
+:rebuild
+echo === Rebuild (CPU) ===
+nmake clean
+nmake
+if errorlevel 1 goto end
+goto run
+
+rem =====================================
+rem RUN
+rem =====================================
+:run
+echo === Running ===
+cd /d build
+automaton.exe
+cd ..
+goto end
+
+rem =====================================
+rem END
+rem =====================================
+:end
 endlocal
-pause

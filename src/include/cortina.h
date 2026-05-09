@@ -28,7 +28,7 @@ public:
     void handleMouseScroll(double xpos, double ypos, double yoffset);
 
     // Obtém o índice da opção selecionada
-    int getSelectedIndex() const { return selectedIndex; }
+    int getSelectedIndex() const;
     void setSelectedIndex(int idx);
     
     // Obtém o texto da opção selecionada

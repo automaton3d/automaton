@@ -11,6 +11,9 @@
 #include "globals.h"
 #include "projection.h"
 #include "tomography.h"
+#include "app_context.h"
+#include "render_pipeline.h"
+#include "draw_utils.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -18,9 +21,10 @@
 #include <map>
 #include <iostream>
 #include <cmath>
-#include "app_context.h"
+#include <mutex>
 
 extern AppContext ctx;
+extern std::mutex gVoxelBufferMutex;
 
 namespace automaton {
   extern unsigned EL;
@@ -46,6 +50,60 @@ namespace framework {
   inline int mod(int a, int b) {
       return ((a % b) + b) % b;
   }
+
+  static void renderTomographySnapshot()
+{
+    if (!tomoEnable)
+        return;
+
+    if (!tomoEnable->getState())
+        return;
+
+    const auto& snapshot =
+        tomography::getSnapshot();
+
+    if (snapshot.empty())
+        return;
+
+    const float CELL_SPACING =
+        0.5f / static_cast<float>(automaton::EL);
+
+    const float VOXEL_SIZE =
+        CELL_SPACING / 4.0f;
+
+    std::vector<glm::vec3> faces;
+
+    for (const auto& v : snapshot)
+    {
+        auto cube =
+            makeCube(
+                v.position.x,
+                v.position.y,
+                v.position.z,
+                VOXEL_SIZE);
+
+        faces.insert(
+            faces.end(),
+            cube.begin(),
+            cube.end());
+    }
+
+    glm::mat4 view =
+        ctx.camera.GetViewMatrix();
+
+    glm::mat4 projection =
+        framework::mProjection_;
+
+    glm::mat4 model(1.0f);
+
+    glm::mat4 mvp =
+        projection * view * model;
+
+    drawQuads(
+        faces,
+        glm::vec3(1.0f, 0.5f, 0.0f),
+        mvp);
+}
 
   // ---------------------------------------------------------------------
   // Helpers: shader-based primitive drawing
@@ -100,7 +158,7 @@ namespace framework {
     glDeleteVertexArrays(1, &vao);
   }
 
-  static void drawQuads(const std::vector<glm::vec3>& verts,
+  void drawQuads(const std::vector<glm::vec3>& verts,
                         const glm::vec3& color,
                         const glm::mat4& mvp)
   {
@@ -253,34 +311,168 @@ namespace framework {
     drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 5.0f);
   }
 
-  void renderWavefront()
-  {
-	  const float CELL_SPACING = 0.5f / EL;  // Changed from 1.0f to 0.5f
-	  const float VOXEL_SIZE = CELL_SPACING / 4.0f;
-      const int CENTER_INT = EL / 2;
-      std::vector<glm::vec3> faces;
+void renderWavefront()
+{
+    std::lock_guard<std::mutex> lock(gVoxelBufferMutex);
 
-      for (unsigned x=0;x<EL;x++)
-        for (unsigned y=0;y<EL;y++)
-          for (unsigned z=0;z<EL;z++) {
-            uint32_t color = voxels[x*automaton::L2 + y*EL + z];
-            if (color==0) continue;
+    if (EL == 0)
+        return;
 
-            float px = (mod(x+gConfig.view.vis_dx, EL) - CENTER_INT) * CELL_SPACING;
-            float py = (mod(y+gConfig.view.vis_dy, EL) - CENTER_INT) * CELL_SPACING;
-            float pz = (mod(z+gConfig.view.vis_dz, EL) - CENTER_INT) * CELL_SPACING;
+    if (voxels.empty())
+        return;
 
-            auto cube = makeCube(px, py, pz, VOXEL_SIZE);
-            faces.insert(faces.end(), cube.begin(), cube.end());
-          }
+    // ============================================================
+    // ZERO-LAG TOMOGRAPHY PATH
+    // ============================================================
 
-      glm::mat4 view = ctx.camera.GetViewMatrix();
-      glm::mat4 projection = framework::mProjection_;
-      glm::mat4 model = glm::mat4(1.0f);
-      glm::mat4 mvp = projection * view * model;
+    if (tomoEnable &&
+        tomoEnable->getState())
+    {
+        const auto& snapshot =
+            tomography::getSnapshot();
 
-      drawQuads(faces, glm::vec3(1.0f,0.5f,0.0f), mvp);
-  }
+        if (snapshot.empty())
+            return;
+
+        const float CELL_SPACING =
+            0.5f / static_cast<float>(EL);
+
+        const float VOXEL_SIZE =
+            CELL_SPACING / 4.0f;
+
+        glm::mat4 view =
+            ctx.camera.GetViewMatrix();
+
+        glm::mat4 projection =
+            framework::mProjection_;
+
+        glm::mat4 model(1.0f);
+
+        glm::mat4 mvp =
+            projection * view * model;
+
+        std::vector<glm::vec3> faces;
+
+        for (const auto& v : snapshot)
+        {
+            auto cube =
+                makeCube(
+                    v.position.x,
+                    v.position.y,
+                    v.position.z,
+                    VOXEL_SIZE);
+
+            faces.insert(
+                faces.end(),
+                cube.begin(),
+                cube.end());
+        }
+
+        drawQuads(
+            faces,
+            glm::vec3(1.0f, 0.5f, 0.0f),
+            mvp);
+
+        return;
+    }
+
+    // ============================================================
+    // FULL VOLUME PATH
+    // ============================================================
+
+    const float CELL_SPACING =
+        0.5f / static_cast<float>(EL);
+
+    const float VOXEL_SIZE =
+        CELL_SPACING / 4.0f;
+
+    const int CENTER_INT =
+        EL / 2;
+
+    glm::mat4 view =
+        ctx.camera.GetViewMatrix();
+
+    glm::mat4 projection =
+        framework::mProjection_;
+
+    glm::mat4 model(1.0f);
+
+    glm::mat4 mvp =
+        projection * view * model;
+
+    std::vector<glm::vec3> faces;
+
+    auto appendVoxel =
+    [&](unsigned x,
+        unsigned y,
+        unsigned z)
+    {
+        size_t idx =
+            static_cast<size_t>(x) *
+            automaton::L2 +
+            static_cast<size_t>(y) *
+            EL +
+            z;
+
+        if (idx >= voxels.size())
+            return;
+
+        uint32_t color =
+            voxels[idx];
+
+        if (color == 0)
+            return;
+
+        float px =
+            (mod(
+                static_cast<int>(x) +
+                gConfig.view.vis_dx,
+                EL) - CENTER_INT)
+            * CELL_SPACING;
+
+        float py =
+            (mod(
+                static_cast<int>(y) +
+                gConfig.view.vis_dy,
+                EL) - CENTER_INT)
+            * CELL_SPACING;
+
+        float pz =
+            (mod(
+                static_cast<int>(z) +
+                gConfig.view.vis_dz,
+                EL) - CENTER_INT)
+            * CELL_SPACING;
+
+        auto cube =
+            makeCube(
+                px,
+                py,
+                pz,
+                VOXEL_SIZE);
+
+        faces.insert(
+            faces.end(),
+            cube.begin(),
+            cube.end());
+    };
+
+    for (unsigned x = 0; x < EL; ++x)
+    {
+        for (unsigned y = 0; y < EL; ++y)
+        {
+            for (unsigned z = 0; z < EL; ++z)
+            {
+                appendVoxel(x, y, z);
+            }
+        }
+    }
+
+    drawQuads(
+        faces,
+        glm::vec3(1.0f, 0.5f, 0.0f),
+        mvp);
+}
 
   void renderCenters()
   {
@@ -581,7 +773,6 @@ namespace framework {
     if (data3D[8].getState()) renderGrid();
     if (tomoEnable && tomoEnable->getState()) 
     {
-      tomography::renderSlice();
       tomography::renderTomoPlane();
     }
   }
