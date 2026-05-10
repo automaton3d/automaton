@@ -200,6 +200,7 @@ void renderHUD(int screenW, int screenH)
     renderDelays();
     renderViewpointRadios();
     renderProjectionRadios();
+    renderTomoControls();
     renderTomoRadios();
     renderSimulationStats();
     renderComputeStats();

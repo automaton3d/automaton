@@ -313,7 +313,9 @@ namespace framework {
 
 void renderWavefront()
 {
-    std::lock_guard<std::mutex> lock(gVoxelBufferMutex);
+    // NOTE: do NOT lock gVoxelBufferMutex here — this function is called
+    // from render3DObjects() → renderScene() → renderFrame(), which already
+    // holds the lock. Re-locking a non-recursive std::mutex is UB (deadlock).
 
     if (EL == 0)
         return;

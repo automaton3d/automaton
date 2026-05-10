@@ -71,6 +71,17 @@ namespace framework
     }
 
     // -----------------------------------------------------------------
+    // Tomography enable tickbox
+    // -----------------------------------------------------------------
+    void renderTomoControls()
+    {
+        if (tomoEnable) {
+            tomoEnable->setFontScale(0.6f);
+            tomoEnable->draw(hudText);
+        }
+    }
+
+    // -----------------------------------------------------------------
     // Tomography direction radios (only when tomography is enabled)
     // -----------------------------------------------------------------
     void renderTomoRadios()

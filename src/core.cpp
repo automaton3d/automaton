@@ -155,9 +155,44 @@ void SimulateThread()
 
         std::cout << ">>>> SO FAR... 1" << std::endl;
 
-    automaton::swap_lattices();
+        std::cout << "Waiting a bit for initialization...\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // dá tempo para splash/init rodar
 
-    std::cout << ">>>> SO FAR... 2" << std::endl;
+        std::cout << "BLOCK = " << automaton::BLOCK 
+                  << " | draft.size = " << automaton::lattice_draft.size() << std::endl;
+
+        if (automaton::BLOCK > 1000 && automaton::lattice_draft.size() >= automaton::BLOCK) {
+            std::cout << "Doing initial swap...\n";
+            automaton::swap_lattices();
+        } else {
+            std::cout << "Still skipping initial swap (lattices not ready)\n";
+        }
+
+        std::cout << ">>>> SO FAR... 2" << std::endl;
+        // Versão mais segura - evita acessar variáveis não inicializadas
+        bool canSwap = false;
+        try {
+            if (automaton::BLOCK > 100 && 
+                automaton::lattice_draft.size() >= automaton::BLOCK &&
+                automaton::lattice_curr.size() >= automaton::BLOCK) {
+                canSwap = true;
+            }
+        } catch (...) {
+            std::cout << "Exception checking lattice sizes\n";
+        }
+
+        if (canSwap) {
+            std::cout << "Doing initial swap...\n";
+            automaton::swap_lattices();
+            std::cout << "Initial lattice swap performed.\n";
+        } else {
+            std::cout << "Skipping initial swap - lattices not ready (BLOCK=" 
+                      << automaton::BLOCK 
+                      << ", draft.size=" << automaton::lattice_draft.size() 
+                      << ", curr.size=" << automaton::lattice_curr.size() << ")\n";
+        }
+
+        std::cout << ">>>> SO FAR... 2" << std::endl;
 
     while (!framework::stopSimThread.load(std::memory_order_acquire))
     {

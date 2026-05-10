@@ -169,6 +169,9 @@ namespace automaton
 
   bool swap_lattices_cpu()
   {
+    if (BLOCK == 0 || lattice_curr.empty())
+        return false;
+
     bool newLightFrame = false;
 
     std::copy(
