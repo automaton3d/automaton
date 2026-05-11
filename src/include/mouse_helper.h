@@ -24,12 +24,12 @@ namespace framework
                                      const glm::vec3 & stop,
                                      glm::quat & result) {}
                                      */
-  void setScrollDirection(bool up) {}
-  void setClickPoint(double x, double y) {}
-  void setLeftClicked(bool value) {}
-  void setMiddleClicked(bool value) {}
-  void setRightClicked(bool value) {}
-  void setSpeed(float s) {}
+  inline void setScrollDirection(bool up) {}
+  inline void setClickPoint(double x, double y) {}
+  inline void setLeftClicked(bool value) {}
+  inline void setMiddleClicked(bool value) {}
+  inline void setRightClicked(bool value) {}
+  inline void setSpeed(float s) {}
 }
 
 #endif /* INCLUDE_MOUSE_HELPER_H_ */

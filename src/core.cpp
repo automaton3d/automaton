@@ -153,8 +153,6 @@ void SimulateThread()
     }
     gThreadReadyCV.notify_one();
 
-        std::cout << ">>>> SO FAR... 1" << std::endl;
-
         std::cout << "Waiting a bit for initialization...\n";
         std::this_thread::sleep_for(std::chrono::milliseconds(100));  // dá tempo para splash/init rodar
 
@@ -168,7 +166,6 @@ void SimulateThread()
             std::cout << "Still skipping initial swap (lattices not ready)\n";
         }
 
-        std::cout << ">>>> SO FAR... 2" << std::endl;
         // Versão mais segura - evita acessar variáveis não inicializadas
         bool canSwap = false;
         try {
@@ -191,8 +188,6 @@ void SimulateThread()
                       << ", draft.size=" << automaton::lattice_draft.size() 
                       << ", curr.size=" << automaton::lattice_curr.size() << ")\n";
         }
-
-        std::cout << ">>>> SO FAR... 2" << std::endl;
 
     while (!framework::stopSimThread.load(std::memory_order_acquire))
     {
@@ -335,7 +330,6 @@ void renderFrame(GLFWwindow* window, int& width, int& height)
         gViewport[2] = width;
         gViewport[3] = height;
         glViewport(0, 0, width, height);
-//        framework::resize(width, height);
     }
 
     float aspect = (float)width / (float)height;

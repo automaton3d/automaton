@@ -335,6 +335,10 @@ void updateBufferCPU()
 
     size_t idx = 0;
 
+    static int bufDiag = 0;
+    int visCount = 0, colorCount = 0;
+    bool doLog = (bufDiag < 3 && gPipelineState != RenderPipelineState::FULL_VOLUME);
+
     for (unsigned x = 0; x < automaton::EL; ++x)
     for (unsigned y = 0; y < automaton::EL; ++y)
     for (unsigned z = 0; z < automaton::EL; ++z)
@@ -344,6 +348,8 @@ void updateBufferCPU()
             voxels[idx++] = 0x00000000u;
             continue;
         }
+
+        visCount++;
 
         const automaton::Cell& cell =
             automaton::getCell(
@@ -355,6 +361,13 @@ void updateBufferCPU()
 
         unsigned eff_t =
             automaton::effective_t(cell.t);
+
+        if (doLog && visCount <= 5) {
+            std::cout << "[BUF-DIAG] x=" << x << " y=" << y << " z=" << z
+                      << " d=" << cell.d << " t=" << cell.t
+                      << " eff_t=" << eff_t << " gB=" << (int)cell.gB
+                      << " w=" << selectedW << std::endl;
+        }
 
         if (cell.gB)
         {
@@ -376,7 +389,17 @@ void updateBufferCPU()
             }
         }
 
+        if (color != 0) colorCount++;
         voxels[idx++] = color;
+    }
+
+    if (doLog) {
+        std::cout << "[BUF-DIAG] visible=" << visCount
+                  << " colored=" << colorCount
+                  << " pipe=" << (int)gPipelineState
+                  << " tomo_z=" << tomo_z
+                  << " selectedW=" << selectedW << std::endl;
+        bufDiag++;
     }
 }
 

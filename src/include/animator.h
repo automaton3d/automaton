@@ -22,26 +22,26 @@ namespace framework
       //ZOOM
     };
 
-    void animate() {}
-    double elapsedSeconds() { return 0.0; }
-    void firstperson() {}
-    void orbit() {}
-    void pan() {}
-    void reset() {}
-    void roll() {}
-    void setAnimation(AnimationType type) {}
-    void setScreenSize(int w, int h) {}
+    inline void animate() {}
+    inline double elapsedSeconds() { return 0.0; }
+    inline void firstperson() {}
+    inline void orbit() {}
+    inline void pan() {}
+    inline void reset() {}
+    inline void roll() {}
+    inline void setAnimation(AnimationType type) {}
+    inline void setScreenSize(int w, int h) {}
 //    void setInteractor(TrackBallInteractor *i);
-    void stopwatch() {}
-    void zoom() {}
+    inline void stopwatch() {}
+    inline void zoom() {}
 
-    AnimationType mAnimation_;
+    inline AnimationType mAnimation_;
   //  TrackBallInteractor *mInteractor_;
-    int mFrame_;
-    int mFrames_;
-    float mFramesPerSecond_;
+    inline int mFrame_;
+    inline int mFrames_;
+    inline float mFramesPerSecond_;
  //   int mHeight_;
-    std::chrono::time_point<std::chrono::system_clock> mTic_;
+    inline std::chrono::time_point<std::chrono::system_clock> mTic_;
    // int mWidth_;
 
 } // namespace framework
