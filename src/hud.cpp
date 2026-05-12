@@ -232,6 +232,20 @@ void renderHUD(int screenW, int screenH)
     // --------------------------------------------------------
     renderAboutDialog();
 
+    // === PAINÉIS LATERAIS - DESENHADOS ANTES DE TUDO ===
+    // --------------------------------------------------------
+    // Panels - TEMA ESCURO
+    // --------------------------------------------------------
+    // Panels - TEMA ESCURO (FORÇADO)
+    int leftH  = screenH - 170;
+    int rightH = screenH - 170;
+
+    glm::vec3 panelBg     = glm::vec3(0.04f, 0.04f, 0.075f);   // fundo bem escuro
+    glm::vec3 panelBorder = glm::vec3(0.25f, 0.25f, 0.32f);    // borda cinza escuro
+
+    drawPanel(35, 60, 170, leftH, panelBg, panelBorder, 2.0f, P);
+    drawPanel(screenW - 260, 60, 250, rightH, panelBg, panelBorder, 2.0f, P);
+        
     if (scenarioHelpToggle &&
         scenarioHelpToggle->getState())
     {
@@ -242,34 +256,6 @@ void renderHUD(int screenW, int screenH)
     // Time
     // --------------------------------------------------------
     renderElapsedTime();
-
-    // --------------------------------------------------------
-    // Panels
-    // --------------------------------------------------------
-    int leftH  = screenH - 170;
-    int rightH = screenH - 170;
-
-    drawPanel(
-        35,
-        60,
-        170,
-        leftH,
-        glm::vec3(0.05f, 0.05f, 0.1f),
-        glm::vec3(0.4f, 0.4f, 1.0f),
-        2.0f,
-        P
-    );
-
-    drawPanel(
-        screenW - 260,
-        60,
-        250,
-        rightH,
-        glm::vec3(0.05f, 0.05f, 0.1f),
-        glm::vec3(0.4f, 0.4f, 1.0f),
-        2.0f,
-        P
-    );
 
     // --------------------------------------------------------
     // Logo
