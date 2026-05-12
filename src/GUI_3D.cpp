@@ -604,129 +604,116 @@ void renderWavefront()
    * handles controlling vis_dx/dy/dz (visual wrapping offset).
    * Called from renderHUD() in 2D overlay mode.
    */
-  void renderGizmo()
-  {
-      if (!showGizmo) return;
+void renderGizmo()
+{
+    if (!showGizmo) return;
 
-      const glm::mat4& P = ProjectionManager::instance().get2DOrtho();
+    const glm::mat4& P = ProjectionManager::instance().get2DOrtho();
 
-      // Gizmo position and size (top-right, left of right panel)
-      // Ortho uses top-left origin: y=0 at top, same as GLFW
-      const float gizmoRadius = 55.0f;
-      const float cx = (float)gViewport[2] - 285.0f;
-      const float cy = 85.0f;  // near top
+    const float gizmoRadius = 55.0f;
+    const float cx = (float)gViewport[2] - 285.0f - 60.0f;
+    const float cy = 85.0f + 70.0f;
 
-      // Camera rotation (extract 3x3 from view matrix, no translation)
-      glm::mat3 rot(ctx.camera.GetViewMatrix());
+    glm::mat3 rot(ctx.camera.GetViewMatrix());
 
-      // Axis directions in view space
-      // rot * worldAxis: x maps to screen-right, y maps to screen-up
-      // But screen y increases DOWNWARD (top-left origin), so negate y
-      glm::vec3 rawDirs[3] = {
-          rot * glm::vec3(1, 0, 0),
-          rot * glm::vec3(0, 1, 0),
-          rot * glm::vec3(0, 0, 1),
-      };
+    glm::vec3 rawDirs[3] = {
+        rot * glm::vec3(1, 0, 0),
+        rot * glm::vec3(0, 1, 0),
+        rot * glm::vec3(0, 0, 1)
+    };
 
-      glm::vec3 colors[3] = {
-          {1.0f, 0.3f, 0.3f},  // X red
-          {0.3f, 1.0f, 0.3f},  // Y green
-          {0.4f, 0.4f, 1.0f},  // Z blue
-      };
-      const char* labels[3] = {"X", "Y", "Z"};
+    glm::vec3 colors[3] = {
+        {1.0f, 0.25f, 0.25f},  // X
+        {0.25f, 1.0f, 0.25f},  // Y
+        {0.25f, 0.5f, 1.0f}    // Z
+    };
 
-      // Store gizmo projections for click detection (in screen/GLFW coords)
-      gGizmoProj.cx = cx;
-      gGizmoProj.cy = cy;
-      gGizmoProj.radius = gizmoRadius;
+    const char* labels[3] = {"X", "Y", "Z"};
 
-      // Draw background circle
-      {
-          const int seg = 32;
-          std::vector<glm::vec2> circle;
-          circle.reserve(seg + 2);
-          circle.push_back({cx, cy});
-          for (int i = 0; i <= seg; ++i)
-          {
-              float a = 2.0f * 3.14159265f * (float)i / (float)seg;
-              circle.push_back({
-                  cx + cosf(a) * (gizmoRadius + 5.0f),
-                  cy + sinf(a) * (gizmoRadius + 5.0f)
-              });
-          }
-          drawTriangleFan2D(circle, glm::vec3(0.05f, 0.05f, 0.12f), P);
-      }
+    gGizmoProj.cx = cx;
+    gGizmoProj.cy = cy;
+    gGizmoProj.radius = gizmoRadius + 10.0f;
 
-      // Draw axes and handles
-      for (int axis = 0; axis < 3; ++axis)
-      {
-          // Screen-space endpoint (negate y for top-left origin)
-          float endX = cx + rawDirs[axis].x * gizmoRadius;
-          float endY = cy - rawDirs[axis].y * gizmoRadius;
+    for (int axis = 0; axis < 3; ++axis)
+    {
+        glm::vec3 dir = glm::normalize(rawDirs[axis]);
 
-          // Store for click detection (already in GLFW coords)
-          gGizmoProj.ex[axis] = endX;
-          gGizmoProj.ey[axis] = endY;
+        float endX = cx + dir.x * gizmoRadius;
+        float endY = cy - dir.y * gizmoRadius;
 
-          // Draw axis line
-          drawThickLine2D(cx, cy, endX, endY, 2.0f, colors[axis], P);
+        float negX = cx - dir.x * gizmoRadius * 0.75f;
+        float negY = cy + dir.y * gizmoRadius * 0.75f;
 
-          // Draw axis label at endpoint
-          // RenderText uses y-up (0=bottom), while drawing uses y-down (0=top)
-          float lx = endX + rawDirs[axis].x * 10.0f;
-          float ly_screen = endY - rawDirs[axis].y * 10.0f;
-          float ly_text = (float)gViewport[3] - ly_screen;
-          hudText.RenderText(labels[axis], lx, ly_text, 0.35f,
-              colors[axis], gViewport[2], gViewport[3]);
+        gGizmoProj.ex[axis] = endX;
+        gGizmoProj.ey[axis] = endY;
 
-          // Handle position based on current vis offset
-          int visOffset = 0;
-          if (axis == 0) visOffset = gConfig.view.vis_dx;
-          else if (axis == 1) visOffset = gConfig.view.vis_dy;
-          else visOffset = gConfig.view.vis_dz;
+        glm::vec3 col = colors[axis];
+        glm::vec3 faded = col * 0.25f;
 
-          // Map offset to parametric t [-1, 1] on the gizmo axis
-          float t = 0.0f;
-          if (EL > 0)
-              t = glm::clamp((float)visOffset / ((float)EL * 0.5f), -1.0f, 1.0f);
+        // =========================
+        // POSITIVE AXIS (NEW PIPELINE)
+        // =========================
+        drawLine2D_new(cx, cy, endX, endY, col, col, P);
 
-          float handleX = cx + rawDirs[axis].x * gizmoRadius * t;
-          float handleY = cy - rawDirs[axis].y * gizmoRadius * t;
+        // bola final (mantida igual)
+        const float r = 8.5f;
+        std::vector<glm::vec2> handle;
+        handle.reserve(22);
 
-          // Handle: small filled circle
-          const int hseg = 12;
-          const float handleR = 5.0f;
-          std::vector<glm::vec2> handle;
-          handle.reserve(hseg + 2);
-          handle.push_back({handleX, handleY});
-          for (int i = 0; i <= hseg; ++i)
-          {
-              float a = 2.0f * 3.14159265f * (float)i / (float)hseg;
-              handle.push_back({
-                  handleX + cosf(a) * handleR,
-                  handleY + sinf(a) * handleR
-              });
-          }
-          drawTriangleFan2D(handle, colors[axis], P);
-      }
+        handle.push_back({endX, endY});
+        for (int i = 0; i < 20; ++i)
+        {
+            float a = 2.0f * 3.14159265f * i / 20.0f;
+            handle.push_back({
+                endX + cosf(a) * r,
+                endY + sinf(a) * r
+            });
+        }
+        drawTriangleFan2D(handle, col, P);
 
-      // Draw origin dot
-      {
-          const int oseg = 8;
-          std::vector<glm::vec2> originDot;
-          originDot.reserve(oseg + 2);
-          originDot.push_back({cx, cy});
-          for (int i = 0; i <= oseg; ++i)
-          {
-              float a = 2.0f * 3.14159265f * (float)i / (float)oseg;
-              originDot.push_back({
-                  cx + cosf(a) * 3.0f,
-                  cy + sinf(a) * 3.0f
-              });
-          }
-          drawTriangleFan2D(originDot, glm::vec3(0.8f), P);
-      }
-  }
+        // =========================
+        // NEGATIVE AXIS (NEW PIPELINE)
+        // =========================
+        drawLine2D_new(cx, cy, negX, negY, faded, faded, P);
+
+        // =========================
+        // LABEL (unchanged)
+        // =========================
+        float lx = endX + dir.x * 2.0f;
+        float ly_screen = endY - dir.y * 2.0f;
+        float ly_text = (float)gViewport[3] - ly_screen;
+
+        hudText.RenderText(labels[axis],
+                           lx - 5.0f, ly_text - 7.0f,
+                           0.50f, col,
+                           gViewport[2], gViewport[3]);
+
+        hudText.RenderText(labels[axis],
+                           lx - 4.0f, ly_text - 7.0f,
+                           0.50f, col,
+                           gViewport[2], gViewport[3]);
+    }
+
+    // center dot (unchanged)
+    {
+        const float originR = 5.0f;
+        std::vector<glm::vec2> originDot;
+        originDot.reserve(20);
+
+        originDot.push_back({cx, cy});
+
+        for (int i = 0; i < 18; ++i)
+        {
+            float a = 2.0f * 3.14159265f * i / 18.0f;
+            originDot.push_back({
+                cx + cosf(a) * originR,
+                cy + sinf(a) * originR
+            });
+        }
+
+        drawTriangleFan2D(originDot, glm::vec3(0.95f), P);
+    }
+}
 
   /**
    * Renders 3D objects

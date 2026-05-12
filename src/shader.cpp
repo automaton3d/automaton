@@ -6,6 +6,43 @@
 #include <cassert>
 
 // ============================================================================
+// NOVO VERT SHADER  DEBUG DEBUG
+// ============================================================================
+
+const char* shader2DVertex = R"(
+#version 330 core
+
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aColor;
+
+uniform mat4 uMVP;
+
+out vec3 vColor;
+
+void main()
+{
+    vColor = aColor;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+)";
+
+// ============================================================================
+// NOVO FRAG SHADER  DEBUG DEBUG
+// ============================================================================
+
+const char* shader2DFragment = R"(
+#version 330 core
+
+in vec3 vColor;
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(vColor, 1.0);
+}
+)";
+
+// ============================================================================
 // 3D Scene Shaders
 // ============================================================================
 const char* vertexShaderSource = R"(
@@ -239,4 +276,13 @@ unsigned int compileOITShader() {
 
 unsigned int compileTransparentShader() {
     return compileShader(transparentVertexShaderSource, transparentFragmentShaderSource);
+}
+
+// ============================================================================
+// NOVO COMPILADOR  DEBUG DEBUG
+// ============================================================================
+
+unsigned int compileShader2D()
+{
+    return compileShader(shader2DVertex, shader2DFragment);
 }

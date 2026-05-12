@@ -25,7 +25,7 @@ OBJ_COMMON = glad.obj tinyfiledialogs.obj button.obj callback.obj camera.obj cor
              radio.obj recorder.obj replay.obj replay_progress.obj scene.obj shader.obj \
              sound.obj splash.obj stats.obj stb_impl.obj text_renderer.obj tickbox.obj \
              tomography.obj convolutes.obj initSim.obj interaction.obj simulation.obj \
-             utils.obj debug.obj config.obj render_pipeline.obj
+             utils.obj debug.obj config.obj render_pipeline.obj Renderer2D.obj
 
 !IF $(ENABLE_CUDA)
 OBJ = $(OBJ_COMMON) bridge.obj bridge_cuda.obj cuda_automaton.obj
@@ -181,6 +181,9 @@ stb_impl.obj: src\stb_impl.cpp
     $(CC) $(CFLAGS) /c $** /Fo$@
     
 text_renderer.obj: src\text_renderer.cpp
+    $(CC) $(CFLAGS) /c $** /Fo$@
+
+Renderer2D.obj: src\Renderer2D.cpp
     $(CC) $(CFLAGS) /c $** /Fo$@
 
 tickbox.obj: src\tickbox.cpp

@@ -288,34 +288,34 @@ namespace framework
             proj
         );
 
-        drawThickLine2D(
+        drawLine2D_new(
             x, y,
             x + w, y,
-            borderThickness,
+            borderColor,
             borderColor,
             proj
         );
 
-        drawThickLine2D(
+        drawLine2D_new(
             x + w, y,
             x + w, y + h,
-            borderThickness,
+            borderColor,
             borderColor,
             proj
         );
 
-        drawThickLine2D(
+        drawLine2D_new(
             x + w, y + h,
             x, y + h,
-            borderThickness,
+            borderColor,
             borderColor,
             proj
         );
 
-        drawThickLine2D(
+        drawLine2D_new(
             x, y + h,
             x, y,
-            borderThickness,
+            borderColor,
             borderColor,
             proj
         );

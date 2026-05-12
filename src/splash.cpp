@@ -26,10 +26,10 @@
 #include "projection_manager.h"
 #include "splash.h"
 #include "config.h"
+#include "Renderer2D.h"
 
 // External globals from main.cpp
 extern TextRenderer* textRenderer;
-extern unsigned int colorProgram2D;
 extern unsigned int textProgram;
 
 // ---------------------------------------------------------------------
@@ -65,9 +65,48 @@ static void setupUI();
 
 static void drawRaisedPanel(float x, float y, float w, float h)
 {
-    drawQuad2D(x, y, x + w, y + h, glm::vec3(0.85f, 0.85f, 0.9f), proj2D());
-    drawLineLoop2D({{x, y}, {x + w, y}, {x + w, y + h}, {x, y + h}},
-                   glm::vec3(0.7f, 0.7f, 0.8f), proj2D(), 2.0f);
+    float vertices[] = {
+        x,     y,
+        x + w, y,
+        x + w, y + h,
+        x,     y + h
+    };
+
+    GLuint vao, vbo;
+
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    glBufferData(GL_ARRAY_BUFFER,
+                 sizeof(vertices),
+                 vertices,
+                 GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
+                          2 * sizeof(float), (void*)0);
+
+    glEnableVertexAttribArray(0);
+
+    Renderer2D::use();
+    Renderer2D::setMVP(proj2D());
+
+    // fundo
+    Renderer2D::setColor(glm::vec3(0.85f, 0.85f, 0.90f));
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+    // borda
+    Renderer2D::setColor(glm::vec3(0.70f, 0.70f, 0.80f));
+    glLineWidth(2.0f);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+    glLineWidth(1.0f);
+
+    glBindVertexArray(0);
+
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
 }
 
 static void drawTitle()
@@ -223,9 +262,9 @@ else
         drawRaisedPanel(w - 260, w - 290, 220, 80);
 
         // Botões
-        if (simBtn)    simBtn->draw(colorProgram2D, *textRenderer, w, h);
-        if (statBtn)   statBtn->draw(colorProgram2D, *textRenderer, w, h);
-        if (replayBtn) replayBtn->draw(colorProgram2D, *textRenderer, w, h);
+        if (simBtn)    simBtn->draw(*textRenderer, w, h);
+        if (statBtn)   statBtn->draw(*textRenderer, w, h);
+        if (replayBtn) replayBtn->draw(*textRenderer, w, h);
 
         // Dropdowns
         if (scenarioDropdown) scenarioDropdown->render(textRenderer);

@@ -24,7 +24,7 @@
 #include "tickbox.h"
 #include <atomic>
 #include "cuda/cuda_api.h"
-#include "cuda/cuda_api.h"
+#include "Renderer2D.h"
 
 #include <limits.h>
 
@@ -90,8 +90,6 @@ unsigned int compileShader(const char* vertexSrc, const char* fragmentSrc);
 extern GLuint textureProgram2D;
 extern GLint textureMvpLoc;
 extern GLint textureSamplerLoc;
-extern GLint colorMvpLoc2D;
-extern GLint colorColorLoc2D;
 
 extern const char* textVertexShaderSource;
 extern const char* textFragmentShaderSource;
@@ -244,6 +242,7 @@ int main()
         glfwTerminate();
         return -1;
     }
+    Renderer2D::init();
 
     // Initialize viewport and projection
     int width, height;
@@ -273,14 +272,6 @@ int main()
         return -1;
     }
 
-    colorProgram2D = compileColorShader();
-    if (colorProgram2D == 0) {
-        std::cerr << "[FATAL] Failed to compile color shader\n";
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return -1;
-    }
-
     textureProgram2D = compileTextureShader();
     if (textureProgram2D == 0) {
         std::cerr << "[FATAL] Failed to compile 2D texture shader\n";
@@ -289,8 +280,6 @@ int main()
         return -1;
     }
     // Get uniform locations
-    colorMvpLoc2D = glGetUniformLocation(colorProgram2D, "uMVP");
-    colorColorLoc2D = glGetUniformLocation(colorProgram2D, "uColor");
     textureMvpLoc = glGetUniformLocation(textureProgram2D, "uMVP");
     textureSamplerLoc = glGetUniformLocation(textureProgram2D, "uTexture");
 
@@ -300,17 +289,6 @@ int main()
 
     // Verify shader linkage
     GLint success;
-    glGetProgramiv(colorProgram2D, GL_LINK_STATUS, &success);
-    if (!success) {
-        GLint logLength = 0;
-        glGetProgramiv(colorProgram2D, GL_INFO_LOG_LENGTH, &logLength);
-        std::vector<char> infoLog(logLength);
-        glGetProgramInfoLog(colorProgram2D, logLength, NULL, infoLog.data());
-        std::cerr << "[ERROR] colorProgram2D link error:\n" << infoLog.data() << std::endl;
-    }
-
-    /////////////////////
-
     // após compilar
     colorProgram3D = compileColorShader();
 

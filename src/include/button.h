@@ -13,8 +13,8 @@ public:
     Button(const Button&) = delete;
     Button& operator=(const Button&) = delete;
 
-    void draw(unsigned int shaderProgram, TextRenderer& renderer,
-              int screenWidth, int screenHeight);
+    void draw(TextRenderer& renderer,
+          int screenWidth, int screenHeight);
 
     void drawAsHyperlink(TextRenderer& renderer, bool hovered,
                          int screenWidth, int screenHeight);  // Removed const

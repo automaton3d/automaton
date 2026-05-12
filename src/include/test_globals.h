@@ -9,13 +9,7 @@
 // (Estas substituem as externs de globals.h para este teste específico)
 
 extern GLFWwindow* window;
-
 extern GLuint textProgram;
-extern GLuint colorProgram2D;
-
-extern GLint colorMvpLoc2D;
-extern GLint colorColorLoc2D;
-
 extern TextRenderer* textRenderer;
 
 extern int gViewport[4];

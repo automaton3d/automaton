@@ -1,6 +1,4 @@
 // draw_utils.h
-// Modern immediate-mode 2D drawing utilities – works with ProjectionManager
-// High performance: no per-draw allocations, core-profile safe
 
 #pragma once
 
@@ -9,13 +7,15 @@
 #include <vector>
 #include <string>
 
+void drawLine2D_new(
+    float x1, float y1,
+    float x2, float y2,
+    const glm::vec3& c1,
+    const glm::vec3& c2,
+    const glm::mat4& mvp);
+
 // Break a long string into multiple lines of max 'width' characters
 std::vector<std::string> wrapText(const std::string& text, size_t width);
-
-// External shader handles (defined in your shader loading code)
-extern GLuint colorProgram2D;
-extern GLint  colorMvpLoc2D;
-extern GLint  colorColorLoc2D;
 
 // ===================================================================
 // MODERN 2D DRAWING – use these everywhere
@@ -54,12 +54,6 @@ void drawLine2D(float x1, float y1, float x2, float y2,
                 const glm::vec3& color,
                 const glm::mat4& proj,
                 float thickness = 1.0f);
-
-// Thick line using triangle strip (no reliance on deprecated glLineWidth >1)
-void drawThickLine2D(float x1, float y1, float x2, float y2,
-                     float thickness,
-                     const glm::vec3& color,
-                     const glm::mat4& proj);
 
 // Optional: clean shutdown (call on exit if you like)
 void draw2DShutdown();

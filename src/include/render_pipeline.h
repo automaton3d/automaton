@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glad/glad.h>
+
 enum class RenderPipelineState
 {
     FULL_VOLUME,

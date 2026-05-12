@@ -5,9 +5,11 @@
 #include <vector>
 #include <sstream>
 
+#include "render_pipeline.h"
+#include "Renderer2D.h"
+#include "projection_manager.h"
 
 // shader externo (você já deve ter isso no projeto)
-extern GLuint colorProgram2D;
 extern GLint uProjLoc;
 extern GLint uColorLoc;
 
@@ -52,8 +54,10 @@ void drawTriangleFan2D(
 
     init();
 
-    glUseProgram(colorProgram2D);
-    glUniformMatrix4fv(uProjLoc, 1, GL_FALSE, &proj[0][0]);
+    Renderer2D::use();
+    Renderer2D::setMVP(
+        ProjectionManager::instance().get2DOrtho()
+    );    
     glUniform3fv(uColorLoc, 1, &color[0]);
 
     glBindVertexArray(vao);
@@ -74,57 +78,61 @@ void drawLineLoop2D(
     float thickness)
 {
     if (pts.empty()) return;
-
     init();
-
     glLineWidth(thickness);
-
-
-
-    //glUseProgram(colorProgram2D);
     glUseProgram(0);
-
-
-
-    //glUniformMatrix4fv(uProjLoc, 1, GL_FALSE, &proj[0][0]);
-    //glUniform3fv(uColorLoc, 1, &color[0]);
-
     glBindVertexArray(vao);
     upload(pts);
-
     glDrawArrays(GL_LINE_LOOP, 0, (GLsizei)pts.size());
-
     glBindVertexArray(0);
 }
 
-// =========================
-// THICK LINE
-// =========================
-void drawThickLine2D(
+/////////// NOVO DESENHO DE PONTOS, LINHAS E QUADS 3D (USANDO SHADER COLORIDO) DEBUG DEBUG
+void drawLine2D_new(
     float x1, float y1,
     float x2, float y2,
-    float thickness,
-    const glm::vec3& color,
-    const glm::mat4& proj)
+    const glm::vec3& c1,
+    const glm::vec3& c2,
+    const glm::mat4& mvp)
 {
-    init();
+    glm::vec3 verts[2] = {
+        {x1, y1, 0.0f},
+        {x2, y2, 0.0f}
+    };
 
-    glLineWidth(thickness);
+    glm::vec3 cols[2] = {
+        c1, c2
+    };
 
-    glm::vec2 line[2] = { {x1,y1}, {x2,y2} };
+    struct V {
+        glm::vec3 pos;
+        glm::vec3 col;
+    } data[2] = {
+        {verts[0], cols[0]},
+        {verts[1], cols[1]}
+    };
 
-    glUseProgram(colorProgram2D);
-    glUniformMatrix4fv(uProjLoc, 1, GL_FALSE, &proj[0][0]);
-    glUniform3fv(uColorLoc, 1, &color[0]);
+    Renderer2D::use();
+    Renderer2D::setMVP(mvp);
+
+    GLuint vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
 
     glBindVertexArray(vao);
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(V), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(V), (void*)offsetof(V, col));
+    glEnableVertexAttribArray(1);
 
     glDrawArrays(GL_LINES, 0, 2);
 
-    glBindVertexArray(0);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
 }
 
 // Note: x1,y1 é o canto superior esquerdo e x2,y2 o inferior direito
@@ -136,14 +144,11 @@ void drawQuad2D(float x1, float y1, float x2, float y2, const glm::vec3& color, 
         {x1, y2}, {x2, y2}
     };
 
-    glUseProgram(colorProgram2D);
-    
-    // Usando os nomes exatos que aparecem no seu main.cpp e globals.h
-    extern GLint colorMvpLoc2D;
-    extern GLint colorColorLoc2D;
-    
-    glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, &projection[0][0]);
-    glUniform3fv(colorColorLoc2D, 1, &color[0]);
+    Renderer2D::use();    
+    Renderer2D::setMVP(
+        ProjectionManager::instance().get2DOrtho()
+        );
+    //glUniform3fv(colorColorLoc2D, 1, &color[0]);
 
     glBindVertexArray(vao);
     upload(verts);

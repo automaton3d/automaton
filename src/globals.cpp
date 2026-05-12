@@ -35,17 +35,10 @@ std::vector<unsigned int> voxels;
 // Shaders and uniforms
 GLuint textProgram = 0;
 
-
-
-GLuint colorProgram2D = 0;
-GLint uProjLoc = -1;
+//GLint uProjLoc = -1;
 GLint uColorLoc = -1;
 
-
-
 GLuint textureProgram2D = 0;
-GLint colorMvpLoc2D = -1;
-GLint colorColorLoc2D = -1;
 
 GLuint colorProgram3D = 0;
 GLint  colorMvpLoc3D  = -1;

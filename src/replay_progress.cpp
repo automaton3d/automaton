@@ -6,6 +6,7 @@
 #include "text_renderer.h"
 #include "globals.h"
 #include "projection_manager.h"
+#include "Renderer2D.h"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -62,10 +63,11 @@ void ReplayProgressBar::render()
         std::vector<glm::vec2> verts = {
             {x1, y1}, {x2, y1}, {x2, y2}, {x1, y2}
         };
-        glUseProgram(colorProgram2D);
-        glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
-        glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
-        
+        Renderer2D::use();
+        Renderer2D::setMVP(
+          ProjectionManager::instance().get2DOrtho()
+        );        
+        Renderer2D::setColor(color);        
         GLuint vao, vbo;
         glGenVertexArrays(1, &vao);
         glGenBuffers(1, &vbo);
@@ -83,9 +85,12 @@ void ReplayProgressBar::render()
 
     // Lambda helper for drawing line loops
     auto drawLineLoop2D = [&](const std::vector<glm::vec2>& verts, const glm::vec3& color, float lineWidth = 2.0f) {
-        glUseProgram(colorProgram2D);
-        glUniformMatrix4fv(colorMvpLoc2D, 1, GL_FALSE, glm::value_ptr(ortho));
-        glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
+        Renderer2D::use();
+
+        Renderer2D::setMVP(
+          ProjectionManager::instance().get2DOrtho()
+        );
+        //glUniform3f(colorColorLoc2D, color.r, color.g, color.b);
         
         GLuint vao, vbo;
         glGenVertexArrays(1, &vao);

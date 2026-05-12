@@ -40,12 +40,7 @@ extern std::vector<Radio> tomoDirs;
 extern GLFWwindow* window;
 
 extern GLuint textProgram;
-extern GLuint colorProgram2D;
 extern GLuint textureProgram2D;
-extern GLuint colorProgram3D;
-
-extern GLint colorMvpLoc2D;
-extern GLint colorColorLoc2D;
 extern GLint textureMvpLoc;
 extern GLint textureSamplerLoc;
 
