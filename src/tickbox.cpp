@@ -4,11 +4,11 @@
 const int BOX_SIZE = 18;
 
 // Cores fortes para fundo azul/escuro
-glm::vec3 Tickbox::borderColor_  = glm::vec3(0.55f, 0.55f, 0.65f);
-glm::vec3 Tickbox::labelColor_   = glm::vec3(0.97f, 0.97f, 1.0f);
-glm::vec3 Tickbox::fillOn_       = glm::vec3(0.05f, 0.35f, 0.75f);
-glm::vec3 Tickbox::fillOff_      = glm::vec3(0.07f, 0.07f, 0.12f);
-
+// Definição das variáveis estáticas - TEMA ESCURO
+glm::vec3 Tickbox::borderColor_  = glm::vec3(0.45f, 0.45f, 0.52f);
+glm::vec3 Tickbox::labelColor_   = glm::vec3(0.95f, 0.95f, 0.98f);
+glm::vec3 Tickbox::fillOn_       = glm::vec3(0.10f, 0.45f, 0.80f);
+glm::vec3 Tickbox::fillOff_      = glm::vec3(0.09f, 0.09f, 0.14f);
 float Tickbox::fontScale_        = 0.35f;
 
 void Tickbox::setColors(const glm::vec3& border,

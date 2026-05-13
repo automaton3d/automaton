@@ -233,19 +233,22 @@ void renderHUD(int screenW, int screenH)
     renderAboutDialog();
 
     // === PAINÉIS LATERAIS - DESENHADOS ANTES DE TUDO ===
-    // --------------------------------------------------------
-    // Panels - TEMA ESCURO
-    // --------------------------------------------------------
-    // Panels - TEMA ESCURO (FORÇADO)
-    int leftH  = screenH - 170;
-    int rightH = screenH - 170;
+    const int panelPadding = 60;
+    const int bottomMargin = 110;
 
-    glm::vec3 panelBg     = glm::vec3(0.04f, 0.04f, 0.075f);   // fundo bem escuro
-    glm::vec3 panelBorder = glm::vec3(0.25f, 0.25f, 0.32f);    // borda cinza escuro
+    int leftH  = screenH - bottomMargin;
+    int rightH = screenH - bottomMargin;
 
-    drawPanel(35, 60, 170, leftH, panelBg, panelBorder, 2.0f, P);
-    drawPanel(screenW - 260, 60, 250, rightH, panelBg, panelBorder, 2.0f, P);
-        
+    glm::vec3 panelBg       = glm::vec3(0.042f, 0.042f, 0.068f);   // um pouco mais profundo
+    glm::vec3 panelBorder   = glm::vec3(0.28f, 0.31f, 0.42f);      // borda mais refinada
+    glm::vec3 panelBorderHL = glm::vec3(0.48f, 0.52f, 0.65f);      // highlight sutil (opcional)
+
+    // Painel esquerdo
+    drawPanel(35, panelPadding, 170, leftH, panelBg, panelBorder, 2.0f, P);
+
+    // Painel direito
+    drawPanel(screenW - 260, panelPadding, 250, rightH, panelBg, panelBorder, 2.0f, P);
+                
     if (scenarioHelpToggle &&
         scenarioHelpToggle->getState())
     {

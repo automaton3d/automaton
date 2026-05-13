@@ -566,6 +566,7 @@ case GLFW_KEY_T:
                     case GLFW_KEY_P:
                         if (action == GLFW_PRESS) {
                             pause = !pause;
+                            showGizmo = !showGizmo;
                             if (!pause && currentMode == SIMULATION) {
                                 gConfig.view.vis_dx = 0;
                                 gConfig.view.vis_dy = 0;
@@ -577,11 +578,6 @@ case GLFW_KEY_T:
                     case GLFW_KEY_F1:
                         if (action == GLFW_PRESS) {
                             showHelp = !showHelp;
-                        }
-                        break;
-                    case GLFW_KEY_G:
-                        if (action == GLFW_PRESS) {
-                            showGizmo = !showGizmo;
                         }
                         break;
                     case GLFW_KEY_F8:

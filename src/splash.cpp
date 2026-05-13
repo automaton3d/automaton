@@ -63,6 +63,43 @@ static void setupUI();
 
 } // namespace splash
 
+static void drawDarkPanel(float x, float y, float w, float h)
+{
+    float vertices[] = {
+        x,     y,
+        x + w, y,
+        x + w, y + h,
+        x,     y + h
+    };
+
+    GLuint vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    Renderer2D::use();
+    Renderer2D::setMVP(proj2D());
+
+    // Fundo escuro (cinza bem escuro, quase preto)
+    Renderer2D::setColor(glm::vec3(0.28f, 0.28f, 0.28f));
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+    // Borda um pouco mais clara que o fundo, ainda escura
+    Renderer2D::setColor(glm::vec3(0.35f, 0.35f, 0.40f));
+    glLineWidth(2.0f);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+    glLineWidth(1.0f);
+
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
+}
+
 static void drawRaisedPanel(float x, float y, float w, float h)
 {
     float vertices[] = {
@@ -259,7 +296,7 @@ else
 
         // Painéis
         drawRaisedPanel(30, 295, w - 60, 180);
-        drawRaisedPanel(w - 260, w - 290, 220, 80);
+        drawDarkPanel(w - 260, w - 290, 220, 80);
 
         // Botões
         if (simBtn)    simBtn->draw(*textRenderer, w, h);

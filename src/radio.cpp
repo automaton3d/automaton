@@ -2,10 +2,10 @@
 
 // Definições estáticas - CORES ATUALIZADAS PARA TEMA ESCURO
 
-glm::vec3 Radio::outlineColor_   = glm::vec3(0.35f, 0.35f, 0.40f);
-glm::vec3 Radio::fillColor_      = glm::vec3(0.15f, 0.55f, 0.95f);   // Azul suave
-glm::vec3 Radio::labelColor_     = glm::vec3(0.90f, 0.90f, 0.92f);
-glm::vec3 Radio::centerDotColor_ = glm::vec3(0.95f, 0.95f, 0.98f);
+glm::vec3 Radio::outlineColor_   = glm::vec3(0.45f, 0.45f, 0.52f);
+glm::vec3 Radio::fillColor_      = glm::vec3(0.10f, 0.45f, 0.80f);
+glm::vec3 Radio::labelColor_     = glm::vec3(0.95f, 0.95f, 0.98f);
+glm::vec3 Radio::centerDotColor_ = glm::vec3(0.98f, 0.98f, 1.0f);
 float Radio::fontScale_          = 0.35f;
 
 std::vector<glm::vec2> Radio::makeCircle(int cx, int cy, float radius)

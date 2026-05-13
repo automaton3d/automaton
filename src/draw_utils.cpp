@@ -137,19 +137,11 @@ void drawLine2D_new(
 
 // Note: x1,y1 é o canto superior esquerdo e x2,y2 o inferior direito
 void drawQuad2D(float x1, float y1, float x2, float y2, const glm::vec3& color, const glm::mat4& projection) {
-    init(); // Garante que VAO/VBO estão prontos
-    
-    std::vector<glm::vec2> verts = {
-        {x1, y1}, {x2, y1},
-        {x1, y2}, {x2, y2}
-    };
-
-    Renderer2D::use();    
-    Renderer2D::setMVP(
-        ProjectionManager::instance().get2DOrtho()
-        );
-    //glUniform3fv(colorColorLoc2D, 1, &color[0]);
-
+    init();
+    std::vector<glm::vec2> verts = { {x1, y1}, {x2, y1}, {x1, y2}, {x2, y2} };
+    Renderer2D::use();
+    Renderer2D::setMVP(ProjectionManager::instance().get2DOrtho());
+    Renderer2D::setColor(color);      // <-- USANDO O MÉTODO DO HEADER
     glBindVertexArray(vao);
     upload(verts);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
