@@ -87,7 +87,6 @@ void drawLineLoop2D(
     glBindVertexArray(0);
 }
 
-/////////// NOVO DESENHO DE PONTOS, LINHAS E QUADS 3D (USANDO SHADER COLORIDO) DEBUG DEBUG
 void drawLine2D_new(
     float x1, float y1,
     float x2, float y2,
@@ -95,41 +94,47 @@ void drawLine2D_new(
     const glm::vec3& c2,
     const glm::mat4& mvp)
 {
-    glm::vec3 verts[2] = {
-        {x1, y1, 0.0f},
-        {x2, y2, 0.0f}
-    };
-
-    glm::vec3 cols[2] = {
-        c1, c2
-    };
+    (void)c2;
 
     struct V {
         glm::vec3 pos;
-        glm::vec3 col;
-    } data[2] = {
-        {verts[0], cols[0]},
-        {verts[1], cols[1]}
+    };
+
+    V data[2] = {
+        {{x1, y1, 0.0f}},
+        {{x2, y2, 0.0f}}
     };
 
     Renderer2D::use();
     Renderer2D::setMVP(mvp);
 
+    // usa somente UMA cor uniforme
+    Renderer2D::setColor(c1);
+
     GLuint vao, vbo;
+
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
 
     glBindVertexArray(vao);
+
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(V), (void*)0);
+    glVertexAttribPointer(
+        0,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        sizeof(V),
+        (void*)0
+    );
+
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(V), (void*)offsetof(V, col));
-    glEnableVertexAttribArray(1);
-
     glDrawArrays(GL_LINES, 0, 2);
+
+    glBindVertexArray(0);
 
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);

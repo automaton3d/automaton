@@ -463,6 +463,65 @@ else if (tomoEnable && tomoEnable->getState())
             else if (thumb.axis == 1) gConfig.view.vis_dy = newVisOffset;
             else if (thumb.axis == 2) gConfig.view.vis_dz = newVisOffset;
         }
+
+        // ============================================================
+        // Axis hover cursor
+        // ============================================================
+
+        if ((pause || currentMode == REPLAY) && gAxisProjValid)
+        {
+            bool hoveringAxis = false;
+
+            const float threshold = 20.0f;
+
+            for (int axis = 0; axis < 3; ++axis)
+            {
+                const AxisProjection& ap = gAxisProj[axis];
+
+                float dx = ap.x1 - ap.x0;
+                float dy = ap.y1 - ap.y0;
+
+                float len2 = dx * dx + dy * dy;
+                if (len2 < 1e-6f)
+                    continue;
+
+                float t =
+                    ((float)xpos - ap.x0) * dx +
+                    ((float)ypos - ap.y0) * dy;
+
+                t /= len2;
+
+                t = glm::clamp(t, 0.0f, 1.0f);
+
+                float px = ap.x0 + t * dx;
+                float py = ap.y0 + t * dy;
+
+                float dist = std::hypot((float)xpos - px,
+                                        (float)ypos - py);
+
+                if (dist < threshold)
+                {
+                    hoveringAxis = true;
+                    break;
+                }
+            }
+
+            if (hoveringAxis || thumb.dragging)
+            {
+                glfwSetCursor(
+                    window,
+                    glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR)
+                );
+            }
+            else
+            {
+                glfwSetCursor(window, nullptr);
+            }
+        }
+        else
+        {
+            glfwSetCursor(window, nullptr);
+        }
     }
 
     void scrollCallback(GLFWwindow *window, double xoffset, double yoffset)

@@ -604,13 +604,16 @@ void renderWavefront()
    * handles controlling vis_dx/dy/dz (visual wrapping offset).
    * Called from renderHUD() in 2D overlay mode.
    */
+// ---------------------------------------------------------------------
+// Trecho corrigido da função renderGizmo()
+// ---------------------------------------------------------------------
 void renderGizmo()
 {
     if (!showGizmo) return;
 
     const glm::mat4& P = ProjectionManager::instance().get2DOrtho();
 
-    const float gizmoRadius = 55.0f;
+    const float gizmoRadius = 55.0f;   // ou 65.0f se preferir maior
     const float cx = (float)gViewport[2] - 285.0f - 60.0f;
     const float cy = 85.0f + 70.0f;
 
@@ -634,87 +637,77 @@ void renderGizmo()
     gGizmoProj.cy = cy;
     gGizmoProj.radius = gizmoRadius + 10.0f;
 
+    const float r = 8.5f;   // raio das bolhas dos eixos
+
+    // Função auxiliar para desenhar círculo vazado (apenas contorno)
+    auto drawCircleOutline = [&](float centerX, float centerY, float radius, const glm::vec3& color)
+    {
+        const int segments = 40;
+        for (int i = 0; i < segments; ++i)
+        {
+            float a1 = 2.0f * 3.14159265f * i / segments;
+            float a2 = 2.0f * 3.14159265f * (i + 1) / segments;
+            float x1 = centerX + cosf(a1) * radius;
+            float y1 = centerY + sinf(a1) * radius;
+            float x2 = centerX + cosf(a2) * radius;
+            float y2 = centerY + sinf(a2) * radius;
+            drawLine2D_new(x1, y1, x2, y2, color, color, P);
+        }
+    };
+
+    // 1. Eixos e bolhas (apenas contorno)
     for (int axis = 0; axis < 3; ++axis)
     {
         glm::vec3 dir = glm::normalize(rawDirs[axis]);
-
-        float endX = cx + dir.x * gizmoRadius;
-        float endY = cy - dir.y * gizmoRadius;
-
-        float negX = cx - dir.x * gizmoRadius * 0.75f;
-        float negY = cy + dir.y * gizmoRadius * 0.75f;
-
-        gGizmoProj.ex[axis] = endX;
-        gGizmoProj.ey[axis] = endY;
-
         glm::vec3 col = colors[axis];
-        glm::vec3 faded = col * 0.25f;
+        glm::vec3 faded = col * 0.6f;   // tom esmaecido para negativo
 
-        // =========================
-        // POSITIVE AXIS (NEW PIPELINE)
-        // =========================
-        drawLine2D_new(cx, cy, endX, endY, col, col, P);
+        // Positivo
+        float centerX_pos = cx + dir.x * (gizmoRadius - r);
+        float centerY_pos = cy - dir.y * (gizmoRadius - r);
+        float tipX_pos = cx + dir.x * (gizmoRadius - 2.0f * r);
+        float tipY_pos = cy - dir.y * (gizmoRadius - 2.0f * r);
+        drawLine2D_new(cx, cy, tipX_pos, tipY_pos, col, col, P);
+        drawCircleOutline(centerX_pos, centerY_pos, r, col);
 
-        // bola final (mantida igual)
-        const float r = 8.5f;
-        std::vector<glm::vec2> handle;
-        handle.reserve(22);
+        // Negativo (mesmo comprimento)
+        float centerX_neg = cx - dir.x * (gizmoRadius - r);
+        float centerY_neg = cy + dir.y * (gizmoRadius - r);
+        float tipX_neg = cx - dir.x * (gizmoRadius - 2.0f * r);
+        float tipY_neg = cy + dir.y * (gizmoRadius - 2.0f * r);
+        drawLine2D_new(cx, cy, tipX_neg, tipY_neg, faded, faded, P);
+        drawCircleOutline(centerX_neg, centerY_neg, r, faded);
 
-        handle.push_back({endX, endY});
-        for (int i = 0; i < 20; ++i)
-        {
-            float a = 2.0f * 3.14159265f * i / 20.0f;
-            handle.push_back({
-                endX + cosf(a) * r,
-                endY + sinf(a) * r
-            });
-        }
-        drawTriangleFan2D(handle, col, P);
-
-        // =========================
-        // NEGATIVE AXIS (NEW PIPELINE)
-        // =========================
-        drawLine2D_new(cx, cy, negX, negY, faded, faded, P);
-
-        // =========================
-        // LABEL (unchanged)
-        // =========================
-        float lx = endX + dir.x * 2.0f;
-        float ly_screen = endY - dir.y * 2.0f;
+        // Texto (centralizado, deslocado 2px para baixo)
+        float lx = centerX_pos;
+        float ly_screen = centerY_pos;
         float ly_text = (float)gViewport[3] - ly_screen;
-
-        hudText.RenderText(labels[axis],
-                           lx - 5.0f, ly_text - 7.0f,
-                           0.50f, col,
-                           gViewport[2], gViewport[3]);
-
-        hudText.RenderText(labels[axis],
-                           lx - 4.0f, ly_text - 7.0f,
-                           0.50f, col,
-                           gViewport[2], gViewport[3]);
+        hudText.RenderText(labels[axis], lx - 5.0f, ly_text - 5.0f,
+                           0.50f, col, gViewport[2], gViewport[3]);
     }
 
-    // center dot (unchanged)
+    // 2. Ponto central (sólido, com borda)
     {
-        const float originR = 5.0f;
+        const float originR = 4.0f;
         std::vector<glm::vec2> originDot;
         originDot.reserve(20);
-
         originDot.push_back({cx, cy});
-
         for (int i = 0; i < 18; ++i)
         {
             float a = 2.0f * 3.14159265f * i / 18.0f;
-            originDot.push_back({
-                cx + cosf(a) * originR,
-                cy + sinf(a) * originR
-            });
+            originDot.push_back({ cx + cosf(a) * originR, cy + sinf(a) * originR });
         }
-
-        drawTriangleFan2D(originDot, glm::vec3(0.95f), P);
+        // Preenchimento (cinza claro)
+        drawTriangleFan2D(originDot, glm::vec3(0.8f), P);
+        // Borda cinza
+        for (int i = 0; i < 18; ++i)
+        {
+            int j = (i + 1) % 18;
+            glm::vec2 p1 = originDot[i+1], p2 = originDot[j+1];
+            drawLine2D_new(p1.x, p1.y, p2.x, p2.y, glm::vec3(0.5f), glm::vec3(0.5f), P);
+        }
     }
 }
-
   /**
    * Renders 3D objects
    * A transformação MVP deve ser gerenciada pelo GUIrenderer antes de chamar esta função
