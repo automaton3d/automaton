@@ -613,7 +613,7 @@ void renderGizmo()
 
     const glm::mat4& P = ProjectionManager::instance().get2DOrtho();
 
-    const float gizmoRadius = 55.0f;   // ou 65.0f se preferir maior
+    const float gizmoRadius = 70.0f;
     const float cx = (float)gViewport[2] - 285.0f - 60.0f;
     const float cy = 85.0f + 70.0f;
 
@@ -637,7 +637,7 @@ void renderGizmo()
     gGizmoProj.cy = cy;
     gGizmoProj.radius = gizmoRadius + 10.0f;
 
-    const float r = 8.5f;   // raio das bolhas dos eixos
+    const float r = 8.5f;   // raio das bolhas
 
     // Função auxiliar para desenhar círculo vazado (apenas contorno)
     auto drawCircleOutline = [&](float centerX, float centerY, float radius, const glm::vec3& color)
@@ -670,13 +670,19 @@ void renderGizmo()
         drawLine2D_new(cx, cy, tipX_pos, tipY_pos, col, col, P);
         drawCircleOutline(centerX_pos, centerY_pos, r, col);
 
-        // Negativo (mesmo comprimento)
+        // NEGATIVO (mesmo comprimento)
         float centerX_neg = cx - dir.x * (gizmoRadius - r);
         float centerY_neg = cy + dir.y * (gizmoRadius - r);
         float tipX_neg = cx - dir.x * (gizmoRadius - 2.0f * r);
         float tipY_neg = cy + dir.y * (gizmoRadius - 2.0f * r);
         drawLine2D_new(cx, cy, tipX_neg, tipY_neg, faded, faded, P);
         drawCircleOutline(centerX_neg, centerY_neg, r, faded);
+
+        // ============================================================
+        // IMPORTANTE: guarda as coordenadas da bolha positiva para hit test
+        // ============================================================
+        gGizmoProj.ex[axis] = centerX_pos;
+        gGizmoProj.ey[axis] = centerY_pos;
 
         // Texto (centralizado, deslocado 2px para baixo)
         float lx = centerX_pos;
@@ -697,9 +703,7 @@ void renderGizmo()
             float a = 2.0f * 3.14159265f * i / 18.0f;
             originDot.push_back({ cx + cosf(a) * originR, cy + sinf(a) * originR });
         }
-        // Preenchimento (cinza claro)
-        drawTriangleFan2D(originDot, glm::vec3(0.8f), P);
-        // Borda cinza
+        drawTriangleFan2D(originDot, glm::vec3(0.8f), P); // preenchimento
         for (int i = 0; i < 18; ++i)
         {
             int j = (i + 1) % 18;
@@ -707,7 +711,38 @@ void renderGizmo()
             drawLine2D_new(p1.x, p1.y, p2.x, p2.y, glm::vec3(0.5f), glm::vec3(0.5f), P);
         }
     }
+
+    // ==================================================================
+    // 3. DESENHA O CUBO DE FEEDBACK (hover ou arrasto)
+    // ==================================================================
+    if (framework::showDragCube && showGizmo)
+    {
+        float cubeX = framework::dragCubeX;
+        float cubeY = framework::dragCubeY;
+        const float size = 18.0f;   // tamanho em pixels
+
+        std::vector<glm::vec2> cubeVerts = {
+            {cubeX - size/2, cubeY - size/2},
+            {cubeX + size/2, cubeY - size/2},
+            {cubeX + size/2, cubeY + size/2},
+            {cubeX - size/2, cubeY + size/2}
+        };
+
+        // Preenchimento laranja
+        drawTriangleFan2D(cubeVerts, glm::vec3(1.0f, 0.5f, 0.2f), P);
+        // Borda preta
+        for (int i = 0; i < 4; ++i)
+        {
+            int j = (i + 1) % 4;
+            drawLine2D_new(cubeVerts[i].x, cubeVerts[i].y,
+                           cubeVerts[j].x, cubeVerts[j].y,
+                           glm::vec3(0.0f, 0.0f, 0.0f),
+                           glm::vec3(0.0f, 0.0f, 0.0f), P);
+        }
+    }
 }
+
+
   /**
    * Renders 3D objects
    * A transformação MVP deve ser gerenciada pelo GUIrenderer antes de chamar esta função

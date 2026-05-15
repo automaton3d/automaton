@@ -19,6 +19,15 @@ namespace automaton
 
   bool ctrl = true; // debug
 
+  // Wrapping periódico (toroidal) – usado apenas na relocação
+  inline void periodic_wrap(int& x, int& y, int& z, int& w)
+  {
+    if (x < 0) x += EL; else if (x >= (int)EL) x -= EL;
+    if (y < 0) y += EL; else if (y >= (int)EL) y -= EL;
+    if (z < 0) z += EL; else if (z >= (int)EL) z -= EL;
+    if (w < 0) w += W_USED; else if (w >= (int)W_USED) w -= W_USED;
+  }
+
   /**
    * Analyzes the cases when the wavefronts cross
    * during the convolution process.
@@ -49,7 +58,7 @@ namespace automaton
         return convolute7(curr, draft, mirror);
       default:
       {
-    	exit(1);
+        exit(1);
       }
     }
     return false;
@@ -59,21 +68,21 @@ namespace automaton
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up)
   {
-	  /****** SLOT I ******/
-	  if (curr.k < SLOT1)
-	  {
-	    /*--- Orphan propagation ---*/
-	    if ((north.a == W_USED && curr.d >= north.d) ||
-	        (west.a  == W_USED && curr.d >= west.d)  ||
-	        (down.a  == W_USED && curr.d >= down.d)  ||
-	        (south.a == W_USED && curr.d >= south.d) ||
-	        (east.a  == W_USED && curr.d >= east.d)  ||
-	        (up.a    == W_USED && curr.d >= up.d))
-	    {
-	      draft.a = W_USED;
-	    }
-	  }
-	  /****** SLOT II ******/
+      /****** SLOT I ******/
+      if (curr.k < SLOT1)
+      {
+        /*--- Orphan propagation ---*/
+        if ((north.a == W_USED && curr.d >= north.d) ||
+            (west.a  == W_USED && curr.d >= west.d)  ||
+            (down.a  == W_USED && curr.d >= down.d)  ||
+            (south.a == W_USED && curr.d >= south.d) ||
+            (east.a  == W_USED && curr.d >= east.d)  ||
+            (up.a    == W_USED && curr.d >= up.d))
+        {
+          draft.a = W_USED;
+        }
+      }
+      /****** SLOT II ******/
     if (curr.k < SLOT2)
     {
       /*--- Orphan propagation ---*/
@@ -188,53 +197,83 @@ namespace automaton
       {
         if (curr.d < curr.t)
         {
-      	  draft.a = curr.x[3];
+          draft.a = curr.x[3];
         }
       }
     }
   }
 
   /**
-   * Grid relocation.
+   * Grid relocation – uses periodic (toroidal) wrapping.
    */
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
   {
     // Save the 3D address
-    unsigned x, y, z;
-    x = curr.x[0];
-    y = curr.x[1];
-    z = curr.x[2];
-    /****** SLOT VI ******/
+    unsigned x = curr.x[0];
+    unsigned y = curr.x[1];
+    unsigned z = curr.x[2];
+    unsigned w = curr.x[3];
+
+    /****** SLOT VI – deslocamento em X ******/
     if (curr.k < SLOT6)
     {
       if (north.c[0] > 0)
       {
         draft = north;
         draft.c[0]--;
+        int nx = (int)draft.x[0] + 1;
+        int ny = (int)draft.x[1];
+        int nz = (int)draft.x[2];
+        int nw = (int)draft.x[3];
+        periodic_wrap(nx, ny, nz, nw);   // periódico, não esférico
+        draft.x[0] = (unsigned)nx;
+        draft.x[1] = (unsigned)ny;
+        draft.x[2] = (unsigned)nz;
+        draft.x[3] = (unsigned)nw;
       }
     }
-    /****** SLOT VII ******/
+    /****** SLOT VII – deslocamento em Y ******/
     else if (curr.k < SLOT7)
     {
       if (west.c[1] > 0)
       {
         draft = west;
         draft.c[1]--;
+        int nx = (int)draft.x[0];
+        int ny = (int)draft.x[1] + 1;
+        int nz = (int)draft.x[2];
+        int nw = (int)draft.x[3];
+        periodic_wrap(nx, ny, nz, nw);   // periódico
+        draft.x[0] = (unsigned)nx;
+        draft.x[1] = (unsigned)ny;
+        draft.x[2] = (unsigned)nz;
+        draft.x[3] = (unsigned)nw;
       }
     }
-    /****** SLOT VIII ******/
+    /****** SLOT VIII – deslocamento em Z ******/
     else if (curr.k < SLOT8)
     {
       if (down.c[2] > 0)
       {
         draft = down;
         draft.c[2]--;
+        int nx = (int)draft.x[0];
+        int ny = (int)draft.x[1];
+        int nz = (int)draft.x[2] + 1;
+        int nw = (int)draft.x[3];
+        periodic_wrap(nx, ny, nz, nw);   // periódico
+        draft.x[0] = (unsigned)nx;
+        draft.x[1] = (unsigned)ny;
+        draft.x[2] = (unsigned)nz;
+        draft.x[3] = (unsigned)nw;
       }
     }
-    // Recover 3D address
+
+    // Recover 3D address (caso nenhum deslocamento tenha ocorrido)
     draft.x[0] = x;
     draft.x[1] = y;
     draft.x[2] = z;
+    draft.x[3] = w;
   }
 
   /**
@@ -296,7 +335,7 @@ namespace automaton
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up)
   {
-	if (curr.a != W_USED)
+    if (curr.a != W_USED)
       draft.t = min({ north.t, south.t, east.t, west.t, down.t, up.t });
   }
 }

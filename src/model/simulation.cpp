@@ -54,9 +54,10 @@ namespace automaton
   std::vector<std::array<unsigned, 3>> lcenters;
 
   // ============================================================
-  // SPHERICAL (ANTIPODAL) WRAPPING
+  // WRAPPING FUNCTIONS
   // ============================================================
 
+  // Spherical (antipodal) wrapping – used for wave propagation
   inline void spherical_wrap(int& x, int& y, int& z, int& w)
   {
     if (x < 0 || x >= (int)EL ||
@@ -74,6 +75,15 @@ namespace automaton
         z = (z % (int)EL + EL) % EL;
         w = (w % (int)W_USED + W_USED) % W_USED;
     }
+  }
+
+  // Periodic (toroidal) wrapping – used for bubble relocation
+  inline void periodic_wrap(int& x, int& y, int& z, int& w)
+  {
+    if (x < 0) x += EL; else if (x >= (int)EL) x -= EL;
+    if (y < 0) y += EL; else if (y >= (int)EL) y -= EL;
+    if (z < 0) z += EL; else if (z >= (int)EL) z -= EL;
+    if (w < 0) w += W_USED; else if (w >= (int)W_USED) w -= W_USED;
   }
 
   void trackCenter(unsigned x, unsigned y, unsigned z, unsigned w)
@@ -112,7 +122,7 @@ namespace automaton
 
             draft = curr;
 
-            // 🔥 GARANTIR COORDENADAS CORRETAS
+            // Ensure correct coordinates
             curr.x[0] = x;
             curr.x[1] = y;
             curr.x[2] = z;
@@ -220,7 +230,7 @@ namespace automaton
   }
 
   // ============================================================
-  // 🔥 FIX REAL AQUI
+  // Cell neighbor access – uses spherical wrap (antipodal)
   // ============================================================
 
   Cell &Cell::getNeighbor(int i)

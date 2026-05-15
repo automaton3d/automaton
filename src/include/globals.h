@@ -124,6 +124,8 @@ extern int windowedPosY;
 
 
 namespace framework {
+    extern int gizmoHoverAxis;   // -1 = nenhum, 0=X, 1=Y, 2=Z
+    
     struct AxisThumb {
         bool active = false;
         bool dragging = false;
@@ -144,6 +146,9 @@ namespace framework {
     extern float vis_offset_z;
     extern MenuBar* menuBar;
 
+    extern bool showDragCube;
+    extern float dragCubeX;
+    extern float dragCubeY;
 }
 
 extern bool helpHover;
