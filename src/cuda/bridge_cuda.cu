@@ -25,6 +25,7 @@
 #include "cuda/cuda_common.h"     // CellDevice
 #include "model/simulation.h"     // automaton::Cell, getCell (no OpenGL)
 #include "config.h"
+#include "cuda_constants.h"       // for resetCudaCtrl
 
 #include <cstdio>
 #include <vector>
@@ -33,9 +34,6 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
-
-// Implemented in cuda_constants.cu
-extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX);
 
 // -----------------------------------------------------------------
 // Extern declarations for symbols defined in .cpp files that CAN
@@ -177,6 +175,9 @@ bool initializeCudaSimulation()
     }
 
     setCudaConstants(automaton::EL, automaton::W_USED, automaton::RMAX);
+    printf("EL=%u, W_USED=%u, RMAX=%u\n", automaton::EL, automaton::W_USED, automaton::RMAX);
+    // Reset the one‑shot control flag for scenarios 1‑5
+    resetCudaCtrl();
 
     size_t totalCells = (size_t)automaton::EL * automaton::EL *
                         automaton::EL * automaton::W_USED;

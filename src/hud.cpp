@@ -234,7 +234,7 @@ void renderHUD(int screenW, int screenH)
 
     // === PAINÉIS LATERAIS - DESENHADOS ANTES DE TUDO ===
     const int panelPadding = 60;
-    const int bottomMargin = 110;
+    const int bottomMargin = 170;
 
     int leftH  = screenH - bottomMargin;
     int rightH = screenH - bottomMargin;

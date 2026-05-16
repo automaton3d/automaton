@@ -70,25 +70,10 @@ static void unified_cursor_callback(GLFWwindow* window, double xpos, double ypos
 
 // Unified scroll callback - handles BOTH GUI and 3D camera
 static void unified_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    AppContext* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
-
-    // Get mouse position to check if over GUI
-    double mouseX, mouseY;
-    glfwGetCursorPos(window, &mouseX, &mouseY);
-
-    // If mouse is over GUI, only let GUI handle scroll
-    if (isMouseOverGUI(window, mouseX, mouseY)) {
-        framework::scrollCallback(window, xoffset, yoffset);
-        return;
-    }
-
-    // Otherwise, handle 3D camera zoom (not GUI scroll)
-    if (ctx) {
-        ctx->camera.ProcessMouseScroll((float)yoffset);
-    }
-
-    // Optionally also let GUI handle it if needed
-    // framework::scrollCallback(window, xoffset, yoffset);
+    // Always let the framework handle scroll.
+    // The framework's scrollCallback will decide whether to zoom the perspective camera
+    // (via setScrollDirection) or adjust the orthographic scale (via ortho_scale).
+    framework::scrollCallback(window, xoffset, yoffset);
 }
 
 // Unified mouse button callback

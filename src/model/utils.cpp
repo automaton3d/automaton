@@ -451,11 +451,13 @@ namespace automaton
     return true;
   }
 
-  unsigned int getRandomUnsigned(unsigned int modulus)
-  {
-    static std::mt19937 rng(std::random_device{}()); // Seed once
-    std::uniform_int_distribution<unsigned int> dist(0, modulus - 1);
-    return dist(rng);
-  }
-
+  unsigned getRandomUnsigned(unsigned modulus) {
+    if (modulus <= 1) return 0;
+    // Evita zero
+    unsigned r;
+    do {
+        r = rand() % modulus;
+    } while (r == 0);
+    return r;
+}
 }

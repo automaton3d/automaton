@@ -71,6 +71,7 @@ OBJ_COMMON = \
 OBJ = $(OBJ_COMMON) \
 	  $(OBJ_DIR)\bridge.obj \
 	  $(OBJ_DIR)\bridge_cuda.obj \
+	  $(OBJ_DIR)\cuda_constants.obj \
 	  $(OBJ_DIR)\cuda_automaton.obj
 
 EXTRA_CPPFLAGS = /D "USE_CUDA" /D "CUDA_BRIDGE_CU"
@@ -180,6 +181,9 @@ $(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu
 	$(NVCC) $(NVCC_FLAGS) -o $@ $**
 
 $(OBJ_DIR)\cuda_automaton.obj: src\cuda\cuda_automaton.cu
+	$(NVCC) $(NVCC_FLAGS) -o $@ $**
+
+$(OBJ_DIR)\cuda_constants.obj: src\cuda\cuda_constants.cu
 	$(NVCC) $(NVCC_FLAGS) -o $@ $**
 
 !ENDIF

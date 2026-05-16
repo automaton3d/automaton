@@ -1,64 +1,22 @@
 // cuda_automaton.cu - CUDA implementation with FULL CA logic
+// Unified version: all constants and host functions are defined here.
 
 #pragma nv_diag_suppress 177
 
 #include "model/simulation.h"
 #include "cuda_sim_optimized.h"
 #include <cuda_runtime.h>
+#include "cuda_constants.h" 
 #include <iostream>
 #include <algorithm>
 #include "config.h"
 
-// Constant memory (must be in the SAME compilation unit as kernels
-// that use them; without -rdc=true, extern __constant__ across .cu
-// files is not supported)
-__constant__ unsigned dev_EL;
-__constant__ unsigned dev_W_USED;
-__constant__ unsigned dev_RMAX;
-__constant__ unsigned dev_CENTER;
-
-extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
-{
-    cudaError_t err;
-    unsigned CENTER = (EL - 1) / 2;
-    printf("Setting dev_EL = %u\n", EL);
-    err = cudaMemcpyToSymbol(dev_EL, &EL, sizeof(unsigned));
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error setting dev_EL: %s\n", cudaGetErrorString(err));
-        return;
-    }
-    printf("Setting dev_W_USED = %u\n", W_USED);
-    err = cudaMemcpyToSymbol(dev_W_USED, &W_USED, sizeof(unsigned));
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error setting dev_W_USED: %s\n", cudaGetErrorString(err));
-        return;
-    }
-    printf("Setting dev_RMAX = %u\n", RMAX);
-    err = cudaMemcpyToSymbol(dev_RMAX, &RMAX, sizeof(unsigned));
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error setting dev_RMAX: %s\n", cudaGetErrorString(err));
-        return;
-    }
-    printf("Setting dev_CENTER = %u\n", CENTER);
-    err = cudaMemcpyToSymbol(dev_CENTER, &CENTER, sizeof(unsigned));
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error setting dev_CENTER: %s\n", cudaGetErrorString(err));
-        return;
-    }
-    printf("All constants set successfully\n");
-}
-
-// Device helper: effective wavefront radius (triangle wave)
-// Period = 2*RMAX, amplitude = RMAX
-static __device__ inline unsigned dev_effective_t(unsigned t) {
-    unsigned period = 2 * dev_RMAX;
-    unsigned raw = t % period;
-    return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
-}
-
 // ===================================================================
-// GLOBAL DEVICE VARIABLES
+// Constant memory — NÃO declarar aqui novamente!
+// Usamos apenas o que está em cuda_constants.h
 // ===================================================================
+
+// Global device pointers (defined here, used by bridge)
 ::CellDevice* d_lattice_curr = nullptr;
 ::CellDevice* d_lattice_draft = nullptr;
 ::CellDevice* d_lattice_mirror = nullptr;
@@ -94,6 +52,7 @@ static __device__ inline ::CellDevice& d_getCell(::CellDevice* lattice, int x, i
     return lattice[(((x * dev_EL + y) * dev_EL + z) * dev_W_USED) + w];
 }
 
+// Spherical (antipodal) wrap – matches CPU's spherical_wrap
 static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
                                            unsigned x_curr, 
                                            unsigned y_curr, 
@@ -101,34 +60,47 @@ static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
                                            unsigned w_curr, 
                                            int i) 
 {
-    static const int disp[8][4] =
-    {
-      {+1,  0,  0,  0}, {-1,  0,  0,  0},
-      { 0, +1,  0,  0}, { 0, -1,  0,  0},
-      { 0,  0, +1,  0}, { 0,  0, -1,  0},
-      { 0,  0,  0, +1}, { 0,  0,  0, -1}
+    static const int disp[8][4] = {
+        {+1, 0, 0, 0}, {-1, 0, 0, 0},
+        { 0,+1, 0, 0}, { 0,-1, 0, 0},
+        { 0, 0,+1, 0}, { 0, 0,-1, 0},
+        { 0, 0, 0,+1}, { 0, 0, 0,-1}
     };
 
-    int nx = (x_curr + disp[i][0] + dev_EL) % dev_EL;
-    int ny = (y_curr + disp[i][1] + dev_EL) % dev_EL;
-    int nz = (z_curr + disp[i][2] + dev_EL) % dev_EL;
-    int nw = (w_curr + disp[i][3] + dev_W_USED) % dev_W_USED;
+    int nx = x_curr + disp[i][0];
+    int ny = y_curr + disp[i][1];
+    int nz = z_curr + disp[i][2];
+    int nw = w_curr + disp[i][3];
+
+    // Spherical (antipodal) wrapping
+    if (nx < 0 || nx >= (int)dev_EL ||
+        ny < 0 || ny >= (int)dev_EL ||
+        nz < 0 || nz >= (int)dev_EL ||
+        nw < 0 || nw >= (int)dev_W_USED)
+    {
+        nx = dev_EL - 1 - nx;
+        ny = dev_EL - 1 - ny;
+        nz = dev_EL - 1 - nz;
+        nw = dev_W_USED - 1 - nw;
+
+        nx = (nx % dev_EL + dev_EL) % dev_EL;
+        ny = (ny % dev_EL + dev_EL) % dev_EL;
+        nz = (nz % dev_EL + dev_EL) % dev_EL;
+        nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
+    }
 
     return d_getCell(d_curr_lattice, nx, ny, nz, nw);
 }
 
 #define ZERO_C(c) (!(c[0] | c[1] | c[2]))
 
-// Charge-bit access for CellDevice (mirrors Cell::W1(), Q(), etc.)
+// Charge-bit access for CellDevice (mirrors CPU)
 #define DEV_W1(cell)  ((cell).ch & 0x20)
 #define DEV_W0(cell)  ((cell).ch & 0x10)
 #define DEV_Q(cell)   ((cell).ch & 0x08)
 #define DEV_C2(cell)  ((cell).ch & 0x04)
 #define DEV_C1(cell)  ((cell).ch & 0x02)
 #define DEV_C0(cell)  ((cell).ch & 0x01)
-
-// One-shot ctrl for scenarios 1-5 (fire once per simulation run, like CPU)
-__device__ int dev_ctrl = 1;
 
 // Simple hash PRNG (for convolute1 random c[] values)
 __device__ inline unsigned dev_hash_random(unsigned seed, unsigned mod)
@@ -140,9 +112,15 @@ __device__ inline unsigned dev_hash_random(unsigned seed, unsigned mod)
     return seed % mod;
 }
 
+// Device helper: effective wavefront radius (triangle wave)
+static __device__ inline unsigned dev_effective_t(unsigned t) {
+    unsigned period = 2 * dev_RMAX;
+    unsigned raw = t % period;
+    return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
+}
+
 // ===================================================================
 // DEVICE CONVOLUTE FUNCTIONS (mirror convolutes.cpp)
-// w = the 4th-dimension coordinate (CPU: curr.x[3])
 // ===================================================================
 
 __device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*draft*/,
@@ -174,10 +152,7 @@ __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
     if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
-        if (old == 1)
-        {
-            draft.a = dev_W_USED;
-        }
+        if (old == 1) draft.a = dev_W_USED;
     }
 }
 
@@ -203,10 +178,7 @@ __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
     if (curr.d == eff && eff == dev_RMAX / 2 && curr.sB && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
-        if (old == 1)
-        {
-            draft.hB = 1;
-        }
+        if (old == 1) draft.hB = 1;
     }
 }
 
@@ -273,8 +245,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         {
             if (DEV_W1(curr) != DEV_W1(mirror) &&
                 dev_effective_t(curr.t) == dev_RMAX / 2 &&
-                !curr.cB &&
-                curr.a != dev_W_USED)
+                !curr.cB && curr.a != dev_W_USED)
             {
                 if (curr.pB && !mirror.pB)
                 {
@@ -350,6 +321,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
 // ===================================================================
 // MAIN UPDATE KERNEL - COMPLETE CA LOGIC
 // ===================================================================
+
 __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::CellDevice* d_mirror,
                                  unsigned CONVOL, unsigned GSLOT_Z,
                                  unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
@@ -358,11 +330,13 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                                  unsigned FLOOD, unsigned FRAME, int scenario)
 {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    unsigned int total_cells = dev_EL * dev_EL * dev_EL * dev_W_USED;
 
+    if (dev_EL == 0 || dev_W_USED == 0) return;
+
+    unsigned int total_cells = dev_EL * dev_EL * dev_EL * dev_W_USED;
     if (idx >= total_cells) return;
 
-    // Map 1D index to 4D coordinates (x, y, z, w)
+    // Map 1D -> 4D
     unsigned w = idx % dev_W_USED;
     unsigned idx_3d = idx / dev_W_USED;
     unsigned z = idx_3d % dev_EL;
@@ -370,10 +344,10 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     unsigned x = idx_3d / (dev_EL * dev_EL);
     
     ::CellDevice curr = d_getCell(d_curr, x, y, z, w);
-    ::CellDevice draft = curr;  // Start with copy
+    ::CellDevice draft = curr;
     ::CellDevice mirror = d_getCell(d_mirror, x, y, z, w);
-    
-    // Get neighbors (indices must match CPU: NORTH=0, EAST=1, SOUTH=2, WEST=3, UP=4, DOWN=5, FORWARD=6)
+
+    // Neighbors (spherical wrap)
     ::CellDevice forward = d_getNeighbor(d_curr, x, y, z, w, 6); // FORWARD
     ::CellDevice north   = d_getNeighbor(d_curr, x, y, z, w, 0); // NORTH
     ::CellDevice east    = d_getNeighbor(d_curr, x, y, z, w, 1); // EAST
@@ -386,7 +360,6 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     // CONVOLUTION PHASE (k < CONVOL)
     // ===================================================================
     if (curr.k < CONVOL) {
-
         switch (scenario) {
             case 0: dev_convolute0(curr, draft, mirror, w, idx); break;
             case 1: dev_convolute1(curr, draft, mirror, w, idx); break;
@@ -399,14 +372,12 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             default: break;
         }
     }
-
     // ===================================================================
-    // GSLOT PHASES (k < GSLOT_Z) — timing for glider transport
+    // GSLOT PHASES (not yet implemented)
     // ===================================================================
     else if (curr.k < GSLOT_Z) {
-        // Timing slots — actual transport done by separate kernel
+        // timing slots – reserved for glider transport
     }
-    
     // ===================================================================
     // DIFFUSION PHASE (k < DIFFUSION)
     // ===================================================================
@@ -432,10 +403,6 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (up.a    == dev_W_USED && curr.d >= up.d)) {
                 draft.a = dev_W_USED;
             }
-            // Hunting: accumulate c[] from hB neighbors on the wavefront.
-            // Note: CPU also does `curr.sB = !draft.hB` here, which modifies
-            // lattice_curr directly (scan-order side effect). The GPU cannot
-            // replicate this safely in parallel, so sB is left unchanged.
             if (curr.d == dev_effective_t(curr.t)) {
                 if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; }
                 else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; }
@@ -445,64 +412,72 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % dev_EL; }
             }
         }
-        // SLOT III
-        else if (curr.k < SLOT3) {
-            if (!ZERO_C(north.c)) {
-                draft.c[0] = north.c[0];
-                draft.c[1] = north.c[1];
-                draft.c[2] = north.c[2];
-                if (north.kB) draft.kB = north.kB;
-            }
-            if (!ZERO_C(west.c)) {
-                draft.c[0] = west.c[0];
-                draft.c[1] = west.c[1];
-                draft.c[2] = west.c[2];
-                if (west.kB) draft.kB = west.kB;
-            }
-            if (!ZERO_C(down.c)) {
-                draft.c[0] = down.c[0];
-                draft.c[1] = down.c[1];
-                draft.c[2] = down.c[2];
-                if (down.kB) draft.kB = down.kB;
-            }
-            draft.f = max(down.f, max(west.f, max(north.f,
-                        max(south.f, max(east.f, up.f)))));
-            
-            // Diffuse cB toward center
-            if (!curr.cB) {
-                if (north.cB && north.d > curr.d) {
-                    draft.cB = 1;
-                    if (north.a != dev_W_USED) draft.a = north.a;
-                }
-                else if (south.cB && south.d > curr.d) {
-                    draft.cB = 1;
-                    if (south.a != dev_W_USED) draft.a = south.a;
-                }
-                else if (east.cB && east.d > curr.d) {
-                    draft.cB = 1;
-                    if (east.a != dev_W_USED) draft.a = east.a;
-                }
-                else if (west.cB && west.d > curr.d) {
-                    draft.cB = 1;
-                    if (west.a != dev_W_USED) draft.a = west.a;
-                }
-                else if (down.cB && down.d > curr.d) {
-                    draft.cB = 1;
-                    if (down.a != dev_W_USED) draft.a = down.a;
-                }
-                else if (up.cB && up.d > curr.d) {
-                    draft.cB = 1;
-                    if (up.a != dev_W_USED) draft.a = up.a;
-                }
-            }
+else if (curr.k < SLOT3)
+{
+    // Propaga o vetor c[] da camada interior (d-1) para a camada atual (d)
+    if (curr.d > 0) {
+        bool found = false;
+        if (north.d == curr.d - 1 && !ZERO(north.c)) {
+            draft.c[0] = north.c[0]; draft.c[1] = north.c[1]; draft.c[2] = north.c[2];
+            if (north.kB) draft.kB = north.kB;
+            found = true;
+        } else if (south.d == curr.d - 1 && !ZERO(south.c)) {
+            draft.c[0] = south.c[0]; draft.c[1] = south.c[1]; draft.c[2] = south.c[2];
+            if (south.kB) draft.kB = south.kB;
+            found = true;
+        } else if (east.d == curr.d - 1 && !ZERO(east.c)) {
+            draft.c[0] = east.c[0]; draft.c[1] = east.c[1]; draft.c[2] = east.c[2];
+            if (east.kB) draft.kB = east.kB;
+            found = true;
+        } else if (west.d == curr.d - 1 && !ZERO(west.c)) {
+            draft.c[0] = west.c[0]; draft.c[1] = west.c[1]; draft.c[2] = west.c[2];
+            if (west.kB) draft.kB = west.kB;
+            found = true;
+        } else if (up.d == curr.d - 1 && !ZERO(up.c)) {
+            draft.c[0] = up.c[0]; draft.c[1] = up.c[1]; draft.c[2] = up.c[2];
+            if (up.kB) draft.kB = up.kB;
+            found = true;
+        } else if (down.d == curr.d - 1 && !ZERO(down.c)) {
+            draft.c[0] = down.c[0]; draft.c[1] = down.c[1]; draft.c[2] = down.c[2];
+            if (down.kB) draft.kB = down.kB;
+            found = true;
         }
+        // Se não encontrou vizinho com d-1 (ex: centro), mantém o c[] atual (zero)
+    }
+
+    // Mantém a lógica original para f e cB (opcional)
+    draft.f = max(down.f, max(west.f, max(north.f,
+                max(south.f, max(east.f, up.f)))));
+
+    if (!curr.cB) {
+        if (north.cB && north.d > curr.d) {
+            draft.cB = true;
+            if (north.a != W_USED) draft.a = north.a;
+        } else if (south.cB && south.d > curr.d) {
+            draft.cB = true;
+            if (south.a != W_USED) draft.a = south.a;
+        } else if (east.cB && east.d > curr.d) {
+            draft.cB = true;
+            if (east.a != W_USED) draft.a = east.a;
+        } else if (west.cB && west.d > curr.d) {
+            draft.cB = true;
+            if (west.a != W_USED) draft.a = west.a;
+        } else if (down.cB && down.d > curr.d) {
+            draft.cB = true;
+            if (down.a != W_USED) draft.a = down.a;
+        } else if (up.cB && up.d > curr.d) {
+            draft.cB = true;
+            if (up.a != W_USED) draft.a = up.a;
+        }
+    }
+}
+}
         // SLOT IV
         else if (curr.k < SLOT4) {
             if (forward.kB && forward.a == curr.a) {
                 int delta_x = (curr.x[0] - forward.x[0] + dev_EL) % dev_EL;
                 int delta_y = (curr.x[1] - forward.x[1] + dev_EL) % dev_EL;
                 int delta_z = (curr.x[2] - forward.x[2] + dev_EL) % dev_EL;
-                
                 draft.c[0] = (forward.c[0] + delta_x) % dev_EL;
                 draft.c[1] = (forward.c[1] + delta_y) % dev_EL;
                 draft.c[2] = (forward.c[2] + delta_z) % dev_EL;
@@ -518,43 +493,70 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             }
         }
     }
-    
     // ===================================================================
-    // RELOCATION PHASE (k < RELOC)
+    // RELOCATION PHASE (k < RELOC) — periodic (toroidal) wrap
     // ===================================================================
     else if (curr.k < RELOC) {
-        unsigned save_x = curr.x[0];
-        unsigned save_y = curr.x[1];
-        unsigned save_z = curr.x[2];
-        
-        // SLOT VI
+        // SLOT VI (x direction)
         if (curr.k < SLOT6) {
             if (north.c[0] > 0) {
                 draft = north;
                 draft.c[0]--;
+                int nx = (int)draft.x[0] + 1;
+                int ny = (int)draft.x[1];
+                int nz = (int)draft.x[2];
+                int nw = (int)draft.x[3];
+                // periodic wrap
+                nx = (nx % dev_EL + dev_EL) % dev_EL;
+                ny = (ny % dev_EL + dev_EL) % dev_EL;
+                nz = (nz % dev_EL + dev_EL) % dev_EL;
+                nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
+                draft.x[0] = (unsigned)nx;
+                draft.x[1] = (unsigned)ny;
+                draft.x[2] = (unsigned)nz;
+                draft.x[3] = (unsigned)nw;
             }
         }
-        // SLOT VII
+        // SLOT VII (y direction)
         else if (curr.k < SLOT7) {
             if (west.c[1] > 0) {
                 draft = west;
                 draft.c[1]--;
+                int nx = (int)draft.x[0];
+                int ny = (int)draft.x[1] + 1;
+                int nz = (int)draft.x[2];
+                int nw = (int)draft.x[3];
+                nx = (nx % dev_EL + dev_EL) % dev_EL;
+                ny = (ny % dev_EL + dev_EL) % dev_EL;
+                nz = (nz % dev_EL + dev_EL) % dev_EL;
+                nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
+                draft.x[0] = (unsigned)nx;
+                draft.x[1] = (unsigned)ny;
+                draft.x[2] = (unsigned)nz;
+                draft.x[3] = (unsigned)nw;
             }
         }
-        // SLOT VIII
+        // SLOT VIII (z direction)
         else if (curr.k < SLOT8) {
             if (down.c[2] > 0) {
                 draft = down;
                 draft.c[2]--;
+                int nx = (int)draft.x[0];
+                int ny = (int)draft.x[1];
+                int nz = (int)draft.x[2] + 1;
+                int nw = (int)draft.x[3];
+                nx = (nx % dev_EL + dev_EL) % dev_EL;
+                ny = (ny % dev_EL + dev_EL) % dev_EL;
+                nz = (nz % dev_EL + dev_EL) % dev_EL;
+                nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
+                draft.x[0] = (unsigned)nx;
+                draft.x[1] = (unsigned)ny;
+                draft.x[2] = (unsigned)nz;
+                draft.x[3] = (unsigned)nw;
             }
         }
-        
-        // Restore 3D address
-        draft.x[0] = save_x;
-        draft.x[1] = save_y;
-        draft.x[2] = save_z;
+        // No restoration of original coordinates – the cell has moved.
     }
-    
     // ===================================================================
     // REISSUE PHASE (k < REISSUE)
     // ===================================================================
@@ -562,16 +564,14 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         draft.kB = 0;
         draft.hB = 0;
         draft.bB = 0;
-        
         if (curr.d == dev_effective_t(curr.t)) {
             if (north.d == curr.d + 1) draft.a = north.a;
             if (south.d == curr.d + 1) draft.a = south.a;
-            if (east.d == curr.d + 1)  draft.a = east.a;
-            if (west.d == curr.d + 1)  draft.a = west.a;
-            if (up.d == curr.d + 1)    draft.a = up.a;
-            if (down.d == curr.d + 1)  draft.a = down.a;
+            if (east.d  == curr.d + 1) draft.a = east.a;
+            if (west.d  == curr.d + 1) draft.a = west.a;
+            if (up.d    == curr.d + 1) draft.a = up.a;
+            if (down.d  == curr.d + 1) draft.a = down.a;
         }
-        
         if (curr.cB) {
             draft.cB = 0;
             if (curr.a != dev_W_USED && curr.d < 2) {
@@ -579,20 +579,17 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             }
         }
     }
-    
     // ===================================================================
     // FLOOD PHASE (k < FLOOD)
     // ===================================================================
     else if (curr.k < FLOOD) {
         if (curr.a != dev_W_USED) {
-            draft.t = min(north.t, min(south.t, min(east.t, 
+            draft.t = min(north.t, min(south.t, min(east.t,
                       min(west.t, min(down.t, up.t)))));
         }
     }
 
-    // ===================================================================
-    // UPDATE FRAME COUNTERS (always)
-    // ===================================================================
+    // Update frame counters
     draft.k = (curr.k + 1) % FRAME;
     if (draft.k == 0) {
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
@@ -602,12 +599,11 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         }
     }
 
-    // Write result
     d_getCell(d_draft, x, y, z, w) = draft;
 }
 
 // ===================================================================
-// MIRROR UPDATE KERNEL (only runs when k == 0)
+// MIRROR UPDATE KERNEL (only when k == 0)
 // ===================================================================
 __global__ void updateMirrorKernel(CellDevice* lattice_curr,
                                    CellDevice* lattice_mirror,
@@ -615,16 +611,12 @@ __global__ void updateMirrorKernel(CellDevice* lattice_curr,
 {
     unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= totalCells) return;
-
     lattice_mirror[tid] = lattice_curr[tid];
     lattice_mirror[tid].f = lattice_mirror[tid].t;
 }
 
 // ===================================================================
-// SHIFT-MIRROR KERNEL
-// Cyclic shift of the mirror lattice along the w-dimension:
-//   new_mirror[x,y,z,w] = old_mirror[x,y,z, (w + W_USED - 1) % W_USED]
-// Reads from src (copy of mirror), writes to dst (mirror).
+// SHIFT-MIRROR KERNEL (cyclic shift along w dimension)
 // ===================================================================
 __global__ void shiftMirrorKernel(const CellDevice* src,
                                   CellDevice* dst,
@@ -632,17 +624,10 @@ __global__ void shiftMirrorKernel(const CellDevice* src,
 {
     unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= totalCells) return;
-
-    // Decompose linear index into (x, y, z, w)
-    unsigned w     = tid % dev_W_USED;
+    unsigned w = tid % dev_W_USED;
     unsigned idx3d = tid / dev_W_USED;
-
-    // Source w index: one slice "earlier" with wrap-around
     unsigned src_w = (w + dev_W_USED - 1) % dev_W_USED;
-
-    // Compute source linear index (same x,y,z but different w)
     unsigned src_tid = idx3d * dev_W_USED + src_w;
-
     dst[tid] = src[src_tid];
 }
 
@@ -654,22 +639,18 @@ bool isCudaAvailable()
 {
     int devCount = 0;
     cudaError_t err = cudaGetDeviceCount(&devCount); 
-    
     if (err != cudaSuccess) {
         fprintf(stderr, "CUDA not available: %s\n", cudaGetErrorString(err));
         return false;
     }
-    
     if (devCount == 0) {
         fprintf(stderr, "No CUDA devices found\n");
         return false;
     }
-    
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
     printf("Found CUDA device: %s (Compute %d.%d)\n", 
            prop.name, prop.major, prop.minor);
-    
     return true;
 }
 
@@ -679,26 +660,20 @@ bool init_cuda_memory(unsigned EL, unsigned W_USED)
         fprintf(stderr, "CUDA memory already allocated\n");
         return true;
     }
-    
     size_t total_cells = (size_t)EL * EL * EL * W_USED;
     size_t size = total_cells * sizeof(::CellDevice);
-    
     printf("Allocating CUDA memory: %zu cells, %zu MB per lattice\n", 
            total_cells, size / (1024 * 1024));
-    
     if (size > 2ULL * 1024 * 1024 * 1024) {
         fprintf(stderr, "ERROR: Requested allocation too large: %zu MB\n", size / (1024 * 1024));
         return false;
     }
-
     CUDA_CHECK(cudaMalloc((void**)&d_lattice_curr, size));
     CUDA_CHECK(cudaMalloc((void**)&d_lattice_draft, size));
     CUDA_CHECK(cudaMalloc((void**)&d_lattice_mirror, size));
-    
     CUDA_CHECK(cudaMemset(d_lattice_curr, 0, size));
     CUDA_CHECK(cudaMemset(d_lattice_draft, 0, size));
     CUDA_CHECK(cudaMemset(d_lattice_mirror, 0, size));
-    
     printf("✓ CUDA Memory Allocated successfully\n");
     return true;
 }
@@ -709,31 +684,11 @@ bool initCudaSimulation(unsigned EL, unsigned W_USED)
         printf("CUDA already initialized\n");
         return true;
     }
-    
     printf("Initializing CUDA simulation: EL=%u, W_USED=%u\n", EL, W_USED);
-    
     CUDA_CHECK_VOID(cudaDeviceReset());
     CUDA_CHECK(cudaSetDevice(0));
-    
-    printf("Copying constants to device...\n");
-    unsigned RMAX = automaton::RMAX;
-    printf("RMAX = %u\n", RMAX);
-    
-    setCudaConstants(EL, W_USED, RMAX);
-    
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Failed to set CUDA constants: %s (code %d)\n", 
-                cudaGetErrorString(err), err);
-        return false;
-    }
-    
-    printf("Constants copied successfully\n");
-
-    if (!init_cuda_memory(EL, W_USED)) {
-        return false;
-    }
-    
+    // Constants are set by setCudaConstants (called from bridge_cuda.cu)
+    if (!init_cuda_memory(EL, W_USED)) return false;
     g_cuda_initialized = true;
     printf("✓ CUDA simulation initialized successfully\n");
     return true;
@@ -741,18 +696,10 @@ bool initCudaSimulation(unsigned EL, unsigned W_USED)
 
 void free_cuda_memory()
 {
-    if (d_lattice_curr) {
-        cudaFree(d_lattice_curr);
-        d_lattice_curr = nullptr;
-    }
-    if (d_lattice_draft) {
-        cudaFree(d_lattice_draft);
-        d_lattice_draft = nullptr;
-    }
-    if (d_lattice_mirror) {
-        cudaFree(d_lattice_mirror);
-        d_lattice_mirror = nullptr;
-    }
+    if (d_lattice_curr) cudaFree(d_lattice_curr);
+    if (d_lattice_draft) cudaFree(d_lattice_draft);
+    if (d_lattice_mirror) cudaFree(d_lattice_mirror);
+    d_lattice_curr = d_lattice_draft = d_lattice_mirror = nullptr;
     g_cuda_initialized = false;
 }
 
@@ -770,31 +717,16 @@ bool uploadLatticeToCuda(::CellDevice* hostCells, size_t totalCells)
         fprintf(stderr, "ERROR: CUDA not initialized\n");
         return false;
     }
-    
-    if (hostCells == nullptr) {
-        fprintf(stderr, "ERROR: hostCells is NULL\n");
-        return false;
-    }
-    
     size_t size = totalCells * sizeof(::CellDevice);
-    printf("Uploading %zu cells (%zu MB) to device...\n", 
-           totalCells, size / (1024 * 1024));
-    
     CUDA_CHECK(cudaMemcpy(d_lattice_curr, hostCells, size, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_lattice_draft, d_lattice_curr, size, cudaMemcpyDeviceToDevice));
     CUDA_CHECK(cudaMemcpy(d_lattice_mirror, d_lattice_curr, size, cudaMemcpyDeviceToDevice));
-    
-    printf("✓ Upload complete\n");
     return true;
 }
 
 bool downloadLatticeFromCuda(::CellDevice* hostCells, size_t totalCells)
 {
-    if (!g_cuda_initialized) {
-        fprintf(stderr, "ERROR: CUDA not initialized\n");
-        return false;
-    }
-    
+    if (!g_cuda_initialized) return false;
     size_t size = totalCells * sizeof(::CellDevice);
     CUDA_CHECK(cudaMemcpy(hostCells, d_lattice_curr, size, cudaMemcpyDeviceToHost));
     return true;
@@ -811,13 +743,27 @@ void cudaSimulationStep(
         fprintf(stderr, "ERROR: CUDA not initialized\n");
         return;
     }
-    
+
+    // Get dimensions from automaton namespace (they are host variables)
+    unsigned L = automaton::EL;
+    unsigned W = automaton::W_USED;
+    if (L == 0 || W == 0) {
+        fprintf(stderr, "ERROR: EL or W_USED is zero\n");
+        return;
+    }
+
+    size_t total_cells = (size_t)L * L * L * W;
+    if (total_cells == 0) {
+        fprintf(stderr, "ERROR: total_cells = 0\n");
+        return;
+    }
+
     const int BLOCK_SIZE = 256;
-    unsigned int total_cells = automaton::EL * automaton::EL * automaton::EL * automaton::W_USED;
-    int GRID = (total_cells + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    cudaError_t err;
-    
-    // Step 1: Run main update kernel
+    int GRID = (int)((total_cells + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    printf("Launching kernel: total_cells=%zu, GRID=%d, BLOCK=%d, EL=%u, W_USED=%u, RMAX=%u\n",
+           total_cells, GRID, BLOCK_SIZE, L, W, RMAX);
+
+    // Launch kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
         d_lattice_curr, d_lattice_draft, d_lattice_mirror,
         CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
@@ -825,72 +771,55 @@ void cudaSimulationStep(
         FLOOD, FRAME, scenario
     );
 
-    err = cudaGetLastError();
+    cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         fprintf(stderr, "Kernel launch failed: %s\n", cudaGetErrorString(err));
         return;
     }
-    
+
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
         fprintf(stderr, "Kernel execution failed: %s\n", cudaGetErrorString(err));
         return;
     }
-    
-    // Step 2: Swap curr <-> draft (now d_lattice_curr has the updated state)
+
+    // Swap curr and draft
     ::CellDevice* temp = d_lattice_curr;
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
-    
-    // Step 3: Read new k value from the first cell to decide mirror ops.
-    //         In the CA every cell shares the same k, so reading one suffices.
+
+    // Read new k from first cell (only after successful kernel execution)
     unsigned new_k = 0;
-    err = cudaMemcpy(&new_k, &d_lattice_curr[0].k,
-                     sizeof(unsigned), cudaMemcpyDeviceToHost);
+    err = cudaMemcpy(&new_k, &d_lattice_curr[0].k, sizeof(unsigned), cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
         fprintf(stderr, "Failed to read k from device: %s\n", cudaGetErrorString(err));
         return;
     }
-    
-    // Step 4: Mirror snapshot (only at the start of a new light frame)
+
     if (new_k == 0) {
-        updateMirrorKernel<<<GRID, BLOCK_SIZE>>>(
-            d_lattice_curr, d_lattice_mirror, total_cells);
-        err = cudaDeviceSynchronize();
-        if (err != cudaSuccess) {
-            fprintf(stderr, "Mirror update kernel failed: %s\n", cudaGetErrorString(err));
-            return;
-        }
+        updateMirrorKernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr, d_lattice_mirror, (unsigned)total_cells);
+        cudaDeviceSynchronize();
     }
-    
-    // Step 5: Cyclic w-shift of the mirror (during convolution phase)
+
     if (new_k < CONVOL) {
-        // Use d_lattice_draft as temporary buffer (not needed until next tick)
         size_t size = (size_t)total_cells * sizeof(::CellDevice);
-        err = cudaMemcpy(d_lattice_draft, d_lattice_mirror, size,
-                         cudaMemcpyDeviceToDevice);
+        err = cudaMemcpy(d_lattice_draft, d_lattice_mirror, size, cudaMemcpyDeviceToDevice);
         if (err != cudaSuccess) {
             fprintf(stderr, "Mirror copy for shift failed: %s\n", cudaGetErrorString(err));
             return;
         }
-        shiftMirrorKernel<<<GRID, BLOCK_SIZE>>>(
-            d_lattice_draft, d_lattice_mirror, total_cells);
-        err = cudaDeviceSynchronize();
-        if (err != cudaSuccess) {
-            fprintf(stderr, "ShiftMirror kernel failed: %s\n", cudaGetErrorString(err));
-            return;
-        }
+        shiftMirrorKernel<<<GRID, BLOCK_SIZE>>>(d_lattice_draft, d_lattice_mirror, (unsigned)total_cells);
+        cudaDeviceSynchronize();
     }
 }
 
 void cudaUpdateVoxelsLayer(unsigned selectedW)
 {
-    // TODO: Implement voxel rendering kernel
+    // TODO: implement GPU-accelerated voxel coloring (optional)
 }
 
 uint32_t* getMappedVoxels()
 {
-    // TODO: Return mapped voxel memory pointer
     return nullptr;
 }
 
@@ -899,96 +828,73 @@ uint32_t* getMappedVoxels()
 // ===================================================================
 namespace automaton 
 {
+    ::CellDevice convertToDevice(const Cell& src) {
+        ::CellDevice dst;
+        dst.ch = src.ch;
+        dst.pB = src.pB ? 1 : 0;
+        dst.sB = src.sB ? 1 : 0;
+        dst.a = src.a;
+        for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
+        dst.d = src.d;
+        dst.phiB = src.phiB ? 1 : 0;
+        dst.t = src.t;
+        dst.f = src.f;
+        for (int i = 0; i < 3; ++i) dst.c[i] = src.c[i];
+        dst.k = src.k;
+        dst.s2B = src.s2B ? 1 : 0;
+        dst.kB = src.kB ? 1 : 0;
+        dst.bB = src.bB ? 1 : 0;
+        dst.hB = src.hB ? 1 : 0;
+        dst.cB = src.cB ? 1 : 0;
+        dst.gB = src.gB ? 1 : 0;
+        for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int32_t>(src.g[i]);
+        return dst;
+    }
 
-::CellDevice convertToDevice(const Cell& src)
-{
-    ::CellDevice dst;
-    
-    dst.ch = src.ch;
-    dst.pB = src.pB ? 1 : 0;
-    dst.sB = src.sB ? 1 : 0;
-    dst.a = src.a;
+    void convertToHost(const ::CellDevice& src, Cell& dst) {
+        dst.ch = src.ch;
+        dst.pB = src.pB != 0;
+        dst.sB = src.sB != 0;
+        dst.a = src.a;
+        for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
+        dst.d = src.d;
+        dst.phiB = src.phiB != 0;
+        dst.t = src.t;
+        dst.f = src.f;
+        for (int i = 0; i < 3; ++i) dst.c[i] = src.c[i];
+        dst.k = src.k;
+        dst.s2B = src.s2B != 0;
+        dst.kB = src.kB != 0;
+        dst.bB = src.bB != 0;
+        dst.hB = src.hB != 0;
+        dst.cB = src.cB != 0;
+        dst.gB = src.gB != 0;
+        for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int>(src.g[i]);
+    }
 
-    for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
-    
-    dst.d = src.d;
-    dst.phiB = src.phiB ? 1 : 0;
-    dst.t = src.t;
-    dst.f = src.f;
-    
-    for (int i = 0; i < 3; ++i) dst.c[i] = src.c[i];
-    
-    dst.k = src.k;
-    dst.s2B = src.s2B ? 1 : 0;
-    dst.kB = src.kB ? 1 : 0;
-    dst.bB = src.bB ? 1 : 0;
-    dst.hB = src.hB ? 1 : 0;
-    dst.cB = src.cB ? 1 : 0;
+    bool swap_lattices_gpu() { return true; }
 
-    dst.gB = src.gB ? 1 : 0;
-    for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int32_t>(src.g[i]);
-    
-    return dst;
+    void ca_update_gpu_wrapper(
+        unsigned CONVOL, unsigned GSLOT_Z,
+        unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
+        unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
+        unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
+        unsigned FLOOD, unsigned FRAME, unsigned RMAX)
+    {
+        cudaSimulationStep(
+            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
+            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
+            FLOOD, FRAME, RMAX, gConfig.simulation.scenario
+        );
+    }
+
+    void ca_update_gpu_wrapper() {
+        ca_update_gpu_wrapper(
+            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
+            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
+            FLOOD, FRAME, RMAX
+        );
+    }
+
+    void free_cuda_memory() { ::free_cuda_memory(); }
 }
-
-void convertToHost(const ::CellDevice& src, Cell& dst)
-{
-    dst.ch = src.ch;
-    dst.pB = src.pB != 0;
-    dst.sB = src.sB != 0;
-    dst.a = src.a;
-    
-    for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
-    
-    dst.d = src.d;
-    dst.phiB = src.phiB != 0;
-    dst.t = src.t;
-    dst.f = src.f;
-    
-    for (int i = 0; i < 3; ++i) dst.c[i] = src.c[i];
-    
-    dst.k = src.k;
-    dst.s2B = src.s2B != 0;
-    dst.kB = src.kB != 0;
-    dst.bB = src.bB != 0;
-    dst.hB = src.hB != 0;
-    dst.cB = src.cB != 0;
-
-    dst.gB = src.gB != 0;
-    for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int>(src.g[i]);
-}
-
-bool swap_lattices_gpu()
-{
-    return true;
-}
-
-void ca_update_gpu_wrapper(
-    unsigned CONVOL, unsigned GSLOT_Z,
-    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-    unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-    unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-    unsigned FLOOD, unsigned FRAME, unsigned RMAX)
-{
-    cudaSimulationStep(
-        CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
-        SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-        FLOOD, FRAME, RMAX, gConfig.simulation.scenario
-    );
-}
-
-void ca_update_gpu_wrapper()
-{
-    ca_update_gpu_wrapper(
-        CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
-        SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-        FLOOD, FRAME, RMAX
-    );
-}
-
-void free_cuda_memory()
-{
-    ::free_cuda_memory();
-}
-
-} // namespace automaton

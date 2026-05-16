@@ -231,6 +231,10 @@ bool loadConfig(const std::string& path)
         {
             gConfig.tomography.thickness = std::stof(value);
         }
+        else if (key == "view.ortho_scale")
+        {
+            gConfig.view.ortho_scale = std::stof(value);
+        }
     }
 
     std::cout << "[Config] scenario = "

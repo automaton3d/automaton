@@ -83,198 +83,182 @@ namespace automaton
         }
       }
       /****** SLOT II ******/
-    if (curr.k < SLOT2)
-    {
-      /*--- Orphan propagation ---*/
-      if ((north.a == W_USED && curr.d >= north.d) ||
-          (west.a  == W_USED && curr.d >= west.d)  ||
-          (down.a  == W_USED && curr.d >= down.d)  ||
-          (south.a == W_USED && curr.d >= south.d) ||
-          (east.a  == W_USED && curr.d >= east.d)  ||
-          (up.a    == W_USED && curr.d >= up.d))
+      if (curr.k < SLOT2)
       {
-        draft.a = W_USED;
+        /*--- Orphan propagation ---*/
+        if ((north.a == W_USED && curr.d >= north.d) ||
+            (west.a  == W_USED && curr.d >= west.d)  ||
+            (down.a  == W_USED && curr.d >= down.d)  ||
+            (south.a == W_USED && curr.d >= south.d) ||
+            (east.a  == W_USED && curr.d >= east.d)  ||
+            (up.a    == W_USED && curr.d >= up.d))
+        {
+          draft.a = W_USED;
+        }
+        /*--- Hunting using hB ---*/
+        if (curr.d == effective_t(curr.t))
+        {
+          if (north.hB) { draft.c[0] = (north.c[0] + 1) % EL; curr.sB = !draft.hB; }
+          else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % EL; curr.sB = !draft.hB; }
+          else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % EL; curr.sB = !draft.hB; }
+          else if (south.hB) { draft.c[1] = (south.c[1] + 1) % EL; curr.sB = !draft.hB; }
+          else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % EL; curr.sB = !draft.hB; }
+          else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % EL; curr.sB = !draft.hB; }
+        }
       }
-      /*--- Hunting using hB ---*/
-      if (curr.d == effective_t(curr.t))
-      {
-        if (north.hB) { draft.c[0] = (north.c[0] + 1) % EL; curr.sB = !draft.hB; }
-        else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % EL; curr.sB = !draft.hB; }
-        else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % EL; curr.sB = !draft.hB; }
-        else if (south.hB) { draft.c[1] = (south.c[1] + 1) % EL; curr.sB = !draft.hB; }
-        else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % EL; curr.sB = !draft.hB; }
-        else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % EL; curr.sB = !draft.hB; }
-      }
+      /****** SLOT III ******/
+else if (curr.k < SLOT3)
+{
+    // Propaga c[] para TODAS as células da camada 0, sem restrição de distância
+    if (curr.x[3] == 0) {
+        if (!ZERO(north.c)) {
+            draft.c[0] = north.c[0]; draft.c[1] = north.c[1]; draft.c[2] = north.c[2];
+            if (north.kB) draft.kB = north.kB;
+        } else if (!ZERO(south.c)) {
+            draft.c[0] = south.c[0]; draft.c[1] = south.c[1]; draft.c[2] = south.c[2];
+            if (south.kB) draft.kB = south.kB;
+        } else if (!ZERO(east.c)) {
+            draft.c[0] = east.c[0]; draft.c[1] = east.c[1]; draft.c[2] = east.c[2];
+            if (east.kB) draft.kB = east.kB;
+        } else if (!ZERO(west.c)) {
+            draft.c[0] = west.c[0]; draft.c[1] = west.c[1]; draft.c[2] = west.c[2];
+            if (west.kB) draft.kB = west.kB;
+        } else if (!ZERO(up.c)) {
+            draft.c[0] = up.c[0]; draft.c[1] = up.c[1]; draft.c[2] = up.c[2];
+            if (up.kB) draft.kB = up.kB;
+        } else if (!ZERO(down.c)) {
+            draft.c[0] = down.c[0]; draft.c[1] = down.c[1]; draft.c[2] = down.c[2];
+            if (down.kB) draft.kB = down.kB;
+        }
     }
-    /****** SLOT III ******/
-    else if (curr.k < SLOT3)
+
+    // Restante do SLOT III (f, cB) permanece igual
+    draft.f = max(down.f, max(west.f, max(north.f,
+                max(south.f, max(east.f, up.f)))));
+
+    if (!curr.cB)
     {
-      if (!ZERO(north.c))
-      {
-        draft.c[0] = north.c[0];
-        draft.c[1] = north.c[1];
-        draft.c[2] = north.c[2];
-        if (north.kB) draft.kB = north.kB;
-      }
-      if (!ZERO(west.c))
-      {
-        draft.c[0] = west.c[0];
-        draft.c[1] = west.c[1];
-        draft.c[2] = west.c[2];
-        if (west.kB) draft.kB = west.kB;
-      }
-      if (!ZERO(down.c))
-      {
-        draft.c[0] = down.c[0];
-        draft.c[1] = down.c[1];
-        draft.c[2] = down.c[2];
-        if (down.kB) draft.kB = down.kB;
-      }
-      draft.f = max(down.f, max(west.f, max(north.f,
-                  max(south.f, max(east.f, up.f)))));
-      // Diffuse CB toward center (d=0)
-      if (!curr.cB)
-      {
         if (north.cB && north.d > curr.d)
         {
-          draft.cB = true;
-          if (north.a != W_USED)
-            draft.a = north.a;
+            draft.cB = true;
+            if (north.a != W_USED) draft.a = north.a;
         }
         else if (south.cB && south.d > curr.d)
         {
-          draft.cB = true;
-          if (south.a != W_USED)
-            draft.a = south.a;
+            draft.cB = true;
+            if (south.a != W_USED) draft.a = south.a;
         }
         else if (east.cB && east.d > curr.d)
         {
-          draft.cB = true;
-          if (east.a != W_USED)
-            draft.a = east.a;
+            draft.cB = true;
+            if (east.a != W_USED) draft.a = east.a;
         }
         else if (west.cB && west.d > curr.d)
         {
-          draft.cB = true;
-          if (west.a != W_USED)
-            draft.a = west.a;
+            draft.cB = true;
+            if (west.a != W_USED) draft.a = west.a;
         }
         else if (down.cB && down.d > curr.d)
         {
-          draft.cB = true;
-          if (down.a != W_USED)
-            draft.a = down.a;
+            draft.cB = true;
+            if (down.a != W_USED) draft.a = down.a;
         }
         else if (up.cB && up.d > curr.d)
         {
-          draft.cB = true;
-          if (up.a != W_USED)
-            draft.a = up.a;
+            draft.cB = true;
+            if (up.a != W_USED) draft.a = up.a;
         }
-      }
     }
-    /****** SLOT IV ******/
-    else if (curr.k < SLOT4)
-    {
-      if (forward.kB && forward.a == curr.a)
-      {
-        int delta_x = (curr.x[0] - forward.x[0] + EL) % EL;
-        int delta_y = (curr.x[1] - forward.x[1] + EL) % EL;
-        int delta_z = (curr.x[2] - forward.x[2] + EL) % EL;
+}
 
-        draft.c[0] = (forward.c[0] + delta_x) % EL;
-        draft.c[1] = (forward.c[1] + delta_y) % EL;
-        draft.c[2] = (forward.c[2] + delta_z) % EL;
-        draft.kB = forward.kB;
-        draft.cB = forward.cB;
-      }
-      draft.f = max(forward.f, curr.f);
-    }
-    /****** SLOT V ******/
-    else if (curr.k < SLOT5)
-    {
-      if (curr.a == W_USED)
+/****** SLOT IV ******/
+      else if (curr.k < SLOT4)
       {
-        if (curr.d < curr.t)
+        if (forward.kB && forward.a == curr.a)
         {
-          draft.a = curr.x[3];
+          int delta_x = (curr.x[0] - forward.x[0] + EL) % EL;
+          int delta_y = (curr.x[1] - forward.x[1] + EL) % EL;
+          int delta_z = (curr.x[2] - forward.x[2] + EL) % EL;
+
+          draft.c[0] = (forward.c[0] + delta_x) % EL;
+          draft.c[1] = (forward.c[1] + delta_y) % EL;
+          draft.c[2] = (forward.c[2] + delta_z) % EL;
+          draft.kB = forward.kB;
+          draft.cB = forward.cB;
+        }
+        draft.f = max(forward.f, curr.f);
+      }
+      /****** SLOT V ******/
+      else if (curr.k < SLOT5)
+      {
+        if (curr.a == W_USED)
+        {
+          if (curr.d < curr.t)
+          {
+            draft.a = curr.x[3];
+          }
         }
       }
-    }
   }
 
   /**
    * Grid relocation – uses periodic (toroidal) wrapping.
    */
-  void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
-  {
-    // Save the 3D address
-    unsigned x = curr.x[0];
-    unsigned y = curr.x[1];
-    unsigned z = curr.x[2];
-    unsigned w = curr.x[3];
-
-    /****** SLOT VI – deslocamento em X ******/
-    if (curr.k < SLOT6)
-    {
-      if (north.c[0] > 0)
-      {
-        draft = north;
-        draft.c[0]--;
-        int nx = (int)draft.x[0] + 1;
-        int ny = (int)draft.x[1];
-        int nz = (int)draft.x[2];
-        int nw = (int)draft.x[3];
-        periodic_wrap(nx, ny, nz, nw);   // periódico, não esférico
-        draft.x[0] = (unsigned)nx;
-        draft.x[1] = (unsigned)ny;
-        draft.x[2] = (unsigned)nz;
-        draft.x[3] = (unsigned)nw;
-      }
+void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
+{
+    // Apenas células da camada 0 com vetor não nulo se movem
+    if (curr.x[3] != 0) return;
+    if (curr.c[0] == 0 && curr.c[1] == 0 && curr.c[2] == 0) return;
+    
+    // SLOT VI – deslocamento em X
+    if (curr.k < SLOT6) {
+        if (north.c[0] > 0) {
+            draft = north;
+            draft.c[0]--;
+            int nx = (int)draft.x[0] + 1;
+            int ny = (int)draft.x[1];
+            int nz = (int)draft.x[2];
+            int nw = (int)draft.x[3];
+            periodic_wrap(nx, ny, nz, nw);
+            draft.x[0] = (unsigned)nx;
+            draft.x[1] = (unsigned)ny;
+            draft.x[2] = (unsigned)nz;
+            draft.x[3] = (unsigned)nw;
+        }
     }
-    /****** SLOT VII – deslocamento em Y ******/
-    else if (curr.k < SLOT7)
-    {
-      if (west.c[1] > 0)
-      {
-        draft = west;
-        draft.c[1]--;
-        int nx = (int)draft.x[0];
-        int ny = (int)draft.x[1] + 1;
-        int nz = (int)draft.x[2];
-        int nw = (int)draft.x[3];
-        periodic_wrap(nx, ny, nz, nw);   // periódico
-        draft.x[0] = (unsigned)nx;
-        draft.x[1] = (unsigned)ny;
-        draft.x[2] = (unsigned)nz;
-        draft.x[3] = (unsigned)nw;
-      }
+    // SLOT VII – deslocamento em Y
+    else if (curr.k < SLOT7) {
+        if (west.c[1] > 0) {
+            draft = west;
+            draft.c[1]--;
+            int nx = (int)draft.x[0];
+            int ny = (int)draft.x[1] + 1;
+            int nz = (int)draft.x[2];
+            int nw = (int)draft.x[3];
+            periodic_wrap(nx, ny, nz, nw);
+            draft.x[0] = (unsigned)nx;
+            draft.x[1] = (unsigned)ny;
+            draft.x[2] = (unsigned)nz;
+            draft.x[3] = (unsigned)nw;
+        }
     }
-    /****** SLOT VIII – deslocamento em Z ******/
-    else if (curr.k < SLOT8)
-    {
-      if (down.c[2] > 0)
-      {
-        draft = down;
-        draft.c[2]--;
-        int nx = (int)draft.x[0];
-        int ny = (int)draft.x[1];
-        int nz = (int)draft.x[2] + 1;
-        int nw = (int)draft.x[3];
-        periodic_wrap(nx, ny, nz, nw);   // periódico
-        draft.x[0] = (unsigned)nx;
-        draft.x[1] = (unsigned)ny;
-        draft.x[2] = (unsigned)nz;
-        draft.x[3] = (unsigned)nw;
-      }
+    // SLOT VIII – deslocamento em Z
+    else if (curr.k < SLOT8) {
+        if (down.c[2] > 0) {
+            draft = down;
+            draft.c[2]--;
+            int nx = (int)draft.x[0];
+            int ny = (int)draft.x[1];
+            int nz = (int)draft.x[2] + 1;
+            int nw = (int)draft.x[3];
+            periodic_wrap(nx, ny, nz, nw);
+            draft.x[0] = (unsigned)nx;
+            draft.x[1] = (unsigned)ny;
+            draft.x[2] = (unsigned)nz;
+            draft.x[3] = (unsigned)nw;
+        }
     }
-
-    // Recover 3D address (caso nenhum deslocamento tenha ocorrido)
-    draft.x[0] = x;
-    draft.x[1] = y;
-    draft.x[2] = z;
-    draft.x[3] = w;
-  }
+}
 
   /**
    * Prepares new wavefront.

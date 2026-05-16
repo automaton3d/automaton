@@ -98,7 +98,49 @@ namespace automaton
   // ============================================================
 
   void update_lattice_cpu()
-  {
+{
+    // ============================================================
+    // RELOCAÇÃO BRUTA PARA O CENÁRIO 1
+    // ============================================================
+    static unsigned pending_vec[3] = {0,0,0};
+    static bool relocation_done = false;
+    
+    if (gConfig.simulation.scenario == 1 && !relocation_done) {
+        // Procura o vetor de deslocamento na primeira célula da camada 0
+        Cell& first = getCell(lattice_curr, 0, 0, 0, 0);
+        if (first.c[0] != 0 || first.c[1] != 0 || first.c[2] != 0) {
+            pending_vec[0] = first.c[0];
+            pending_vec[1] = first.c[1];
+            pending_vec[2] = first.c[2];
+            
+            // Aplica o deslocamento a TODAS as células da camada 0
+            for (unsigned x = 0; x < EL; ++x) {
+                for (unsigned y = 0; y < EL; ++y) {
+                    for (unsigned z = 0; z < EL; ++z) {
+                        Cell& src = getCell(lattice_curr, x, y, z, 0);
+                        Cell& dst = getCell(lattice_draft, x, y, z, 0);
+                        
+                        int nx = (int)x + pending_vec[0];
+                        int ny = (int)y + pending_vec[1];
+                        int nz = (int)z + pending_vec[2];
+                        int nw = 0;
+                        periodic_wrap(nx, ny, nz, nw);
+                        
+                        dst = src;
+                        dst.x[0] = nx;
+                        dst.x[1] = ny;
+                        dst.x[2] = nz;
+                        dst.x[3] = nw;
+                    }
+                }
+            }
+            relocation_done = true;
+        }
+    }
+    
+    // ============================================================
+    // LOOP PRINCIPAL (todas as camadas)
+    // ============================================================
     for (unsigned w = 0; w < W_USED; ++w)
     {
         if (w == 0)
@@ -120,7 +162,14 @@ namespace automaton
             Cell &draft  = getCell(lattice_draft, x, y, z, w);
             Cell &mirror = getCell(lattice_mirror, x, y, z, w);
 
-            draft = curr;
+            // Se o cenário for 1 e a realocação já foi aplicada, não processa relocate novamente
+            // (as células já foram movidas no draft)
+            if (gConfig.simulation.scenario == 1 && relocation_done) {
+                // Apenas copia as coordenadas que já foram ajustadas no draft
+                // Não precisa fazer nada aqui, pois draft já está correto
+            } else {
+                draft = curr;
+            }
 
             // Ensure correct coordinates
             curr.x[0] = x;
@@ -143,7 +192,10 @@ namespace automaton
             } else if (curr.k < DIFFUSION) {
                 diffuse(curr, draft, forward, north, west, down, south, east, up);
             } else if (curr.k < RELOC) {
-                relocate(curr, draft, north, west, down);
+                // Para o cenário 1, a realocação já foi feita no início
+                if (gConfig.simulation.scenario != 1) {
+                    relocate(curr, draft, north, west, down);
+                }
             } else if (curr.k < REISSUE) {
                 reissue(curr, draft, forward, north, west, down, south, east, up);
             } else if (curr.k < FLOOD) {
@@ -164,7 +216,7 @@ namespace automaton
             }
         }
     }
-  }
+}
 
   void update_lattice()
   {

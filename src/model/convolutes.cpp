@@ -47,19 +47,17 @@ namespace automaton
    * shifts by c[], displacing the entire bubble to a new position.
    * After reissue, t resets and expansion restarts from the new center.
    */
-  bool convolute1(Cell& curr, Cell &draft, Cell &mirror)
-  {
-    // Usa RMAX/4 para manter o mesmo timing absoluto do cenário anterior (quando RMAX = L/4)
-    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 4 && curr.x[3] == 0 && ctrl)
+bool convolute1(Cell& curr, Cell &draft, Cell &mirror)
+{
+    if (curr.d == effective_t(curr.t) && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
-      draft.c[0] = getRandomUnsigned(EL);
-      draft.c[1] = getRandomUnsigned(EL);
-      draft.c[2] = getRandomUnsigned(EL);
-      ctrl = false;
+        draft.c[0] = getRandomUnsigned(EL);
+        draft.c[1] = getRandomUnsigned(EL);
+        draft.c[2] = getRandomUnsigned(EL);
+        ctrl = false;
     }
     return false;
-  }
-
+}
   /*
    * Scenario 2 — Orphan mechanism test.
    * Sets affinity a = W_USED on a wavefront cell, marking it as an orphan.
