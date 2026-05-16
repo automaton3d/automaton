@@ -97,86 +97,47 @@ namespace automaton
   // CPU UPDATE
   // ============================================================
 
+
+
+
+  /*
+   * Executes a one tick operation in every cell.
+   */
   void update_lattice_cpu()
-{
-    // ============================================================
-    // RELOCAÇÃO BRUTA PARA O CENÁRIO 1
-    // ============================================================
-    static unsigned pending_vec[3] = {0,0,0};
-    static bool relocation_done = false;
-    
-    if (gConfig.simulation.scenario == 1 && !relocation_done) {
-        // Procura o vetor de deslocamento na primeira célula da camada 0
-        Cell& first = getCell(lattice_curr, 0, 0, 0, 0);
-        if (first.c[0] != 0 || first.c[1] != 0 || first.c[2] != 0) {
-            pending_vec[0] = first.c[0];
-            pending_vec[1] = first.c[1];
-            pending_vec[2] = first.c[2];
-            
-            // Aplica o deslocamento a TODAS as células da camada 0
-            for (unsigned x = 0; x < EL; ++x) {
-                for (unsigned y = 0; y < EL; ++y) {
-                    for (unsigned z = 0; z < EL; ++z) {
-                        Cell& src = getCell(lattice_curr, x, y, z, 0);
-                        Cell& dst = getCell(lattice_draft, x, y, z, 0);
-                        
-                        int nx = (int)x + pending_vec[0];
-                        int ny = (int)y + pending_vec[1];
-                        int nz = (int)z + pending_vec[2];
-                        int nw = 0;
-                        periodic_wrap(nx, ny, nz, nw);
-                        
-                        dst = src;
-                        dst.x[0] = nx;
-                        dst.x[1] = ny;
-                        dst.x[2] = nz;
-                        dst.x[3] = nw;
-                    }
-                }
-            }
-            relocation_done = true;
-        }
-    }
-    
-    // ============================================================
-    // LOOP PRINCIPAL (todas as camadas)
-    // ============================================================
+  {
+    // Sweep each layer
+    // Simulate a parallel execution in all cells
     for (unsigned w = 0; w < W_USED; ++w)
     {
-        if (w == 0)
-        {
-            const Cell& first = lattice_curr.front();
-            if (gConfig.delays.convol && first.k < CONVOL)
-                std::this_thread::sleep_for(std::chrono::milliseconds(120));
-            else if (diffuse_delay && first.k >= CONVOL && first.k < DIFFUSION)
-                std::this_thread::sleep_for(std::chrono::milliseconds(80));
-            else if (reloc_delay && first.k >= DIFFUSION && first.k < RELOC)
-                std::this_thread::sleep_for(std::chrono::milliseconds(120));
-        }
-
-        for (unsigned x = 0; x < EL; ++x)
+   	  if (w == 0)
+   	  {
+    	const Cell& first = lattice_curr.front();
+    	if (convol_delay && first.k < CONVOL)
+    	{
+    	  std::this_thread::sleep_for(std::chrono::milliseconds(120));
+   	    }
+    	else if (diffuse_delay && first.k >= CONVOL && first.k < DIFFUSION)
+    	{
+    	  std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    	}
+    	else if (reloc_delay && first.k >= DIFFUSION && first.k < RELOC)
+    	{
+    	  std::this_thread::sleep_for(std::chrono::milliseconds(120));
+    	}
+      }
+      // Sweep a 3D space
+      for (unsigned x = 0; x < EL; ++x)
+      {
         for (unsigned y = 0; y < EL; ++y)
-        for (unsigned z = 0; z < EL; ++z)
         {
+          for (unsigned z = 0; z < EL; ++z)
+          {
+          // Generate references to the working cells
             Cell &curr   = getCell(lattice_curr, x, y, z, w);
             Cell &draft  = getCell(lattice_draft, x, y, z, w);
             Cell &mirror = getCell(lattice_mirror, x, y, z, w);
-
-            // Se o cenário for 1 e a realocação já foi aplicada, não processa relocate novamente
-            // (as células já foram movidas no draft)
-            if (gConfig.simulation.scenario == 1 && relocation_done) {
-                // Apenas copia as coordenadas que já foram ajustadas no draft
-                // Não precisa fazer nada aqui, pois draft já está correto
-            } else {
-                draft = curr;
-            }
-
-            // Ensure correct coordinates
-            curr.x[0] = x;
-            curr.x[1] = y;
-            curr.x[2] = z;
-            curr.x[3] = w;
-
+            draft = curr;
+            // Calculate neighbors
             Cell &forward = curr.getNeighbor(FORWARD);
             Cell &north   = curr.getNeighbor(NORTH);
             Cell &west    = curr.getNeighbor(WEST);
@@ -184,39 +145,56 @@ namespace automaton
             Cell &south   = curr.getNeighbor(SOUTH);
             Cell &east    = curr.getNeighbor(EAST);
             Cell &up      = curr.getNeighbor(UP);
-
-            if (curr.k < CONVOL) {
-                convolute(curr, draft, mirror);
-            } else if (curr.k < GSLOT_Z) {
-                // glider slots
-            } else if (curr.k < DIFFUSION) {
-                diffuse(curr, draft, forward, north, west, down, south, east, up);
-            } else if (curr.k < RELOC) {
-                // Para o cenário 1, a realocação já foi feita no início
-                if (gConfig.simulation.scenario != 1) {
-                    relocate(curr, draft, north, west, down);
-                }
-            } else if (curr.k < REISSUE) {
-                reissue(curr, draft, forward, north, west, down, south, east, up);
-            } else if (curr.k < FLOOD) {
-                flood(curr, draft, forward, north, west, down, south, east, up);
+            /****** CONVOLUTION ******/
+            if (curr.k < CONVOL)
+            {
+              convolute(curr, draft, mirror);
             }
-
-            if (curr.d == 0) {
-                trackCenter(x, y, z, w);
+            /****** DIFFUSION ******/
+            else if (curr.k < DIFFUSION)
+            {
+              diffuse(curr, draft, forward, north, west, down, south, east, up);
             }
-
+            /****** RELOCATION ******/
+            else if (curr.k < RELOC)
+            {
+              relocate(curr, draft, north, west, down);
+            }
+            /****** REISSUE ******/
+            else if (curr.k < REISSUE)
+            {
+              reissue(curr, draft, forward, north, west, down, south, east, up);
+            }
+            /****** FLOOD ******/
+            else if (curr.k < FLOOD)
+            {
+              flood(curr, draft, forward, north, west, down, south, east, up);
+            }
+            /****** UPDATE LAYER TRACKING ******/
+            if (curr.d == 0)
+            {
+              trackCenter(x, y, z, w);
+            }
+            /****** UPDATE COUNTERS ******/
+            // Update tick counter
             draft.k = (curr.k + 1) % FRAME;
-
-            if (draft.k == 0) {
-                if (curr.a == W_USED && curr.t <= RMAX)
-                    draft.t++;
-                else
-                    draft.t = (curr.t + 1) % (2 * RMAX);
+            // Update light counter
+            if (draft.k == 0)
+            {
+              if (curr.a == W_USED && curr.t <= RMAX )
+              {
+            	draft.t++;
+              }
+              else
+              {
+                draft.t = (curr.t + 1) % RMAX;
+              }
             }
+          }
         }
+      }
     }
-}
+  }
 
   void update_lattice()
   {

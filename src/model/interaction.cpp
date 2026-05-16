@@ -201,64 +201,51 @@ else if (curr.k < SLOT3)
       }
   }
 
-  /**
-   * Grid relocation – uses periodic (toroidal) wrapping.
+    /**
+   * Grid relocation.
    */
-void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
-{
-    // Apenas células da camada 0 com vetor não nulo se movem
-    if (curr.x[3] != 0) return;
-    if (curr.c[0] == 0 && curr.c[1] == 0 && curr.c[2] == 0) return;
-    
-    // SLOT VI – deslocamento em X
-    if (curr.k < SLOT6) {
-        if (north.c[0] > 0) {
-            draft = north;
-            draft.c[0]--;
-            int nx = (int)draft.x[0] + 1;
-            int ny = (int)draft.x[1];
-            int nz = (int)draft.x[2];
-            int nw = (int)draft.x[3];
-            periodic_wrap(nx, ny, nz, nw);
-            draft.x[0] = (unsigned)nx;
-            draft.x[1] = (unsigned)ny;
-            draft.x[2] = (unsigned)nz;
-            draft.x[3] = (unsigned)nw;
-        }
+  /**
+   * Grid relocation.
+   */
+  void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down)
+  {
+    // Save the 3D address
+    unsigned x, y, z;
+    x = curr.x[0];
+    y = curr.x[1];
+    z = curr.x[2];
+    /****** SLOT VI ******/
+    if (curr.k < SLOT6)
+    {
+      if (north.c[0] > 0)
+      {
+        draft = north;
+        draft.c[0]--;
+      }
     }
-    // SLOT VII – deslocamento em Y
-    else if (curr.k < SLOT7) {
-        if (west.c[1] > 0) {
-            draft = west;
-            draft.c[1]--;
-            int nx = (int)draft.x[0];
-            int ny = (int)draft.x[1] + 1;
-            int nz = (int)draft.x[2];
-            int nw = (int)draft.x[3];
-            periodic_wrap(nx, ny, nz, nw);
-            draft.x[0] = (unsigned)nx;
-            draft.x[1] = (unsigned)ny;
-            draft.x[2] = (unsigned)nz;
-            draft.x[3] = (unsigned)nw;
-        }
+    /****** SLOT VII ******/
+    else if (curr.k < SLOT7)
+    {
+      if (west.c[1] > 0)
+      {
+        draft = west;
+        draft.c[1]--;
+      }
     }
-    // SLOT VIII – deslocamento em Z
-    else if (curr.k < SLOT8) {
-        if (down.c[2] > 0) {
-            draft = down;
-            draft.c[2]--;
-            int nx = (int)draft.x[0];
-            int ny = (int)draft.x[1];
-            int nz = (int)draft.x[2] + 1;
-            int nw = (int)draft.x[3];
-            periodic_wrap(nx, ny, nz, nw);
-            draft.x[0] = (unsigned)nx;
-            draft.x[1] = (unsigned)ny;
-            draft.x[2] = (unsigned)nz;
-            draft.x[3] = (unsigned)nw;
-        }
+    /****** SLOT VIII ******/
+    else if (curr.k < SLOT8)
+    {
+      if (down.c[2] > 0)
+      {
+        draft = down;
+        draft.c[2]--;
+      }
     }
-}
+    // Recover 3D address
+    draft.x[0] = x;
+    draft.x[1] = y;
+    draft.x[2] = z;
+  }
 
   /**
    * Prepares new wavefront.
