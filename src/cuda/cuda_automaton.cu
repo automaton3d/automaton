@@ -52,7 +52,7 @@ static __device__ inline ::CellDevice& d_getCell(::CellDevice* lattice, int x, i
     return lattice[(((x * dev_EL + y) * dev_EL + z) * dev_W_USED) + w];
 }
 
-// Spherical (antipodal) wrap – matches CPU's spherical_wrap
+// Periodic (toroidal) wrap – matches CPU's getNeighbor
 static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
                                            unsigned x_curr, 
                                            unsigned y_curr, 
@@ -67,27 +67,10 @@ static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
         { 0, 0, 0,+1}, { 0, 0, 0,-1}
     };
 
-    int nx = x_curr + disp[i][0];
-    int ny = y_curr + disp[i][1];
-    int nz = z_curr + disp[i][2];
-    int nw = w_curr + disp[i][3];
-
-    // Spherical (antipodal) wrapping
-    if (nx < 0 || nx >= (int)dev_EL ||
-        ny < 0 || ny >= (int)dev_EL ||
-        nz < 0 || nz >= (int)dev_EL ||
-        nw < 0 || nw >= (int)dev_W_USED)
-    {
-        nx = dev_EL - 1 - nx;
-        ny = dev_EL - 1 - ny;
-        nz = dev_EL - 1 - nz;
-        nw = dev_W_USED - 1 - nw;
-
-        nx = (nx % dev_EL + dev_EL) % dev_EL;
-        ny = (ny % dev_EL + dev_EL) % dev_EL;
-        nz = (nz % dev_EL + dev_EL) % dev_EL;
-        nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
-    }
+    int nx = ((int)x_curr + disp[i][0] + (int)dev_EL) % (int)dev_EL;
+    int ny = ((int)y_curr + disp[i][1] + (int)dev_EL) % (int)dev_EL;
+    int nz = ((int)z_curr + disp[i][2] + (int)dev_EL) % (int)dev_EL;
+    int nw = ((int)w_curr + disp[i][3] + (int)dev_W_USED) % (int)dev_W_USED;
 
     return d_getCell(d_curr_lattice, nx, ny, nz, nw);
 }
@@ -101,6 +84,24 @@ static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
 #define DEV_C2(cell)  ((cell).ch & 0x04)
 #define DEV_C1(cell)  ((cell).ch & 0x02)
 #define DEV_C0(cell)  ((cell).ch & 0x01)
+#define DEV_COLOR(cell)     ((cell).ch & COLOR_MASK)
+#define DEV_ANTICOLOR(cell) ((~(cell).ch) & COLOR_MASK)
+
+// Color neutrality test (mirrors CPU neutralColor)
+static __device__ inline bool dev_neutralColor(const ::CellDevice& a, const ::CellDevice& b)
+{
+    int color_a = a.ch & 0x07;
+    int color_b = b.ch & 0x07;
+    return (color_a ^ color_b) == 0x07;
+}
+
+// Weak neutrality test (mirrors CPU neutralWeak)
+static __device__ inline bool dev_neutralWeak(const ::CellDevice& a, const ::CellDevice& b)
+{
+    int weak_a = (a.ch >> 3) & 0x03;
+    int weak_b = (b.ch >> 3) & 0x03;
+    return (weak_a ^ weak_b) == 0x03;
+}
 
 // Simple hash PRNG (for convolute1 random c[] values)
 __device__ inline unsigned dev_hash_random(unsigned seed, unsigned mod)
@@ -132,8 +133,7 @@ __device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*dr
 __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned tid)
 {
-    unsigned eff = dev_effective_t(curr.t);
-    if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -148,8 +148,7 @@ __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    unsigned eff = dev_effective_t(curr.t);
-    if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.a = dev_W_USED;
@@ -159,8 +158,7 @@ __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    unsigned eff = dev_effective_t(curr.t);
-    if (curr.d == eff && eff == dev_RMAX / 2 && w == 0)
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -174,8 +172,7 @@ __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    unsigned eff = dev_effective_t(curr.t);
-    if (curr.d == eff && eff == dev_RMAX / 2 && curr.sB && w == 0)
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && curr.sB && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.hB = 1;
@@ -185,8 +182,7 @@ __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    unsigned eff = dev_effective_t(curr.t);
-    if (curr.d == eff && eff == dev_RMAX / 2 && curr.pB && w == 0 &&
+    if (curr.t == curr.d && curr.t == dev_RMAX / 2 && curr.pB && w == 0 &&
         !curr.cB && curr.a != dev_W_USED)
     {
         int old = atomicExch(&dev_ctrl, 0);
@@ -204,16 +200,19 @@ __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
-    if (curr.d == dev_effective_t(curr.t) && mirror.d == dev_effective_t(mirror.t))
+    // Cells awaken?
+    if (curr.t == curr.d && mirror.t == mirror.d)
     {
+        // Test superposition
         if (curr.x[0] == mirror.x[0] &&
             curr.x[1] == mirror.x[1] &&
             curr.x[2] == mirror.x[2])
         {
+            // Test dispersion
             if (curr.a != dev_W_USED &&
                 DEV_W1(curr) != DEV_W1(mirror) &&
                 !curr.cB &&
-                dev_effective_t(curr.t) == dev_RMAX / 2)
+                curr.t == dev_RMAX / 2)
             {
                 if (curr.pB && mirror.sB)
                 {
@@ -237,16 +236,20 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
-    if (curr.d == dev_effective_t(curr.t) && mirror.d == dev_effective_t(mirror.t))
+    // Cells awaken?
+    if (curr.t == curr.d && mirror.t == mirror.d)
     {
+        // --- A) SAME POSITION (superposition) ---
         if (curr.x[0] == mirror.x[0] &&
             curr.x[1] == mirror.x[1] &&
             curr.x[2] == mirror.x[2])
         {
+            // Test dispersion
             if (DEV_W1(curr) != DEV_W1(mirror) &&
-                dev_effective_t(curr.t) == dev_RMAX / 2 &&
+                curr.t == dev_RMAX / 2 &&
                 !curr.cB && curr.a != dev_W_USED)
             {
+                // Who has the pB true interacts once
                 if (curr.pB && !mirror.pB)
                 {
                     draft.c[0] = curr.x[0];
@@ -254,16 +257,20 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                     draft.c[2] = curr.x[2];
                     draft.cB = 1;
                 }
+                // Who has pB false interacts with the last pB true
                 if (!curr.pB && mirror.pB)
                 {
                     draft.hB = 1;
                     draft.cB = 1;
                 }
             }
-            else if (curr.f == dev_effective_t(curr.t) && mirror.f == dev_effective_t(mirror.t))
+            // Test single pair
+            else if (curr.f == curr.t && mirror.f == mirror.t)
             {
+                // Different sectors?
                 if (DEV_W1(curr) != DEV_W1(mirror))
                 {
+                    // Momentum (Graviton)
                     if (curr.pB && mirror.pB)
                     {
                         draft.f += curr.t;
@@ -278,6 +285,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                          (DEV_C1(curr) == DEV_C1(mirror)) &&
                          (DEV_C0(curr) == DEV_C0(mirror)))
                 {
+                    // Photon
                     draft.f += curr.t;
                     draft.s2B &= curr.phiB;
                     draft.a = min(curr.a, mirror.a);
@@ -286,21 +294,80 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                 else if ((curr.ch == 0 && mirror.ch == 0) ||
                          (curr.ch == 63 && mirror.ch == 63))
                 {
+                    // Neutrino
                     draft.f += curr.t;
                     draft.s2B &= curr.phiB;
                     draft.a = min(curr.a, mirror.a);
                 }
+                else if ((!DEV_Q(curr) && !DEV_Q(mirror)) &&
+                         (!DEV_W1(curr) && !DEV_W1(mirror)) &&
+                         (DEV_W0(curr) && DEV_W0(mirror)) &&
+                         (DEV_COLOR(curr) == DEV_COLOR(mirror)) &&
+                         (DEV_COLOR(curr) != 0 && DEV_COLOR(curr) != 7))
+                {
+                    // Boson W-
+                    draft.f += curr.t;
+                    draft.s2B &= curr.phiB;
+                    draft.a = min(curr.a, mirror.a);
+                    draft.bB = 1;
+                }
+                else if ((DEV_Q(curr) && DEV_Q(mirror)) &&
+                         (DEV_W1(curr) && DEV_W1(mirror)) &&
+                         (!DEV_W0(curr) && !DEV_W0(mirror)) &&
+                         (DEV_COLOR(curr) == DEV_COLOR(mirror)) &&
+                         (DEV_COLOR(curr) != 0 && DEV_COLOR(curr) != 7))
+                {
+                    // Boson W+
+                    draft.f += curr.t;
+                    draft.s2B &= curr.phiB;
+                    draft.a = min(curr.a, mirror.a);
+                    draft.bB = 1;
+                }
+                else if ((DEV_Q(curr) != DEV_Q(mirror)) &&
+                         (DEV_W1(curr) && DEV_W1(mirror)) &&
+                         (!DEV_W0(curr) && !DEV_W0(mirror)) &&
+                         (DEV_COLOR(curr) == DEV_COLOR(mirror)) &&
+                         (DEV_COLOR(curr) != 0 && DEV_COLOR(curr) != 7))
+                {
+                    // Boson Z
+                    draft.f += curr.t;
+                    draft.s2B &= curr.phiB;
+                    draft.a = min(curr.a, mirror.a);
+                    draft.bB = 1;
+                }
+            }
+            // Blob formation
+            else if (curr.f != curr.t && mirror.f != mirror.t && curr.bB)
+            {
+                draft.f += curr.f + mirror.f;
+                draft.s2B &= curr.phiB;
+                draft.a = min(curr.a, mirror.a);
             }
         }
+        // --- B) DIFFERENT POSITION (distinct bubbles) ---
         else
         {
+            // Same sector
             if (DEV_W1(curr) == DEV_W1(mirror))
             {
-                if (curr.ch == mirror.ch &&
-                    curr.f == dev_effective_t(curr.t) &&
-                    mirror.f == dev_effective_t(mirror.t))
+                // Annihilation?
+                if (!curr.kB && !mirror.kB &&
+                    DEV_Q(curr) != DEV_Q(mirror) &&
+                    DEV_W0(curr) != DEV_W0(mirror) &&
+                    DEV_COLOR(curr) == DEV_ANTICOLOR(mirror) &&
+                    curr.f == curr.t && mirror.f == mirror.t)
                 {
-                    if (curr.a > mirror.a)
+                    draft.c[0] = curr.x[0];
+                    draft.c[1] = curr.x[1];
+                    draft.c[2] = curr.x[2];
+                    draft.kB = 1;
+                    draft.a = curr.x[3];
+                }
+                // Fermion cohesion?
+                else if (curr.ch == mirror.ch &&
+                         curr.f == curr.t && mirror.f == mirror.t)
+                {
+                    if (curr.c[3] > mirror.c[3])
                     {
                         draft.c[0] = curr.x[0];
                         draft.c[1] = curr.x[1];
@@ -312,6 +379,145 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                         draft.hB = 1;
                         draft.a = min(curr.a, mirror.a);
                     }
+                }
+                // Same affinity?
+                else if (curr.a == mirror.a)
+                {
+                    if (curr.pB && !mirror.pB)
+                    {
+                        draft.c[0] = curr.c[0];
+                        draft.c[1] = curr.c[1];
+                        draft.c[2] = curr.c[2];
+                    }
+                    // Parallel transport?
+                    else if (!curr.pB && mirror.pB)
+                    {
+                        draft.c[0] = dev_EL + (curr.x[0] - mirror.x[0]) % dev_EL;
+                        draft.c[1] = dev_EL + (curr.x[1] - mirror.x[1]) % dev_EL;
+                        draft.c[2] = dev_EL + (curr.x[2] - mirror.x[2]) % dev_EL;
+                    }
+                }
+                // Strong interaction
+                else if (dev_neutralColor(curr, mirror))
+                {
+                    // Gluon x gluon
+                    if (curr.f > curr.t && mirror.f > mirror.t)
+                    {
+                        draft.c[0] = curr.x[0];
+                        draft.c[1] = curr.x[1];
+                        draft.c[2] = curr.x[2];
+                        draft.ch = (curr.ch & ~COLOR_MASK) | (mirror.ch & COLOR_MASK);
+                    }
+                    // Quark x gluon
+                    else if (curr.f == curr.t && mirror.f > mirror.t)
+                    {
+                        draft.c[0] = curr.x[0];
+                        draft.c[1] = curr.x[1];
+                        draft.c[2] = curr.x[2];
+                        draft.ch = (curr.ch & ~COLOR_MASK) | (mirror.ch & COLOR_MASK);
+                    }
+                }
+                // Electroweak interaction: Harmonic?
+                else if (curr.phiB && mirror.phiB)
+                {
+                    // Weak interaction
+                    if (dev_neutralWeak(curr, mirror))
+                    {
+                        if ((curr.pB && !mirror.pB) || (curr.sB && mirror.sB))
+                        {
+                            draft.c[0] = curr.x[0];
+                            draft.c[1] = curr.x[1];
+                            draft.c[2] = curr.x[2];
+                            draft.kB = 1;
+                        }
+                    }
+                    // Electric interaction
+                    else if (curr.pB)
+                    {
+                        draft.c[0] = curr.x[0];
+                        draft.c[1] = curr.x[1];
+                        draft.c[2] = curr.x[2];
+                        if (mirror.pB)
+                        {
+                            draft.kB = 1;
+                        }
+                        else
+                        {
+                            draft.a = mirror.a;
+                            draft.t = mirror.t;
+                            draft.c[0] = mirror.x[0];
+                            draft.c[1] = mirror.x[1];
+                            draft.c[2] = mirror.x[2];
+                        }
+                    }
+                    // Magnetic interaction
+                    else if (curr.sB)
+                    {
+                        draft.c[0] = curr.x[0];
+                        draft.c[1] = curr.x[1];
+                        draft.c[2] = curr.x[2];
+                        if (mirror.sB)
+                        {
+                            draft.kB = 1;
+                        }
+                        else
+                        {
+                            draft.a = mirror.a;
+                            draft.t = mirror.t;
+                            draft.c[0] = mirror.x[0];
+                            draft.c[1] = mirror.x[1];
+                            draft.c[2] = mirror.x[2];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Different sectors
+    else
+    {
+        // Singularization
+        if (curr.ch == ((~mirror.ch) & CHARGE_MASK))
+        {
+            draft.c[0] = curr.x[0];
+            draft.c[1] = curr.x[1];
+            draft.c[2] = curr.x[2];
+            draft.a = curr.x[3];
+        }
+        // Electroweak interaction: Harmonic?
+        else if (curr.phiB && mirror.phiB)
+        {
+            // Weak interaction
+            if (dev_neutralWeak(curr, mirror))
+            {
+                if ((curr.pB && !mirror.pB) || (curr.sB && mirror.sB))
+                {
+                    draft.c[0] = curr.x[0];
+                    draft.c[1] = curr.x[1];
+                    draft.c[2] = curr.x[2];
+                    draft.kB = 1;
+                }
+            }
+            // Electric interaction
+            else if (curr.pB)
+            {
+                draft.c[0] = curr.x[0];
+                draft.c[1] = curr.x[1];
+                draft.c[2] = curr.x[2];
+                if (mirror.pB)
+                {
+                    draft.kB = 1;
+                }
+            }
+            // Magnetic interaction
+            else if (curr.sB)
+            {
+                draft.c[0] = curr.x[0];
+                draft.c[1] = curr.x[1];
+                draft.c[2] = curr.x[2];
+                if (mirror.sB)
+                {
+                    draft.kB = 1;
                 }
             }
         }
@@ -347,7 +553,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     ::CellDevice draft = curr;
     ::CellDevice mirror = d_getCell(d_mirror, x, y, z, w);
 
-    // Neighbors (spherical wrap)
+    // Neighbors (periodic wrap)
     ::CellDevice forward = d_getNeighbor(d_curr, x, y, z, w, 6); // FORWARD
     ::CellDevice north   = d_getNeighbor(d_curr, x, y, z, w, 0); // NORTH
     ::CellDevice east    = d_getNeighbor(d_curr, x, y, z, w, 1); // EAST
@@ -403,75 +609,66 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (up.a    == dev_W_USED && curr.d >= up.d)) {
                 draft.a = dev_W_USED;
             }
-            if (curr.d == dev_effective_t(curr.t)) {
-                if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; }
-                else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; }
-                else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % dev_EL; }
-                else if (south.hB) { draft.c[1] = (south.c[1] + 1) % dev_EL; }
-                else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % dev_EL; }
-                else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % dev_EL; }
+            // Hunting using hB
+            if (curr.d == curr.t) {
+                if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; draft.sB = !draft.hB; }
+                else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; draft.sB = !draft.hB; }
+                else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % dev_EL; draft.sB = !draft.hB; }
+                else if (south.hB) { draft.c[1] = (south.c[1] + 1) % dev_EL; draft.sB = !draft.hB; }
+                else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % dev_EL; draft.sB = !draft.hB; }
+                else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % dev_EL; draft.sB = !draft.hB; }
             }
         }
-else if (curr.k < SLOT3)
-{
-    // Propaga o vetor c[] da camada interior (d-1) para a camada atual (d)
-    if (curr.d > 0) {
-        bool found = false;
-        if (north.d == curr.d - 1 && !ZERO(north.c)) {
-            draft.c[0] = north.c[0]; draft.c[1] = north.c[1]; draft.c[2] = north.c[2];
-            if (north.kB) draft.kB = north.kB;
-            found = true;
-        } else if (south.d == curr.d - 1 && !ZERO(south.c)) {
-            draft.c[0] = south.c[0]; draft.c[1] = south.c[1]; draft.c[2] = south.c[2];
-            if (south.kB) draft.kB = south.kB;
-            found = true;
-        } else if (east.d == curr.d - 1 && !ZERO(east.c)) {
-            draft.c[0] = east.c[0]; draft.c[1] = east.c[1]; draft.c[2] = east.c[2];
-            if (east.kB) draft.kB = east.kB;
-            found = true;
-        } else if (west.d == curr.d - 1 && !ZERO(west.c)) {
-            draft.c[0] = west.c[0]; draft.c[1] = west.c[1]; draft.c[2] = west.c[2];
-            if (west.kB) draft.kB = west.kB;
-            found = true;
-        } else if (up.d == curr.d - 1 && !ZERO(up.c)) {
-            draft.c[0] = up.c[0]; draft.c[1] = up.c[1]; draft.c[2] = up.c[2];
-            if (up.kB) draft.kB = up.kB;
-            found = true;
-        } else if (down.d == curr.d - 1 && !ZERO(down.c)) {
-            draft.c[0] = down.c[0]; draft.c[1] = down.c[1]; draft.c[2] = down.c[2];
-            if (down.kB) draft.kB = down.kB;
-            found = true;
-        }
-        // Se não encontrou vizinho com d-1 (ex: centro), mantém o c[] atual (zero)
-    }
+        // SLOT III
+        else if (curr.k < SLOT3) {
+            // Propagate c[] to all cells in layer 0 (matches CPU)
+            if (curr.x[3] == 0) {
+                if (!ZERO_C(north.c)) {
+                    draft.c[0] = north.c[0]; draft.c[1] = north.c[1]; draft.c[2] = north.c[2];
+                    if (north.kB) draft.kB = north.kB;
+                } else if (!ZERO_C(south.c)) {
+                    draft.c[0] = south.c[0]; draft.c[1] = south.c[1]; draft.c[2] = south.c[2];
+                    if (south.kB) draft.kB = south.kB;
+                } else if (!ZERO_C(east.c)) {
+                    draft.c[0] = east.c[0]; draft.c[1] = east.c[1]; draft.c[2] = east.c[2];
+                    if (east.kB) draft.kB = east.kB;
+                } else if (!ZERO_C(west.c)) {
+                    draft.c[0] = west.c[0]; draft.c[1] = west.c[1]; draft.c[2] = west.c[2];
+                    if (west.kB) draft.kB = west.kB;
+                } else if (!ZERO_C(up.c)) {
+                    draft.c[0] = up.c[0]; draft.c[1] = up.c[1]; draft.c[2] = up.c[2];
+                    if (up.kB) draft.kB = up.kB;
+                } else if (!ZERO_C(down.c)) {
+                    draft.c[0] = down.c[0]; draft.c[1] = down.c[1]; draft.c[2] = down.c[2];
+                    if (down.kB) draft.kB = down.kB;
+                }
+            }
 
-    // Mantém a lógica original para f e cB (opcional)
-    draft.f = max(down.f, max(west.f, max(north.f,
-                max(south.f, max(east.f, up.f)))));
+            draft.f = max(down.f, max(west.f, max(north.f,
+                        max(south.f, max(east.f, up.f)))));
 
-    if (!curr.cB) {
-        if (north.cB && north.d > curr.d) {
-            draft.cB = true;
-            if (north.a != W_USED) draft.a = north.a;
-        } else if (south.cB && south.d > curr.d) {
-            draft.cB = true;
-            if (south.a != W_USED) draft.a = south.a;
-        } else if (east.cB && east.d > curr.d) {
-            draft.cB = true;
-            if (east.a != W_USED) draft.a = east.a;
-        } else if (west.cB && west.d > curr.d) {
-            draft.cB = true;
-            if (west.a != W_USED) draft.a = west.a;
-        } else if (down.cB && down.d > curr.d) {
-            draft.cB = true;
-            if (down.a != W_USED) draft.a = down.a;
-        } else if (up.cB && up.d > curr.d) {
-            draft.cB = true;
-            if (up.a != W_USED) draft.a = up.a;
+            if (!curr.cB) {
+                if (north.cB && north.d > curr.d) {
+                    draft.cB = 1;
+                    if (north.a != dev_W_USED) draft.a = north.a;
+                } else if (south.cB && south.d > curr.d) {
+                    draft.cB = 1;
+                    if (south.a != dev_W_USED) draft.a = south.a;
+                } else if (east.cB && east.d > curr.d) {
+                    draft.cB = 1;
+                    if (east.a != dev_W_USED) draft.a = east.a;
+                } else if (west.cB && west.d > curr.d) {
+                    draft.cB = 1;
+                    if (west.a != dev_W_USED) draft.a = west.a;
+                } else if (down.cB && down.d > curr.d) {
+                    draft.cB = 1;
+                    if (down.a != dev_W_USED) draft.a = down.a;
+                } else if (up.cB && up.d > curr.d) {
+                    draft.cB = 1;
+                    if (up.a != dev_W_USED) draft.a = up.a;
+                }
+            }
         }
-    }
-}
-}
         // SLOT IV
         else if (curr.k < SLOT4) {
             if (forward.kB && forward.a == curr.a) {
@@ -494,27 +691,18 @@ else if (curr.k < SLOT3)
         }
     }
     // ===================================================================
-    // RELOCATION PHASE (k < RELOC) — periodic (toroidal) wrap
+    // RELOCATION PHASE (k < RELOC) — restore original coordinates (matches CPU)
     // ===================================================================
     else if (curr.k < RELOC) {
+        // Save 3D address (CPU restores after relocation)
+        unsigned save_x = curr.x[0];
+        unsigned save_y = curr.x[1];
+        unsigned save_z = curr.x[2];
         // SLOT VI (x direction)
         if (curr.k < SLOT6) {
             if (north.c[0] > 0) {
                 draft = north;
                 draft.c[0]--;
-                int nx = (int)draft.x[0] + 1;
-                int ny = (int)draft.x[1];
-                int nz = (int)draft.x[2];
-                int nw = (int)draft.x[3];
-                // periodic wrap
-                nx = (nx % dev_EL + dev_EL) % dev_EL;
-                ny = (ny % dev_EL + dev_EL) % dev_EL;
-                nz = (nz % dev_EL + dev_EL) % dev_EL;
-                nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
-                draft.x[0] = (unsigned)nx;
-                draft.x[1] = (unsigned)ny;
-                draft.x[2] = (unsigned)nz;
-                draft.x[3] = (unsigned)nw;
             }
         }
         // SLOT VII (y direction)
@@ -522,18 +710,6 @@ else if (curr.k < SLOT3)
             if (west.c[1] > 0) {
                 draft = west;
                 draft.c[1]--;
-                int nx = (int)draft.x[0];
-                int ny = (int)draft.x[1] + 1;
-                int nz = (int)draft.x[2];
-                int nw = (int)draft.x[3];
-                nx = (nx % dev_EL + dev_EL) % dev_EL;
-                ny = (ny % dev_EL + dev_EL) % dev_EL;
-                nz = (nz % dev_EL + dev_EL) % dev_EL;
-                nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
-                draft.x[0] = (unsigned)nx;
-                draft.x[1] = (unsigned)ny;
-                draft.x[2] = (unsigned)nz;
-                draft.x[3] = (unsigned)nw;
             }
         }
         // SLOT VIII (z direction)
@@ -541,21 +717,12 @@ else if (curr.k < SLOT3)
             if (down.c[2] > 0) {
                 draft = down;
                 draft.c[2]--;
-                int nx = (int)draft.x[0];
-                int ny = (int)draft.x[1];
-                int nz = (int)draft.x[2] + 1;
-                int nw = (int)draft.x[3];
-                nx = (nx % dev_EL + dev_EL) % dev_EL;
-                ny = (ny % dev_EL + dev_EL) % dev_EL;
-                nz = (nz % dev_EL + dev_EL) % dev_EL;
-                nw = (nw % dev_W_USED + dev_W_USED) % dev_W_USED;
-                draft.x[0] = (unsigned)nx;
-                draft.x[1] = (unsigned)ny;
-                draft.x[2] = (unsigned)nz;
-                draft.x[3] = (unsigned)nw;
             }
         }
-        // No restoration of original coordinates – the cell has moved.
+        // Restore original 3D address (matches CPU relocate)
+        draft.x[0] = save_x;
+        draft.x[1] = save_y;
+        draft.x[2] = save_z;
     }
     // ===================================================================
     // REISSUE PHASE (k < REISSUE)
@@ -564,7 +731,7 @@ else if (curr.k < SLOT3)
         draft.kB = 0;
         draft.hB = 0;
         draft.bB = 0;
-        if (curr.d == dev_effective_t(curr.t)) {
+        if (curr.d == curr.t) {
             if (north.d == curr.d + 1) draft.a = north.a;
             if (south.d == curr.d + 1) draft.a = south.a;
             if (east.d  == curr.d + 1) draft.a = east.a;
@@ -595,7 +762,7 @@ else if (curr.k < SLOT3)
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
             draft.t++;
         } else {
-            draft.t = (curr.t + 1) % (2 * dev_RMAX);
+            draft.t = (curr.t + 1) % dev_RMAX;
         }
     }
 

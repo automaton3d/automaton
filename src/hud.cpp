@@ -19,6 +19,8 @@
 #include "projection_manager.h"
 #include "tomography.h"
 #include "Renderer2D.h"
+#include "draw_utils.h"
+#include <vector>
 
 extern int textureSamplerLoc;
 
@@ -78,16 +80,9 @@ bool initHUD(AppContext& ctx,
 
     logo = new Logo("logo_bar.png");
 
-    int w = screenW;
-    int h = screenH;
-
-    float linkY = h - 45.0f;
-
     gHelpLink = new Button(
-        (w - 200) / 2.0f,
-        linkY,
-        200,
-        30,
+        0.0f, 0.0f,
+        200.0f, 40.0f,
         "Help",
         false
     );
@@ -129,7 +124,7 @@ void renderElapsedTime()
 
 void renderAboutDialog()
 {
-    if (!showAboutDialog || !aboutCloseButton) return;
+    if (!showAboutDialog) return;
 
     const int paneW = 520;
     const int paneH = 320;
@@ -161,21 +156,36 @@ void renderAboutDialog()
         }
     }
 
-    // Botão Close
-    const int btnW = 150, btnH = 42;
-    int btnX = paneX + (paneW - btnW) / 2;
-    int btnY = paneY + paneH - 75;
+    // Botão Close — desenhado inline (sem Button::draw)
+    const float btnW = 150.0f, btnH = 42.0f;
+    float btnX = paneX + (paneW - btnW) / 2.0f;
+    float btnY = paneY + paneH - 75.0f;
 
-    aboutCloseButton->setPosition((float)btnX, (float)btnY);
-    aboutCloseButton->setSize((float)btnW, (float)btnH);
-    aboutCloseButton->draw(hudText, windowWidth, windowHeight);
+    // Fundo + borda do botão
+    drawPanel(btnX, btnY, btnW, btnH,
+              glm::vec3(0.2f, 0.4f, 0.8f),
+              glm::vec3(1.0f, 1.0f, 1.0f),
+              2.0f, proj);
 
-    // Clique
+    // Texto "Close" centralizado (escala 0.7 = mesma dos textos About)
+    float closeTxtScale = 0.7f;
+    float closeTxtW = hudText.measureTextWidth("Close", closeTxtScale);
+    float closeTxtX = btnX + (btnW - closeTxtW) * 0.5f;
+    float closeTxtY = windowHeight - (btnY + btnH * 0.5f) - 8.0f;
+
+    hudText.RenderText("Close", closeTxtX, closeTxtY, closeTxtScale,
+                       glm::vec3(1.0f), windowWidth, windowHeight);
+
+    // Clique — GLFW dá mouseY top-down; contains() espera bottom-up
     double mx_d, my_d;
     glfwGetCursorPos(glfwGetCurrentContext(), &mx_d, &my_d);
     int mx = (int)mx_d, my = (int)my_d;
 
-    if (aboutCloseButton->contains(mx, my, windowHeight) &&
+    // Hit-test manual (top-down coords direto)
+    bool insideX = mx >= btnX && mx <= (btnX + btnW);
+    bool insideY = my >= btnY && my <= (btnY + btnH);
+
+    if (insideX && insideY &&
         glfwGetMouseButton(glfwGetCurrentContext(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
         showAboutDialog = false;
@@ -360,12 +370,19 @@ void renderHyperlink()
     int w = gViewport[2];
     int h = gViewport[3];
 
-    gHelpLink->drawAsHyperlink(
-        *textRenderer,
-        helpHover,
-        w,
-        h
-    );
+    if (w <= 0 || h <= 0)
+        return;
+
+    // Reposiciona no centro-inferior a cada frame
+    const float linkW = 100.0f;
+    const float linkH = 30.0f;
+    float linkX = (w - linkW) / 2.0f;
+    float linkY = h - 45.0f;
+
+    gHelpLink->setPosition(linkX, linkY);
+    gHelpLink->setSize(linkW, linkH);
+
+    gHelpLink->drawAsHyperlink(*textRenderer, helpHover, w, h);
 }
 
 // ------------------------------------------------------------
