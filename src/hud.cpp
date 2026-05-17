@@ -4,6 +4,7 @@
 #include "shader.h"
 
 #include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
@@ -34,6 +35,8 @@ std::unique_ptr<LayerList> layerList;
 Logo* logo = nullptr;
 ReplayProgressBar* replayProgress = nullptr;
 ProgressBar* progress = nullptr;
+
+Button* aboutCloseButton = nullptr;
 
 int windowWidth  = 800;
 int windowHeight = 600;
@@ -73,10 +76,6 @@ bool initHUD(AppContext& ctx,
 
     tbegin = glfwGetTime();
 
-    // IMPORTANT:
-    // textureProgram2D is already compiled in main.cpp
-    // DO NOT recompile it here.
-
     logo = new Logo("logo_bar.png");
 
     int w = screenW;
@@ -91,6 +90,15 @@ bool initHUD(AppContext& ctx,
         30,
         "Help",
         false
+    );
+
+    aboutCloseButton = new Button(
+        0.0f,
+        0.0f,
+        200.0f,
+        60.0f,
+        "Close",
+        true
     );
 
     return true;
@@ -119,78 +127,66 @@ void renderElapsedTime()
     );
 }
 
-// ------------------------------------------------------------
-// About dialog
-// ------------------------------------------------------------
 void renderAboutDialog()
 {
-    if (!showAboutDialog)
-        return;
+    if (!showAboutDialog || !aboutCloseButton) return;
 
     const int paneW = 520;
     const int paneH = 320;
-
     const int paneX = (windowWidth  - paneW) / 2;
     const int paneY = (windowHeight - paneH) / 2;
 
     const glm::mat4& proj = proj2D();
 
-    drawPanel(
-        (float)paneX,
-        (float)paneY,
-        (float)paneW,
-        (float)paneH,
-        glm::vec3(0.05f, 0.05f, 0.1f),
-        glm::vec3(0.4f, 0.4f, 1.0f),
-        2.0f,
-        proj
-    );
+    drawPanel((float)paneX, (float)paneY, (float)paneW, (float)paneH,
+              glm::vec3(0.05f, 0.05f, 0.1f), glm::vec3(0.4f, 0.4f, 1.0f), 2.0f, proj);
 
-    const std::string about =
-        "Cellular Automaton Visualizer\n\n"
-        "Version 1.0\n\n"
-        "Real-time 3D cellular automaton\n"
-        "with recording, replay & tomography\n\n"
-        "Built with OpenGL + GLFW\n"
-        "(c) 2025";
+    // Texto About
+    const std::string about = "Cellular Automaton Visualizer\n\nVersion 1.0\n\n"
+        "Real-time 3D cellular automaton\nwith recording, replay & tomography\n\n"
+        "Built with OpenGL + GLFW\n(c) 2025";
 
     std::istringstream iss(about);
-
     std::string line;
-
     int lineY = paneY + 40;
 
     while (std::getline(iss, line))
     {
-        auto wrapped = wrapText(line, 48);
-
-        for (const auto& wline : wrapped)
+        for (const auto& wline : wrapText(line, 48))
         {
-            int flippedY = windowHeight - lineY;
-
-            hudText.RenderText(
-                wline,
-                (float)(paneX + 20),
-                (float)flippedY,
-                0.7f,
-                glm::vec3(1.0f),
-                windowWidth,
-                windowHeight
-            );
-
+            hudText.RenderText(wline, (float)(paneX + 20), 
+                               (float)(windowHeight - lineY), 0.7f, 
+                               glm::vec3(1.0f), windowWidth, windowHeight);
             lineY += 24;
         }
     }
 
-    hudText.RenderText(
-        "[ Close ]",
-        (float)(paneX + paneW / 2 - 45),
-        (float)(windowHeight - (paneY + paneH - 35)),
-        0.7f,
-        glm::vec3(1.0f, 0.3f, 0.3f),
-        windowWidth,
-        windowHeight
-    );
+    // Botão Close
+    const int btnW = 150, btnH = 42;
+    int btnX = paneX + (paneW - btnW) / 2;
+    int btnY = paneY + paneH - 75;
+
+    aboutCloseButton->setPosition((float)btnX, (float)btnY);
+    aboutCloseButton->setSize((float)btnW, (float)btnH);
+    aboutCloseButton->draw(hudText, windowWidth, windowHeight);
+
+    // Clique
+    double mx_d, my_d;
+    glfwGetCursorPos(glfwGetCurrentContext(), &mx_d, &my_d);
+    int mx = (int)mx_d, my = (int)my_d;
+
+    if (aboutCloseButton->contains(mx, my, windowHeight) &&
+        glfwGetMouseButton(glfwGetCurrentContext(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+    {
+        showAboutDialog = false;
+    }
+
+    // Enter
+    static bool enterWasPressed = false;
+    bool enterNow = (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_ENTER) == GLFW_PRESS) ||
+                    (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_KP_ENTER) == GLFW_PRESS);
+    if (enterNow && !enterWasPressed) showAboutDialog = false;
+    enterWasPressed = enterNow;
 }
 
 // ------------------------------------------------------------
@@ -379,6 +375,8 @@ void cleanup()
 {
     delete gHelpLink;
     gHelpLink = nullptr;
+    delete aboutCloseButton;
+    aboutCloseButton = nullptr;
 }
 
 } // namespace framework

@@ -351,14 +351,9 @@ namespace automaton
   {
       if (curr.t == curr.d && curr.t == RMAX / 2 && curr.x[3] == 0 && ctrl)
       {
-        /*
         draft.c[0] = getRandomUnsigned(EL);
         draft.c[1] = getRandomUnsigned(EL);
         draft.c[2] = getRandomUnsigned(EL);
-        */
-        draft.c[0] = EL/2;
-        draft.c[1] = 0;
-        draft.c[2] = 0;
         ctrl = false;
       }
       return false;

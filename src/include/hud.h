@@ -13,6 +13,7 @@ namespace framework
 	extern unsigned tomo_z;
     extern std::atomic<bool> stopSimThread;
     extern bool showHelp;
+    extern Button* aboutCloseButton;
 
     void updateProjection();
     bool initHUD(AppContext& ctx, const std::string& fontPath, int fontSize, unsigned int shader,

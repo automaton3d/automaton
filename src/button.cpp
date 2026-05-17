@@ -148,13 +148,15 @@ bool Button::contains(int mouseX,
                       int mouseY,
                       int screenHeight) const
 {
+    const float padding = 6.0f;
+
     float drawnY    = screenHeight - (y_ + h_);
     float drawnYTop = screenHeight - y_;
 
-    return mouseX >= x_ &&
-           mouseX <= x_ + w_ &&
-           mouseY >= drawnY &&
-           mouseY <= drawnYTop;
+    return mouseX >= (x_ - padding) &&
+           mouseX <= (x_ + w_ + padding) &&
+           mouseY >= (drawnY - padding) &&
+           mouseY <= (drawnYTop + padding);
 }
 
 void Button::draw(TextRenderer& renderer,
@@ -236,18 +238,21 @@ void Button::draw(TextRenderer& renderer,
     // =========================================================
     float textScale = 0.35f;
 
-    float textWidth =
-        renderer.measureTextWidth(label_,
-                                  textScale);
+float textWidth =
+    renderer.measureTextWidth(label_,
+                              textScale);
 
-    float textX =
-        x_ + (w_ - textWidth) * 0.5f;
+// aproximação da altura visual da fonte
+float textHeight = 24.0f * textScale;
 
-    float textY =
-        screenHeight -
-        (y_ + h_ * 0.5f) -
-        4.0f;
+float textX =
+    x_ + (w_ - textWidth) * 0.5f;
 
+// centralização vertical REAL
+float textY =
+    screenHeight -
+    (y_ + (h_ + textHeight) * 0.5f);
+    
     renderer.RenderText(label_,
                         textX,
                         textY,
@@ -308,7 +313,8 @@ void Button::drawAsHyperlink(TextRenderer& renderer,
         tx + textWidth, underlineY
     };
 
-    if (!underlineVAO) {
+    if (!underlineVAO)
+    {
         glGenVertexArrays(1, &underlineVAO);
         glGenBuffers(1, &underlineVBO);
     }
@@ -359,4 +365,22 @@ void Button::drawAsHyperlink(TextRenderer& renderer,
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void Button::setPosition(float x, float y)
+{
+    x_ = x;
+    y_ = y;
+
+    cleanup();
+    setupGeometry();
+}
+
+void Button::setSize(float w, float h)
+{
+    w_ = w;
+    h_ = h;
+
+    cleanup();
+    setupGeometry();
 }

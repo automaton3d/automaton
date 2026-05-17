@@ -110,100 +110,96 @@ namespace automaton
 else if (curr.k < SLOT3)
 {
     // Propaga c[] para TODAS as células da camada 0, sem restrição de distância
-    if (curr.x[3] == 0) {
-        if (!ZERO(north.c)) {
-            draft.c[0] = north.c[0]; draft.c[1] = north.c[1]; draft.c[2] = north.c[2];
-            if (north.kB) draft.kB = north.kB;
-        } else if (!ZERO(south.c)) {
-            draft.c[0] = south.c[0]; draft.c[1] = south.c[1]; draft.c[2] = south.c[2];
-            if (south.kB) draft.kB = south.kB;
-        } else if (!ZERO(east.c)) {
-            draft.c[0] = east.c[0]; draft.c[1] = east.c[1]; draft.c[2] = east.c[2];
-            if (east.kB) draft.kB = east.kB;
-        } else if (!ZERO(west.c)) {
-            draft.c[0] = west.c[0]; draft.c[1] = west.c[1]; draft.c[2] = west.c[2];
-            if (west.kB) draft.kB = west.kB;
-        } else if (!ZERO(up.c)) {
-            draft.c[0] = up.c[0]; draft.c[1] = up.c[1]; draft.c[2] = up.c[2];
-            if (up.kB) draft.kB = up.kB;
-        } else if (!ZERO(down.c)) {
-            draft.c[0] = down.c[0]; draft.c[1] = down.c[1]; draft.c[2] = down.c[2];
-            if (down.kB) draft.kB = down.kB;
-        }
+    if (curr.x[3] == 0) { // DEBUG DEBUG DEBUG
+      if (!ZERO(north.c)) {
+        draft.c[0] = north.c[0]; draft.c[1] = north.c[1]; draft.c[2] = north.c[2];
+        if (north.kB) draft.kB = north.kB;
+      } else if (!ZERO(south.c)) {
+        draft.c[0] = south.c[0]; draft.c[1] = south.c[1]; draft.c[2] = south.c[2];
+        if (south.kB) draft.kB = south.kB;
+      } else if (!ZERO(east.c)) {
+        draft.c[0] = east.c[0]; draft.c[1] = east.c[1]; draft.c[2] = east.c[2];
+        if (east.kB) draft.kB = east.kB;
+      } else if (!ZERO(west.c)) {
+        draft.c[0] = west.c[0]; draft.c[1] = west.c[1]; draft.c[2] = west.c[2];
+        if (west.kB) draft.kB = west.kB;
+      } else if (!ZERO(up.c)) {
+        draft.c[0] = up.c[0]; draft.c[1] = up.c[1]; draft.c[2] = up.c[2];
+        if (up.kB) draft.kB = up.kB;
+      } else if (!ZERO(down.c)) {
+        draft.c[0] = down.c[0]; draft.c[1] = down.c[1]; draft.c[2] = down.c[2];
+        if (down.kB) draft.kB = down.kB;
+      }
     }
 
-    // Restante do SLOT III (f, cB) permanece igual
-    draft.f = max(down.f, max(west.f, max(north.f,
-                max(south.f, max(east.f, up.f)))));
+    draft.f = max(down.f, max(west.f, max(north.f, max(south.f, max(east.f, up.f)))));
 
     if (!curr.cB)
     {
-        if (north.cB && north.d > curr.d)
-        {
-            draft.cB = true;
-            if (north.a != W_USED) draft.a = north.a;
-        }
-        else if (south.cB && south.d > curr.d)
-        {
-            draft.cB = true;
-            if (south.a != W_USED) draft.a = south.a;
-        }
-        else if (east.cB && east.d > curr.d)
-        {
-            draft.cB = true;
-            if (east.a != W_USED) draft.a = east.a;
-        }
-        else if (west.cB && west.d > curr.d)
-        {
-            draft.cB = true;
-            if (west.a != W_USED) draft.a = west.a;
-        }
-        else if (down.cB && down.d > curr.d)
-        {
-            draft.cB = true;
-            if (down.a != W_USED) draft.a = down.a;
-        }
-        else if (up.cB && up.d > curr.d)
-        {
-            draft.cB = true;
-            if (up.a != W_USED) draft.a = up.a;
-        }
+      if (north.cB && north.d > curr.d)
+      {
+        draft.cB = true;
+        if (north.a != W_USED) draft.a = north.a;
+      }
+      else if (south.cB && south.d > curr.d)
+      {
+        draft.cB = true;
+        if (south.a != W_USED) draft.a = south.a;
+      }
+      else if (east.cB && east.d > curr.d)
+      {
+        draft.cB = true;
+        if (east.a != W_USED) draft.a = east.a;
+      }
+      else if (west.cB && west.d > curr.d)
+      {
+        draft.cB = true;
+        if (west.a != W_USED) draft.a = west.a;
+      }
+      else if (down.cB && down.d > curr.d)
+      {
+        draft.cB = true;
+        if (down.a != W_USED) draft.a = down.a;
+      }
+      else if (up.cB && up.d > curr.d)
+      {
+        draft.cB = true;
+        if (up.a != W_USED) draft.a = up.a;
+      }
     }
-}
-
-/****** SLOT IV ******/
-      else if (curr.k < SLOT4)
-      {
-        if (forward.kB && forward.a == curr.a)
-        {
-          int delta_x = (curr.x[0] - forward.x[0] + EL) % EL;
-          int delta_y = (curr.x[1] - forward.x[1] + EL) % EL;
-          int delta_z = (curr.x[2] - forward.x[2] + EL) % EL;
-
-          draft.c[0] = (forward.c[0] + delta_x) % EL;
-          draft.c[1] = (forward.c[1] + delta_y) % EL;
-          draft.c[2] = (forward.c[2] + delta_z) % EL;
-          draft.kB = forward.kB;
-          draft.cB = forward.cB;
-        }
-        draft.f = max(forward.f, curr.f);
-      }
-      /****** SLOT V ******/
-      else if (curr.k < SLOT5)
-      {
-        if (curr.a == W_USED)
-        {
-          if (curr.d < curr.t)
-          {
-            draft.a = curr.x[3];
-          }
-        }
-      }
   }
 
-    /**
-   * Grid relocation.
-   */
+  /****** SLOT IV ******/
+  else if (curr.k < SLOT4)
+  {
+    if (forward.kB && forward.a == curr.a)
+    {
+      int delta_x = (curr.x[0] - forward.x[0] + EL) % EL;
+      int delta_y = (curr.x[1] - forward.x[1] + EL) % EL;
+      int delta_z = (curr.x[2] - forward.x[2] + EL) % EL;
+
+      draft.c[0] = (forward.c[0] + delta_x) % EL;
+      draft.c[1] = (forward.c[1] + delta_y) % EL;
+      draft.c[2] = (forward.c[2] + delta_z) % EL;
+      draft.kB = forward.kB;
+      draft.cB = forward.cB;
+    }
+    draft.f = max(forward.f, curr.f);
+  }
+
+  /****** SLOT V ******/
+  else if (curr.k < SLOT5)
+  {
+    if (curr.a == W_USED)
+    {
+      if (curr.d < curr.t)
+      {
+        draft.a = curr.x[3];
+      }
+    }
+  }
+}
+
   /**
    * Grid relocation.
    */

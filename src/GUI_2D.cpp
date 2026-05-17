@@ -136,7 +136,7 @@ namespace framework
         hudText.RenderText(
             s,
             1700.0f,
-            gViewport[3] - 80.0f,
+            gViewport[3] - 95.0f,
             1.0f,
             glm::vec3(1.0f),
             gViewport[2],
