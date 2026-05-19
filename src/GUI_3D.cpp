@@ -491,38 +491,65 @@ void renderWavefront()
       gAxisProjValid = true;
   }
 
-  void renderCube()
-  {
-    const float a = 0.25f;
-    std::vector<glm::vec3> faces;
-
-    // Right face
-    faces.push_back({ a,-a,-a}); faces.push_back({ a, a,-a});
-    faces.push_back({ a, a, a}); faces.push_back({ a,-a, a});
-    // Left face
-    faces.push_back({-a,-a,-a}); faces.push_back({-a, a,-a});
-    faces.push_back({-a, a, a}); faces.push_back({-a,-a, a});
-    // Top face
-    faces.push_back({-a, a,-a}); faces.push_back({ a, a,-a});
-    faces.push_back({ a, a, a}); faces.push_back({-a, a, a});
-    // Bottom face
-    faces.push_back({-a,-a,-a}); faces.push_back({ a,-a,-a});
-    faces.push_back({ a,-a, a}); faces.push_back({-a,-a, a});
-    // Front face
-    faces.push_back({-a,-a, a}); faces.push_back({ a,-a, a});
-    faces.push_back({ a, a, a}); faces.push_back({-a, a, a});
-    // Back face
-    faces.push_back({-a,-a,-a}); faces.push_back({ a,-a,-a});
-    faces.push_back({ a, a,-a}); faces.push_back({-a, a,-a});
+void renderCube()
+{
+    const float a = 0.25f;                    // metade do tamanho do cubo
+    const float sphereRadius = a;             // esfera inscrita (cabe dentro do cubo)
 
     glm::mat4 view = ctx.camera.GetViewMatrix();
     glm::mat4 projection = framework::mProjection_;
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 mvp = projection * view * model;
 
+    // =============================================
+    // 1. Cubo em Wireframe (12 arestas apenas)
+    // =============================================
+    std::vector<glm::vec3> edges;
 
-    drawQuads(faces, glm::vec3(0.45f,0.13f,0.13f), mvp);
-  }
+    // Bottom face
+    edges.push_back({-a, -a, -a}); edges.push_back({ a, -a, -a});
+    edges.push_back({ a, -a, -a}); edges.push_back({ a, -a,  a});
+    edges.push_back({ a, -a,  a}); edges.push_back({-a, -a,  a});
+    edges.push_back({-a, -a,  a}); edges.push_back({-a, -a, -a});
+    // Top face
+    edges.push_back({-a,  a, -a}); edges.push_back({ a,  a, -a});
+    edges.push_back({ a,  a, -a}); edges.push_back({ a,  a,  a});
+    edges.push_back({ a,  a,  a}); edges.push_back({-a,  a,  a});
+    edges.push_back({-a,  a,  a}); edges.push_back({-a,  a, -a});
+    // Verticais
+    edges.push_back({-a, -a, -a}); edges.push_back({-a,  a, -a});
+    edges.push_back({ a, -a, -a}); edges.push_back({ a,  a, -a});
+    edges.push_back({ a, -a,  a}); edges.push_back({ a,  a,  a});
+    edges.push_back({-a, -a,  a}); edges.push_back({-a,  a,  a});
+
+    drawLines(edges, glm::vec3(0.75f, 0.22f, 0.22f), mvp, 1.8f);
+
+    // =============================================
+    // 2. Esfera Isotrópica (Fibonacci Spiral)
+    // =============================================
+    std::vector<glm::vec3> spherePoints;
+    const int numPoints = 850;                    // aumentado para melhor aparência
+    const float goldenAngle = glm::pi<float>() * (3.0f - sqrtf(5.0f)); // ~2.39996
+
+    for (int i = 0; i < numPoints; ++i)
+    {
+        float y = 1.0f - (i / float(numPoints - 1)) * 2.0f;           // de -1 a 1
+        float radius = sqrtf(1.0f - y * y);                           // raio do círculo naquela latitude
+
+        float theta = goldenAngle * i;                                // ângulo dourado
+
+        float x = radius * cosf(theta);
+        float z = radius * sinf(theta);
+
+        spherePoints.emplace_back(
+            sphereRadius * x,
+            sphereRadius * y,
+            sphereRadius * z
+        );
+    }
+
+    drawPoints(spherePoints, glm::vec3(0.95f, 0.45f, 0.45f), mvp, 2.4f);
+}
 
   /**
    * Horizontal reference grid.
@@ -592,8 +619,6 @@ void renderWavefront()
     glm::mat4 projection = framework::mProjection_;
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 mvp = projection * view * model;
-
-
 
     drawPoints(pts, glm::vec3(0.70f,0.70f,0.70f), mvp, 2.0f);
   }
@@ -742,7 +767,6 @@ void renderGizmo()
     }
 }
 
-
   /**
    * Renders 3D objects
    * A transformação MVP deve ser gerenciada pelo GUIrenderer antes de chamar esta função
@@ -803,9 +827,9 @@ void renderGizmo()
     }
     if (data3D.size() > 6 && data3D[6].getState())
     {
-      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+//      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
       renderCube();
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  //    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
     if (data3D[7].getState()) renderAxes();
     if (data3D[8].getState()) renderGrid();

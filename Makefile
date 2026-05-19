@@ -61,10 +61,10 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\interaction.obj \
 	$(OBJ_DIR)\simulation.obj \
 	$(OBJ_DIR)\utils.obj \
-	$(OBJ_DIR)\debug.obj \
 	$(OBJ_DIR)\config.obj \
 	$(OBJ_DIR)\render_pipeline.obj \
-	$(OBJ_DIR)\Renderer2D.obj
+	$(OBJ_DIR)\Renderer2D.obj \
+	$(OBJ_DIR)\geometry.obj
 
 !IF $(ENABLE_CUDA)
 
@@ -321,11 +321,11 @@ $(OBJ_DIR)\simulation.obj: src\model\simulation.cpp
 $(OBJ_DIR)\utils.obj: src\model\utils.cpp
 	$(CC) $(CFLAGS) /c src\model\utils.cpp /Fo$(OBJ_DIR)\utils.obj
 
-$(OBJ_DIR)\debug.obj: src\model\debug.cpp
-	$(CC) $(CFLAGS) /c src\model\debug.cpp /Fo$(OBJ_DIR)\debug.obj
-
 $(OBJ_DIR)\bridge.obj: src\model\bridge.cpp
 	$(CC) $(CFLAGS) /c src\model\bridge.cpp /Fo$(OBJ_DIR)\bridge.obj
+
+$(OBJ_DIR)\geometry.obj: src\model\geometry.cpp
+	$(CC) $(CFLAGS) /c src\model\geometry.cpp /Fo$(OBJ_DIR)\geometry.obj
 
 $(OBJ_DIR)\glad.obj: glad\glad.c
 	$(CC) $(CFLAGS) /c glad\glad.c /Fo$(OBJ_DIR)\glad.obj
