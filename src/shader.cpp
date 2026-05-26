@@ -6,7 +6,7 @@
 #include <cassert>
 
 // ============================================================================
-// NOVO VERT SHADER  DEBUG DEBUG
+// NEW VERT SHADER DEBUG
 // ============================================================================
 
 const char* shader2DVertex = R"(
@@ -27,7 +27,7 @@ void main()
 )";
 
 // ============================================================================
-// NOVO FRAG SHADER  DEBUG DEBUG
+// NEW FRAG SHADER DEBUG
 // ============================================================================
 
 const char* shader2DFragment = R"(
@@ -116,7 +116,7 @@ void main() {
 )";
 
 // ============================================================================
-// OIT (Order Independent Transparency) - se não for usado, pode manter
+// OIT (Order Independent Transparency) - can be kept even if unused
 // ============================================================================
 const char* oitFragmentShader = R"(
 #version 330 core
@@ -158,7 +158,7 @@ void main() {
 )";
 
 // ============================================================================
-// Transparent Plane Shader (única definição, sem duplicata)
+// Transparent Plane Shader (single definition, no duplicate)
 // ============================================================================
 const char* transparentVertexShaderSource = R"(
 #version 330 core
@@ -279,7 +279,7 @@ unsigned int compileTransparentShader() {
 }
 
 // ============================================================================
-// NOVO COMPILADOR  DEBUG DEBUG
+// NEW COMPILER DEBUG
 // ============================================================================
 
 unsigned int compileShader2D()

@@ -1,6 +1,6 @@
 /*
  * callback.cpp - UI callbacks (mouse, keyboard, scroll)
- * Scroll: perspectiva → setScrollDirection, ortográfico → ortho_scale
+ * Scroll: perspective → setScrollDirection, orthographic → ortho_scale
  */
 
 #include "GUI.h"
@@ -31,7 +31,7 @@ void toggleFullscreen(GLFWwindow* window);
 
 namespace framework {
 
-    // Variáveis do cubo de feedback (gizmo)
+    // Feedback cube variables (gizmo)
     bool showDragCube = false;
     float dragCubeX = 0.0f;
     float dragCubeY = 0.0f;
@@ -357,7 +357,7 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     bool in3D = isIn3DZone(mouseX, mouseY, gViewport[2], gViewport[3]);
 
     if (!hslider.isDragging() && !vslider.isDragging() && in3D) {
-        // Determina qual projeção está ativa
+        // Determine which projection is active
         bool usePerspective;
         if (projectRads.size() >= 2) {
             if (projectRads[0].isSelected())
@@ -371,16 +371,16 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
         }
 
         if (usePerspective) {
-            // Recupera o contexto da câmera
+            // Retrieve the camera context
             AppContext* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
             if (ctx) {
                 ctx->camera.ProcessMouseScroll((float)yoffset);
             } else {
-                // Fallback para setScrollDirection se não houver contexto
+                // Fallback to setScrollDirection if no context
                 setScrollDirection((xoffset + yoffset) > 0);
             }
         } else {
-            // Zoom ortográfico
+            // Orthographic zoom
             float delta = (yoffset > 0) ? 0.05f : -0.05f;
             gConfig.view.ortho_scale += delta;
             gConfig.view.ortho_scale = std::max(0.2f, std::min(6.0f, gConfig.view.ortho_scale));

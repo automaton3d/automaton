@@ -3,8 +3,8 @@
 
 const int BOX_SIZE = 18;
 
-// Cores fortes para fundo azul/escuro
-// Definição das variáveis estáticas - TEMA ESCURO
+// Strong colors for dark/blue background
+// Static variable definitions - DARK THEME
 glm::vec3 Tickbox::borderColor_  = glm::vec3(0.45f, 0.45f, 0.52f);
 glm::vec3 Tickbox::labelColor_   = glm::vec3(0.95f, 0.95f, 0.98f);
 glm::vec3 Tickbox::fillOn_       = glm::vec3(0.10f, 0.45f, 0.80f);
@@ -31,11 +31,11 @@ void Tickbox::draw(TextRenderer& renderer) const {
 
     float boxY = y_;
 
-    // Fundo da caixa
+    // Box background
     drawQuad2D(x_, boxY, x_ + BOX_SIZE, boxY + BOX_SIZE,
                state_ ? fillOn_ : fillOff_, P);
 
-    // Borda
+    // Border
     std::vector<glm::vec2> border = {
         {x_, boxY},
         {x_ + BOX_SIZE, boxY},
@@ -44,7 +44,7 @@ void Tickbox::draw(TextRenderer& renderer) const {
     };
     drawLineLoop2D(border, borderColor_, P, 2.0f);
 
-    // Check mark (branco forte)
+    // Check mark (bold white)
     if (state_) {
         float m = 4.0f;
         std::vector<glm::vec2> check = {

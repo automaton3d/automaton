@@ -257,7 +257,7 @@ struct NeighborResult
   // Period = 2*RMAX (= L in physics terms), amplitude = RMAX
   inline unsigned effective_t(unsigned t)
 {
-    // Oscilação triangular: 0,1,2,...,RMAX, RMAX-1,...,1,0,1,...
+    // Triangle oscillation: 0,1,2,...,RMAX, RMAX-1,...,1,0,1,...
     unsigned cycle = 2 * RMAX;
     unsigned phase = t % cycle;
     if (phase <= RMAX)
@@ -268,8 +268,8 @@ struct NeighborResult
 
 /// Cross variables ///
 extern std::vector<Cell> lattice_curr;
-extern std::vector<Cell> lattice_draft; // Adicionar ou verificar
-extern std::vector<Cell> lattice_mirror; // Adicionar ou verificar
+extern std::vector<Cell> lattice_draft; // Add or verify
+extern std::vector<Cell> lattice_mirror; // Add or verify
 
   /**
    * Tests if two vectors are equal.

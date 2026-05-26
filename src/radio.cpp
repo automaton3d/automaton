@@ -1,6 +1,6 @@
 #include "radio.h"
 
-// Definições estáticas - CORES ATUALIZADAS PARA TEMA ESCURO
+// Static definitions - DARK THEME COLORS
 
 glm::vec3 Radio::outlineColor_   = glm::vec3(0.45f, 0.45f, 0.52f);
 glm::vec3 Radio::fillColor_      = glm::vec3(0.10f, 0.45f, 0.80f);
@@ -51,11 +51,11 @@ bool Radio::contains(int mouseX, int mouseY) const {
 void Radio::drawAt(TextRenderer& renderer, int xPos, int yPos) const {
     const glm::mat4& P = proj();
 
-    // Círculo externo (borda)
+    // Outer circle (border)
     auto outline = makeCircle(xPos, yPos, RADIO_RADIUS);
     drawLineLoop2D(outline, outlineColor_, P, 2.0f);
 
-    // Preenchimento interno quando selecionado
+    // Inner fill when selected
     if (selected_) {
         auto inner = makeCircle(xPos, yPos, RADIO_RADIUS * 0.65f);
         std::vector<glm::vec2> fan;
@@ -66,7 +66,7 @@ void Radio::drawAt(TextRenderer& renderer, int xPos, int yPos) const {
         drawTriangleFan2D(fan, fillColor_, P);
     }
 
-    // Ponto central
+    // Central dot
     drawQuad2D(xPos - 1.5f, yPos - 1.5f,
                xPos + 1.5f, yPos + 1.5f,
                centerDotColor_, P);

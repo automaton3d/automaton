@@ -455,9 +455,9 @@ void renderWavefront()
 
           glm::vec3 ndc = glm::vec3(clipSpace) / clipSpace.w;
 
-          // NDC -> screen (agora SEM inverter Y!)
+          // NDC -> screen (without inverting Y)
           float screenX = (ndc.x + 1.0f) * 0.5f * gViewport[2];
-          float screenY = (1.0f - ndc.y) * 0.5f * gViewport[3];  // ← AQUI ESTÁ A CORREÇÃO!
+          float screenY = (1.0f - ndc.y) * 0.5f * gViewport[3];
 
           return glm::vec2(screenX, screenY);
       };
@@ -493,8 +493,8 @@ void renderWavefront()
 
 void renderCube()
 {
-    const float a = 0.25f;                    // metade do tamanho do cubo
-    const float sphereRadius = a;             // esfera inscrita (cabe dentro do cubo)
+    const float a = 0.25f;                    // half cube size
+    const float sphereRadius = a;             // inscribed sphere (fits inside cube)
 
     glm::mat4 view = ctx.camera.GetViewMatrix();
     glm::mat4 projection = framework::mProjection_;
@@ -502,11 +502,12 @@ void renderCube()
     glm::mat4 mvp = projection * view * model;
 
     // =============================================
-    // 1. Cubo em Wireframe (12 arestas apenas)
+    // 1. Wireframe Cube (12 edges only)
     // =============================================
     std::vector<glm::vec3> edges;
 
     // Bottom face
+    /*
     edges.push_back({-a, -a, -a}); edges.push_back({ a, -a, -a});
     edges.push_back({ a, -a, -a}); edges.push_back({ a, -a,  a});
     edges.push_back({ a, -a,  a}); edges.push_back({-a, -a,  a});
@@ -516,27 +517,27 @@ void renderCube()
     edges.push_back({ a,  a, -a}); edges.push_back({ a,  a,  a});
     edges.push_back({ a,  a,  a}); edges.push_back({-a,  a,  a});
     edges.push_back({-a,  a,  a}); edges.push_back({-a,  a, -a});
-    // Verticais
+    // Verticals
     edges.push_back({-a, -a, -a}); edges.push_back({-a,  a, -a});
     edges.push_back({ a, -a, -a}); edges.push_back({ a,  a, -a});
     edges.push_back({ a, -a,  a}); edges.push_back({ a,  a,  a});
     edges.push_back({-a, -a,  a}); edges.push_back({-a,  a,  a});
 
     drawLines(edges, glm::vec3(0.75f, 0.22f, 0.22f), mvp, 1.8f);
-
+*/
     // =============================================
-    // 2. Esfera Isotrópica (Fibonacci Spiral)
+    // 2. Isotropic Sphere (Fibonacci Spiral)
     // =============================================
     std::vector<glm::vec3> spherePoints;
-    const int numPoints = 850;                    // aumentado para melhor aparência
+    const int numPoints = 850;                    // increased for better appearance
     const float goldenAngle = glm::pi<float>() * (3.0f - sqrtf(5.0f)); // ~2.39996
 
     for (int i = 0; i < numPoints; ++i)
     {
-        float y = 1.0f - (i / float(numPoints - 1)) * 2.0f;           // de -1 a 1
-        float radius = sqrtf(1.0f - y * y);                           // raio do círculo naquela latitude
+        float y = 1.0f - (i / float(numPoints - 1)) * 2.0f;           // from -1 to 1
+        float radius = sqrtf(1.0f - y * y);                           // circle radius at this latitude
 
-        float theta = goldenAngle * i;                                // ângulo dourado
+        float theta = goldenAngle * i;                                // golden angle
 
         float x = radius * cosf(theta);
         float z = radius * sinf(theta);
@@ -630,7 +631,7 @@ void renderCube()
    * Called from renderHUD() in 2D overlay mode.
    */
 // ---------------------------------------------------------------------
-// Trecho corrigido da função renderGizmo()
+// renderGizmo() implementation
 // ---------------------------------------------------------------------
 void renderGizmo()
 {
@@ -662,9 +663,9 @@ void renderGizmo()
     gGizmoProj.cy = cy;
     gGizmoProj.radius = gizmoRadius + 10.0f;
 
-    const float r = 8.5f;   // raio das bolhas
+    const float r = 8.5f;   // handle bubble radius
 
-    // Função auxiliar para desenhar círculo vazado (apenas contorno)
+    // Helper to draw outlined circle (contour only)
     auto drawCircleOutline = [&](float centerX, float centerY, float radius, const glm::vec3& color)
     {
         const int segments = 40;
@@ -680,14 +681,14 @@ void renderGizmo()
         }
     };
 
-    // 1. Eixos e bolhas (apenas contorno)
+    // 1. Axes and handle bubbles (outline only)
     for (int axis = 0; axis < 3; ++axis)
     {
         glm::vec3 dir = glm::normalize(rawDirs[axis]);
         glm::vec3 col = colors[axis];
-        glm::vec3 faded = col * 0.6f;   // tom esmaecido para negativo
+        glm::vec3 faded = col * 0.6f;   // faded tone for negative axis
 
-        // Positivo
+        // Positive
         float centerX_pos = cx + dir.x * (gizmoRadius - r);
         float centerY_pos = cy - dir.y * (gizmoRadius - r);
         float tipX_pos = cx + dir.x * (gizmoRadius - 2.0f * r);
@@ -695,7 +696,7 @@ void renderGizmo()
         drawLine2D_new(cx, cy, tipX_pos, tipY_pos, col, col, P);
         drawCircleOutline(centerX_pos, centerY_pos, r, col);
 
-        // NEGATIVO (mesmo comprimento)
+        // NEGATIVE (same length)
         float centerX_neg = cx - dir.x * (gizmoRadius - r);
         float centerY_neg = cy + dir.y * (gizmoRadius - r);
         float tipX_neg = cx - dir.x * (gizmoRadius - 2.0f * r);
@@ -704,12 +705,12 @@ void renderGizmo()
         drawCircleOutline(centerX_neg, centerY_neg, r, faded);
 
         // ============================================================
-        // IMPORTANTE: guarda as coordenadas da bolha positiva para hit test
+        // IMPORTANT: store positive bubble coords for hit test
         // ============================================================
         gGizmoProj.ex[axis] = centerX_pos;
         gGizmoProj.ey[axis] = centerY_pos;
 
-        // Texto (centralizado, deslocado 2px para baixo)
+        // Label (centered, offset 2px down)
         float lx = centerX_pos;
         float ly_screen = centerY_pos;
         float ly_text = (float)gViewport[3] - ly_screen;
@@ -717,7 +718,7 @@ void renderGizmo()
                            0.50f, col, gViewport[2], gViewport[3]);
     }
 
-    // 2. Ponto central (sólido, com borda)
+    // 2. Central point (solid, with border)
     {
         const float originR = 4.0f;
         std::vector<glm::vec2> originDot;
@@ -728,7 +729,7 @@ void renderGizmo()
             float a = 2.0f * 3.14159265f * i / 18.0f;
             originDot.push_back({ cx + cosf(a) * originR, cy + sinf(a) * originR });
         }
-        drawTriangleFan2D(originDot, glm::vec3(0.8f), P); // preenchimento
+        drawTriangleFan2D(originDot, glm::vec3(0.8f), P); // fill
         for (int i = 0; i < 18; ++i)
         {
             int j = (i + 1) % 18;
@@ -738,13 +739,13 @@ void renderGizmo()
     }
 
     // ==================================================================
-    // 3. DESENHA O CUBO DE FEEDBACK (hover ou arrasto)
+    // 3. DRAW FEEDBACK CUBE (hover or drag)
     // ==================================================================
     if (framework::showDragCube && showGizmo)
     {
         float cubeX = framework::dragCubeX;
         float cubeY = framework::dragCubeY;
-        const float size = 18.0f;   // tamanho em pixels
+        const float size = 18.0f;   // size in pixels
 
         std::vector<glm::vec2> cubeVerts = {
             {cubeX - size/2, cubeY - size/2},
@@ -753,9 +754,9 @@ void renderGizmo()
             {cubeX - size/2, cubeY + size/2}
         };
 
-        // Preenchimento laranja
+        // Orange fill
         drawTriangleFan2D(cubeVerts, glm::vec3(1.0f, 0.5f, 0.2f), P);
-        // Borda preta
+        // Black border
         for (int i = 0; i < 4; ++i)
         {
             int j = (i + 1) % 4;
@@ -769,7 +770,7 @@ void renderGizmo()
 
   /**
    * Renders 3D objects
-   * A transformação MVP deve ser gerenciada pelo GUIrenderer antes de chamar esta função
+   * The MVP transform must be managed by GUIrenderer before calling this function
    */
   void render3DObjects()
   {

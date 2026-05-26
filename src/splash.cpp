@@ -28,7 +28,7 @@
 #include "config.h"
 #include "Renderer2D.h"
 
-// Declaração da função updateProjection do namespace framework
+// Declaration of updateProjection from the framework namespace
 namespace framework {
     void updateProjection();
 }
@@ -93,11 +93,11 @@ static void drawDarkPanel(float x, float y, float w, float h)
     Renderer2D::use();
     Renderer2D::setMVP(proj2D());
 
-    // Fundo escuro
+    // Dark background
     Renderer2D::setColor(glm::vec3(0.28f, 0.28f, 0.28f));
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
-    // Borda
+    // Border
     Renderer2D::setColor(glm::vec3(0.35f, 0.35f, 0.40f));
     glLineWidth(2.0f);
     glDrawArrays(GL_LINE_LOOP, 0, 4);
@@ -130,11 +130,11 @@ static void drawRaisedPanel(float x, float y, float w, float h)
     Renderer2D::use();
     Renderer2D::setMVP(proj2D());
 
-    // Fundo claro
+    // Light background
     Renderer2D::setColor(glm::vec3(0.85f, 0.85f, 0.90f));
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
-    // Borda
+    // Border
     Renderer2D::setColor(glm::vec3(0.70f, 0.70f, 0.80f));
     glLineWidth(2.0f);
     glDrawArrays(GL_LINE_LOOP, 0, 4);
@@ -216,7 +216,7 @@ namespace splash {
             layers.push_back(std::to_string(l));
 
         // ============================================================
-        // POSIÇÕES ORIGINAIS DOS DROPDOWNS (restauradas)
+        // ORIGINAL DROPDOWN POSITIONS (restored)
         // ============================================================
         sizeDropdown      = new Cortina(50, screenH - 280, 200, 30, sizes, 0, close_drops_callback);
         layerDropdown     = new Cortina(50, screenH - 230, 200, 30, layers, 0, close_drops_callback);
@@ -435,7 +435,7 @@ void keyCallback(GLFWwindow*, int key, int, int action, int)
             glfwGetFramebufferSize(splash::window, &w, &h);
             ProjectionManager::instance().setViewport(w, h);
             
-            // Atualiza a projeção para o viewport correto
+            // Update projection for the correct viewport
             framework::updateProjection();
             
             gConfig.simulation.scenario = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : gConfig.simulation.scenario;

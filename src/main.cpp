@@ -289,14 +289,14 @@ int main()
 
     // Verify shader linkage
     GLint success;
-    // após compilar
+    // After compiling
     colorProgram3D = compileColorShader();
 
-    // obtenha os locations UMA vez, logo após linkar o programa
+    // Get uniform locations ONCE, right after linking the program
     colorMvpLoc3D   = glGetUniformLocation(colorProgram3D, "uMVP");
     colorColorLoc3D = glGetUniformLocation(colorProgram3D, "uColor");
 
-    // verificação simples (opcional para debug)
+    // Simple verification (optional for debug)
     assert(colorMvpLoc3D   != -1 && "uMVP not found in colorProgram3D");
     assert(colorColorLoc3D != -1 && "uColor not found in colorProgram3D");
 

@@ -12,9 +12,14 @@
 #include "config.h"
 
 // ===================================================================
-// Constant memory — NÃO declarar aqui novamente!
-// Usamos apenas o que está em cuda_constants.h
+// Constant memory — defined HERE so they are in the same compilation
+// unit as the kernels (required without -dc separate compilation).
 // ===================================================================
+__constant__ unsigned dev_EL;
+__constant__ unsigned dev_W_USED;
+__constant__ unsigned dev_RMAX;
+__constant__ unsigned dev_CENTER;
+__device__   int      dev_ctrl;
 
 // Global device pointers (defined here, used by bridge)
 ::CellDevice* d_lattice_curr = nullptr;
@@ -52,7 +57,55 @@ static __device__ inline ::CellDevice& d_getCell(::CellDevice* lattice, int x, i
     return lattice[(((x * dev_EL + y) * dev_EL + z) * dev_W_USED) + w];
 }
 
-// Periodic (toroidal) wrap – matches CPU's getNeighbor
+// Spherical antipodal wrap for spatial coordinates — matches CPU's spherical_wrap()
+static __device__ void dev_spherical_wrap(int& x, int& y, int& z)
+{
+    double R = dev_EL / 2.0;
+    double C = (dev_EL - 1) / 2.0;
+
+    double dx = x - C;
+    double dy = y - C;
+    double dz = z - C;
+
+    double r = sqrt(dx*dx + dy*dy + dz*dz);
+
+    // Inside or on surface: just clamp
+    if (r <= R + 0.5) {
+        if (x < 0) x = 0;
+        if (x >= (int)dev_EL) x = (int)dev_EL - 1;
+        if (y < 0) y = 0;
+        if (y >= (int)dev_EL) y = (int)dev_EL - 1;
+        if (z < 0) z = 0;
+        if (z >= (int)dev_EL) z = (int)dev_EL - 1;
+        return;
+    }
+
+    // Outside sphere: project to surface then invert (antipodal)
+    double scale = R / r;
+
+    int anx = (int)round(dx * scale);
+    int any = (int)round(dy * scale);
+    int anz = (int)round(dz * scale);
+
+    // Antipodal inversion (through the center)
+    anx = -anx;
+    any = -any;
+    anz = -anz;
+
+    x = anx + (int)round(C);
+    y = any + (int)round(C);
+    z = anz + (int)round(C);
+
+    // Final bounds clamping
+    if (x < 0) x = 0;
+    if (x >= (int)dev_EL) x = (int)dev_EL - 1;
+    if (y < 0) y = 0;
+    if (y >= (int)dev_EL) y = (int)dev_EL - 1;
+    if (z < 0) z = 0;
+    if (z >= (int)dev_EL) z = (int)dev_EL - 1;
+}
+
+// Neighbor with spherical antipodal wrapping for spatial + periodic for W
 static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
                                            unsigned x_curr, 
                                            unsigned y_curr, 
@@ -67,10 +120,25 @@ static __device__ ::CellDevice d_getNeighbor(::CellDevice* d_curr_lattice,
         { 0, 0, 0,+1}, { 0, 0, 0,-1}
     };
 
-    int nx = ((int)x_curr + disp[i][0] + (int)dev_EL) % (int)dev_EL;
-    int ny = ((int)y_curr + disp[i][1] + (int)dev_EL) % (int)dev_EL;
-    int nz = ((int)z_curr + disp[i][2] + (int)dev_EL) % (int)dev_EL;
-    int nw = ((int)w_curr + disp[i][3] + (int)dev_W_USED) % (int)dev_W_USED;
+    int nx = (int)x_curr + disp[i][0];
+    int ny = (int)y_curr + disp[i][1];
+    int nz = (int)z_curr + disp[i][2];
+    int nw = (int)w_curr + disp[i][3];
+
+    // Antipodal spherical wrapping for spatial coordinates
+    dev_spherical_wrap(nx, ny, nz);
+
+    // Additional integer bounds guarantee
+    if (nx < 0) nx = 0;
+    if (nx >= (int)dev_EL) nx = (int)dev_EL - 1;
+    if (ny < 0) ny = 0;
+    if (ny >= (int)dev_EL) ny = (int)dev_EL - 1;
+    if (nz < 0) nz = 0;
+    if (nz >= (int)dev_EL) nz = (int)dev_EL - 1;
+
+    // Periodic wrapping for W dimension
+    nw = nw % (int)dev_W_USED;
+    if (nw < 0) nw += (int)dev_W_USED;
 
     return d_getCell(d_curr_lattice, nx, ny, nz, nw);
 }
@@ -553,7 +621,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
     ::CellDevice draft = curr;
     ::CellDevice mirror = d_getCell(d_mirror, x, y, z, w);
 
-    // Neighbors (periodic wrap)
+    // Neighbors (spherical antipodal wrap for spatial, periodic for W)
     ::CellDevice forward = d_getNeighbor(d_curr, x, y, z, w, 6); // FORWARD
     ::CellDevice north   = d_getNeighbor(d_curr, x, y, z, w, 0); // NORTH
     ::CellDevice east    = d_getNeighbor(d_curr, x, y, z, w, 1); // EAST
@@ -609,14 +677,14 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (up.a    == dev_W_USED && curr.d >= up.d)) {
                 draft.a = dev_W_USED;
             }
-            // Hunting using hB
-            if (curr.d == curr.t) {
-                if (north.hB) { draft.c[0] = (north.c[0] + 1) % dev_EL; draft.sB = !draft.hB; }
-                else if (west.hB)  { draft.c[1] = (west.c[1] + 1) % dev_EL; draft.sB = !draft.hB; }
-                else if (down.hB)  { draft.c[2] = (down.c[2] + 1) % dev_EL; draft.sB = !draft.hB; }
-                else if (south.hB) { draft.c[1] = (south.c[1] + 1) % dev_EL; draft.sB = !draft.hB; }
-                else if (east.hB)  { draft.c[0] = (east.c[0] + 1) % dev_EL; draft.sB = !draft.hB; }
-                else if (up.hB)    { draft.c[2] = (up.c[2] + 1) % dev_EL; draft.sB = !draft.hB; }
+            // Hunting using hB (matches CPU: effective_t condition, no modulo on c[])
+            if (curr.d == dev_effective_t(curr.t)) {
+                if (north.hB) { draft.c[0] = north.c[0] + 1; curr.sB = !draft.hB; }
+                else if (west.hB)  { draft.c[1] = west.c[1] + 1; curr.sB = !draft.hB; }
+                else if (down.hB)  { draft.c[2] = down.c[2] + 1; curr.sB = !draft.hB; }
+                else if (south.hB) { draft.c[1] = south.c[1] + 1; curr.sB = !draft.hB; }
+                else if (east.hB)  { draft.c[0] = east.c[0] + 1; curr.sB = !draft.hB; }
+                else if (up.hB)    { draft.c[2] = up.c[2] + 1; curr.sB = !draft.hB; }
             }
         }
         // SLOT III
@@ -669,15 +737,28 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 }
             }
         }
-        // SLOT IV
+        // SLOT IV (matches CPU: centered coordinates + clamp)
         else if (curr.k < SLOT4) {
             if (forward.kB && forward.a == curr.a) {
-                int delta_x = (curr.x[0] - forward.x[0] + dev_EL) % dev_EL;
-                int delta_y = (curr.x[1] - forward.x[1] + dev_EL) % dev_EL;
-                int delta_z = (curr.x[2] - forward.x[2] + dev_EL) % dev_EL;
-                draft.c[0] = (forward.c[0] + delta_x) % dev_EL;
-                draft.c[1] = (forward.c[1] + delta_y) % dev_EL;
-                draft.c[2] = (forward.c[2] + delta_z) % dev_EL;
+                int half = (int)dev_EL / 2;
+                int cx = (int)curr.x[0] - half;
+                int cy = (int)curr.x[1] - half;
+                int cz = (int)curr.x[2] - half;
+                int fx = (int)forward.x[0] - half;
+                int fy = (int)forward.x[1] - half;
+                int fz = (int)forward.x[2] - half;
+                int delta_x = cx - fx;
+                int delta_y = cy - fy;
+                int delta_z = cz - fz;
+                int ncx = (int)forward.c[0] + delta_x;
+                int ncy = (int)forward.c[1] + delta_y;
+                int ncz = (int)forward.c[2] + delta_z;
+                ncx = max(0, min((int)dev_EL - 1, ncx));
+                ncy = max(0, min((int)dev_EL - 1, ncy));
+                ncz = max(0, min((int)dev_EL - 1, ncz));
+                draft.c[0] = ncx;
+                draft.c[1] = ncy;
+                draft.c[2] = ncz;
                 draft.kB = forward.kB;
                 draft.cB = forward.cB;
             }
@@ -731,7 +812,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         draft.kB = 0;
         draft.hB = 0;
         draft.bB = 0;
-        if (curr.d == curr.t) {
+        if (curr.d == dev_effective_t(curr.t)) {
             if (north.d == curr.d + 1) draft.a = north.a;
             if (south.d == curr.d + 1) draft.a = south.a;
             if (east.d  == curr.d + 1) draft.a = east.a;
@@ -762,7 +843,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
             draft.t++;
         } else {
-            draft.t = (curr.t + 1) % dev_RMAX;
+            draft.t = (curr.t + 1) % (dev_RMAX + 1);
         }
     }
 
@@ -796,6 +877,70 @@ __global__ void shiftMirrorKernel(const CellDevice* src,
     unsigned src_w = (w + dev_W_USED - 1) % dev_W_USED;
     unsigned src_tid = idx3d * dev_W_USED + src_w;
     dst[tid] = src[src_tid];
+}
+
+// ===================================================================
+// CONSTANT MEMORY SETUP (must be in same .cu as kernels)
+// ===================================================================
+
+extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
+{
+    cudaError_t err;
+    unsigned CENTER = (EL - 1) / 2;
+
+    printf("Setting dev_EL = %u\n", EL);
+    err = cudaMemcpyToSymbol(dev_EL, &EL, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_EL: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+        return;
+    }
+
+    printf("Setting dev_W_USED = %u\n", W_USED);
+    err = cudaMemcpyToSymbol(dev_W_USED, &W_USED, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_W_USED: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+        return;
+    }
+
+    printf("Setting dev_RMAX = %u\n", RMAX);
+    err = cudaMemcpyToSymbol(dev_RMAX, &RMAX, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_RMAX: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+        return;
+    }
+
+    printf("Setting dev_CENTER = %u\n", CENTER);
+    err = cudaMemcpyToSymbol(dev_CENTER, &CENTER, sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_CENTER: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+        return;
+    }
+
+    int initCtrl = 1;
+    err = cudaMemcpyToSymbol(dev_ctrl, &initCtrl, sizeof(int));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_ctrl: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+        return;
+    }
+
+    printf("All constants set successfully\n");
+}
+
+extern "C" void resetCudaCtrl()
+{
+    int val = 1;
+    cudaError_t err = cudaMemcpyToSymbol(dev_ctrl, &val, sizeof(int));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error resetting dev_ctrl: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+    } else {
+        printf("dev_ctrl reset to 1\n");
+    }
 }
 
 // ===================================================================

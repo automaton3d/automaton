@@ -40,7 +40,7 @@
 #include "projection.h"
 #include "hslider.h"
 #include "projection_manager.h"
-#include "tomography.h" // Isso deve estar no topo do core.cpp
+#include "tomography.h" // This should be at the top of core.cpp
 
 // Note: If you create thread_safety.h, include it here:
 // #include "thread_safety.h"
@@ -154,7 +154,7 @@ void SimulateThread()
     gThreadReadyCV.notify_one();
 
         std::cout << "Waiting a bit for initialization...\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // dá tempo para splash/init rodar
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // give time for splash/init to run
 
         std::cout << "BLOCK = " << automaton::BLOCK 
                   << " | draft.size = " << automaton::lattice_draft.size() << std::endl;
@@ -166,7 +166,7 @@ void SimulateThread()
             std::cout << "Still skipping initial swap (lattices not ready)\n";
         }
 
-        // Versão mais segura - evita acessar variáveis não inicializadas
+        // Safer version - avoids accessing uninitialized variables
         bool canSwap = false;
         try {
             if (automaton::BLOCK > 100 && 
@@ -205,10 +205,10 @@ void SimulateThread()
             }
             else if (currentMode == SIMULATION)
             {
-                // Evolução da física
+                // Physics evolution
                 bool simResult = automaton::simulation();
 
-                // Gravação de frames (se ativa)
+                // Frame recording (if active)
                 if (simResult && framework::recordFrames) 
                 {
                     std::lock_guard<std::mutex> lock(framework::recorderMutex);
@@ -220,13 +220,13 @@ void SimulateThread()
                     framework::recorder.recordFrame(automaton::lattice_curr, currentTimer, gConfig.simulation.scenario);
                 }
 
-                // Sincronização de Buffers e Sinalização
+                // Buffer synchronization and signaling
                 {
                     std::lock_guard<std::mutex> lock(gVoxelBufferMutex);
                     automaton::updateBuffer();
                     
-                    // Apenas levanta a flag. 
-                    // O trabalho pesado de cópia será feito na thread de renderização.
+                    // Just raise the flag.
+                    // The heavy copy work will be done in the render thread.
                     tomography::requestUpdate();
                 }
 
@@ -238,7 +238,7 @@ void SimulateThread()
         }
         else
         {
-            // Se mudar a tomografia durante a pausa, atualiza uma vez
+            // If tomography changes during pause, update once
             static bool prevTomoState = false;
             bool currentTomoState = (tomoEnable && tomoEnable->getState());
             if (currentTomoState != prevTomoState)

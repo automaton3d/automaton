@@ -242,13 +242,13 @@ float textWidth =
     renderer.measureTextWidth(label_,
                               textScale);
 
-// aproximação da altura visual da fonte
+// Approximate visual font height
 float textHeight = 24.0f * textScale;
 
 float textX =
     x_ + (w_ - textWidth) * 0.5f;
 
-// centralização vertical REAL
+// Actual vertical centering
 float textY =
     screenHeight -
     (y_ + (h_ + textHeight) * 0.5f);

@@ -1,11 +1,10 @@
 #pragma once
 #include <cuda_runtime.h>
 
-extern __constant__ unsigned dev_EL;
-extern __constant__ unsigned dev_W_USED;
-extern __constant__ unsigned dev_RMAX;
-extern __constant__ unsigned dev_CENTER;
-extern __device__ int dev_ctrl;   // note: __device__
+// __constant__ and __device__ symbols are defined in cuda_automaton.cu
+// (same compilation unit as the kernels).
+// Other .cu files should NOT use these symbols directly — they are
+// only accessible to the kernel code.
 
 #ifdef __cplusplus
 extern "C" {

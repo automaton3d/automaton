@@ -4,16 +4,16 @@
 
 namespace automaton
 {
-    // Distância geodésica na esfera
+    // Geodesic distance on the sphere
     unsigned geodesicDistance(int x, int y, int z);
     
-    // Verifica se ponto está dentro da esfera
+    // Checks if point is inside the sphere
     bool isInsideSphere(int x, int y, int z);
     
-    // Reloca todas as células aleatoriamente (debug)
+    // Relocate all cells randomly (debug)
     void relocateAllWRandom();
     
-    // Wrapping antípoda
+    // Antipodal wrapping
     void spherical_wrap(int& x, int& y, int& z);
 }
 

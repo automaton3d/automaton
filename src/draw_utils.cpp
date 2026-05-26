@@ -9,7 +9,7 @@
 #include "Renderer2D.h"
 #include "projection_manager.h"
 
-// shader externo (você já deve ter isso no projeto)
+// External shader (should already exist in the project)
 extern GLint uProjLoc;
 extern GLint uColorLoc;
 
@@ -108,7 +108,7 @@ void drawLine2D_new(
     Renderer2D::use();
     Renderer2D::setMVP(mvp);
 
-    // usa somente UMA cor uniforme
+    // uses only ONE uniform color
     Renderer2D::setColor(c1);
 
     GLuint vao, vbo;
@@ -140,13 +140,13 @@ void drawLine2D_new(
     glDeleteVertexArrays(1, &vao);
 }
 
-// Note: x1,y1 é o canto superior esquerdo e x2,y2 o inferior direito
+// Note: x1,y1 is the top-left corner and x2,y2 the bottom-right
 void drawQuad2D(float x1, float y1, float x2, float y2, const glm::vec3& color, const glm::mat4& projection) {
     init();
     std::vector<glm::vec2> verts = { {x1, y1}, {x2, y1}, {x1, y2}, {x2, y2} };
     Renderer2D::use();
     Renderer2D::setMVP(ProjectionManager::instance().get2DOrtho());
-    Renderer2D::setColor(color);      // <-- USANDO O MÉTODO DO HEADER
+    Renderer2D::setColor(color);      // <-- using the header method
     glBindVertexArray(vao);
     upload(verts);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

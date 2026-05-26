@@ -136,7 +136,7 @@ void renderAboutDialog()
     drawPanel((float)paneX, (float)paneY, (float)paneW, (float)paneH,
               glm::vec3(0.05f, 0.05f, 0.1f), glm::vec3(0.4f, 0.4f, 1.0f), 2.0f, proj);
 
-    // Texto About
+    // About text
     const std::string about = "Cellular Automaton Visualizer\n\nVersion 1.0\n\n"
         "Real-time 3D cellular automaton\nwith recording, replay & tomography\n\n"
         "Built with OpenGL + GLFW\n(c) 2025";
@@ -156,18 +156,18 @@ void renderAboutDialog()
         }
     }
 
-    // Botão Close — desenhado inline (sem Button::draw)
+    // Close button — drawn inline (without Button::draw)
     const float btnW = 150.0f, btnH = 42.0f;
     float btnX = paneX + (paneW - btnW) / 2.0f;
     float btnY = paneY + paneH - 75.0f;
 
-    // Fundo + borda do botão
+    // Button background + border
     drawPanel(btnX, btnY, btnW, btnH,
               glm::vec3(0.2f, 0.4f, 0.8f),
               glm::vec3(1.0f, 1.0f, 1.0f),
               2.0f, proj);
 
-    // Texto "Close" centralizado (escala 0.7 = mesma dos textos About)
+    // Centered "Close" text (scale 0.7, same as About text)
     float closeTxtScale = 0.7f;
     float closeTxtW = hudText.measureTextWidth("Close", closeTxtScale);
     float closeTxtX = btnX + (btnW - closeTxtW) * 0.5f;
@@ -176,12 +176,12 @@ void renderAboutDialog()
     hudText.RenderText("Close", closeTxtX, closeTxtY, closeTxtScale,
                        glm::vec3(1.0f), windowWidth, windowHeight);
 
-    // Clique — GLFW dá mouseY top-down; contains() espera bottom-up
+    // Click — GLFW gives mouseY top-down; contains() expects bottom-up
     double mx_d, my_d;
     glfwGetCursorPos(glfwGetCurrentContext(), &mx_d, &my_d);
     int mx = (int)mx_d, my = (int)my_d;
 
-    // Hit-test manual (top-down coords direto)
+    // Manual hit-test (top-down coords directly)
     bool insideX = mx >= btnX && mx <= (btnX + btnW);
     bool insideY = my >= btnY && my <= (btnY + btnH);
 
@@ -238,21 +238,21 @@ void renderHUD(int screenW, int screenH)
     // --------------------------------------------------------
     renderAboutDialog();
 
-    // === PAINÉIS LATERAIS - DESENHADOS ANTES DE TUDO ===
+    // === SIDE PANELS - DRAWN BEFORE EVERYTHING ELSE ===
     const int panelPadding = 60;
     const int bottomMargin = 170;
 
     int leftH  = screenH - bottomMargin;
     int rightH = screenH - bottomMargin;
 
-    glm::vec3 panelBg       = glm::vec3(0.042f, 0.042f, 0.068f);   // um pouco mais profundo
-    glm::vec3 panelBorder   = glm::vec3(0.28f, 0.31f, 0.42f);      // borda mais refinada
+    glm::vec3 panelBg       = glm::vec3(0.042f, 0.042f, 0.068f);   // slightly deeper
+    glm::vec3 panelBorder   = glm::vec3(0.28f, 0.31f, 0.42f);      // refined border
     glm::vec3 panelBorderHL = glm::vec3(0.48f, 0.52f, 0.65f);      // highlight sutil (opcional)
 
-    // Painel esquerdo
+    // Left panel
     drawPanel(35, panelPadding, 170, leftH, panelBg, panelBorder, 2.0f, P);
 
-    // Painel direito
+    // Right panel
     drawPanel(screenW - 260, panelPadding, 250, rightH, panelBg, panelBorder, 2.0f, P);
                 
     if (scenarioHelpToggle &&
@@ -373,7 +373,7 @@ void renderHyperlink()
     if (w <= 0 || h <= 0)
         return;
 
-    // Reposiciona no centro-inferior a cada frame
+    // Reposition at bottom-center each frame
     const float linkW = 100.0f;
     const float linkH = 30.0f;
     float linkX = (w - linkW) / 2.0f;

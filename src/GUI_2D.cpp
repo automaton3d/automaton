@@ -43,7 +43,7 @@ namespace framework
 
     extern TextRenderer hudText;
 
-    // Referências a variáveis declaradas em GUI.cpp e globals.h
+    // References to variables declared in GUI.cpp and globals.h
     extern bool showHelp;
     extern std::vector<std::string> scenarioHelpTexts;
     extern HSlider hslider;
