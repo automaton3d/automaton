@@ -1,20 +1,15 @@
 /*
  * simulation.cpp
- * Implements the main functionality of the FSM (Finite State Machine).
- * Core is 100% integer - no floats in simulation logic.
- * Floating-point operations are only used in auxiliary geometry functions.
+ * Implements the main functionality of the FSM.
  */
 
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include <thread>
 #include <cassert>
 #include <chrono>
 #include <algorithm>
 #include <array>
-
+#include <cstring>
 #include "model/simulation.h"
-#include "model/geometry.h"
 #include "config.h"
 
 #ifdef USE_CUDA
@@ -28,112 +23,179 @@ namespace automaton
   using namespace std;
 
   // Grid constants
-  unsigned EL;               // Edge length of cube [0, EL-1]
-  unsigned W_DIM;            // W dimension size
-  unsigned W_USED;           // Number of active W layers
-  unsigned L2;               // EL * EL
-  unsigned L3 = 0;           // EL * EL * EL
-  unsigned long BLOCK = 0;   // Total cells = L3 * W_USED
-  unsigned DIAG = 0;         // Diagonal length
-  unsigned RMAX = 0;         // Maximum radius (sphere radius)
-  unsigned CONTRACT = 0;     // Contraction threshold
-  unsigned UPDATE = 0;       // Update counter
-  unsigned CONVOL = 0;       // Convolution phase duration
-
-  // Slot timing constants (phase boundaries)
+  unsigned EL;
+  unsigned W_DIM;
+  unsigned W_USED;
+  unsigned L2;
+  unsigned L3 = 0;
+  unsigned long BLOCK = 0;
+  unsigned DIAG = 0;
+  unsigned RMAX = 0;
+  unsigned CONTRACT = 0;
+  unsigned UPDATE = 0;
+  unsigned CONVOL = 0;
   unsigned GSLOT_X = 0, GSLOT_Y = 0, GSLOT_Z = 0;
-
   unsigned SLOT1 = 0, SLOT2 = 0, SLOT3 = 0, SLOT4 = 0, SLOT5 = 0;
   unsigned SLOT6 = 0, SLOT7 = 0, SLOT8 = 0;
+  unsigned DIFFUSION = 0;
+  unsigned RELOC = 0;
+  unsigned REISSUE = 0;
+  unsigned FLOOD = 0;
+  unsigned FRAME = 0;
+  unsigned ORDER;
+  unsigned CENTER;
+  unsigned FCENTER;
+  unsigned int pulse_tick = 0;
 
-  unsigned DIFFUSION = 0;    // Start of diffusion phase
-  unsigned RELOC = 0;        // Start of relocation phase
-  unsigned REISSUE = 0;      // Start of reissue phase
-  unsigned FLOOD = 0;        // Start of flood phase
-  unsigned FRAME = 0;        // Total frame length (one full cycle)
+  // Lattices
+  std::vector<Cell> lattice_curr;
+  std::vector<Cell> lattice_draft;
+  std::vector<Cell> lattice_mirror;
 
-  unsigned ORDER;            // Log2(EL)
-  unsigned CENTER;           // Center coordinate (EL-1)/2
-  unsigned FCENTER;          // Floating-point center (EL/2.0)
-
-  // The CA lattices
-  std::vector<Cell> lattice_curr;    // Current state
-  std::vector<Cell> lattice_draft;   // Next state (being computed)
-  std::vector<Cell> lattice_mirror;  // Mirror state for convolution
-
-  string lastAllocationError;        // Last memory allocation error message
-
-  // Layer tracking - stores center position for each W layer
+  string lastAllocationError;
   std::vector<std::array<unsigned, 3>> lcenters;
 
-  /**
-   * Tracks the center of a bubble for a given layer.
-   * Called when a cell with d==0 is found (wavefront center).
-   * This allows bubble centers to move during simulation.
-   * 
-   * @param x,y,z Coordinates of the center
-   * @param w Layer index
-   */
-  void trackCenter(unsigned x, unsigned y, unsigned z, unsigned w)
+  // ============================================================
+  // SPHERICAL (ANTIPODAL) WRAPPING
+  // ============================================================
+
+  inline void spherical_wrap(int& x, int& y, int& z, int& w)
   {
-      // Update bubble center for this layer to where d==0 is
-      // This enables bubble movement during simulation
-      lcenters[w][0] = x;
-      lcenters[w][1] = y;
-      lcenters[w][2] = z;
+    if (x < 0 || x >= (int)EL ||
+        y < 0 || y >= (int)EL ||
+        z < 0 || z >= (int)EL ||
+        w < 0 || w >= (int)W_USED)
+    {
+        x = EL - 1 - x;
+        y = EL - 1 - y;
+        z = EL - 1 - z;
+        w = W_USED - 1 - w;
+
+        x = (x % (int)EL + EL) % EL;
+        y = (y % (int)EL + EL) % EL;
+        z = (z % (int)EL + EL) % EL;
+        w = (w % (int)W_USED + W_USED) % W_USED;
+    }
   }
 
-  /**
-   * Executes one simulation tick on CPU.
-   * 100% integer operations - no floating point.
-   * Processes all cells in all layers using von Neumann neighborhood
-   * with antipodal spherical wrapping.
-   */
+  void trackCenter(unsigned x, unsigned y, unsigned z, unsigned w)
+  {
+    lcenters[w][0] = x;
+    lcenters[w][1] = y;
+    lcenters[w][2] = z;
+  }
+
+  // ============================================================
+  // PULSATING SPHERE — BFS WAVEFRONT PROPAGATION
+  // ============================================================
+
+  void update_pulsating_wavefront()
+  {
+    // Copy current r2 values into draft
+    for (size_t i = 0; i < BLOCK; ++i)
+        lattice_draft[i].r2 = lattice_curr[i].r2;
+
+    for (unsigned w = 0; w < W_USED; ++w)
+    for (unsigned x = 0; x < EL; ++x)
+    for (unsigned y = 0; y < EL; ++y)
+    for (unsigned z = 0; z < EL; ++z)
+    {
+        Cell &curr = getCell(lattice_curr, x, y, z, w);
+
+        if (curr.r2 == INF_R2)
+            continue;
+
+        int MID = (int)CENTER;
+
+        unsigned ax = (x > (unsigned)MID) ? (x - MID) : (MID - x);
+        unsigned ay = (y > (unsigned)MID) ? (y - MID) : (MID - y);
+        unsigned az = (z > (unsigned)MID) ? (z - MID) : (MID - z);
+
+        // 6-connected spatial neighbors (no w propagation)
+        static const int offsets[6][3] = {
+            {+1,0,0}, {-1,0,0},
+            {0,+1,0}, {0,-1,0},
+            {0,0,+1}, {0,0,-1}
+        };
+
+        for (int dir = 0; dir < 6; ++dir)
+        {
+            int nx = (int)x + offsets[dir][0];
+            int ny = (int)y + offsets[dir][1];
+            int nz = (int)z + offsets[dir][2];
+
+            if (nx < 0 || nx >= (int)EL ||
+                ny < 0 || ny >= (int)EL ||
+                nz < 0 || nz >= (int)EL)
+                continue;
+
+            // Incremental r2 difference
+            unsigned diff;
+            if (dir < 2)
+                diff = 2 * ax + 1;
+            else if (dir < 4)
+                diff = 2 * ay + 1;
+            else
+                diff = 2 * az + 1;
+
+            unsigned int new_r2 = curr.r2 + diff;
+
+            Cell &nxt = getCell(lattice_draft, nx, ny, nz, w);
+
+            if (new_r2 < nxt.r2)
+                nxt.r2 = new_r2;
+        }
+    }
+
+    // Ensure center stays at 0
+    for (unsigned w = 0; w < W_USED; ++w)
+        getCell(lattice_draft, CENTER, CENTER, CENTER, w).r2 = 0;
+
+    // Copy r2 back to curr
+    for (size_t i = 0; i < BLOCK; ++i)
+        lattice_curr[i].r2 = lattice_draft[i].r2;
+  }
+
+  // ============================================================
+  // CPU UPDATE — BFS + interaction FSM
+  // ============================================================
+
   void update_lattice_cpu()
   {
+    // Phase 1: BFS propagation of r2 (replaces ad-hoc d initialization)
+    update_pulsating_wavefront();
+    pulse_tick++;
+
+    // Phase 2: FSM interaction loop (uses r2 instead of d)
     for (unsigned w = 0; w < W_USED; ++w)
     {
-      // Debug delays (for visualization)
-      if (w == 0)
-      {
-        const Cell& first = lattice_curr.front();
+        if (w == 0)
+        {
+            const Cell& first = lattice_curr.front();
+            if (gConfig.delays.convol && first.k < CONVOL)
+                std::this_thread::sleep_for(std::chrono::milliseconds(120));
+            else if (diffuse_delay && first.k >= CONVOL && first.k < DIFFUSION)
+                std::this_thread::sleep_for(std::chrono::milliseconds(80));
+            else if (reloc_delay && first.k >= DIFFUSION && first.k < RELOC)
+                std::this_thread::sleep_for(std::chrono::milliseconds(120));
+        }
 
-        if (convol_delay && first.k < CONVOL)
-        {
-          std::this_thread::sleep_for(
-              std::chrono::milliseconds(120));
-        }
-        else if (diffuse_delay &&
-                 first.k >= CONVOL &&
-                 first.k < DIFFUSION)
-        {
-          std::this_thread::sleep_for(
-              std::chrono::milliseconds(80));
-        }
-        else if (reloc_delay &&
-                 first.k >= DIFFUSION &&
-                 first.k < RELOC)
-        {
-          std::this_thread::sleep_for(
-              std::chrono::milliseconds(120));
-        }
-      }
-
-      // Sweep entire 3D domain - ALL cells are processed
-      for (unsigned x = 0; x < EL; ++x)
-      {
+        for (unsigned x = 0; x < EL; ++x)
         for (unsigned y = 0; y < EL; ++y)
+        for (unsigned z = 0; z < EL; ++z)
         {
-          for (unsigned z = 0; z < EL; ++z)
-          {
-            // Work with all cells - no filtering!
-            Cell &curr   = getCell(lattice_curr,   x, y, z, w);
-            Cell &draft  = getCell(lattice_draft,  x, y, z, w);
+            Cell &curr   = getCell(lattice_curr, x, y, z, w);
+            Cell &draft  = getCell(lattice_draft, x, y, z, w);
             Cell &mirror = getCell(lattice_mirror, x, y, z, w);
 
             draft = curr;
 
-            // Neighbors with antipodal wrapping (auxiliary function)
+            // Ensure correct coordinates
+            curr.x[0] = x;
+            curr.x[1] = y;
+            curr.x[2] = z;
+            curr.x[3] = w;
+
             Cell &forward = curr.getNeighbor(FORWARD);
             Cell &north   = curr.getNeighbor(NORTH);
             Cell &west    = curr.getNeighbor(WEST);
@@ -142,259 +204,120 @@ namespace automaton
             Cell &east    = curr.getNeighbor(EAST);
             Cell &up      = curr.getNeighbor(UP);
 
-            /****** CONVOLUTION PHASE - Wavefront interaction ******/
-            if (curr.k < CONVOL)
-            {
-              convolute(curr, draft, mirror);
+            if (curr.k < CONVOL) {
+                convolute(curr, draft, mirror);
+            } else if (curr.k < GSLOT_Z) {
+                // glider slots
+            } else if (curr.k < DIFFUSION) {
+                diffuse(curr, draft, forward, north, west, down, south, east, up);
+            } else if (curr.k < RELOC) {
+                relocate(curr, draft, north, west, down);
+            } else if (curr.k < REISSUE) {
+                reissue(curr, draft, forward, north, west, down, south, east, up);
+            } else if (curr.k < FLOOD) {
+                flood(curr, draft, forward, north, west, down, south, east, up);
             }
 
-            /****** DIFFUSION PHASE - Propagate state through lattice ******/
-            else if (curr.k < DIFFUSION)
-            {
-              diffuse(curr, draft,
-                      forward,
-                      north,
-                      west,
-                      down,
-                      south,
-                      east,
-                      up);
+            if (curr.r2 == 0) {
+                trackCenter(x, y, z, w);
             }
 
-            /****** RELOCATION PHASE - Physical bubble movement ******/
-            else if (curr.k < RELOC)
-            {
-              relocate(curr, draft,
-                       north,
-                       west,
-                       down);
-            }
-
-            /****** REISSUE PHASE - Wavefront regeneration ******/
-            else if (curr.k < REISSUE)
-            {
-              reissue(curr, draft,
-                      forward,
-                      north,
-                      west,
-                      down,
-                      south,
-                      east,
-                      up);
-            }
-
-            /****** FLOOD PHASE - Time equalization ******/
-            else if (curr.k < FLOOD)
-            {
-              flood(curr, draft,
-                    forward,
-                    north,
-                    west,
-                    down,
-                    south,
-                    east,
-                    up);
-            }
-
-            /****** TRACK CENTER - Update bubble center position ******/
-            if (curr.d == 0)
-            {
-              trackCenter(x, y, z, w);
-            }
-
-            /****** UPDATE COUNTERS - Increment time counters ******/
-
-            // Tick counter (k) - cycles through FRAME
             draft.k = (curr.k + 1) % FRAME;
 
-            // Light counter (t) - wavefront phase
-            if (draft.k == 0)
-            {
-              if (curr.a == W_USED && curr.t <= RMAX)
-              {
-                draft.t = curr.t + 1;  // Orphan continues expanding
-              }
-              else
-              {
-                draft.t = (curr.t + 1) % (RMAX + 1);  // Normal oscillation
-              }
+            if (draft.k == 0) {
+                if (curr.a == W_USED && curr.t <= RMAX)
+                    draft.t++;
+                else
+                    draft.t = (curr.t + 1) % (2 * RMAX);
             }
-          }
         }
-      }
     }
   }
 
-  /**
-   * Main lattice update dispatcher.
-   * Routes to CPU or CUDA implementation based on configuration.
-   */
   void update_lattice()
   {
 #ifdef USE_CUDA
-    if (isCudaEnabled())
-    {
-      cudaSimulationStepWrapper();
-      return;
+    if (isCudaEnabled()) {
+        cudaSimulationStepWrapper();
+        return;
     }
 #endif
-
     update_lattice_cpu();
   }
 
-  /**
-   * Swaps lattices after update (CPU version).
-   * Copies draft to current, updates mirror state.
-   * 
-   * @return true if a new light frame started (k == 0)
-   */
   bool swap_lattices_cpu()
   {
+    if (BLOCK == 0 || lattice_curr.empty())
+        return false;
+
     bool newLightFrame = false;
 
-    // Copy draft to current (commit next state)
     std::copy(
         lattice_draft.begin(),
         lattice_draft.begin() + BLOCK,
         lattice_curr.begin());
 
-    Cell &repr =
-        getCell(lattice_curr, 0, 0, 0, 0);
+    Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
 
-    // New frame starts when k wraps to 0
     if (repr.k == 0)
     {
-      // Update mirror lattice with current state
       for (unsigned w = 0; w < W_USED; ++w)
+      for (unsigned x = 0; x < EL; ++x)
+      for (unsigned y = 0; y < EL; ++y)
+      for (unsigned z = 0; z < EL; ++z)
       {
-        for (unsigned x = 0; x < EL; ++x)
-        {
-          for (unsigned y = 0; y < EL; ++y)
-          {
-            for (unsigned z = 0; z < EL; ++z)
-            {
-              Cell &curr =
-                  getCell(lattice_curr,
-                          x, y, z, w);
-
-              Cell &mirror =
-                  getCell(lattice_mirror,
-                          x, y, z, w);
-
-              mirror = curr;
-
-              // Reset convolution field to current time
-              mirror.f = mirror.t;
-            }
-          }
-        }
+          Cell &curr = getCell(lattice_curr, x, y, z, w);
+          Cell &mirror = getCell(lattice_mirror, x, y, z, w);
+          mirror = curr;
+          mirror.f = mirror.t;
       }
-
       newLightFrame = true;
     }
 
-    // Shift mirror during convolution phase
     if (repr.k < CONVOL)
-    {
-      shiftMirror();
-    }
+        shiftMirror();
 
     return newLightFrame;
   }
 
-  /**
-   * Lattice swap dispatcher.
-   * Routes to CPU or CUDA implementation.
-   * 
-   * @return true if a new light frame started
-   */
   bool swap_lattices()
   {
 #ifdef USE_CUDA
-    if (isCudaEnabled())
-    {
-      Cell &repr =
-          getCell(lattice_curr,
-                  0, 0, 0, 0);
-
-      return (repr.k == 0);
+    if (isCudaEnabled()) {
+        Cell &repr = getCell(lattice_curr, 0, 0, 0, 0);
+        return (repr.k == 0);
     }
 #endif
-
     return swap_lattices_cpu();
   }
 
-  /**
-   * One complete simulation step.
-   * Updates lattice and swaps buffers.
-   * 
-   * @return true if a new light frame started
-   */
   bool simulation()
   {
     update_lattice();
     return swap_lattices();
   }
 
+  // ============================================================
+  // Neighbor accessor
+  // ============================================================
 
-  /**
-   * Finds neighbor in one of eight von Neumann directions.
-   * Uses corrected spherical antipodal wrapping geometry adapted per layer.
-   * 
-   * Directions:
-   *   0: FORWARD  (x+1)
-   *   1: BACKWARD (x-1)
-   *   2: NORTH    (y+1)
-   *   3: SOUTH    (y-1)
-   *   4: UP       (z+1)
-   *   5: DOWN     (z-1)
-   *   6: W+1      (w+1)
-   *   7: W-1      (w-1)
-   * 
-   * @param i Direction index (0-7)
-   * @return Reference to neighbor cell
-   */
   Cell &Cell::getNeighbor(int i)
   {
     static int disp[8][4] =
     {
-        {+1,  0,  0,  0},  // FORWARD  (x+1)
-        {-1,  0,  0,  0},  // BACKWARD (x-1)
-        { 0, +1,  0,  0},  // NORTH    (y+1)
-        { 0, -1,  0,  0},  // SOUTH    (y-1)
-        { 0,  0, +1,  0},  // UP       (z+1)
-        { 0,  0, -1,  0},  // DOWN     (z-1)
-        { 0,  0,  0, +1},  // W+1
-        { 0,  0,  0, -1}   // W-1
+        {+1,0,0,0},{-1,0,0,0},
+        {0,+1,0,0},{0,-1,0,0},
+        {0,0,+1,0},{0,0,-1,0},
+        {0,0,0,+1},{0,0,0,-1}
     };
 
-    int nx = (int)x[0] + disp[i][0];
-    int ny = (int)x[1] + disp[i][1];
-    int nz = (int)x[2] + disp[i][2];
-    int nw = (int)x[3] + disp[i][3];
+    int nx = x[0] + disp[i][0];
+    int ny = x[1] + disp[i][1];
+    int nz = x[2] + disp[i][2];
+    int nw = x[3] + disp[i][3];
 
-    // Apply antipodal wrapping ONLY for spatial coordinates (x, y, z)
-    spherical_wrap(nx, ny, nz);  // Only 3 arguments!
+    spherical_wrap(nx, ny, nz, nw);
 
-    // Additional integer bounds guarantee for spatial coordinates
-    if (nx < 0) nx = 0;
-    if (nx >= (int)EL) nx = (int)EL - 1;
-    if (ny < 0) ny = 0;
-    if (ny >= (int)EL) ny = (int)EL - 1;
-    if (nz < 0) nz = 0;
-    if (nz >= (int)EL) nz = (int)EL - 1;
-
-    // Periodic wrapping for W dimension (separate from spatial)
-    nw = nw % (int)W_USED;
-    if (nw < 0) nw += (int)W_USED;
-
-    // Safety assertions - should never fail after correct wrapping
-    assert(nx >= 0 && nx < (int)EL);
-    assert(ny >= 0 && ny < (int)EL);
-    assert(nz >= 0 && nz < (int)EL);
-    assert(nw >= 0 && nw < (int)W_USED);
-
-    return getCell(lattice_curr, (unsigned)nx, (unsigned)ny, (unsigned)nz, (unsigned)nw);
+    return getCell(lattice_curr, nx, ny, nz, nw);
   }
-
-}
+} // namespace automaton

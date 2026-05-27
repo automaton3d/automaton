@@ -25,7 +25,6 @@
 #include "cuda/cuda_common.h"     // CellDevice
 #include "model/simulation.h"     // automaton::Cell, getCell (no OpenGL)
 #include "config.h"
-#include "cuda_constants.h"       // for resetCudaCtrl
 
 #include <cstdio>
 #include <vector>
@@ -34,6 +33,9 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
+
+// Implemented in cuda_constants.cu
+extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX);
 
 // -----------------------------------------------------------------
 // Extern declarations for symbols defined in .cpp files that CAN
@@ -107,7 +109,7 @@ static void convertCellToCellDevice(const automaton::Cell& src,
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<uint32_t>(src.x[i]);
 
-    dst.d    = static_cast<uint32_t>(src.d);
+    dst.r2   = static_cast<uint32_t>(src.r2);
     dst.phiB = src.phiB ? 1 : 0;
     dst.t    = static_cast<uint32_t>(src.t);
     dst.f    = static_cast<uint32_t>(src.f);
@@ -139,7 +141,7 @@ static void convertCellDeviceToCell(const CellDevice& src,
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<unsigned>(src.x[i]);
 
-    dst.d    = static_cast<unsigned>(src.d);
+    dst.r2   = static_cast<unsigned>(src.r2);
     dst.phiB = (src.phiB != 0);
     dst.t    = static_cast<unsigned>(src.t);
     dst.f    = static_cast<unsigned>(src.f);
@@ -175,9 +177,6 @@ bool initializeCudaSimulation()
     }
 
     setCudaConstants(automaton::EL, automaton::W_USED, automaton::RMAX);
-    printf("EL=%u, W_USED=%u, RMAX=%u\n", automaton::EL, automaton::W_USED, automaton::RMAX);
-    // Reset the one‑shot control flag for scenarios 1‑5
-    resetCudaCtrl();
 
     size_t totalCells = (size_t)automaton::EL * automaton::EL *
                         automaton::EL * automaton::W_USED;
@@ -217,7 +216,7 @@ static void downloadAndSync()
         for (unsigned z = 0; z < automaton::EL; ++z) {
             const automaton::Cell& cell =
                 automaton::getCell(automaton::lattice_curr, x, y, z, w);
-            if (cell.d == 0)
+            if (cell.r2 == 0)
                 updateLCenter(w, x, y, z);
         }
     } else {
@@ -278,6 +277,9 @@ void cudaSimulationStepWrapper()
             timer++;
         }
     }
+
+    // Advance pulsation tick (mirrors CPU's pulse_tick++ in update_lattice_cpu)
+    automaton::pulse_tick++;
 
     // Final download (always needed)
     downloadAndSync();

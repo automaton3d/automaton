@@ -239,7 +239,6 @@ void spherical_wrap_xxxxx(int& x, int& y, int& z)
                             dst.phiB = src.phiB;
                             dst.t = src.t;
                             dst.f = src.f;
-                            dst.d = src.d;
                             dst.s2B = src.s2B;
                             dst.kB = src.kB;
                             dst.bB = src.bB;
