@@ -23,6 +23,8 @@ extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX);
 static bool useCuda = false;
 #endif
 
+void updateBufferSimple();
+
 namespace automaton
 {
     extern unsigned EL;
@@ -367,8 +369,7 @@ void updateBufferCPU()
         {
             color = makeColor(255, 80, 80, 255);   // Red
         }
-        else if (cell.r2 != INF_R2 &&
-            cell.r2 == pulse_r2)
+        else if (cell.r2 != INF_R2 && cell.r2 == pulse_r2)
         {
             // Shell at current pulsation threshold
             color = makeColor(255, 255, 80, 255);  // Yellow
@@ -394,7 +395,8 @@ void updateBufferCPU()
 
 void automaton::updateBuffer()
 {
-    updateBufferCPU();
+    //updateBufferCPU();
+    updateBufferSimple();
 }
 
 #else

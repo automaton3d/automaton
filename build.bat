@@ -49,6 +49,7 @@ rem =====================================
 :build
 echo === Building (CPU) ===
 nmake
+if errorlevel 1 goto end
 goto end
 
 rem =====================================
@@ -67,6 +68,7 @@ rem =====================================
 :cuda
 echo === Building (CUDA ENABLED) ===
 nmake USE_CUDA=1
+if errorlevel 1 goto end
 goto end
 
 rem =====================================
@@ -95,16 +97,17 @@ if errorlevel 1 goto end
 goto execute
 
 rem =====================================
-rem RUN
+rem RUN (Corrigido)
 rem =====================================
 
 :run
+echo === Checking Build Status ===
 
-if not exist build\automaton.exe (
-	echo Executable not found. Building first...
-	nmake
-	if errorlevel 1 goto end
-)
+rem Chama o nmake sempre. 
+rem Se o Makefile estiver correto (dependências de tempo), 
+rem ele só recompilará o que mudou e será instantâneo se estiver tudo atualizado.
+nmake
+if errorlevel 1 goto end
 
 goto execute
 

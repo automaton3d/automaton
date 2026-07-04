@@ -63,6 +63,8 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\utils.obj \
 	$(OBJ_DIR)\config.obj \
 	$(OBJ_DIR)\render_pipeline.obj \
+	$(OBJ_DIR)\ac_project\bridge_simple.obj \
+	$(OBJ_DIR)\ac_project\core_sphere.obj \
 	$(OBJ_DIR)\Renderer2D.obj \
 	$(OBJ_DIR)\geometry.obj
 
@@ -79,8 +81,8 @@ EXTRA_NVCCFLAGS = -D "USE_CUDA"
 
 !ELSE
 
-OBJ = $(OBJ_COMMON) \
-	  $(OBJ_DIR)\bridge.obj
+# Modo CPU: Usa apenas bridge_simple e core_sphere
+OBJ = $(OBJ_COMMON)
 
 EXTRA_CPPFLAGS =
 EXTRA_NVCCFLAGS =
@@ -101,12 +103,14 @@ CUDA_LIB = "$(CUDA_PATH)/lib/x64"
 INCLUDES_MSVC = \
 	/I"src\include" \
 	/I"src\include\zlib" \
+	/I"src\include\ac_project" \
 	/I"src" \
 	/I"$(VCPKG_ROOT)/include"
 
 INCLUDES_NVCC = \
 	-I"src\include" \
 	-I"src\include\zlib" \
+	-I"src\include\ac_project" \
 	-I"src" \
 	-I"$(VCPKG_ROOT)/include" \
 	-I"src\include\zlib\cuda" \
@@ -167,6 +171,7 @@ all: dirs $(BUILD_DIR)\$(TARGET) dlls copy_config
 dirs:
 	if not exist "$(BUILD_DIR)" mkdir "$(BUILD_DIR)"
 	if not exist "$(OBJ_DIR)" mkdir "$(OBJ_DIR)"
+	if not exist "$(OBJ_DIR)\ac_project" mkdir "$(OBJ_DIR)\ac_project"
 
 $(BUILD_DIR)\$(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) /Fe:$(BUILD_DIR)\$(TARGET) /out:$(BUILD_DIR)\$(TARGET)
@@ -177,10 +182,10 @@ $(BUILD_DIR)\$(TARGET): $(OBJ)
 
 !IF $(ENABLE_CUDA)
 
-$(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu
+$(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu src\cuda\cuda_sim_optimized.h
 	$(NVCC) $(NVCC_FLAGS) -o $@ $**
 
-$(OBJ_DIR)\cuda_automaton.obj: src\cuda\cuda_automaton.cu
+$(OBJ_DIR)\cuda_automaton.obj: src\cuda\cuda_automaton.cu src\cuda\cuda_sim_optimized.h
 	$(NVCC) $(NVCC_FLAGS) -o $@ $**
 
 $(OBJ_DIR)\cuda_constants.obj: src\cuda\cuda_constants.cu
@@ -189,149 +194,158 @@ $(OBJ_DIR)\cuda_constants.obj: src\cuda\cuda_constants.cu
 !ENDIF
 
 # ================================================
-# Regras explícitas
+# Regras explícitas (Com dependências de cabeçalho)
 # ================================================
 
-$(OBJ_DIR)\button.obj: src\button.cpp
+# --- GUI & Core ---
+$(OBJ_DIR)\button.obj: src\button.cpp src\include\button.h
 	$(CC) $(CFLAGS) /c src\button.cpp /Fo$(OBJ_DIR)\button.obj
 
-$(OBJ_DIR)\config.obj: src\config.cpp
+$(OBJ_DIR)\config.obj: src\config.cpp src\include\config.h
 	$(CC) $(CFLAGS) /c src\config.cpp /Fo$(OBJ_DIR)\config.obj
 
-$(OBJ_DIR)\callback.obj: src\callback.cpp
+$(OBJ_DIR)\callback.obj: src\callback.cpp src\include\callbacks.h
 	$(CC) $(CFLAGS) /c src\callback.cpp /Fo$(OBJ_DIR)\callback.obj
 
-$(OBJ_DIR)\camera.obj: src\camera.cpp
+$(OBJ_DIR)\camera.obj: src\camera.cpp src\include\camera.h
 	$(CC) $(CFLAGS) /c src\camera.cpp /Fo$(OBJ_DIR)\camera.obj
 
-$(OBJ_DIR)\core.obj: src\core.cpp
+$(OBJ_DIR)\core.obj: src\core.cpp src\include\core.h
 	$(CC) $(CFLAGS) /c src\core.cpp /Fo$(OBJ_DIR)\core.obj
 
-$(OBJ_DIR)\cortina.obj: src\cortina.cpp
+$(OBJ_DIR)\cortina.obj: src\cortina.cpp src\include\cortina.h
 	$(CC) $(CFLAGS) /c src\cortina.cpp /Fo$(OBJ_DIR)\cortina.obj
 
-$(OBJ_DIR)\draw_utils.obj: src\draw_utils.cpp
+$(OBJ_DIR)\draw_utils.obj: src\draw_utils.cpp src\include\draw_utils.h
 	$(CC) $(CFLAGS) /c src\draw_utils.cpp /Fo$(OBJ_DIR)\draw_utils.obj
 
-$(OBJ_DIR)\dropdown.obj: src\dropdown.cpp
+$(OBJ_DIR)\dropdown.obj: src\dropdown.cpp src\include\dropdown.h
 	$(CC) $(CFLAGS) /c src\dropdown.cpp /Fo$(OBJ_DIR)\dropdown.obj
 
-$(OBJ_DIR)\globals.obj: src\globals.cpp
+$(OBJ_DIR)\globals.obj: src\globals.cpp src\include\globals.h
 	$(CC) $(CFLAGS) /c src\globals.cpp /Fo$(OBJ_DIR)\globals.obj
 
-$(OBJ_DIR)\GUI.obj: src\GUI.cpp
+$(OBJ_DIR)\GUI.obj: src\GUI.cpp src\include\GUI.h
 	$(CC) $(CFLAGS) /c src\GUI.cpp /Fo$(OBJ_DIR)\GUI.obj
 
-$(OBJ_DIR)\GUI_2D.obj: src\GUI_2D.cpp
+$(OBJ_DIR)\GUI_2D.obj: src\GUI_2D.cpp src\include\GUI.h
 	$(CC) $(CFLAGS) /c src\GUI_2D.cpp /Fo$(OBJ_DIR)\GUI_2D.obj
 
-$(OBJ_DIR)\GUI_3D.obj: src\GUI_3D.cpp
+$(OBJ_DIR)\GUI_3D.obj: src\GUI_3D.cpp src\include\GUI.h src\include\voxel.h
 	$(CC) $(CFLAGS) /c src\GUI_3D.cpp /Fo$(OBJ_DIR)\GUI_3D.obj
 
-$(OBJ_DIR)\GUI_Init.obj: src\GUI_Init.cpp
+$(OBJ_DIR)\GUI_Init.obj: src\GUI_Init.cpp src\include\GUI.h
 	$(CC) $(CFLAGS) /c src\GUI_Init.cpp /Fo$(OBJ_DIR)\GUI_Init.obj
 
-$(OBJ_DIR)\GUI_Panels.obj: src\GUI_Panels.cpp
+$(OBJ_DIR)\GUI_Panels.obj: src\GUI_Panels.cpp src\include\GUI.h
 	$(CC) $(CFLAGS) /c src\GUI_Panels.cpp /Fo$(OBJ_DIR)\GUI_Panels.obj
 
-$(OBJ_DIR)\help.obj: src\help.cpp
+$(OBJ_DIR)\help.obj: src\help.cpp src\include\help.h
 	$(CC) $(CFLAGS) /c src\help.cpp /Fo$(OBJ_DIR)\help.obj
 
-$(OBJ_DIR)\hud.obj: src\hud.cpp
+$(OBJ_DIR)\hud.obj: src\hud.cpp src\include\hud.h
 	$(CC) $(CFLAGS) /c src\hud.cpp /Fo$(OBJ_DIR)\hud.obj
 
-$(OBJ_DIR)\input.obj: src\input.cpp
+$(OBJ_DIR)\input.obj: src\input.cpp src\include\input.h
 	$(CC) $(CFLAGS) /c src\input.cpp /Fo$(OBJ_DIR)\input.obj
 
-$(OBJ_DIR)\logo.obj: src\logo.cpp
+$(OBJ_DIR)\logo.obj: src\logo.cpp src\include\logo.h
 	$(CC) $(CFLAGS) /c src\logo.cpp /Fo$(OBJ_DIR)\logo.obj
 
-$(OBJ_DIR)\main.obj: src\main.cpp
+$(OBJ_DIR)\main.obj: src\main.cpp src\include\GUI.h src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\main.cpp /Fo$(OBJ_DIR)\main.obj
 
-$(OBJ_DIR)\menubar.obj: src\menubar.cpp
+$(OBJ_DIR)\menubar.obj: src\menubar.cpp src\include\menubar.h
 	$(CC) $(CFLAGS) /c src\menubar.cpp /Fo$(OBJ_DIR)\menubar.obj
 
-$(OBJ_DIR)\progress.obj: src\progress.cpp
+$(OBJ_DIR)\progress.obj: src\progress.cpp src\include\progress.h
 	$(CC) $(CFLAGS) /c src\progress.cpp /Fo$(OBJ_DIR)\progress.obj
 
-$(OBJ_DIR)\projection.obj: src\projection.cpp
+$(OBJ_DIR)\projection.obj: src\projection.cpp src\include\projection.h
 	$(CC) $(CFLAGS) /c src\projection.cpp /Fo$(OBJ_DIR)\projection.obj
 
-$(OBJ_DIR)\projection_manager.obj: src\projection_manager.cpp
+$(OBJ_DIR)\projection_manager.obj: src\projection_manager.cpp src\include\projection_manager.h
 	$(CC) $(CFLAGS) /c src\projection_manager.cpp /Fo$(OBJ_DIR)\projection_manager.obj
 
-$(OBJ_DIR)\radio.obj: src\radio.cpp
+$(OBJ_DIR)\radio.obj: src\radio.cpp src\include\radio.h
 	$(CC) $(CFLAGS) /c src\radio.cpp /Fo$(OBJ_DIR)\radio.obj
 
-$(OBJ_DIR)\recorder.obj: src\recorder.cpp
+$(OBJ_DIR)\recorder.obj: src\recorder.cpp src\include\recorder.h
 	$(CC) $(CFLAGS) /c src\recorder.cpp /Fo$(OBJ_DIR)\recorder.obj
 
-$(OBJ_DIR)\replay.obj: src\replay.cpp
+$(OBJ_DIR)\replay.obj: src\replay.cpp src\include\replay.h
 	$(CC) $(CFLAGS) /c src\replay.cpp /Fo$(OBJ_DIR)\replay.obj
 
-$(OBJ_DIR)\replay_progress.obj: src\replay_progress.cpp
+$(OBJ_DIR)\replay_progress.obj: src\replay_progress.cpp src\include\replay_progress.h
 	$(CC) $(CFLAGS) /c src\replay_progress.cpp /Fo$(OBJ_DIR)\replay_progress.obj
 
-$(OBJ_DIR)\scene.obj: src\scene.cpp
+$(OBJ_DIR)\scene.obj: src\scene.cpp src\include\scene.h
 	$(CC) $(CFLAGS) /c src\scene.cpp /Fo$(OBJ_DIR)\scene.obj
 
-$(OBJ_DIR)\shader.obj: src\shader.cpp
+$(OBJ_DIR)\shader.obj: src\shader.cpp src\include\shader.h
 	$(CC) $(CFLAGS) /c src\shader.cpp /Fo$(OBJ_DIR)\shader.obj
 
 $(OBJ_DIR)\sound.obj: src\sound.cpp
 	$(CC) $(CFLAGS) /c src\sound.cpp /Fo$(OBJ_DIR)\sound.obj
 
-$(OBJ_DIR)\splash.obj: src\splash.cpp
+$(OBJ_DIR)\splash.obj: src\splash.cpp src\include\splash.h
 	$(CC) $(CFLAGS) /c src\splash.cpp /Fo$(OBJ_DIR)\splash.obj
 
-$(OBJ_DIR)\stats.obj: src\stats.cpp
+$(OBJ_DIR)\stats.obj: src\stats.cpp src\include\stats.h
 	$(CC) $(CFLAGS) /c src\stats.cpp /Fo$(OBJ_DIR)\stats.obj
 
-$(OBJ_DIR)\render_pipeline.obj: src\render_pipeline.cpp
+$(OBJ_DIR)\render_pipeline.obj: src\render_pipeline.cpp src\include\render_pipeline.h
 	$(CC) $(CFLAGS) /c src\render_pipeline.cpp /Fo$(OBJ_DIR)\render_pipeline.obj
 
 $(OBJ_DIR)\stb_impl.obj: src\stb_impl.cpp
 	$(CC) $(CFLAGS) /c src\stb_impl.cpp /Fo$(OBJ_DIR)\stb_impl.obj
 
-$(OBJ_DIR)\text_renderer.obj: src\text_renderer.cpp
+$(OBJ_DIR)\text_renderer.obj: src\text_renderer.cpp src\include\text_renderer.h
 	$(CC) $(CFLAGS) /c src\text_renderer.cpp /Fo$(OBJ_DIR)\text_renderer.obj
 
-$(OBJ_DIR)\Renderer2D.obj: src\Renderer2D.cpp
+$(OBJ_DIR)\Renderer2D.obj: src\Renderer2D.cpp src\include\Renderer2D.h
 	$(CC) $(CFLAGS) /c src\Renderer2D.cpp /Fo$(OBJ_DIR)\Renderer2D.obj
 
-$(OBJ_DIR)\tickbox.obj: src\tickbox.cpp
+$(OBJ_DIR)\tickbox.obj: src\tickbox.cpp src\include\tickbox.h
 	$(CC) $(CFLAGS) /c src\tickbox.cpp /Fo$(OBJ_DIR)\tickbox.obj
 
-$(OBJ_DIR)\tomography.obj: src\tomography.cpp
+$(OBJ_DIR)\tomography.obj: src\tomography.cpp src\include\tomography.h
 	$(CC) $(CFLAGS) /c src\tomography.cpp /Fo$(OBJ_DIR)\tomography.obj
 
-$(OBJ_DIR)\convolutes.obj: src\model\convolutes.cpp
+# --- Model ---
+$(OBJ_DIR)\convolutes.obj: src\model\convolutes.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\convolutes.cpp /Fo$(OBJ_DIR)\convolutes.obj
 
-$(OBJ_DIR)\initSim.obj: src\model\initSim.cpp
+$(OBJ_DIR)\initSim.obj: src\model\initSim.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\initSim.cpp /Fo$(OBJ_DIR)\initSim.obj
 
-$(OBJ_DIR)\interaction.obj: src\model\interaction.cpp
+$(OBJ_DIR)\interaction.obj: src\model\interaction.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\interaction.cpp /Fo$(OBJ_DIR)\interaction.obj
 
-$(OBJ_DIR)\simulation.obj: src\model\simulation.cpp
+$(OBJ_DIR)\simulation.obj: src\model\simulation.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\simulation.cpp /Fo$(OBJ_DIR)\simulation.obj
 
-$(OBJ_DIR)\utils.obj: src\model\utils.cpp
+$(OBJ_DIR)\utils.obj: src\model\utils.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\utils.cpp /Fo$(OBJ_DIR)\utils.obj
 
-$(OBJ_DIR)\bridge.obj: src\model\bridge.cpp
+$(OBJ_DIR)\bridge.obj: src\model\bridge.cpp src\include\model\simulation.h src\include\voxel.h
 	$(CC) $(CFLAGS) /c src\model\bridge.cpp /Fo$(OBJ_DIR)\bridge.obj
 
-$(OBJ_DIR)\geometry.obj: src\model\geometry.cpp
+$(OBJ_DIR)\geometry.obj: src\model\geometry.cpp src\include\model\geometry.h
 	$(CC) $(CFLAGS) /c src\model\geometry.cpp /Fo$(OBJ_DIR)\geometry.obj
 
+# --- Libraries ---
 $(OBJ_DIR)\glad.obj: glad\glad.c
 	$(CC) $(CFLAGS) /c glad\glad.c /Fo$(OBJ_DIR)\glad.obj
-
-$(OBJ_DIR)\tinyfiledialogs.obj: src\tinyfiledialogs.c
+$(OBJ_DIR)\tinyfiledialogs.obj: src\tinyfiledialogs.c src\include\tinyfiledialogs.h
 	$(CC) $(CFLAGS) /c src\tinyfiledialogs.c /Fo$(OBJ_DIR)\tinyfiledialogs.obj
+
+# --- AC Project (Novo Núcleo Esférico) ---
+$(OBJ_DIR)\ac_project\bridge_simple.obj: src\ac_project\bridge_simple.cpp src\include\model\simulation.h src\include\ac_project\core_sphere.h
+	$(CC) $(CFLAGS) /c src\ac_project\bridge_simple.cpp /Fo$(OBJ_DIR)\ac_project\bridge_simple.obj
+
+$(OBJ_DIR)\ac_project\core_sphere.obj: src\ac_project\core_sphere.cpp src\include\model\simulation.h src\include\ac_project\core_sphere.h
+	$(CC) $(CFLAGS) /c src\ac_project\core_sphere.cpp /Fo$(OBJ_DIR)\ac_project\core_sphere.obj
 
 # ================================================
 # DLLs
@@ -354,6 +368,7 @@ dlls:
 clean:
 	@echo Limpando objetos...
 	-@del /Q /F $(OBJ_DIR)\*.obj 2>nul
+	-@del /Q /F $(OBJ_DIR)\ac_project\*.obj 2>nul
 
 	@echo Limpando binarios...
 	-@del /Q /F $(BUILD_DIR)\*.exe 2>nul
