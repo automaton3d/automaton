@@ -63,26 +63,26 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\utils.obj \
 	$(OBJ_DIR)\config.obj \
 	$(OBJ_DIR)\render_pipeline.obj \
-	$(OBJ_DIR)\ac_project\bridge_simple.obj \
-	$(OBJ_DIR)\ac_project\core_sphere.obj \
 	$(OBJ_DIR)\Renderer2D.obj \
 	$(OBJ_DIR)\geometry.obj
 
+OBJ = $(OBJ_COMMON) \
+      $(OBJ_DIR)\bridge.obj
+
 !IF $(ENABLE_CUDA)
 
-OBJ = $(OBJ_COMMON) \
-	  $(OBJ_DIR)\bridge.obj \
-	  $(OBJ_DIR)\bridge_cuda.obj \
-	  $(OBJ_DIR)\cuda_constants.obj \
-	  $(OBJ_DIR)\cuda_automaton.obj
+OBJ = $(OBJ) \
+      $(OBJ_DIR)\bridge_cuda.obj \
+      $(OBJ_DIR)\cuda_constants.obj \
+      $(OBJ_DIR)\cuda_automaton.obj
 
 EXTRA_CPPFLAGS = /D "USE_CUDA" /D "CUDA_BRIDGE_CU"
 EXTRA_NVCCFLAGS = -D "USE_CUDA"
 
 !ELSE
 
-# Modo CPU: Usa apenas bridge_simple e core_sphere
-OBJ = $(OBJ_COMMON)
+OBJ = $(OBJ_COMMON) \
+	  $(OBJ_DIR)\bridge.obj
 
 EXTRA_CPPFLAGS =
 EXTRA_NVCCFLAGS =
@@ -103,14 +103,12 @@ CUDA_LIB = "$(CUDA_PATH)/lib/x64"
 INCLUDES_MSVC = \
 	/I"src\include" \
 	/I"src\include\zlib" \
-	/I"src\include\ac_project" \
 	/I"src" \
 	/I"$(VCPKG_ROOT)/include"
 
 INCLUDES_NVCC = \
 	-I"src\include" \
 	-I"src\include\zlib" \
-	-I"src\include\ac_project" \
 	-I"src" \
 	-I"$(VCPKG_ROOT)/include" \
 	-I"src\include\zlib\cuda" \
@@ -171,7 +169,6 @@ all: dirs $(BUILD_DIR)\$(TARGET) dlls copy_config
 dirs:
 	if not exist "$(BUILD_DIR)" mkdir "$(BUILD_DIR)"
 	if not exist "$(OBJ_DIR)" mkdir "$(OBJ_DIR)"
-	if not exist "$(OBJ_DIR)\ac_project" mkdir "$(OBJ_DIR)\ac_project"
 
 $(BUILD_DIR)\$(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) /Fe:$(BUILD_DIR)\$(TARGET) /out:$(BUILD_DIR)\$(TARGET)

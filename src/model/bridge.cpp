@@ -395,8 +395,8 @@ void updateBufferCPU()
 
 void automaton::updateBuffer()
 {
-    //updateBufferCPU();
-    updateBufferSimple();
+    updateBufferCPU();
+    //updateBufferSimple();
 }
 
 #else
