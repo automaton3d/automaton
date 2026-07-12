@@ -72,6 +72,10 @@ void initGeneral()
                     Cell& cell = getCell(lattice_curr, x, y, z, w);
                     
                     // Basic configuration
+                    cell.w = static_cast<WIndex>(w);
+                    cell.leader_w = NO_LEADER_W;
+                    cell.is_core = false;
+
                     char w0 = w % 2;
                     char w1 = (w >> 1) % 2;
                     char q = w0 ^ w1;
