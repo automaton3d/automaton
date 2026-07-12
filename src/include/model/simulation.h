@@ -6,8 +6,10 @@
 #define SIMULATION_H_
 
 #include <vector>
+#include <array>
 #include <iostream>
 #include <cstdint>
+#include <limits>
 
 // Simulation symbols
 #define NORTH     0
@@ -72,6 +74,9 @@ namespace automaton
 {
   using namespace std;
 
+  using WIndex = uint32_t;
+  inline constexpr WIndex NO_LEADER_W = std::numeric_limits<WIndex>::max();
+
   extern unsigned EL;
   extern unsigned W_USED;
   extern bool convol_delay;
@@ -110,6 +115,9 @@ struct NeighborResult
   {
     public:
       // Physical properties
+      WIndex w;           // Intrinsic W identity
+      WIndex leader_w;    // Auxiliary W identity copied from the core
+      bool is_core;       // Winding core flag
       unsigned char ch;   // Charge bits q, w1, w0, c2, c1, c0
       bool pB;            // Linear motion direction bit
       bool sB;            // Rotation spiral bit
@@ -136,7 +144,8 @@ struct NeighborResult
       unsigned int r2;    // Squared distance from center (BFS-propagated)
       // Default constructor
       Cell()
-        : ch(0), pB(false), sB(false), a(0),
+        : w(0), leader_w(NO_LEADER_W), is_core(false),
+          ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
           gB(false), r2(0xFFFFFFFFu)
