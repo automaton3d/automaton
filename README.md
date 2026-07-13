@@ -96,7 +96,9 @@ Every contribution helps fund computing resources, software, and the time requir
 
 ## 🇧🇷 PIX (Brazil)
 
-[![PIX QR Code](pix.jpg)](pix.jpg)
+<a href="pix.jpg">
+  <img src="pix.jpg" alt="PIX QR Code" width="120">
+</a>
 
 **PIX key:** *(scan the QR code above)*
 
