@@ -57,52 +57,37 @@ static __device__ inline ::CellDevice& d_getCell(::CellDevice* lattice, int x, i
     return lattice[(((x * dev_EL + y) * dev_EL + z) * dev_W_USED) + w];
 }
 
-// Spherical antipodal wrap for spatial coordinates — matches CPU's spherical_wrap()
+// Spherical antipodal wrap for spatial coordinates — matches CPU's get_sphere_cell()
 static __device__ void dev_spherical_wrap(int& x, int& y, int& z)
 {
-    double R = dev_EL / 2.0;
-    double C = (dev_EL - 1) / 2.0;
+    // Toroidal wrap into [0, dev_EL)
+    if (x < 0) x += (int)dev_EL;
+    if (x >= (int)dev_EL) x -= (int)dev_EL;
+    if (y < 0) y += (int)dev_EL;
+    if (y >= (int)dev_EL) y -= (int)dev_EL;
+    if (z < 0) z += (int)dev_EL;
+    if (z >= (int)dev_EL) z -= (int)dev_EL;
 
-    double dx = x - C;
-    double dy = y - C;
-    double dz = z - C;
+    int dx = x - (int)dev_CENTER;
+    int dy = y - (int)dev_CENTER;
+    int dz = z - (int)dev_CENTER;
+    int r2 = dx*dx + dy*dy + dz*dz;
+    int rmax2 = (int)dev_RMAX * (int)dev_RMAX;
 
-    double r = sqrt(dx*dx + dy*dy + dz*dz);
+    if (r2 > rmax2) {
+        // Antipodal mapping through the centre
+        x = 2 * (int)dev_CENTER - x;
+        y = 2 * (int)dev_CENTER - y;
+        z = 2 * (int)dev_CENTER - z;
 
-    // Inside or on surface: just clamp
-    if (r <= R + 0.5) {
-        if (x < 0) x = 0;
-        if (x >= (int)dev_EL) x = (int)dev_EL - 1;
-        if (y < 0) y = 0;
-        if (y >= (int)dev_EL) y = (int)dev_EL - 1;
-        if (z < 0) z = 0;
-        if (z >= (int)dev_EL) z = (int)dev_EL - 1;
-        return;
+        // Wrap again in case the antipode lands outside the array
+        if (x < 0) x += (int)dev_EL;
+        if (x >= (int)dev_EL) x -= (int)dev_EL;
+        if (y < 0) y += (int)dev_EL;
+        if (y >= (int)dev_EL) y -= (int)dev_EL;
+        if (z < 0) z += (int)dev_EL;
+        if (z >= (int)dev_EL) z -= (int)dev_EL;
     }
-
-    // Outside sphere: project to surface then invert (antipodal)
-    double scale = R / r;
-
-    int anx = (int)round(dx * scale);
-    int any = (int)round(dy * scale);
-    int anz = (int)round(dz * scale);
-
-    // Antipodal inversion (through the center)
-    anx = -anx;
-    any = -any;
-    anz = -anz;
-
-    x = anx + (int)round(C);
-    y = any + (int)round(C);
-    z = anz + (int)round(C);
-
-    // Final bounds clamping
-    if (x < 0) x = 0;
-    if (x >= (int)dev_EL) x = (int)dev_EL - 1;
-    if (y < 0) y = 0;
-    if (y >= (int)dev_EL) y = (int)dev_EL - 1;
-    if (z < 0) z = 0;
-    if (z >= (int)dev_EL) z = (int)dev_EL - 1;
 }
 
 // Neighbor with spherical antipodal wrapping for spatial + periodic for W

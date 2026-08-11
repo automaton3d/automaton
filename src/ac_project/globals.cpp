@@ -12,6 +12,7 @@ namespace automaton {
     unsigned W_USED = 3; 
     unsigned RMAX = 30;      // Raio da esfera
     unsigned CENTER = 32;    // Centro da grade (EL/2)
+    unsigned int pulse_tick = 0;
     
     // Buffers principais
     vector<Cell> lattice_curr;
