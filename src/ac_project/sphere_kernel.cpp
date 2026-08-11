@@ -6,6 +6,9 @@
 using namespace automaton;
 using namespace std;
 
+// Declaração da função de inicialização (definida em globals.cpp)
+extern void InitBuffers();
+
 int main() {
     cout << "=== Teste de Integracao Sphere Kernel (C++) ===" << endl;
 
@@ -13,16 +16,10 @@ int main() {
     EL = 64;
     RMAX = 30;
     W_USED = 1; // Simplificação para o teste
-    
-    // Aloca os vetores globais
-    try {
-        lattice_curr.resize(EL * EL * EL * W_USED);
-        lattice_draft.resize(EL * EL * EL * W_USED);
-        lattice_mirror.resize(EL * EL * EL * W_USED);
-    } catch (...) {
-        cerr << "Erro ao alocar memoria." << endl;
-        return 1;
-    }
+    CENTER = EL / 2;
+
+    // Aloca e inicializa os vetores globais (x, r2, r)
+    InitBuffers();
 
     cout << "Grid " << EL << "^3 alocado com sucesso." << endl;
 

@@ -59,7 +59,80 @@ Cell* get_sphere_cell(vector<Cell>& lattice, int x, int y, int z) {
     return get_cell_safe(lattice, x, y, z);
 }
 
+// Atualiza r2, r, (u,v), active, phiB, pB e sB a partir das coordenadas x[]
+// e do relógio local t. Sem tabelas: usa isqrt e u^2+v^2=R^4.
+void sphere_phase_step() {
+    if (RMAX == 0 || W_USED == 0 || EL == 0) return;
+
+    unsigned int phase_full = 2u * RMAX * RMAX;
+    size_t total = lattice_curr.size();
+
+    for (size_t i = 0; i < total; ++i) {
+        Cell& c = lattice_curr[i];
+
+        // Reconstrói as coordenadas a partir do índice linear (robusto a cópias)
+        unsigned int w = (unsigned int)(i % W_USED);
+        size_t idx3d = i / W_USED;
+        unsigned int z = (unsigned int)(idx3d % EL);
+        unsigned int y = (unsigned int)((idx3d / EL) % EL);
+        unsigned int x = (unsigned int)(idx3d / (EL * EL));
+
+        c.x[0] = x;
+        c.x[1] = y;
+        c.x[2] = z;
+        c.x[3] = w;
+
+        int dx = (int)x - (int)CENTER;
+        int dy = (int)y - (int)CENTER;
+        int dz = (int)z - (int)CENTER;
+        int r2_int = dx*dx + dy*dy + dz*dz;
+        if (r2_int < 0) r2_int = 0;
+        c.r2 = (unsigned int)r2_int;
+        c.r  = isqrt(r2_int);
+
+        unsigned int pulse_r2 = pulse_from_time(c.t);
+        c.active = (c.r2 == pulse_r2) ? 1u : 0u;
+
+        if (c.r < 0 || c.r > (int)RMAX) {
+            c.u = 0;
+            c.v = 0;
+            c.phiB = false;
+            c.pB = false;
+            c.sB = false;
+            continue;
+        }
+
+        unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)W_USED);
+        unsigned int cell_phase = (((unsigned int)c.r * 2u * RMAX) + w_offset) % phase_full;
+        int m = (int)(cell_phase / (unsigned int)RMAX);
+        int R = (int)RMAX;
+        int u, v;
+
+        if (m < R) {
+            int arg = m * (R - m);
+            int s = isqrt(arg);
+            u = R * (R - 2 * m);
+            v = 2 * R * s;
+        } else {
+            int m2 = m - R;
+            int arg = m2 * (R - m2);
+            int s = isqrt(arg);
+            u = R * (2 * m - 3 * R);
+            v = -2 * R * s;
+        }
+
+        c.u = u;
+        c.v = v;
+        c.phiB = (c.active != 0);
+        c.pB   = (u > 0);
+        c.sB   = (v > 0);
+    }
+}
+
 void sphere_convolution_step() {
+    // Atualiza polarização e active antes de aplicar regras de interação
+    sphere_phase_step();
+
     // Varredura sobre a região de interesse (caixa delimitadora da esfera)
     int range = RMAX + 2;
     int min_x = CENTER - range;
@@ -76,10 +149,10 @@ void sphere_convolution_step() {
                 Cell* pCurr = get_sphere_cell(lattice_curr, x, y, z);
                 if (!pCurr) continue;
 
-                // Regra 1: Detecção de Superfície (t != d)
+                // Regra 1: Detecção de Superfície
                 // Apenas células na frente de onda interagem fortemente
-                bool is_surface = (pCurr->t != 0 && pCurr->t == pCurr->d);
-                
+                bool is_surface = (pCurr->active != 0);
+
                 // Regra 2: Interação de Pares (Simplificada do integrated)
                 // Se é superfície, procura vizinho com afinidade compatível
                 if (is_surface) {
@@ -90,7 +163,7 @@ void sphere_convolution_step() {
                     
                     // Check vizinho X+
                     Cell* pNx = get_sphere_cell(lattice_curr, x+1, y, z);
-                    if (pNx && pNx->t != 0 && pNx->d == pNx->t) {
+                    if (pNx && pNx->active != 0) {
                          // Condição de interação: cargas opostas ou mesma afinidade?
                          // No integrated: neutralColor ou neutralWeak
                          if ((pCurr->ch & COLOR_MASK) != 0 && (pNx->ch & COLOR_MASK) != 0) {
