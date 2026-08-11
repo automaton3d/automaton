@@ -193,8 +193,11 @@ namespace automaton
         unsigned int d = (c.r2 > pulse_r2) ? (c.r2 - pulse_r2) : (pulse_r2 - c.r2);
         c.active = (d == 0) ? 1u : 0u;
 
-        // Phase advances 2*RMAX units per radial step, full turn = 2*RMAX^2
-        unsigned int cell_phase = ((unsigned int)c.r * 2u * RMAX) % phase_full;
+        // Phase advances 2*RMAX units per radial step, full turn = 2*RMAX^2.
+        // Each layer w gets a deterministic, evenly spaced angular offset so
+        // pB/sB differ across the w dimension without per-cell constants.
+        unsigned int w_offset = (unsigned int)(((uint64_t)c.x[3] * (uint64_t)phase_full) / (uint64_t)W_USED);
+        unsigned int cell_phase = (((unsigned int)c.r * 2u * RMAX) + w_offset) % phase_full;
         int m = (int)(cell_phase / (unsigned int)RMAX);
         int R = (int)RMAX;
         int u, v;
