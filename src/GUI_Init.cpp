@@ -116,6 +116,7 @@ namespace framework
         
         for (int i = 0; i < 9; ++i)
         {
+            data3D[i].onToggle = [i](bool state) { gConfig.data3D[i] = state; };
             data3D[i].setState(gConfig.data3D[i]);
         }
 
