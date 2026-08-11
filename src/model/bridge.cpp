@@ -166,10 +166,14 @@ static void convertCellToCellDevice(
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<uint32_t>(src.x[i]);
 
-    dst.r2   = static_cast<uint32_t>(src.r2);
-    dst.phiB = src.phiB ? 1 : 0;
-    dst.t    = static_cast<uint32_t>(src.t);
-    dst.f    = static_cast<uint32_t>(src.f);
+    dst.r2    = static_cast<uint32_t>(src.r2);
+    dst.r     = static_cast<int32_t>(src.r);
+    dst.u     = static_cast<int32_t>(src.u);
+    dst.v     = static_cast<int32_t>(src.v);
+    dst.active= src.active ? 1u : 0u;
+    dst.phiB  = src.phiB ? 1 : 0;
+    dst.t     = static_cast<uint32_t>(src.t);
+    dst.f     = static_cast<uint32_t>(src.f);
 
     for (int i = 0; i < 3; ++i)
         dst.c[i] = static_cast<uint32_t>(src.c[i]);
@@ -195,10 +199,14 @@ static void convertCellDeviceToCell(
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<unsigned>(src.x[i]);
 
-    dst.r2   = static_cast<unsigned>(src.r2);
-    dst.phiB = (src.phiB != 0);
-    dst.t    = static_cast<unsigned>(src.t);
-    dst.f    = static_cast<unsigned>(src.f);
+    dst.r2    = static_cast<unsigned>(src.r2);
+    dst.r     = static_cast<int>(src.r);
+    dst.u     = static_cast<int>(src.u);
+    dst.v     = static_cast<int>(src.v);
+    dst.active= (src.active != 0);
+    dst.phiB  = (src.phiB != 0);
+    dst.t     = static_cast<unsigned>(src.t);
+    dst.f     = static_cast<unsigned>(src.f);
 
     for (int i = 0; i < 3; ++i)
         dst.c[i] = static_cast<unsigned>(src.c[i]);

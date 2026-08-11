@@ -9,6 +9,9 @@ struct CellDevice
 
     uint32_t x[4];
     uint32_t r2;
+    int32_t  r;
+    int32_t  u, v;
+    uint32_t active;
     uint32_t phiB;
     uint32_t t;
     uint32_t f;

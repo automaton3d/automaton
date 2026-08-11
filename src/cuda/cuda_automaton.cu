@@ -203,6 +203,109 @@ static __device__ inline unsigned dev_pulse_from_time(unsigned t) {
         return max_r2 - (phase - span);
 }
 
+// Device integer square root (table-free)
+static __device__ inline int dev_isqrt(int n)
+{
+    if (n <= 0) return 0;
+    int result = 0;
+    int bit = 1 << 30;
+    while (bit > n) bit >>= 2;
+    while (bit != 0)
+    {
+        if (n >= result + bit)
+        {
+            n -= result + bit;
+            result = (result >> 1) + bit;
+        }
+        else
+        {
+            result >>= 1;
+        }
+        bit >>= 2;
+    }
+    return result;
+}
+
+// Compute radial polarisation pair (u,v) and interaction bits from (x,y,z,w,t).
+static __device__ inline void dev_phase_step_cell(::CellDevice& c, unsigned w)
+{
+    if (dev_RMAX == 0)
+    {
+        c.u = 0; c.v = 0; c.active = 0;
+        c.phiB = 0; c.pB = 0; c.sB = 0;
+        return;
+    }
+
+    int dx = (int)c.x[0] - (int)dev_CENTER;
+    int dy = (int)c.x[1] - (int)dev_CENTER;
+    int dz = (int)c.x[2] - (int)dev_CENTER;
+    int r2_int = dx*dx + dy*dy + dz*dz;
+    if (r2_int < 0) r2_int = 0;
+    c.r2 = (uint32_t)r2_int;
+    c.r  = dev_isqrt(r2_int);
+
+    unsigned int pulse_r2 = dev_pulse_from_time(c.t);
+    c.active = (c.r2 == pulse_r2) ? 1u : 0u;
+
+    if (c.r < 0 || c.r > (int)dev_RMAX)
+    {
+        c.u = 0; c.v = 0;
+        c.phiB = 0; c.pB = 0; c.sB = 0;
+        return;
+    }
+
+    unsigned int phase_full = 2u * dev_RMAX * dev_RMAX;
+    unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)dev_W_USED);
+    unsigned int cell_phase = (((unsigned int)c.r * 2u * dev_RMAX) + w_offset) % phase_full;
+    int m = (int)(cell_phase / (unsigned int)dev_RMAX);
+    int R = (int)dev_RMAX;
+    int u, v;
+
+    if (m < R)
+    {
+        int arg = m * (R - m);
+        int s   = dev_isqrt(arg);
+        u = R * (R - 2 * m);
+        v = 2 * R * s;
+    }
+    else
+    {
+        int m2 = m - R;
+        int arg = m2 * (R - m2);
+        int s   = dev_isqrt(arg);
+        u = R * (2 * m - 3 * R);
+        v = -2 * R * s;
+    }
+
+    c.u = u;
+    c.v = v;
+    c.phiB = c.active;
+    c.pB   = (u > 0) ? 1 : 0;
+    c.sB   = (v > 0) ? 1 : 0;
+}
+
+// ===================================================================
+// PHASE STEP KERNEL — run before ca_update_kernel each tick
+// ===================================================================
+__global__ void phase_step_kernel(::CellDevice* lattice_curr)
+{
+    unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (dev_EL == 0 || dev_W_USED == 0) return;
+
+    unsigned total = dev_EL * dev_EL * dev_EL * dev_W_USED;
+    if (tid >= total) return;
+
+    unsigned w = tid % dev_W_USED;
+    unsigned idx3d = tid / dev_W_USED;
+    unsigned z = idx3d % dev_EL;
+    unsigned y = (idx3d / dev_EL) % dev_EL;
+    unsigned x = idx3d / (dev_EL * dev_EL);
+
+    ::CellDevice c = d_getCell(lattice_curr, x, y, z, w);
+    dev_phase_step_cell(c, w);
+    d_getCell(lattice_curr, x, y, z, w) = c;
+}
+
 // ===================================================================
 // DEVICE CONVOLUTE FUNCTIONS (mirror convolutes.cpp)
 // ===================================================================
@@ -216,7 +319,7 @@ __device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*dr
 __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned tid)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -231,7 +334,7 @@ __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.a = dev_W_USED;
@@ -241,7 +344,7 @@ __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -255,7 +358,7 @@ __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.sB && w == 0)
+    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.sB && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.hB = 1;
@@ -265,7 +368,7 @@ __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.pB && w == 0 &&
+    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.pB && w == 0 &&
         !curr.cB && curr.a != dev_W_USED)
     {
         int old = atomicExch(&dev_ctrl, 0);
@@ -284,7 +387,7 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
     // Cells awaken?
-    if (curr.r2 == dev_pulse_from_time(curr.t) && mirror.r2 == dev_pulse_from_time(mirror.t))
+    if (curr.active && mirror.active)
     {
         // Test superposition
         if (curr.x[0] == mirror.x[0] &&
@@ -320,7 +423,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
     // Cells awaken?
-    if (curr.r2 == dev_pulse_from_time(curr.t) && mirror.r2 == dev_pulse_from_time(mirror.t))
+    if (curr.active && mirror.active)
     {
         // --- A) SAME POSITION (superposition) ---
         if (curr.x[0] == mirror.x[0] &&
@@ -693,7 +796,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 draft.a = dev_W_USED;
             }
             // Hunting using hB (matches CPU: pulse_from_time condition, no modulo on c[])
-            if (curr.r2 == dev_pulse_from_time(curr.t)) {
+            if (curr.active) {
                 if (north.hB) { draft.c[0] = north.c[0] + 1; curr.sB = !draft.hB; }
                 else if (west.hB)  { draft.c[1] = west.c[1] + 1; curr.sB = !draft.hB; }
                 else if (down.hB)  { draft.c[2] = down.c[2] + 1; curr.sB = !draft.hB; }
@@ -827,7 +930,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         draft.kB = 0;
         draft.hB = 0;
         draft.bB = 0;
-        if (curr.r2 == dev_pulse_from_time(curr.t)) {
+        if (curr.active) {
             if (north.r2 > curr.r2) draft.a = north.a;
             if (south.r2 > curr.r2) draft.a = south.a;
             if (east.r2  > curr.r2) draft.a = east.a;
@@ -858,7 +961,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
             draft.t++;
         } else {
-            draft.t = (curr.t + 1) % (dev_RMAX + 1);
+            draft.t = (curr.t + 1) % (2 * dev_RMAX);
         }
     }
 
@@ -1090,7 +1193,10 @@ void cudaSimulationStep(
     // printf("Launching kernel: total_cells=%zu, GRID=%d, BLOCK=%d, EL=%u, W_USED=%u, RMAX=%u\n",
     //        total_cells, GRID, BLOCK_SIZE, L, W, RMAX);
 
-    // Launch kernel
+    // Phase step: update r2/r, (u,v), active and emergent pB/sB/phiB in place.
+    phase_step_kernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr);
+
+    // Launch main CA kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
         d_lattice_curr, d_lattice_draft, d_lattice_mirror,
         CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
@@ -1163,6 +1269,10 @@ namespace automaton
         dst.a = src.a;
         for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
         dst.r2 = src.r2;
+        dst.r = src.r;
+        dst.u = src.u;
+        dst.v = src.v;
+        dst.active = src.active ? 1u : 0u;
         dst.phiB = src.phiB ? 1 : 0;
         dst.t = src.t;
         dst.f = src.f;
@@ -1185,6 +1295,10 @@ namespace automaton
         dst.a = src.a;
         for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
         dst.r2 = src.r2;
+        dst.r = src.r;
+        dst.u = src.u;
+        dst.v = src.v;
+        dst.active = src.active != 0;
         dst.phiB = src.phiB != 0;
         dst.t = src.t;
         dst.f = src.f;
