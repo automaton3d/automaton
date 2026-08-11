@@ -104,8 +104,8 @@ void updateBufferSimple()
                 else if (cell.c[0] != 0 || cell.c[1] != 0 || cell.c[2] != 0) {
                     color = 0x00FFFFFFu; // Ciano
                 }
-                // 5. Frente de Onda Pulsante (Amarelo) - Baseado em r2
-                else if (cell.r2 != INF_R2 && cell.r2 == pulse_r2) {
+                // 5. Frente de Onda Pulsante (Amarelo) - Usa active do phase_step
+                else if (cell.active) {
                     color = 0xFFFF50FFu; // Amarelo
                 }
                 // 6. Interior da Esfera / Carga (Branco/Azulado)
@@ -129,7 +129,7 @@ void updateBufferSimple()
                 int dist_manhattan = adx + ady + adz;
 
                 // Se estiver na casca externa e ainda não tiver cor
-                if (color == 0x00000000u && cell.r2 != INF_R2) {
+                if (color == 0x00000000u && cell.r2 != INF_R2 && cell.r2 <= RMAX * RMAX) {
                      if (dist_manhattan >= RMAX - 1 && dist_manhattan <= RMAX + 1) {
                          color = 0x40FF8000u; // Laranja fraco (Alpha=64)
                      }
