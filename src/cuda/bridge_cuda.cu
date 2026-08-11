@@ -21,8 +21,8 @@
  */
 
 #include "cuda_runtime.h"
-#include "cuda_sim_optimized.h"   // isCudaAvailable, cudaSimulationStep, …
-#include "cuda/cuda_common.h"     // CellDevice
+#include "cuda_sim_optimized.h"   // isCudaAvailable, cudaSimulationStep, CellDevice, …
+#include "cuda_common.h"          // CellDevice
 #include "model/simulation.h"     // automaton::Cell, getCell (no OpenGL)
 #include "config.h"
 
