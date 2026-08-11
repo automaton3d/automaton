@@ -25,6 +25,36 @@ static bool useCuda = false;
 
 void updateBufferSimple();
 
+namespace
+{
+    constexpr double PI = 3.14159265358979323846;
+
+    // Convert polarisation angle atan2(v,u) to an RGB colour.
+    inline unsigned int polarisationColor(int u, int v)
+    {
+        double theta = std::atan2((double)v, (double)u);
+        double hue = (theta + PI) * 360.0 / (2.0 * PI);
+        if (hue >= 360.0) hue -= 360.0;
+        if (hue < 0.0)   hue += 360.0;
+
+        double c = 1.0;
+        double x = c * (1.0 - std::fabs(std::fmod(hue / 60.0, 2.0) - 1.0));
+        double rp = 0.0, gp = 0.0, bp = 0.0;
+
+        if      (hue < 60.0)   { rp = c;  gp = x;  bp = 0; }
+        else if (hue < 120.0)  { rp = x;  gp = c;  bp = 0; }
+        else if (hue < 180.0)  { rp = 0;  gp = c;  bp = x; }
+        else if (hue < 240.0)  { rp = 0;  gp = x;  bp = c; }
+        else if (hue < 300.0)  { rp = x;  gp = 0;  bp = c; }
+        else                   { rp = c;  gp = 0;  bp = x; }
+
+        unsigned char r = (unsigned char)(rp * 255.0 + 0.5);
+        unsigned char g = (unsigned char)(gp * 255.0 + 0.5);
+        unsigned char b = (unsigned char)(bp * 255.0 + 0.5);
+        return makeColor(r, g, b, 255);
+    }
+}
+
 namespace automaton
 {
     extern unsigned EL;
@@ -360,6 +390,24 @@ void updateBufferCPU()
         unsigned int pulse_r2 =
             automaton::pulse_from_time(automaton::pulse_tick);
 
+        if (cell.r2 != INF_R2 && (cell.active || cell.u != 0 || cell.v != 0))
+        {
+            // Colour cells inside the bubble by their polarisation angle.
+            color = polarisationColor(cell.u, cell.v);
+        }
+
+        if (cell.active)
+        {
+            // Highlight the current pulse wavefront in white.
+            color = makeColor(255, 255, 255, 255);
+        }
+
+        if (cell.r2 == 0)
+        {
+            // Center cell
+            color = makeColor(80, 255, 80, 255);   // Green
+        }
+
         // Current radius marker on X axis (red dot)
         unsigned int pulse_r = (unsigned int)sqrt((double)pulse_r2);
         unsigned int markerX = automaton::CENTER + pulse_r;
@@ -368,16 +416,6 @@ void updateBufferCPU()
             z == automaton::CENTER)
         {
             color = makeColor(255, 80, 80, 255);   // Red
-        }
-        else if (cell.r2 != INF_R2 && cell.r2 == pulse_r2)
-        {
-            // Shell at current pulsation threshold
-            color = makeColor(255, 255, 80, 255);  // Yellow
-        }
-        else if (cell.r2 == 0)
-        {
-            // Center cell
-            color = makeColor(80, 255, 80, 255);   // Green
         }
 
         voxels[idx++] = color;
