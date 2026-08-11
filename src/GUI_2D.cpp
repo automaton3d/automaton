@@ -509,7 +509,7 @@ namespace framework
 
   void renderPauseOverlay()
   {
-    if (!pause)
+    if (!paused)
       return;
 
     int vw = gViewport[2];

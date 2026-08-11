@@ -73,7 +73,7 @@ enum Mode {
 extern Mode currentMode;
 
 // For the simulation thread
-extern std::atomic<bool> pause;
+extern std::atomic<bool> paused;
 extern std::atomic<bool> active;
 
 // Buffers

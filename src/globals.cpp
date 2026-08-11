@@ -58,7 +58,7 @@ glm::mat4 projection = glm::mat4(1.0f);
 
 // Flags
 std::atomic<bool> active{false};
-std::atomic<bool> pause{false};
+std::atomic<bool> paused{false};
 bool enable = true;
 
 // UI elements
