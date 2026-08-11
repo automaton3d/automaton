@@ -68,7 +68,6 @@ void renderScene(AppContext& ctx)
         glm::mat4 model = glm::mat4(1.0f);
 
         // IMPORTANT: get current projection (already updated via config + GUI)
-        extern glm::mat4 framework::mProjection_;
 
         // View matrix (replace with your global camera if available)
         glm::mat4 view = glm::mat4(1.0f);
