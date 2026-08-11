@@ -65,6 +65,10 @@ if errorlevel 1 (
 )
 
 echo [INFO] Build concluido.
+
+cd /d "%~dp0build"
+automaton.exe
+
 exit /b 0
 
 :: ============================================================
