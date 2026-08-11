@@ -27,17 +27,16 @@ int main() {
     int cz = CENTER;
 
     // Frente 1: Centro exato
-    // Definimos t=5, d=4 (superfície ativa)
-    size_t idx_center = ((size_t)cx * EL + cy) * EL + cz;
-    lattice_curr[idx_center].t = 5;
-    lattice_curr[idx_center].d = 4; 
+    // t == r2 para que phase_step marque a célula como active
+    size_t idx_center = (((size_t)cx * EL + cy) * EL + cz) * W_USED;
+    lattice_curr[idx_center].t = 0;
+    lattice_curr[idx_center].d = 0;
     lattice_curr[idx_center].ch = 1; // Carga teste
 
     // Frente 2: Vizinho imediato (ex: x+1)
-    // Também ativo
-    size_t idx_neighbor = ((size_t)(cx+1) * EL + cy) * EL + cz;
-    lattice_curr[idx_neighbor].t = 5;
-    lattice_curr[idx_neighbor].d = 4;
+    size_t idx_neighbor = ((((size_t)(cx+1) * EL + cy) * EL + cz)) * W_USED;
+    lattice_curr[idx_neighbor].t = 1;
+    lattice_curr[idx_neighbor].d = 1;
     lattice_curr[idx_neighbor].ch = 2; // Carga diferente
 
     cout << "Cenário: Duas células ativas adjacentes no centro." << endl;

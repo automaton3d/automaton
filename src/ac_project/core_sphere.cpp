@@ -11,18 +11,10 @@ inline Cell* get_cell_safe(vector<Cell>& lattice, int x, int y, int z) {
     if (x < 0 || x >= (int)EL || y < 0 || y >= (int)EL || z < 0 || z >= (int)EL) {
         return nullptr;
     }
-    // Cálculo de índice: ((x * EL) + y) * EL + z
-    // Como EL é potência de 2 (64), podemos usar shift se necessário, mas o compilador otimiza.
-    // Restrição: Sem multiplicação explícita no código fonte? 
-    // Se EL for constante constexpr, o compilador faz shift. Se não, usamos adição repetida ou assumimos que o compilador lida com constantes.
-    // Para estrita aderência "sem multiplicação", faríamos: x<<12 + y<<6 + z (se EL=64).
-    size_t idx = ((size_t)x << 6) + ((size_t)y << 6) + (size_t)z; // Assumindo EL=64 (2^6)
-    // Nota: Se EL variar, precisamos de uma função de indexação genérica sem mul.
-    // Mas no integrated, EL é fixo em tempo de compilação ou calculado uma vez.
-    // Vamos usar a fórmula padrão pois o compilador otimiza multiplicações por constantes.
-    // Se a restrição for estrita em tempo de execução para variáveis, avise.
-    idx = ((size_t)x * EL + y) * EL + z; 
-    
+    // Índice linear para célula (x,y,z) na camada w=0.
+    // O armazenamento intercala w: i = (((x*EL)+y)*EL + z) * W_USED + w
+    size_t idx = (((size_t)x * EL + y) * EL + z) * W_USED;
+
     if (idx >= lattice.size()) return nullptr;
     return &lattice[idx];
 }
@@ -145,9 +137,15 @@ void sphere_convolution_step() {
     for (int x = min_x; x <= max_x; ++x) {
         for (int y = min_y; y <= max_y; ++y) {
             for (int z = min_z; z <= max_z; ++z) {
-                
+
                 Cell* pCurr = get_sphere_cell(lattice_curr, x, y, z);
                 if (!pCurr) continue;
+
+                // Base do double buffer: copia Curr para Draft antes de modificar
+                Cell* pDraft = get_sphere_cell(lattice_draft, x, y, z);
+                if (pDraft) {
+                    *pDraft = *pCurr;
+                }
 
                 // Regra 1: Detecção de Superfície
                 // Apenas células na frente de onda interagem fortemente
@@ -155,12 +153,12 @@ void sphere_convolution_step() {
 
                 // Regra 2: Interação de Pares (Simplificada do integrated)
                 // Se é superfície, procura vizinho com afinidade compatível
-                if (is_surface) {
+                if (is_surface && pDraft) {
                     // Exemplo: verificar vizinhos imediatos
                     // No integrated, isso é feito com máscaras e checks de carga
                     // Aqui vamos simular a detecção de colisão de frentes
                     bool collision = false;
-                    
+
                     // Check vizinho X+
                     Cell* pNx = get_sphere_cell(lattice_curr, x+1, y, z);
                     if (pNx && pNx->active != 0) {
@@ -173,30 +171,14 @@ void sphere_convolution_step() {
 
                     if (collision) {
                         // Ativa colapso
-                        Cell* pDraft = get_sphere_cell(lattice_draft, x, y, z);
-                        if (pDraft) {
-                            pDraft->kB = true;
-                            // Atualiza frequência: f = f + t (emergência de harmônicos)
-                            pDraft->f = pDraft->f + pDraft->t; 
-                            
-                            // Teste Sine Mask: se f >= d (ou condição similar), ativa s2B
-                            if (pDraft->f >= pDraft->d && pDraft->d > 0) {
-                                pDraft->s2B = true;
-                            }
-                        }
-                    }
-                }
+                        pDraft->kB = true;
+                        // Atualiza frequência: f = f + t (emergência de harmônicos)
+                        pDraft->f = pDraft->f + pDraft->t;
 
-                // Regra 3: Propagação de Fase (f) mesmo sem colisão (opcional, depende do modelo exato)
-                // No integrated, f pode ser transportado ou acumulado de outra forma.
-                // Vamos garantir que o Draft receba o estado base do Curr antes de modificações
-                Cell* pDraft = get_sphere_cell(lattice_draft, x, y, z);
-                if (pDraft) {
-                    // Copia estados base se ainda não foram tocados
-                    // (Em uma implementação real de double buffer, isso é feito pelo swap ou copy inicial)
-                    // Aqui assumimos que lattice_draft começa zerado ou precisa ser preenchido
-                    if (pDraft->t == 0 && pCurr->t != 0) {
-                        *pDraft = *pCurr; // Copy inicial
+                        // Teste Sine Mask: se f >= d (ou condição similar), ativa s2B
+                        if (pDraft->f >= pDraft->d && pDraft->d > 0) {
+                            pDraft->s2B = true;
+                        }
                     }
                 }
             }

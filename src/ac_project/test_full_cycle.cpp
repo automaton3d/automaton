@@ -62,7 +62,7 @@ void print_slice_z(const vector<Cell>& lattice, int z_level, const char* label) 
     for (int y = cy - range; y <= cy + range; ++y) {
         cout << setw(2) << (y % 10) << ":";
         for (int x = cx - range; x <= cx + range; ++x) {
-            size_t idx = ((size_t)x * EL + y) * EL + z_level;
+            size_t idx = (((size_t)x * EL + y) * EL + z_level) * W_USED;
             const Cell& c = lattice[idx];
             
             char symbol = '.';
@@ -99,19 +99,19 @@ int main() {
 
     // Criar duas frentes de onda adjacentes para forçar interação na convolução
     // Célula A
-    size_t idxA = ((size_t)cx * EL + cy) * EL + cz;
+    size_t idxA = (((size_t)cx * EL + cy) * EL + cz) * W_USED;
     lattice_curr[idxA].t = 5;
     lattice_curr[idxA].d = 4; // t != d (na superfície)
     lattice_curr[idxA].ch = 0x01;
     
     // Célula B (vizinha)
-    size_t idxB = ((size_t)(cx+1) * EL + cy) * EL + cz;
+    size_t idxB = ((((size_t)(cx+1) * EL + cy) * EL + cz)) * W_USED;
     lattice_curr[idxB].t = 5;
     lattice_curr[idxB].d = 4;
     lattice_curr[idxB].ch = 0x02;
 
     // Adicionar uma partícula com vetor de movimento para testar Relocation
-    size_t idxMove = ((size_t)(cx-5) * EL + cy) * EL + cz;
+    size_t idxMove = ((((size_t)(cx-5) * EL + cy) * EL + cz)) * W_USED;
     lattice_curr[idxMove].t = 10;
     lattice_curr[idxMove].d = 10;
     lattice_curr[idxMove].ch = 0xAA;

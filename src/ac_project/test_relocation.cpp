@@ -29,7 +29,7 @@ int main() {
     int cz = CENTER;
     
     // Célula de origem no centro
-    size_t src_idx = ((size_t)cx * EL + cy) * EL + cz;
+    size_t src_idx = (((size_t)cx * EL + cy) * EL + cz) * W_USED;
     lattice_curr[src_idx].ch = 0xCD;      // Valor marcador
     lattice_curr[src_idx].t = 10;
     lattice_curr[src_idx].c[0] = 5;       // Deslocamento X = +5
@@ -64,7 +64,7 @@ int main() {
     for (int x = start_x; x <= end_x; x++) {
         for (int y = cy; y <= cy; y++) { // Apenas linha Y central
             for (int z = cz; z <= cz; z++) { // Apenas linha Z central
-                size_t idx = ((size_t)x * EL + y) * EL + z;
+                size_t idx = (((size_t)x * EL + y) * EL + z) * W_USED;
                 if (lattice_draft[idx].ch == 0xCD) {
                     cout << "ENCONTRADO em Draft: (" << setw(3) << x << ", " << setw(3) << y << ", " << setw(3) << z << ") ";
                     cout << "| ch=" << hex << (int)lattice_draft[idx].ch << dec;

@@ -81,7 +81,7 @@ void updateBufferSimple()
 
                 // Acesso seguro à célula (Camada 0 por padrão para visualização simples)
                 // Ajuste o índice se estiver usando W_USED > 1 explicitamente
-                size_t linearIdx = ((size_t)x * EL + y) * EL + z; 
+                size_t linearIdx = (((size_t)x * EL + y) * EL + z) * W_USED;
                 const Cell& cell = lattice_curr[linearIdx]; 
 
                 // ---------------------------------------------------------
