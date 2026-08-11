@@ -3,14 +3,13 @@ setlocal EnableDelayedExpansion
 
 :: build_msvc.bat - compila automaton.exe com nmake/MSVC
 :: Rode dentro do "Developer Command Prompt for VS" na raiz do repo.
-:: Se VCPKG_ROOT nao estiver definido, tenta E:\vcpkg (raiz) ou
-:: E:\vcpkg\installed\x64-windows (triplet ja instalado).
+:: Aceita VCPKG_ROOT como raiz do vcpkg ou como o triplet ja instalado.
 
 if not defined VCPKG_ROOT (
     if exist "E:\vcpkg\vcpkg.exe" (
         set VCPKG_ROOT=E:\vcpkg
-    ) else if exist "E:\vcpkg\installed\x64-windows\lib\glfw3dll.lib" (
-        set VCPKG_ROOT=E:\vcpkg\installed\x64-windows
+    ) else if exist "E:\vcpkg\installed\x64-windows\lib" (
+        set VCPKG_ROOT=E:\vcpkg
     )
 )
 
@@ -26,11 +25,15 @@ if exist "%VCPKG_ROOT%\installed\x64-windows\lib" (
     set VCPKG_INSTALL=%VCPKG_ROOT%
 )
 
-set "VCPKG_LIB=%VCPKG_INSTALL%\lib"
-set "VCPKG_BIN=%VCPKG_INSTALL%\bin"
+:: Caminho curto (8.3) para evitar problemas com espacos no nmake
+for %%I in ("%VCPKG_INSTALL%") do set VCPKG_SHORT=%%~sI
+
+set "VCPKG_LIB=%VCPKG_SHORT%\lib"
+set "VCPKG_BIN=%VCPKG_SHORT%\bin"
 
 echo VCPKG_ROOT=%VCPKG_ROOT%
 echo VCPKG_INSTALL=%VCPKG_INSTALL%
+echo VCPKG_SHORT=%VCPKG_SHORT%
 
 if not exist "%VCPKG_LIB%\glfw3dll.lib" (
     if not exist "%VCPKG_LIB%\glfw3.lib" (
@@ -51,11 +54,9 @@ if not exist "%VCPKG_LIB%\zlib.lib" (
     exit /b 1
 )
 
-:: Exporta o caminho do triplet para o nmake/Makefile
-set VCPKG_ROOT=%VCPKG_INSTALL%
-
-echo [INFO] Iniciando build com nmake...
-nmake
+:: Passa VCPKG_ROOT como macro do nmake, sobrescrevendo o Makefile
+echo [INFO] Iniciando build com nmake VCPKG_ROOT=%VCPKG_SHORT% ...
+nmake VCPKG_ROOT=%VCPKG_SHORT%
 if errorlevel 1 (
     echo [ERRO] Build falhou.
     exit /b 1
