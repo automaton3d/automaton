@@ -23,18 +23,6 @@ inline Cell* get_cell_safe(vector<Cell>& lattice, int x, int y, int z) {
 // Se (x,y,z) estiver fora da esfera definida por RMAX centrada em CENTER,
 // mapeia para o antípoda dentro da esfera.
 Cell* get_sphere_cell(vector<Cell>& lattice, int x, int y, int z) {
-    int dx = x - CENTER;
-    int dy = y - CENTER;
-    int dz = z - CENTER;
-
-    // Verificação de limite esférico simples (usando valor absoluto e soma, sem quadrados para performance crítica se necessário)
-    // Ou usamos a lógica integrada de "se saiu, antípoda".
-    // A regra antipodal toroidal: se coord > L-1, volta em 0. 
-    // Mas aqui temos uma esfera embutida.
-    
-    // Lógica simplificada para o teste: se estiver fora dos limites do array, retorna null.
-    // A lógica de "antípoda" será aplicada se a coordenada sair da região ativa.
-    
     // Tratamento de borda toroidal padrão primeiro (para garantir acesso válido ao array)
     if (x < 0) x += EL;
     if (x >= (int)EL) x -= EL;
@@ -43,11 +31,27 @@ Cell* get_sphere_cell(vector<Cell>& lattice, int x, int y, int z) {
     if (z < 0) z += EL;
     if (z >= (int)EL) z -= EL;
 
-    // Agora verifica se está dentro da esfera lógica (opcional, dependendo da estratégia)
-    // Se a estratégia é "tudo é toro, mas a física só ocorre na esfera", então apenas retornamos a célula.
-    // Se a estratégia é "esfera com fechamento antipodal próprio", precisamos mapear.
-    
-    // Vamos assumir a abordagem do integrated: o grid é o universo.
+    // Verifica se está dentro da esfera lógica. Se estiver fora, mapeia para o antípoda.
+    int dx = x - CENTER;
+    int dy = y - CENTER;
+    int dz = z - CENTER;
+    int r2_int = dx*dx + dy*dy + dz*dz;
+    int rmax2 = (int)RMAX * (int)RMAX;
+
+    if (r2_int > rmax2) {
+        // Mapeia para o antípoda e garante que fique dentro do array
+        x = 2 * (int)CENTER - x;
+        y = 2 * (int)CENTER - y;
+        z = 2 * (int)CENTER - z;
+
+        if (x < 0) x += EL;
+        if (x >= (int)EL) x -= EL;
+        if (y < 0) y += EL;
+        if (y >= (int)EL) y -= EL;
+        if (z < 0) z += EL;
+        if (z >= (int)EL) z -= EL;
+    }
+
     return get_cell_safe(lattice, x, y, z);
 }
 
@@ -179,6 +183,16 @@ void sphere_convolution_step() {
                         if (pDraft->f >= pDraft->d && pDraft->d > 0) {
                             pDraft->s2B = true;
                         }
+                    }
+
+                    // Propagação antipodal: uma frente ativa na superfície
+                    // também aparece no ponto antípoda (dentro da esfera).
+                    int ax = 2 * (int)CENTER - x;
+                    int ay = 2 * (int)CENTER - y;
+                    int az = 2 * (int)CENTER - z;
+                    Cell* pAnt = get_sphere_cell(lattice_draft, ax, ay, az);
+                    if (pAnt && pAnt != pDraft) {
+                        *pAnt = *pCurr;
                     }
                 }
             }
