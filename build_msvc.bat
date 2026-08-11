@@ -68,26 +68,26 @@ echo [INFO] Build concluido.
 exit /b 0
 
 :: ============================================================
-:: Procura recursivamente por glfw3dll.lib ou glfw3.lib dentro do
-:: diretorio passado e seta VCPKG_INSTALL para o triplet que as
-:: contem (diretorio acima de 'lib').
+:: Procura recursivamente por glfw3dll.lib ou glfw3.lib dentro
+:: do diretorio passado. Acha o triplet (diretorio acima de lib)
+:: que tambem contem freetype.lib e zlib.lib.
 :: ============================================================
 :search_libs
 set "SEARCH_DIR=%~1"
 if not exist "%SEARCH_DIR%" exit /b 0
 
 for /f "delims=" %%I in ('dir /S /B "%SEARCH_DIR%\glfw3dll.lib" "%SEARCH_DIR%\glfw3.lib" 2^>nul') do (
-    set "CAND=%%~dpI"
-    :: Remove a barra final do diretorio 'lib'
-    set "CAND=!CAND:~0,-1!"
-    for %%J in ("!CAND!\freetype.lib") do (
-        if exist "%%~fJ" (
-            for %%K in ("!CAND!\zlib.lib") do (
-                if exist "%%~fK" (
-                    for %%L in ("!CAND!") do set VCPKG_INSTALL=%%~fL
-                    exit /b 0
-                )
-            )
+    :: %%~dpI e' o diretorio 'lib\' do arquivo
+    set "LIB_DIR=%%~dpI"
+    set "LIB_DIR=!LIB_DIR:~0,-1!"
+    :: parent e' o diretorio do triplet (x64-windows)
+    for %%J in ("!LIB_DIR!") do set "TRIPLET=%%~dpJ"
+    set "TRIPLET=!TRIPLET:~0,-1!"
+    :: verifica as outras libs no mesmo lib
+    if exist "!LIB_DIR!\freetype.lib" (
+        if exist "!LIB_DIR!\zlib.lib" (
+            for %%K in ("!TRIPLET!") do set VCPKG_INSTALL=%%~fK
+            exit /b 0
         )
     )
 )
