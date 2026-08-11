@@ -100,6 +100,9 @@ if not exist "%VCPKG_LIB%\zlib.lib" (
     exit /b 1
 )
 
+echo [INFO] Limpando objetos antigos para evitar conflitos entre CPU/CUDA...
+nmake VCPKG_ROOT=%VCPKG_SHORT% clean >nul 2>&1
+
 if "!USE_CUDA!"=="1" (
     echo [INFO] Iniciando build CUDA com nmake VCPKG_ROOT=%VCPKG_SHORT% USE_CUDA=1 CUDA_PATH=!CUDA_SHORT! ...
     nmake VCPKG_ROOT=%VCPKG_SHORT% USE_CUDA=1 CUDA_PATH=!CUDA_SHORT!
