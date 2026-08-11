@@ -121,7 +121,7 @@ INCLUDES_NVCC = \
 
 CFLAGS = /nologo /std:c++20 /O2 /EHsc /MD /D "NOMINMAX" $(INCLUDES_MSVC) $(EXTRA_CPPFLAGS)
 
-NVCC_FLAGS = -allow-unsupported-compiler -c -std=c++17 -O2 -DNOMINMAX $(INCLUDES_NVCC) $(EXTRA_NVCCFLAGS) --compiler-options /MD
+NVCC_FLAGS = -allow-unsupported-compiler -c -std=c++17 -O2 -DNOMINMAX -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH=1 $(INCLUDES_NVCC) $(EXTRA_NVCCFLAGS) --compiler-options /MD,/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH=1
 
 !IF $(ENABLE_CUDA)
 
