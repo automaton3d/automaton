@@ -121,7 +121,7 @@ INCLUDES_NVCC = \
 
 CFLAGS = /nologo /std:c++20 /O2 /EHsc /MD /D "NOMINMAX" $(INCLUDES_MSVC) $(EXTRA_CPPFLAGS)
 
-NVCC_FLAGS = -c -std=c++20 -O2 $(INCLUDES_NVCC) $(EXTRA_NVCCFLAGS) --compiler-options /MD
+NVCC_FLAGS = -c -std=c++17 -O2 $(INCLUDES_NVCC) $(EXTRA_NVCCFLAGS) --compiler-options /MD
 
 !IF $(ENABLE_CUDA)
 
