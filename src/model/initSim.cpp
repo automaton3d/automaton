@@ -5,14 +5,11 @@
  */
 
 #include "model/simulation.h"
-#include "model/geometry.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
 #include <algorithm>
-#include <random>
 #include <cassert>
-#include <array>
 #include "globals.h"
 #include "layers.h"
 
@@ -23,17 +20,10 @@ namespace automaton
   // DEBUG
   void relocateAllWRandom();
 
-  constexpr double PI =
-    3.14159265358979323846264338327950288;
-
   // Global variables for lattice
   extern std::vector<Cell> lattice_curr;
   extern std::vector<Cell> lattice_draft;
   extern std::vector<Cell> lattice_mirror;
-
-  // Global dimensions
-  vector<unsigned> dirs;
-  vector<WPoint> wpoints;
 
   extern std::vector<std::array<unsigned, 3>> lcenters;
 
@@ -129,242 +119,6 @@ void initGeneral()
 }
 
   /*
-   * Initialize momentum directions
-   */
-  void initMomentum()
-  {
-    const unsigned cx = CENTER;
-    const unsigned cy = CENTER;
-    const unsigned cz = CENTER;
-    
-    printf("initMomentum: looking for shell points with R=%u\n", RMAX);
-
-    auto tuples = generateShell(static_cast<int>(EL));
-    
-    printf("initMomentum: found %zu shell points\n", tuples.size());
-    
-    unsigned n = static_cast<unsigned>(std::floor(1 / 0.10483));
-    unsigned w = 0;
-    
-    dirs.clear();
-    
-    for (unsigned i = 0; i < n; i++)
-    {
-      for (auto& t : tuples)
-      {
-        if (w >= W_USED)
-          break;
-          
-        int xx, yy, zz;
-        std::tie(xx, yy, zz) = t;
-        
-        unsigned ux = (unsigned)xx;
-        unsigned uy = (unsigned)yy;
-        unsigned uz = (unsigned)zz;
-        
-        // Ensure point is inside sphere
-        if (!isInsideSphere((int)ux, (int)uy, (int)uz))
-          continue;
-          
-        dirs.push_back(ux);
-        dirs.push_back(uy);
-        dirs.push_back(uz);
-        
-        unsigned p[3] = { ux, uy, uz };
-        markPoints(p, static_cast<unsigned>(w));
-        
-        w++;
-      }
-    }
-    
-    printf("initMomentum: requested W_USED=%u, actually initialized w=%u\n", W_USED, w);
-    printf("initMomentum: dirs.size()=%zu\n", dirs.size());
-    
-    puts("initMomentum ok.");
-  }
-
-  /*
-   * Initialize sine² density (phiB)
-   */
-  void initSine2()
-  {
-    const double cx = (EL - 1) / 2.0;
-    const double cy = cx;
-    const double cz = cx;
-    const double R = EL / 2.0;
-    
-    std::mt19937 gen(42);
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
-    
-    int phiB_count = 0;
-    
-    for (unsigned w = 0; w < W_USED; w++)
-    {
-      for (unsigned i = 0; i < EL; ++i)
-      {
-        double dx = i - cx;
-        
-        for (unsigned j = 0; j < EL; ++j)
-        {
-          double dy = j - cy;
-          
-          for (unsigned k = 0; k < EL; ++k)
-          {
-            // Skip cells outside sphere
-            if (!isInsideSphere((int)i, (int)j, (int)k))
-              continue;
-              
-            double dz = k - cz;
-            double r = sqrt(dx*dx + dy*dy + dz*dz);
-            
-            if (r <= R) {
-              double theta = PI * r / R;
-              double prob = sin(theta) * sin(theta);
-              
-              if (dis(gen) < prob)
-              {
-                getCell(lattice_curr, i, j, k, w).phiB = true;
-                phiB_count++;
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    printf("initSine2: %d cells with phiB=true\n", phiB_count);
-    puts("initSine2 ok.");
-  }
-
-  /*
-   * Rodrigues rotation
-   */
-  void rotateAroundAxis(
-      const double p[3],
-      const double k[3],
-      double theta,
-      double result[3])
-  {
-    double cosT = cos(theta);
-    double sinT = sin(theta);
-    
-    double cross[3] =
-    {
-      k[1]*p[2] - k[2]*p[1],
-      k[2]*p[0] - k[0]*p[2],
-      k[0]*p[1] - k[1]*p[0]
-    };
-    
-    double dot = k[0]*p[0] + k[1]*p[1] + k[2]*p[2];
-    
-    for (int i = 0; i < 3; ++i)
-    {
-      result[i] = p[i]*cosT + cross[i]*sinT + k[i]*dot*(1 - cosT);
-    }
-  }
-
-  /*
-   * Initialize spirals (sB)
-   */
-  void initSpirals()
-  {
-    if (dirs.size() < 3 * W_USED)
-    {
-      fprintf(stderr, "FATAL: dirs[] has only %zu elements\n", dirs.size());
-      return;
-    }
-    
-    const int num_points = 10 * EL;
-    
-    std::vector<double> theta(num_points);
-    std::vector<double> r(num_points);
-    std::vector<double> x_curve(num_points);
-    std::vector<double> y_curve(num_points);
-    std::vector<double> z_curve(num_points);
-    
-    // Generate 3D spiral (helix)
-    for (int i = 0; i < num_points; ++i)
-    {
-      theta[i] = 2 * PI * i / num_points;
-      r[i] = (double)EL / (4 * PI) * theta[i];
-      x_curve[i] = r[i] * cos(theta[i]);
-      y_curve[i] = r[i] * sin(theta[i]);
-      z_curve[i] = r[i];
-    }
-    
-    const double cx = EL / 2.0;
-    const double cy = EL / 2.0;
-    const double cz = EL / 2.0;
-    
-    int sB_count = 0;
-    
-    for (unsigned w = 0; w < W_USED; ++w)
-    {
-      size_t base = w * 3;
-      
-      double k[3] =
-      {
-        static_cast<double>(dirs[base]) - cx,
-        static_cast<double>(dirs[base + 1]) - cy,
-        static_cast<double>(dirs[base + 2]) - cz
-      };
-      
-      normalize(k);
-      
-      double z_axis[3] = { 0.0, 0.0, 1.0 };
-      
-      double axis[3] =
-      {
-        z_axis[1]*k[2] - z_axis[2]*k[1],
-        z_axis[2]*k[0] - z_axis[0]*k[2],
-        z_axis[0]*k[1] - z_axis[1]*k[0]
-      };
-      
-      double axis_len = sqrt(axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]);
-      
-      if (axis_len < 1e-12)
-      {
-        axis[0] = 1.0;
-        axis[1] = 0.0;
-        axis[2] = 0.0;
-        axis_len = 1.0;
-      }
-      
-      axis[0] /= axis_len;
-      axis[1] /= axis_len;
-      axis[2] /= axis_len;
-      
-      double dot = z_axis[0]*k[0] + z_axis[1]*k[1] + z_axis[2]*k[2];
-      dot = max(-1.0, min(1.0, dot));
-      double angle = acos(dot);
-      
-      for (int i = 0; i < num_points; ++i)
-      {
-        double p[3] = { x_curve[i], y_curve[i], z_curve[i] };
-        double pr[3];
-        
-        rotateAroundAxis(p, axis, angle, pr);
-        
-        int x = (int)round(pr[0] + cx);
-        int y = (int)round(pr[1] + cy);
-        int z = (int)round(pr[2] + cz);
-        
-        if (x >= 0 && x < (int)EL &&
-            y >= 0 && y < (int)EL &&
-            z >= 0 && z < (int)EL &&
-            isInsideSphere(x, y, z))
-        {
-          getCell(lattice_curr, (unsigned)x, (unsigned)y, (unsigned)z, w).sB = true;
-          sB_count++;
-        }
-      }
-    }
-    
-    printf("initSpirals: %d cells with sB=true\n", sB_count);
-    printf("initSpirals ok - %u spirals mapped\n", W_USED);
-  }
-
-  /*
    * Replicate data to draft and mirror
    */
   void replicate()
@@ -386,15 +140,10 @@ void initGeneral()
         break;
         
       case 1:
-        initMomentum();
-        break;
-        
       case 2:
-        initSpirals();
-        break;
-        
       case 3:
-        initSine2();
+        // Deprecated: static momentum/spiral/sine initialisation removed;
+        // polarisation and active wavefront now emerge from phase_step().
         break;
         
       case 4:

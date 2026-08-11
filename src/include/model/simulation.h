@@ -107,21 +107,6 @@ namespace automaton
   extern bool reloc_delay;
   extern std::vector<std::array<unsigned, 3>> lcenters;
 
-  struct Point
-  {
-    unsigned x, y, z;
-    bool operator==(const Point& other) const
-    {
-      return x == other.x && y == other.y && z == other.z;
-    }
-  };
-
-  // Define the outer structure
-  struct WPoint
-  {
-    Point p;
-  };
-
 
 struct NeighborResult
 {
@@ -215,9 +200,7 @@ struct NeighborResult
   bool swap_lattices();
   void update();
   bool initSimulation(int step);
-  void initSpirals();
   void replicate();
-  void markPoints(unsigned p[3], int w);
   bool simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
   bool convolute0(Cell& curr, Cell &draft, Cell &mirror);
@@ -237,9 +220,6 @@ struct NeighborResult
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up);
   void updateBuffer();
-  vector<tuple<int, int, int>> generateShell(int L);
-  void normalize(double vec[3]);
-  void cross_product(double result[3], const double a[3], const double b[3]);
   void printLattice(int w);
   bool neutralColor(Cell &a, Cell &b);
   bool neutralWeak(Cell &a, Cell &b);
