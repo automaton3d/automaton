@@ -184,14 +184,14 @@ $(BUILD_DIR)\$(TARGET): $(OBJ)
 
 !IF $(ENABLE_CUDA)
 
-$(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu src\include\zlib\cuda\cuda_sim_optimized.h
+{src\cuda}.cu{obj}.obj:
 	$(NVCC) $(NVCC_FLAGS) -o $@ $<
+
+$(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu src\include\zlib\cuda\cuda_sim_optimized.h
 
 $(OBJ_DIR)\cuda_automaton.obj: src\cuda\cuda_automaton.cu src\include\zlib\cuda\cuda_sim_optimized.h
-	$(NVCC) $(NVCC_FLAGS) -o $@ $<
 
 $(OBJ_DIR)\cuda_constants.obj: src\cuda\cuda_constants.cu
-	$(NVCC) $(NVCC_FLAGS) -o $@ $<
 
 !ENDIF
 
