@@ -5,7 +5,9 @@
 #include <GLFW/glfw3.h>
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
-    #define NOMINMAX
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
     #include <windows.h>
 
 #endif
