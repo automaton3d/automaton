@@ -402,7 +402,7 @@ void updateBufferCPU()
 
         uint32_t color = 0x00000000u;
 
-        if (cell.r2 != INF_R2 && (cell.active || cell.u != 0 || cell.v != 0))
+        if (gConfig.data3D[4] && cell.r2 != INF_R2 && (cell.u != 0 || cell.v != 0))
         {
             // Colour cells inside the bubble by their polarisation angle.
             color = polarisationColor(cell.u, cell.v);

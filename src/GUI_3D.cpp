@@ -823,7 +823,7 @@ void renderGizmo()
       if (data3D[1].getState()) renderMomentum(ctx);
       if (data3D[2].getState()) renderSpin();
       if (data3D[3].getState()) renderSineMask();
-      if (data3D[4].getState()) renderHunting();
+      // data3D[4] now toggles polarisation colouring (handled in bridge.cpp)
       if (data3D[5].getState()) renderCenters();
     }
     if (data3D.size() > 6 && data3D[6].getState())

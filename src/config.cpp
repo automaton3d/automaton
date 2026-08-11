@@ -109,7 +109,7 @@ bool loadConfig(const std::string& path)
         else if (key == "data3D.sine_mask")
             gConfig.data3D[3] = parseBool(value);
 
-        else if (key == "data3D.hunting")
+        else if (key == "data3D.polarization" || key == "data3D.hunting")
             gConfig.data3D[4] = parseBool(value);
 
         else if (key == "data3D.centers")
