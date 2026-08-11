@@ -12,7 +12,7 @@
  * the full rule set.
  *
  * Common gate condition (scenarios 1-5):
- *   r2 == pulse_from_time(t)  — cell is on the active wavefront
+ *   curr.active                  — cell is on the active wavefront
  *   pulse_from_time(t) == (RMAX/2)²  — wavefront is at mid-radius
  *   x[3] == 0                 — only layer 0 (w = 0)
  *   ctrl                      — fire-once flag (prevents re-triggering)
@@ -49,7 +49,7 @@ namespace automaton
    */
   bool convolute1(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
+    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
     {
       draft.c[0] = getRandomUnsigned(EL);
       draft.c[1] = getRandomUnsigned(EL);
@@ -69,7 +69,7 @@ namespace automaton
    */
   bool convolute2(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
+    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
     {
       draft.a = W_USED;
       ctrl = false;
@@ -87,7 +87,7 @@ namespace automaton
    */
   bool convolute3(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
+    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
     {
       draft.a = W_USED;
       draft.cB = true;
@@ -105,7 +105,7 @@ namespace automaton
    */
   bool convolute4(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.sB && curr.x[3] == 0 && ctrl)
+    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.sB && curr.x[3] == 0 && ctrl)
     {
       draft.hB = true;
       ctrl = false;
@@ -124,7 +124,7 @@ namespace automaton
    */
   bool convolute5(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.pB && curr.x[3] == 0 &&
+    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.pB && curr.x[3] == 0 &&
        !curr.cB && curr.a != W_USED && ctrl)
     {
       draft.c[0] = curr.x[0];
@@ -153,7 +153,7 @@ namespace automaton
    */
   bool convolute6(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && mirror.r2 == pulse_from_time(mirror.t))
+    if (curr.active && mirror.active)
     {
       if (curr.x[0] == mirror.x[0] &&
           curr.x[1] == mirror.x[1] &&
@@ -216,7 +216,7 @@ namespace automaton
    */
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.r2 == pulse_from_time(curr.t) && mirror.r2 == pulse_from_time(mirror.t))
+    if (curr.active && mirror.active)
     {
       // --- A) SAME POSITION (superposing bubbles) ---
       if (curr.x[0] == mirror.x[0] &&
