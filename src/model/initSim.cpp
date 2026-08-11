@@ -101,6 +101,10 @@ void initGeneral()
                     
                     // Initialize r2 (squared distance from center, integer only)
                     cell.r2 = dist_r2;
+                    cell.r  = isqrt((int)dist_r2);
+                    cell.u = 0;
+                    cell.v = 0;
+                    cell.active = 0;
 
                     // Initialize flags
                     cell.pB = false;

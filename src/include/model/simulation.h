@@ -38,6 +38,29 @@
 #define WEAK_MASK   (W0_MASK | W1_MASK)
 #define CHARGE_MASK (W0_MASK | W1_MASK | C0_MASK | C1_MASK | C2_MASK | Q_MASK)
 
+/// Integer square root (binary method, table-free).
+inline int isqrt(int n)
+{
+    if (n <= 0) return 0;
+    int result = 0;
+    int bit = 1 << 30;
+    while (bit > n) bit >>= 2;
+    while (bit != 0)
+    {
+        if (n >= result + bit)
+        {
+            n -= result + bit;
+            result = (result >> 1) + bit;
+        }
+        else
+        {
+            result >>= 1;
+        }
+        bit >>= 2;
+    }
+    return result;
+}
+
 // Platform-independent color type (RGBA)
 struct Color {
   uint8_t r, g, b, a;
@@ -142,13 +165,16 @@ struct NeighborResult
       int  g[3] = {0,0,0}; // Signed displacement to antipodal
       // Pulsating sphere
       unsigned int r2;    // Squared distance from center (BFS-propagated)
+      int r;              // Integer radius isqrt(r2)
+      int u, v;           // Transverse polarisation pair
+      unsigned int active; // 1 if cell is on the current pulse wavefront
       // Default constructor
       Cell()
         : w(0), leader_w(NO_LEADER_W), is_core(false),
           ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
-          gB(false), r2(0xFFFFFFFFu)
+          gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0)
       {
         fill(begin(x), end(x), 0);
         fill(begin(c), end(c), 0);

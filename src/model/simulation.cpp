@@ -151,9 +151,70 @@ namespace automaton
     for (unsigned w = 0; w < W_USED; ++w)
         getCell(lattice_draft, CENTER, CENTER, CENTER, w).r2 = 0;
 
-    // Copy r2 back to curr
+    // Copy r2 back to curr and update integer radius
     for (size_t i = 0; i < BLOCK; ++i)
+    {
         lattice_curr[i].r2 = lattice_draft[i].r2;
+        if (lattice_curr[i].r2 == INF_R2)
+            lattice_curr[i].r = -1;
+        else
+            lattice_curr[i].r = isqrt((int)lattice_curr[i].r2);
+    }
+  }
+
+  // ============================================================
+  // RADIAL POLARISATION — (u,v) pair
+  // ============================================================
+
+  static void phase_step()
+  {
+    if (RMAX == 0)
+      return;
+
+    unsigned int phase_full = 2u * RMAX * RMAX;
+    unsigned int pulse_r2   = pulse_from_time(pulse_tick);
+
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+        Cell &c = lattice_curr[i];
+
+        if (c.r2 == INF_R2 || c.r < 0 || c.r > (int)RMAX)
+        {
+            c.u = 0;
+            c.v = 0;
+            c.active = 0;
+            continue;
+        }
+
+        // Active wavefront: thin shell around the current pulse r2
+        unsigned int d = (c.r2 > pulse_r2) ? (c.r2 - pulse_r2) : (pulse_r2 - c.r2);
+        c.active = (d == 0) ? 1u : 0u;
+
+        // Phase advances 2*RMAX units per radial step, full turn = 2*RMAX^2
+        unsigned int cell_phase = ((unsigned int)c.r * 2u * RMAX) % phase_full;
+        int m = (int)(cell_phase / (unsigned int)RMAX);
+        int R = (int)RMAX;
+        int u, v;
+
+        if (m < R)
+        {
+            int arg = m * (R - m);
+            int s   = isqrt(arg);
+            u = R * (R - 2 * m);
+            v = 2 * R * s;
+        }
+        else
+        {
+            int m2 = m - R;
+            int arg = m2 * (R - m2);
+            int s   = isqrt(arg);
+            u = R * (2 * m - 3 * R);
+            v = -2 * R * s;
+        }
+
+        c.u = u;
+        c.v = v;
+    }
   }
 
   // ============================================================
@@ -166,7 +227,10 @@ namespace automaton
     update_pulsating_wavefront();
     pulse_tick++;
 
-    // Phase 2: FSM interaction loop (uses r2 instead of d)
+    // Phase 2: radial polarisation pair (u,v) and active wavefront flag
+    phase_step();
+
+    // Phase 3: FSM interaction loop (uses r2 instead of d)
     for (unsigned w = 0; w < W_USED; ++w)
     {
         if (w == 0)
