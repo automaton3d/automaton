@@ -172,7 +172,6 @@ namespace automaton
       return;
 
     unsigned int phase_full = 2u * RMAX * RMAX;
-    unsigned int pulse_r2   = pulse_from_time(pulse_tick);
 
     for (size_t i = 0; i < BLOCK; ++i)
     {
@@ -186,7 +185,8 @@ namespace automaton
             continue;
         }
 
-        // Active wavefront: thin shell around the current pulse r2
+        // Active wavefront: thin shell around the current pulse r2 for this cell's clock.
+        unsigned int pulse_r2 = pulse_from_time(c.t);
         unsigned int d = (c.r2 > pulse_r2) ? (c.r2 - pulse_r2) : (pulse_r2 - c.r2);
         c.active = (d == 0) ? 1u : 0u;
 

@@ -368,6 +368,14 @@ void updateBufferCPU()
 
     size_t idx = 0;
 
+    // Marker follows the pulse radius of the centre cell for the selected layer.
+    const automaton::Cell& centreCell =
+        automaton::getCell(
+            automaton::lattice_curr,
+            automaton::CENTER, automaton::CENTER, automaton::CENTER,
+            selectedW);
+    unsigned int pulse_r2 = automaton::pulse_from_time(centreCell.t);
+
     for (unsigned x = 0; x < automaton::EL; ++x)
     for (unsigned y = 0; y < automaton::EL; ++y)
     for (unsigned z = 0; z < automaton::EL; ++z)
@@ -385,10 +393,6 @@ void updateBufferCPU()
                 selectedW);
 
         uint32_t color = 0x00000000u;
-
-        // Pulsating sphere visualization
-        unsigned int pulse_r2 =
-            automaton::pulse_from_time(automaton::pulse_tick);
 
         if (cell.r2 != INF_R2 && (cell.active || cell.u != 0 || cell.v != 0))
         {
