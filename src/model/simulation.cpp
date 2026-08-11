@@ -182,6 +182,9 @@ namespace automaton
             c.u = 0;
             c.v = 0;
             c.active = 0;
+            c.phiB = false;
+            c.pB = false;
+            c.sB = false;
             continue;
         }
 
@@ -214,6 +217,13 @@ namespace automaton
 
         c.u = u;
         c.v = v;
+
+        // Emergent interaction bits from the polarisation pair:
+        // phiB follows the active wavefront (sieve mask),
+        // pB marks u>0, sB marks v>0.
+        c.phiB = c.active;
+        c.pB   = (u > 0);
+        c.sB   = (v > 0);
     }
   }
 
