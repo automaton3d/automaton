@@ -19,6 +19,7 @@ __constant__ unsigned dev_EL;
 __constant__ unsigned dev_W_USED;
 __constant__ unsigned dev_RMAX;
 __constant__ unsigned dev_CENTER;
+__constant__ unsigned dev_lcenters[32][3]; // per-W source centers (host copies each frame)
 __device__   int      dev_ctrl;
 
 // Global device pointers (defined here, used by bridge)
@@ -55,6 +56,35 @@ static bool g_cuda_initialized = false;
 static __device__ inline ::CellDevice& d_getCell(::CellDevice* lattice, int x, int y, int z, int w)
 {
     return lattice[(((x * dev_EL + y) * dev_EL + z) * dev_W_USED) + w];
+}
+
+// Per-source center lookup (read from constant-memory copy of host lcenters).
+static __device__ inline void dev_source_center(unsigned w, int& cx, int& cy, int& cz)
+{
+    cx = (int)dev_lcenters[w][0];
+    cy = (int)dev_lcenters[w][1];
+    cz = (int)dev_lcenters[w][2];
+}
+
+static __device__ inline int dev_shortest_delta(int a, int b, int mod)
+{
+    int d = b - a;
+    int half = mod / 2;
+    if (d > half) d -= mod;
+    else if (d < -half) d += mod;
+    return d;
+}
+
+static __device__ inline int dev_sign(int v)
+{
+    return (v > 0) - (v < 0);
+}
+
+static __device__ inline unsigned dev_wrap(int v, int mod)
+{
+    int r = v % mod;
+    if (r < 0) r += mod;
+    return (unsigned)r;
 }
 
 // Spherical antipodal wrap for spatial coordinates — matches CPU's get_sphere_cell()
@@ -221,9 +251,11 @@ static __device__ inline void dev_phase_step_cell(::CellDevice& c, unsigned w)
         return;
     }
 
-    int dx = (int)c.x[0] - (int)dev_CENTER;
-    int dy = (int)c.x[1] - (int)dev_CENTER;
-    int dz = (int)c.x[2] - (int)dev_CENTER;
+    int cx, cy, cz;
+    dev_source_center(w, cx, cy, cz);
+    int dx = (int)c.x[0] - cx;
+    int dy = (int)c.x[1] - cy;
+    int dz = (int)c.x[2] - cz;
     int r2_int = dx*dx + dy*dy + dz*dz;
     if (r2_int < 0) r2_int = 0;
     c.r2 = (uint32_t)r2_int;
@@ -405,7 +437,8 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
 }
 
 __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
-                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
+                                      ::CellDevice& mirror, unsigned w, unsigned /*tid*/,
+                                      ::CellDevice* d_curr, ::CellDevice* d_draft)
 {
     // Cells awaken?
     if (curr.active && mirror.active)
@@ -745,7 +778,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             case 4: dev_convolute4(curr, draft, mirror, w, idx); break;
             case 5: dev_convolute5(curr, draft, mirror, w, idx); break;
             case 6: dev_convolute6(curr, draft, mirror, w, idx); break;
-            case 7: dev_convolute7(curr, draft, mirror, w, idx); break;
+            case 7: dev_convolute7(curr, draft, mirror, w, idx, d_curr, d_draft); break;
             default: break;
         }
     }
@@ -1034,6 +1067,17 @@ extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
     printf("All constants set successfully\n");
 }
 
+extern "C" void setCudaSourceCenters(const unsigned* centers, unsigned W)
+{
+    if (W > 32) W = 32;
+    if (W == 0) return;
+    cudaError_t err = cudaMemcpyToSymbol(dev_lcenters, centers, W * 3 * sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_lcenters: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+    }
+}
+
 extern "C" void resetCudaCtrl()
 {
     int val = 1;
@@ -1177,6 +1221,10 @@ void cudaSimulationStep(
     int GRID = (int)((total_cells + BLOCK_SIZE - 1) / BLOCK_SIZE);
     // printf("Launching kernel: total_cells=%zu, GRID=%d, BLOCK=%d, EL=%u, W_USED=%u, RMAX=%u\n",
     //        total_cells, GRID, BLOCK_SIZE, L, W, RMAX);
+
+    // Upload current source centers before the phase step uses them.
+    if (W > 0 && !automaton::lcenters.empty())
+        setCudaSourceCenters(automaton::lcenters[0].data(), W);
 
     // Phase step: update r2/r, (u,v), active and emergent pB/sB/phiB in place.
     phase_step_kernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr);
