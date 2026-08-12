@@ -132,6 +132,13 @@ static void convertCellToCellDevice(const automaton::Cell& src,
     dst.gB  = src.gB  ? 1 : 0;
     for (int i = 0; i < 3; ++i)
         dst.g[i] = static_cast<int32_t>(src.g[i]);
+
+    dst.kind       = static_cast<uint8_t>(src.kind);
+    dst.parent     = src.parent;
+    dst.spin_target= static_cast<int32_t>(src.spin_target);
+    dst.pair_idx   = src.pair_idx;
+    for (int i = 0; i < 3; ++i)
+        dst.m[i]   = static_cast<int32_t>(src.m[i]);
 }
 
 static void convertCellDeviceToCell(const CellDevice& src,
@@ -167,6 +174,13 @@ static void convertCellDeviceToCell(const CellDevice& src,
     dst.gB  = (src.gB != 0);
     for (int i = 0; i < 3; ++i)
         dst.g[i] = static_cast<int>(src.g[i]);
+
+    dst.kind       = static_cast<automaton::SourceKind>(src.kind);
+    dst.parent     = src.parent;
+    dst.spin_target= static_cast<int8_t>(src.spin_target);
+    dst.pair_idx   = src.pair_idx;
+    for (int i = 0; i < 3; ++i)
+        dst.m[i]   = static_cast<int>(src.m[i]);
 }
 
 // -----------------------------------------------------------------

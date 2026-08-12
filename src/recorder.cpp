@@ -181,6 +181,11 @@ void FrameRecorder::applyFrame(const Frame& frame,
     cell.t = UINT16_MAX;
     cell.r2 = INF_R2;
     cell.a = automaton::W_USED;
+    cell.kind = automaton::SourceKind::S;
+    cell.parent = automaton::NO_PARENT;
+    cell.spin_target = 0;
+    cell.pair_idx = automaton::NO_PAIR;
+    cell.m[0] = cell.m[1] = cell.m[2] = 0;
   }
 
   // Apply each layer's state

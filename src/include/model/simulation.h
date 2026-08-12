@@ -100,6 +100,11 @@ namespace automaton
   using WIndex = uint32_t;
   inline constexpr WIndex NO_LEADER_W = std::numeric_limits<WIndex>::max();
 
+  // Source kinds for the spin-rev source model (K/S/D/P)
+  enum class SourceKind : uint8_t { K = 0, S = 1, D = 2, P = 3 };
+  inline constexpr uint32_t NO_PARENT = std::numeric_limits<uint32_t>::max();
+  inline constexpr uint32_t NO_PAIR   = std::numeric_limits<uint32_t>::max();
+
   extern unsigned EL;
   extern unsigned W_USED;
   extern bool convol_delay;
@@ -153,17 +158,25 @@ struct NeighborResult
       int r;              // Integer radius isqrt(r2)
       int u, v;           // Transverse polarisation pair
       unsigned int active; // 1 if cell is on the current pulse wavefront
+      // Spin-rev source model
+      SourceKind kind;      // K (chief), S (singleton), D (delegate), P (pair)
+      uint32_t parent;      // Parent source index (for D/P)
+      int8_t spin_target;   // +1 outward / -1 inward / 0 neutral
+      uint32_t pair_idx;    // Pair partner index for P sources
+      int m[3];             // Momentum vector (signed displacement)
       // Default constructor
       Cell()
         : w(0), leader_w(NO_LEADER_W), is_core(false),
           ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
-          gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0)
+          gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0),
+          kind(SourceKind::S), parent(NO_PARENT), spin_target(0), pair_idx(NO_PAIR)
       {
         fill(begin(x), end(x), 0);
         fill(begin(c), end(c), 0);
         fill(begin(g), end(g), 0);
+        fill(begin(m), end(m), 0);
       }
       // Serialization functions
       void serialize(ofstream& out) const;

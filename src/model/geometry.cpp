@@ -244,6 +244,14 @@ void spherical_wrap_xxxxx(int& x, int& y, int& z)
                             dst.bB = src.bB;
                             dst.hB = src.hB;
                             dst.cB = src.cB;
+
+                            dst.kind       = src.kind;
+                            dst.parent     = src.parent;
+                            dst.spin_target= src.spin_target;
+                            dst.pair_idx   = src.pair_idx;
+                            dst.m[0] = src.m[0];
+                            dst.m[1] = src.m[1];
+                            dst.m[2] = src.m[2];
                         }
                     }
                 }

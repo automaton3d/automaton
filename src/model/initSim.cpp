@@ -110,6 +110,14 @@ void initGeneral()
                     cell.c[0] = 0;
                     cell.c[1] = 0;
                     cell.c[2] = 0;
+
+                    // Spin-rev source model: default to singleton,
+                    // layer 0 is the initial K (chief) source.
+                    cell.kind       = (w == 0 ? SourceKind::K : SourceKind::S);
+                    cell.parent     = NO_PARENT;
+                    cell.spin_target= 0;
+                    cell.pair_idx   = NO_PAIR;
+                    cell.m[0] = cell.m[1] = cell.m[2] = 0;
                 }
             }
         }

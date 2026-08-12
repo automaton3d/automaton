@@ -96,6 +96,11 @@ namespace automaton
         lattice_draft[i].r2 = lattice_curr[i].r2;
 
     for (unsigned w = 0; w < W_USED; ++w)
+    {
+        int cx = (int)lcenters[w][0];
+        int cy = (int)lcenters[w][1];
+        int cz = (int)lcenters[w][2];
+
     for (unsigned x = 0; x < EL; ++x)
     for (unsigned y = 0; y < EL; ++y)
     for (unsigned z = 0; z < EL; ++z)
@@ -105,11 +110,9 @@ namespace automaton
         if (curr.r2 == INF_R2)
             continue;
 
-        int MID = (int)CENTER;
-
-        unsigned ax = (x > (unsigned)MID) ? (x - MID) : (MID - x);
-        unsigned ay = (y > (unsigned)MID) ? (y - MID) : (MID - y);
-        unsigned az = (z > (unsigned)MID) ? (z - MID) : (MID - z);
+        int dx_ = (int)x - cx; int ax = dx_ < 0 ? -dx_ : dx_;
+        int dy_ = (int)y - cy; int ay = dy_ < 0 ? -dy_ : dy_;
+        int dz_ = (int)z - cz; int az = dz_ < 0 ? -dz_ : dz_;
 
         // 6-connected spatial neighbors (no w propagation)
         static const int offsets[6][3] = {
@@ -146,10 +149,16 @@ namespace automaton
                 nxt.r2 = new_r2;
         }
     }
+    }
 
-    // Ensure center stays at 0
+    // Ensure each source center stays at 0
     for (unsigned w = 0; w < W_USED; ++w)
-        getCell(lattice_draft, CENTER, CENTER, CENTER, w).r2 = 0;
+    {
+        int cx = (int)lcenters[w][0];
+        int cy = (int)lcenters[w][1];
+        int cz = (int)lcenters[w][2];
+        getCell(lattice_draft, (unsigned)cx, (unsigned)cy, (unsigned)cz, w).r2 = 0;
+    }
 
     // Copy r2 back to curr and update integer radius
     for (size_t i = 0; i < BLOCK; ++i)
@@ -234,6 +243,46 @@ namespace automaton
   // CPU UPDATE — BFS + interaction FSM
   // ============================================================
 
+  // Apply per-source momentum stored in the source-center cell and clear it.
+  static void applyMomentum()
+  {
+    for (unsigned w = 0; w < W_USED; ++w)
+    {
+      unsigned cx = lcenters[w][0];
+      unsigned cy = lcenters[w][1];
+      unsigned cz = lcenters[w][2];
+      Cell& c = getCell(lattice_draft, cx, cy, cz, w);
+
+      int dx = c.m[0];
+      int dy = c.m[1];
+      int dz = c.m[2];
+
+      if (dx || dy || dz)
+      {
+        int M = (int)EL;
+        int nx = ((int)cx + dx) % M;
+        int ny = ((int)cy + dy) % M;
+        int nz = ((int)cz + dz) % M;
+        if (nx < 0) nx += M;
+        if (ny < 0) ny += M;
+        if (nz < 0) nz += M;
+
+        lcenters[w][0] = (unsigned)nx;
+        lcenters[w][1] = (unsigned)ny;
+        lcenters[w][2] = (unsigned)nz;
+
+        c.m[0] = c.m[1] = c.m[2] = 0;
+      }
+    }
+
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+      lattice_draft[i].m[0] = 0;
+      lattice_draft[i].m[1] = 0;
+      lattice_draft[i].m[2] = 0;
+    }
+  }
+
   void update_lattice_cpu()
   {
     // Phase 1: BFS propagation of r2 (replaces ad-hoc d initialization)
@@ -295,10 +344,6 @@ namespace automaton
                 flood(curr, draft, forward, north, west, down, south, east, up);
             }
 
-            if (curr.r2 == 0) {
-                trackCenter(x, y, z, w);
-            }
-
             draft.k = (curr.k + 1) % FRAME;
 
             if (draft.k == 0) {
@@ -309,6 +354,9 @@ namespace automaton
             }
         }
     }
+
+    // Apply source-center momentum and update pulsation centers.
+    applyMomentum();
   }
 
   void update_lattice()

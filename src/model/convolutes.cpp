@@ -26,7 +26,116 @@ namespace automaton
   extern unsigned EL;
   extern unsigned W_USED;
 
+  extern std::vector<Cell> lattice_curr;
+  extern std::vector<Cell> lattice_draft;
+  extern std::vector<std::array<unsigned, 3>> lcenters;
+
   extern bool ctrl;
+
+  namespace
+  {
+    inline const std::array<unsigned, 3>& sourceCenter(const Cell& c)
+    {
+      return lcenters[c.x[3]];
+    }
+
+    inline Cell& sourceCenterDraft(const Cell& c)
+    {
+      const auto& p = sourceCenter(c);
+      return getCell(lattice_draft, p[0], p[1], p[2], c.x[3]);
+    }
+
+    inline Cell& sourceCenterCurr(const Cell& c)
+    {
+      const auto& p = sourceCenter(c);
+      return getCell(lattice_curr, p[0], p[1], p[2], c.x[3]);
+    }
+
+    inline int shortestDelta(int a, int b, int mod)
+    {
+      int d = b - a;
+      if (mod > 0)
+      {
+        int half = mod / 2;
+        if (d > half) d -= mod;
+        else if (d < -half) d += mod;
+      }
+      return d;
+    }
+
+    inline unsigned wrapCoord(int v)
+    {
+      int m = (int)EL;
+      int r = v % m;
+      if (r < 0) r += m;
+      return (unsigned)r;
+    }
+
+    inline int sign(int v)
+    {
+      return (v > 0) - (v < 0);
+    }
+
+    // Move a source center by (dx, dy, dz) light-steps and reemit phase 0 there.
+    void reemitSourceAt(Cell& srcDraft, int dx, int dy, int dz)
+    {
+      unsigned oldCx = srcDraft.x[0];
+      unsigned oldCy = srcDraft.x[1];
+      unsigned oldCz = srcDraft.x[2];
+      unsigned w = srcDraft.x[3];
+
+      unsigned newCx = wrapCoord((int)oldCx + dx);
+      unsigned newCy = wrapCoord((int)oldCy + dy);
+      unsigned newCz = wrapCoord((int)oldCz + dz);
+
+      // Source state is stored in the source-center cell.  Place the reemitted
+      // source at the new center so the next BFS wavefront starts from there.
+      Cell& newDraft = getCell(lattice_draft, newCx, newCy, newCz, w);
+      newDraft.kind        = srcDraft.kind;
+      newDraft.parent      = srcDraft.parent;
+      newDraft.spin_target = srcDraft.spin_target;
+      newDraft.pair_idx    = srcDraft.pair_idx;
+      newDraft.t           = 0;
+      newDraft.f           = 0;
+
+      // Record the displacement on the old center cell; applyMomentum() will
+      // update lcenters[w] and then clear it.
+      srcDraft.m[0] = dx;
+      srcDraft.m[1] = dy;
+      srcDraft.m[2] = dz;
+    }
+
+    // Move one light-step along the direction from 'from' to 'to'.
+    void moveOneStep(Cell& srcDraft, const std::array<unsigned, 3>& from,
+                     const std::array<unsigned, 3>& to)
+    {
+      int M = (int)EL;
+      int dx = shortestDelta((int)from[0], (int)to[0], M);
+      int dy = shortestDelta((int)from[1], (int)to[1], M);
+      int dz = shortestDelta((int)from[2], (int)to[2], M);
+      reemitSourceAt(srcDraft, sign(dx), sign(dy), sign(dz));
+    }
+
+    // Move one light-step away from the other source center.
+    void moveOneStepAway(Cell& srcDraft, const std::array<unsigned, 3>& selfCenter,
+                         const std::array<unsigned, 3>& otherCenter)
+    {
+      int M = (int)EL;
+      int dx = shortestDelta((int)otherCenter[0], (int)selfCenter[0], M);
+      int dy = shortestDelta((int)otherCenter[1], (int)selfCenter[1], M);
+      int dz = shortestDelta((int)otherCenter[2], (int)selfCenter[2], M);
+      reemitSourceAt(srcDraft, sign(dx), sign(dy), sign(dz));
+    }
+
+    // Reemit at the contact voxel (curr position) without changing kind.
+    void reemitAtContact(Cell& srcDraft, const Cell& contact)
+    {
+      int dx = shortestDelta((int)srcDraft.x[0], (int)contact.x[0], (int)EL);
+      int dy = shortestDelta((int)srcDraft.x[1], (int)contact.x[1], (int)EL);
+      int dz = shortestDelta((int)srcDraft.x[2], (int)contact.x[2], (int)EL);
+      reemitSourceAt(srcDraft, dx, dy, dz);
+    }
+  }
 
   /*
    * Scenario 0 — Wavefront propagation test.
@@ -216,99 +325,137 @@ namespace automaton
    */
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.active && mirror.active)
-    {
-      // --- A) SAME POSITION (superposing bubbles) ---
-      if (curr.x[0] == mirror.x[0] &&
-          curr.x[1] == mirror.x[1] &&
-          curr.x[2] == mirror.x[2])
-      {
-        // A1) Inter-sector interaction at mid-radius
-        if (curr.W1() != mirror.W1() &&
-            pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) &&
-            !curr.cB &&
-            curr.a != W_USED)
-        {
-          // Inertial transport: propeller relocates bubble
-          if (curr.pB && !mirror.pB)
-          {
-            draft.c[0] = curr.x[0];
-            draft.c[1] = curr.x[1];
-            draft.c[2] = curr.x[2];
-            draft.cB = true;
-          }
+    if (!curr.active || !mirror.active)
+      return false;
 
-          // Hunting: non-propeller seeks partner
-          if (!curr.pB && mirror.pB)
-          {
-            draft.hB = true;
-            draft.cB = true;
-          }
-        }
-        // A2) Phase-locked superposition (f == t)
-        else if (curr.f == curr.t && mirror.f == mirror.t)
-        {
-          // Different sectors, both propellers → pair formation
-          if (curr.W1() != mirror.W1())
-          {
-            if (curr.pB && mirror.pB)
-            {
-              draft.f += curr.t;
-              draft.s2B &= curr.phiB;
-              draft.a = std::min(curr.a, mirror.a);
-            }
-          }
-          // Charge-conjugate pair (Q ⊕, W0 ⊕, same color) → blob
-          else if ((curr.Q() ^ mirror.Q()) &&
-                   (curr.W1() == mirror.W1()) &&
-                   (curr.W0() ^ mirror.W0()) &&
-                   (curr.C2() == mirror.C2()) &&
-                   (curr.C1() == mirror.C1()) &&
-                   (curr.C0() == mirror.C0()))
-          {
-            draft.f += curr.t;
-            draft.s2B &= curr.phiB;
-            draft.a = std::min(curr.a, mirror.a);
-            draft.bB = true;
-          }
-          // Neutral pair (ch == 0 or ch == 63) → singlet
-          else if ((curr.ch == 0 && mirror.ch == 0) ||
-                   (curr.ch == 63 && mirror.ch == 63))
-          {
-            draft.f += curr.t;
-            draft.s2B &= curr.phiB;
-            draft.a = std::min(curr.a, mirror.a);
-          }
-        }
-      }
-      // --- B) DIFFERENT POSITION (distinct bubbles) ---
-      else
-      {
-        // B1) Same sector, same charge, phase-locked → cohesion or hunting
-        if (curr.W1() == mirror.W1())
-        {
-          if (curr.ch == mirror.ch &&
-              curr.f == curr.t && mirror.f == mirror.t)
-          {
-            if (curr.a > mirror.a)
-            {
-              // Cohesion: higher-affinity bubble relocates toward lower
-              draft.c[0] = curr.x[0];
-              draft.c[1] = curr.x[1];
-              draft.c[2] = curr.x[2];
-              draft.a = std::min(curr.a, mirror.a);
-            }
-            else
-            {
-              // Hunting: lower-affinity bubble seeks partner
-              draft.hB = true;
-              draft.a = std::min(curr.a, mirror.a);
-            }
-          }
-        }
-      }
+    // A source does not interact with itself (same W-island).
+    if (curr.x[3] == mirror.x[3])
+      return false;
+
+    // Source state is stored in the source-center cell of each W-layer.
+    Cell& currSrc  = sourceCenterCurr(curr);
+    Cell& mirrorSrc = sourceCenterCurr(mirror);
+    Cell& currDraft  = sourceCenterDraft(curr);
+    Cell& mirrorDraft = sourceCenterDraft(mirror);
+
+    const auto& currCenter  = sourceCenter(curr);
+    const auto& mirrorCenter = sourceCenter(mirror);
+
+    bool samePos = (curr.x[0] == mirror.x[0] &&
+                    curr.x[1] == mirror.x[1] &&
+                    curr.x[2] == mirror.x[2]);
+
+    // 1. K x K
+    if (currSrc.kind == SourceKind::K && mirrorSrc.kind == SourceKind::K)
+    {
+      moveOneStepAway(currDraft, currCenter, mirrorCenter);
+      return false;
     }
 
+    // 2. K x S (current = K, mirror = S): K does not move; the S becomes a
+    //    D delegate of K when it is its turn to be the current cell.
+    //    The S-side is handled below.
+
+    // 3. S x K (current = S, mirror = K)
+    if (currSrc.kind == SourceKind::S && mirrorSrc.kind == SourceKind::K)
+    {
+      currDraft.kind = SourceKind::D;
+      currDraft.parent = mirrorSrc.x[3];
+      // S vector direction relative to K is approximated as outward for now.
+      currDraft.spin_target = 1;
+      moveOneStep(currDraft, currCenter, mirrorCenter);
+      return false;
+    }
+
+    // 4. S x S
+    if (currSrc.kind == SourceKind::S && mirrorSrc.kind == SourceKind::S)
+    {
+      if (currSrc.Q() == mirrorSrc.Q())
+      {
+        // Same field sign: repel one light-step.
+        moveOneStepAway(currDraft, currCenter, mirrorCenter);
+      }
+      else
+      {
+        // Opposite field sign: both become mutual D delegates.
+        currDraft.kind = SourceKind::D;
+        currDraft.parent = mirrorSrc.x[3];
+      }
+      return false;
+    }
+
+    // 5. S x D / D x S
+    if ((currSrc.kind == SourceKind::S && mirrorSrc.kind == SourceKind::D) ||
+        (currSrc.kind == SourceKind::D && mirrorSrc.kind == SourceKind::S))
+    {
+      Cell& sSrcDraft  = (currSrc.kind == SourceKind::S ? currDraft : mirrorDraft);
+      Cell& dSrc       = (currSrc.kind == SourceKind::S ? mirrorSrc : currSrc);
+      Cell& dSrcDraft  = (currSrc.kind == SourceKind::S ? mirrorDraft : currDraft);
+      const auto& sCenter = (currSrc.kind == SourceKind::S ? currCenter : mirrorCenter);
+      const auto& dCenter = (currSrc.kind == SourceKind::S ? mirrorCenter : currCenter);
+
+      // S becomes a D delegate of the K parent of the D.
+      sSrcDraft.kind = SourceKind::D;
+      sSrcDraft.parent = dSrc.parent;
+
+      // Both reemit and move one light-step toward each other.
+      moveOneStep(sSrcDraft, sCenter, dCenter);
+      moveOneStep(dSrcDraft, dCenter, sCenter);
+      return false;
+    }
+
+    // 6. D x D
+    if (currSrc.kind == SourceKind::D && mirrorSrc.kind == SourceKind::D)
+    {
+      if (currSrc.parent != mirrorSrc.parent)
+      {
+        // Different tribes: reemit, repel one light-step, exchange momentum.
+        moveOneStepAway(currDraft, currCenter, mirrorCenter);
+        // Simplified momentum exchange: copy the mirror's stored momentum.
+        currDraft.m[0] = mirrorSrc.m[0];
+        currDraft.m[1] = mirrorSrc.m[1];
+        currDraft.m[2] = mirrorSrc.m[2];
+      }
+      else
+      {
+        // Same tribe: outer delegate imposes spin_target on inner one.
+        // (Tangential/radial orbital motion is left as a refinement.)
+        currDraft.spin_target = mirrorSrc.spin_target;
+      }
+      return false;
+    }
+
+    // 7. P x K / P x D / P x S (current = P, mirror = ordinary source)
+    if (currSrc.kind == SourceKind::P &&
+        (mirrorSrc.kind == SourceKind::K ||
+         mirrorSrc.kind == SourceKind::S ||
+         mirrorSrc.kind == SourceKind::D))
+    {
+      // P pair reemits at the contact point with phase 0.
+      reemitAtContact(currDraft, curr);
+
+      // Target receives a momentum impulse in the direction of P's momentum.
+      mirrorDraft.m[0] = currSrc.m[0];
+      mirrorDraft.m[1] = currSrc.m[1];
+      mirrorDraft.m[2] = currSrc.m[2];
+      return false;
+    }
+
+    // 8. K/D/S x P (current = ordinary source, mirror = P)
+    if ((currSrc.kind == SourceKind::K ||
+         currSrc.kind == SourceKind::S ||
+         currSrc.kind == SourceKind::D) &&
+        mirrorSrc.kind == SourceKind::P)
+    {
+      // Target reemits on its own surface at the contact point and gets P's momentum.
+      reemitAtContact(currDraft, curr);
+      currDraft.m[0] = mirrorSrc.m[0];
+      currDraft.m[1] = mirrorSrc.m[1];
+      currDraft.m[2] = mirrorSrc.m[2];
+      return false;
+    }
+
+    // P x P is suppressed.
     return false;
   }
 
