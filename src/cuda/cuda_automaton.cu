@@ -436,9 +436,9 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
     }
 }
 
-__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
-                                      ::CellDevice& mirror, unsigned w, unsigned /*tid*/,
-                                      ::CellDevice* d_curr, ::CellDevice* d_draft)
+__device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/,
+                                      ::CellDevice* /*d_curr*/, ::CellDevice* /*d_draft*/)
 {
     // Cells awaken?
     if (curr.active && mirror.active)
@@ -726,6 +726,209 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
             }
         }
     }
+}
+
+// ===================================================================
+// K/S/D/P SOURCE-INTERACTION HELPERS
+// ===================================================================
+
+static __device__ inline int dev_Q(const ::CellDevice& c)
+{
+    return (c.ch & 0x08) ? 1 : 0;
+}
+
+static __device__ inline ::CellDevice& dev_source_center_cell(::CellDevice* lattice, int w)
+{
+    int cx, cy, cz;
+    dev_source_center((unsigned)w, cx, cy, cz);
+    return d_getCell(lattice, cx, cy, cz, w);
+}
+
+static __device__ inline void dev_reemitSourceAt(::CellDevice& srcDraft,
+                                                  int dx, int dy, int dz,
+                                                  ::CellDevice* d_draft)
+{
+    int oldCx = (int)srcDraft.x[0];
+    int oldCy = (int)srcDraft.x[1];
+    int oldCz = (int)srcDraft.x[2];
+    int w     = (int)srcDraft.x[3];
+
+    unsigned newCx = dev_wrap(oldCx + dx, (int)dev_EL);
+    unsigned newCy = dev_wrap(oldCy + dy, (int)dev_EL);
+    unsigned newCz = dev_wrap(oldCz + dz, (int)dev_EL);
+
+    ::CellDevice& newDraft = d_getCell(d_draft, (int)newCx, (int)newCy, (int)newCz, w);
+    newDraft.kind        = srcDraft.kind;
+    newDraft.parent      = srcDraft.parent;
+    newDraft.spin_target = srcDraft.spin_target;
+    newDraft.pair_idx    = srcDraft.pair_idx;
+    newDraft.t           = 0;
+    newDraft.f           = 0;
+    newDraft.m[0]        = 0;
+    newDraft.m[1]        = 0;
+    newDraft.m[2]        = 0;
+
+    srcDraft.m[0] = dx;
+    srcDraft.m[1] = dy;
+    srcDraft.m[2] = dz;
+}
+
+static __device__ inline void dev_moveOneStep(::CellDevice& srcDraft,
+                                              int fromCx, int fromCy, int fromCz,
+                                              int toCx, int toCy, int toCz,
+                                              ::CellDevice* d_draft)
+{
+    int M = (int)dev_EL;
+    int dx = dev_sign(dev_shortest_delta(fromCx, toCx, M));
+    int dy = dev_sign(dev_shortest_delta(fromCy, toCy, M));
+    int dz = dev_sign(dev_shortest_delta(fromCz, toCz, M));
+    dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
+}
+
+static __device__ inline void dev_moveOneStepAway(::CellDevice& srcDraft,
+                                                  int selfCx, int selfCy, int selfCz,
+                                                  int otherCx, int otherCy, int otherCz,
+                                                  ::CellDevice* d_draft)
+{
+    int M = (int)dev_EL;
+    int dx = dev_sign(dev_shortest_delta(otherCx, selfCx, M));
+    int dy = dev_sign(dev_shortest_delta(otherCy, selfCy, M));
+    int dz = dev_sign(dev_shortest_delta(otherCz, selfCz, M));
+    dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
+}
+
+static __device__ inline void dev_reemitAtContact(::CellDevice& srcDraft,
+                                                  const ::CellDevice& contact,
+                                                  ::CellDevice* d_draft)
+{
+    int M = (int)dev_EL;
+    int dx = dev_shortest_delta((int)srcDraft.x[0], (int)contact.x[0], M);
+    int dy = dev_shortest_delta((int)srcDraft.x[1], (int)contact.x[1], M);
+    int dz = dev_shortest_delta((int)srcDraft.x[2], (int)contact.x[2], M);
+    dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
+}
+
+__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& /*draft*/,
+                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/,
+                                      ::CellDevice* d_curr, ::CellDevice* d_draft)
+{
+    if (!curr.active || !mirror.active)
+        return;
+    if (curr.x[3] == mirror.x[3])
+        return;
+
+    int currW   = (int)curr.x[3];
+    int mirrorW = (int)mirror.x[3];
+
+    ::CellDevice& currSrc   = dev_source_center_cell(d_curr, currW);
+    ::CellDevice& mirrorSrc = dev_source_center_cell(d_curr, mirrorW);
+    ::CellDevice& currDraft = dev_source_center_cell(d_draft, currW);
+    ::CellDevice& mirrorDraft = dev_source_center_cell(d_draft, mirrorW);
+
+    int currCx, currCy, currCz;
+    dev_source_center((unsigned)currW, currCx, currCy, currCz);
+    int mirrorCx, mirrorCy, mirrorCz;
+    dev_source_center((unsigned)mirrorW, mirrorCx, mirrorCy, mirrorCz);
+
+    // 1. K x K
+    if (currSrc.kind == SRC_K && mirrorSrc.kind == SRC_K)
+    {
+        dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
+                            mirrorCx, mirrorCy, mirrorCz, d_draft);
+        return;
+    }
+
+    // 2. S x K (current = S, mirror = K)
+    if (currSrc.kind == SRC_S && mirrorSrc.kind == SRC_K)
+    {
+        currDraft.kind = SRC_D;
+        currDraft.parent = (uint32_t)mirrorW;
+        currDraft.spin_target = 1;
+        dev_moveOneStep(currDraft, currCx, currCy, currCz,
+                        mirrorCx, mirrorCy, mirrorCz, d_draft);
+        return;
+    }
+
+    // 3. S x S
+    if (currSrc.kind == SRC_S && mirrorSrc.kind == SRC_S)
+    {
+        if (dev_Q(currSrc) == dev_Q(mirrorSrc))
+        {
+            dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
+                                mirrorCx, mirrorCy, mirrorCz, d_draft);
+        }
+        else
+        {
+            currDraft.kind = SRC_D;
+            currDraft.parent = (uint32_t)mirrorW;
+        }
+        return;
+    }
+
+    // 4. S x D / D x S
+    if ((currSrc.kind == SRC_S && mirrorSrc.kind == SRC_D) ||
+        (currSrc.kind == SRC_D && mirrorSrc.kind == SRC_S))
+    {
+        ::CellDevice* sDraft  = (currSrc.kind == SRC_S ? &currDraft : &mirrorDraft);
+        ::CellDevice* dDraft  = (currSrc.kind == SRC_S ? &mirrorDraft : &currDraft);
+        ::CellDevice* dSrc    = (currSrc.kind == SRC_S ? &mirrorSrc : &currSrc);
+
+        int sCx = (currSrc.kind == SRC_S ? currCx : mirrorCx);
+        int sCy = (currSrc.kind == SRC_S ? currCy : mirrorCy);
+        int sCz = (currSrc.kind == SRC_S ? currCz : mirrorCz);
+        int dCx = (currSrc.kind == SRC_S ? mirrorCx : currCx);
+        int dCy = (currSrc.kind == SRC_S ? mirrorCy : currCy);
+        int dCz = (currSrc.kind == SRC_S ? mirrorCz : currCz);
+
+        sDraft->kind = SRC_D;
+        sDraft->parent = dSrc->parent;
+
+        dev_moveOneStep(*sDraft, sCx, sCy, sCz, dCx, dCy, dCz, d_draft);
+        dev_moveOneStep(*dDraft, dCx, dCy, dCz, sCx, sCy, sCz, d_draft);
+        return;
+    }
+
+    // 5. D x D
+    if (currSrc.kind == SRC_D && mirrorSrc.kind == SRC_D)
+    {
+        if (currSrc.parent != mirrorSrc.parent)
+        {
+            dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
+                                mirrorCx, mirrorCy, mirrorCz, d_draft);
+            currDraft.m[0] = mirrorSrc.m[0];
+            currDraft.m[1] = mirrorSrc.m[1];
+            currDraft.m[2] = mirrorSrc.m[2];
+        }
+        else
+        {
+            currDraft.spin_target = mirrorSrc.spin_target;
+        }
+        return;
+    }
+
+    // 6. P x K / P x D / P x S
+    if (currSrc.kind == SRC_P &&
+        (mirrorSrc.kind == SRC_K || mirrorSrc.kind == SRC_S || mirrorSrc.kind == SRC_D))
+    {
+        dev_reemitAtContact(currDraft, curr, d_draft);
+        mirrorDraft.m[0] = currSrc.m[0];
+        mirrorDraft.m[1] = currSrc.m[1];
+        mirrorDraft.m[2] = currSrc.m[2];
+        return;
+    }
+
+    // 7. K/D/S x P
+    if ((currSrc.kind == SRC_K || currSrc.kind == SRC_S || currSrc.kind == SRC_D) &&
+        mirrorSrc.kind == SRC_P)
+    {
+        dev_reemitAtContact(currDraft, curr, d_draft);
+        currDraft.m[0] = mirrorSrc.m[0];
+        currDraft.m[1] = mirrorSrc.m[1];
+        currDraft.m[2] = mirrorSrc.m[2];
+        return;
+    }
+
+    // P x P is suppressed.
 }
 
 // ===================================================================
@@ -1253,6 +1456,30 @@ void cudaSimulationStep(
     ::CellDevice* temp = d_lattice_curr;
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
+
+    // Update host source centers from the stored momentum on the old center cells.
+    for (unsigned iw = 0; iw < W; ++iw)
+    {
+        int cx = (int)automaton::lcenters[iw][0];
+        int cy = (int)automaton::lcenters[iw][1];
+        int cz = (int)automaton::lcenters[iw][2];
+        size_t idx = (size_t)((((cx * (int)L) + cy) * (int)L) + cz) * (int)W + iw;
+        ::CellDevice centerCell;
+        err = cudaMemcpy(&centerCell, d_lattice_curr + idx, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
+        if (err == cudaSuccess)
+        {
+            int M = (int)L;
+            int nx = (cx + centerCell.m[0]) % M;
+            int ny = (cy + centerCell.m[1]) % M;
+            int nz = (cz + centerCell.m[2]) % M;
+            if (nx < 0) nx += M;
+            if (ny < 0) ny += M;
+            if (nz < 0) nz += M;
+            automaton::lcenters[iw][0] = (unsigned)nx;
+            automaton::lcenters[iw][1] = (unsigned)ny;
+            automaton::lcenters[iw][2] = (unsigned)nz;
+        }
+    }
 
     // Read new k from first cell (only after successful kernel execution)
     unsigned new_k = 0;
