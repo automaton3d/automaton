@@ -25,6 +25,7 @@
 #include "cuda_common.h"          // CellDevice
 #include "model/simulation.h"     // automaton::Cell, getCell (no OpenGL)
 #include "config.h"
+#include "sinc_overlay.h"
 
 #include <cstdio>
 #include <vector>
@@ -341,8 +342,10 @@ void updateBufferCuda()
             else
                 voxels[idx++] = gpuVoxels[(x * automaton::EL + y) * automaton::EL + z];
         }
+
+        sinc_overlay::update(selectedW);
     } else {
-        // Fallback to CPU rendering
+        // Fallback to CPU rendering (also updates the sinc overlay)
         updateBufferCPU();
     }
 }

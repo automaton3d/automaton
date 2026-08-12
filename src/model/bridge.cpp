@@ -9,6 +9,7 @@
 #include "voxel.h"
 #include "tomography.h"
 #include "render_pipeline.h"
+#include "sinc_overlay.h"
 
 #include <vector>
 #include <cstdint>
@@ -147,6 +148,109 @@ bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
 
     return true;
 }
+
+// ============================================================
+// Sinc / r·sin(r) overlay profile
+// ============================================================
+
+#include <array>
+
+namespace sinc_overlay
+{
+    // Double buffers for the HUD overlay.
+    static std::array<std::vector<float>, 2> profileBufs;
+    static std::array<std::vector<float>, 2> andMaskBufs;
+
+    static std::atomic<int>     frontIdx{0};
+    static std::atomic<unsigned> pulseRadius{0};
+    static std::atomic<bool>    readyFlag{false};
+
+    const std::vector<float>& profile()
+    {
+        return profileBufs[frontIdx.load(std::memory_order_acquire)];
+    }
+
+    const std::vector<float>& andMask()
+    {
+        return andMaskBufs[frontIdx.load(std::memory_order_acquire)];
+    }
+
+    unsigned currentRadius() { return pulseRadius.load(std::memory_order_acquire); }
+    bool ready()             { return readyFlag.load(std::memory_order_acquire); }
+
+    void update(unsigned selectedW)
+    {
+        using automaton::Cell;
+        using automaton::EL;
+        using automaton::W_USED;
+        using automaton::lattice_curr;
+        using automaton::getCell;
+        using automaton::CENTER;
+        using automaton::pulse_from_time;
+
+        if (EL == 0 || selectedW >= W_USED || lattice_curr.empty())
+            return;
+
+        const unsigned size = EL + 1;
+
+        int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
+        std::vector<float>& profileBack = profileBufs[backIdx];
+        std::vector<float>& andMaskBack = andMaskBufs[backIdx];
+
+        profileBack.assign(size, 0.0f);
+        andMaskBack.assign(size, 0.0f);
+        std::vector<int> counts(size, 0);
+
+        const Cell& centre = getCell(lattice_curr, CENTER, CENTER, CENTER, selectedW);
+        unsigned int pulse_r2 = pulse_from_time(centre.t);
+        unsigned int pulse_r  = (unsigned int)std::sqrt((double)pulse_r2);
+
+        for (unsigned x = 0; x < EL; ++x)
+        for (unsigned y = 0; y < EL; ++y)
+        for (unsigned z = 0; z < EL; ++z)
+        {
+            const Cell& c = getCell(lattice_curr, x, y, z, selectedW);
+
+            if (c.r2 == INF_R2)
+                continue;
+
+            int r = c.r;
+            if (r < 0 || (unsigned)r >= size)
+                continue;
+
+            profileBack[r] += static_cast<float>(c.u);
+            if (c.sB && c.active)
+                andMaskBack[r] += 1.0f;
+            counts[r]++;
+        }
+
+        float maxU = 1.0f;
+        float maxA = 1.0f;
+
+        for (unsigned i = 0; i < size; ++i)
+        {
+            if (counts[i] > 0)
+                profileBack[i] /= static_cast<float>(counts[i]);
+
+            float au = std::fabs(profileBack[i]);
+            if (au > maxU) maxU = au;
+            if (andMaskBack[i] > maxA) maxA = andMaskBack[i];
+        }
+
+        if (maxU < 1.0f) maxU = 1.0f;
+        if (maxA < 1.0f) maxA = 1.0f;
+
+        for (unsigned i = 0; i < size; ++i)
+        {
+            profileBack[i] /= maxU;       // now in [-1, 1]
+            andMaskBack[i] /= maxA;       // now in [ 0, 1]
+        }
+
+        pulseRadius.store(pulse_r, std::memory_order_release);
+        frontIdx.store(backIdx, std::memory_order_release);
+        readyFlag.store(true, std::memory_order_release);
+    }
+} // namespace sinc_overlay
 
 #if defined(USE_CUDA) && !defined(CUDA_BRIDGE_CU)
 
@@ -447,6 +551,7 @@ void updateBufferCPU()
         voxels[idx++] = color;
     }
 
+    sinc_overlay::update(selectedW);
 }
 
 // ============================================================

@@ -20,7 +20,9 @@
 #include "tomography.h"
 #include "Renderer2D.h"
 #include "draw_utils.h"
+#include "sinc_overlay.h"
 #include <vector>
+#include <cmath>
 
 extern int textureSamplerLoc;
 
@@ -200,6 +202,73 @@ void renderAboutDialog()
 }
 
 // ------------------------------------------------------------
+// Sinc / r·sin(r) overlay (bottom-left of the 3D view)
+// ------------------------------------------------------------
+static void renderSincOverlay(int screenW, int screenH)
+{
+    if (!sinc_overlay::ready())
+        return;
+
+    const std::vector<float>& u = sinc_overlay::profile();
+    const std::vector<float>& a = sinc_overlay::andMask();
+
+    if (u.empty())
+        return;
+
+    const glm::mat4& P = proj2D();
+
+    const float scaleX   = 2.0f;
+    const float graphH   = 100.0f;
+    const float margin   = 30.0f;
+    const float ox       = margin;
+    const float oy       = (float)screenH - margin;          // baseline at bottom-left
+    const float top      = oy - graphH;
+    const float midY     = (oy + top) * 0.5f;                // zero line for signed u
+    const float w        = (float)u.size() * scaleX;
+
+    // Dark background panel
+    drawQuad2D(ox - 4.0f, top - 4.0f, ox + w + 4.0f, oy + 4.0f,
+               glm::vec3(0.06f, 0.06f, 0.09f), P);
+
+    // Axis
+    drawLine2D_new(ox, oy, ox + w, oy,
+                   glm::vec3(0.35f), glm::vec3(0.35f), P);
+    drawLine2D_new(ox, top, ox, oy,
+                   glm::vec3(0.35f), glm::vec3(0.35f), P);
+
+    // Green: radial profile of u(r)
+    std::vector<glm::vec2> uPts;
+    uPts.reserve(u.size());
+    for (size_t i = 0; i < u.size(); ++i)
+    {
+        float x = ox + (float)i * scaleX;
+        float y = midY - u[i] * (graphH * 0.5f);
+        uPts.push_back(glm::vec2(x, y));
+    }
+    drawLineStrip2D(uPts, glm::vec3(0.0f, 0.85f, 0.3f), P, 1.5f);
+
+    // Red: geometric product (sB && active) per shell
+    std::vector<glm::vec2> aPts;
+    aPts.reserve(a.size());
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        float x = ox + (float)i * scaleX;
+        float y = midY - a[i] * (graphH * 0.5f); // occupies the upper half
+        aPts.push_back(glm::vec2(x, y));
+    }
+    drawLineStrip2D(aPts, glm::vec3(0.9f, 0.2f, 0.2f), P, 1.5f);
+
+    // Gray vertical line at the current pulse radius
+    unsigned pr = sinc_overlay::currentRadius();
+    if (pr < u.size())
+    {
+        float x = ox + (float)pr * scaleX;
+        drawLine2D_new(x, top, x, oy,
+                       glm::vec3(0.35f), glm::vec3(0.35f), P);
+    }
+}
+
+// ------------------------------------------------------------
 // Render HUD
 // ------------------------------------------------------------
 void renderHUD(int screenW, int screenH)
@@ -316,6 +385,11 @@ void renderHUD(int screenW, int screenH)
     renderScenarioHelpToggle();
 
     renderGizmo();
+
+    // --------------------------------------------------------
+    // Sinc / r·sin(r) overlay
+    // --------------------------------------------------------
+    renderSincOverlay(screenW, screenH);
 
     // --------------------------------------------------------
     // Progress
