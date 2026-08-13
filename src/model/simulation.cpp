@@ -211,6 +211,9 @@ namespace automaton
         const Cell& c = getCell(lattice_curr, x, y, z, w);
         Cell&       d = getCell(lattice_draft, x, y, z, w);
 
+        // Start from the current CA state and overwrite only the (u,v) wave fields.
+        d = c;
+
         bool active = (c.r == (int)pulse_r);
 
         // Hard zero on spatial boundaries and outside the processed sphere.
@@ -374,6 +377,10 @@ namespace automaton
 
     // Phase 2: radial polarisation pair (u,v) and active wavefront flag
     phase_step();
+
+    // The phase output is in lattice_draft.  Promote it to the live state so
+    // the FSM can read it and write its own modifications back to lattice_draft.
+    std::swap(lattice_curr, lattice_draft);
 
     // Phase 3: FSM interaction loop (uses r2 instead of d)
     for (unsigned w = 0; w < W_USED; ++w)

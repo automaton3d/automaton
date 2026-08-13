@@ -120,7 +120,7 @@ void renderElapsedTime()
         buf,
         20.0f,
         40.0f,
-        0.5f,
+        0.35f,
         glm::vec3(1.0f)
     );
 }
