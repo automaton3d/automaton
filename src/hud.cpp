@@ -258,6 +258,7 @@ static void renderSincOverlay(int screenW, int screenH)
     }
 
     // Cyan: trigger rate (profile / u_peak) after convergence
+    if (!tr.empty())
     {
         std::vector<glm::vec2> pts;
         pts.reserve(graphSize);
