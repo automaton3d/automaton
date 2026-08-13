@@ -260,7 +260,7 @@ namespace
             else if (R >= 40) velDampShift = 6;
 
             m_curPulseR2 = automaton::pulse_from_time(m_tick * (unsigned)pulseStep);
-            m_curSweepR  = automaton::isqrt((int)m_curPulseR2);
+            m_curSweepR  = isqrt((int)m_curPulseR2);
 
             const automaton::Cell* lattice = automaton::lattice_curr.data();
 
