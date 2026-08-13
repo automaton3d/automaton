@@ -294,34 +294,14 @@ namespace automaton
   }
 
   /*
-   * Scenario 7 — Full convolution (Sect. 5.4 of the manuscript).
-   * Implements all interaction rules between superposing wavefronts.
+   * Scenario 7 — Full convolution with K/S/D/P source interactions.
    *
-   * Structure: curr and mirror must both be on their active wavefronts
-   * (d == effective_t(t)). Then two cases:
-   *
-   * A) SAME POSITION (curr.x == mirror.x) — superposing bubbles:
-   *
-   *    A1) Different sectors (W1 ≠ mirror.W1), at mid-radius, non-orphan:
-   *        - pB && !mirror.pB  → inertial transport: propeller relocates
-   *          the bubble to its own position (c[] = x[], cB).
-   *        - !pB && mirror.pB  → hunting + contraction: non-propeller cell
-   *          hunts for a partner while contracting.
-   *
-   *    A2) Phase-locked (f == effective_t), same position:
-   *        - Different sectors, both pB  → pair formation: accumulate sine
-   *          phase (f += t), sieve (s2B &= phiB), merge affinity (min a).
-   *        - Charge-conjugate (Q ⊕, W0 ⊕, same color)  → pair formation
-   *          with blob flag (bB).
-   *        - Neutral (ch == 0 or ch == 63)  → pair formation (singlet).
-   *
-   * B) DIFFERENT POSITION — distinct bubbles:
-   *
-   *    B1) Same sector (W1 == mirror.W1), same charge (ch == mirror.ch),
-   *        phase-locked:
-   *        - a > mirror.a  → cohesion: bubble with higher affinity relocates
-   *          toward the one with lower affinity (c[] = x[], a = min).
-   *        - a <= mirror.a → hunting: sets hB, merges affinity (a = min).
+   * curr and mirror must both be on their active wavefronts.  The electric
+   * channel is triggered by pB, the magnetic channel by sB:
+   *   - both pB true  → electric collapse (kB=1)
+   *   - both sB true  → magnetic collapse (kB=1)
+   *   - only one pB or one sB true → adiabatic exchange of affinity and phase
+   * The source-center cells are then updated according to K/S/D/P rules.
    */
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
   {
@@ -344,6 +324,32 @@ namespace automaton
     bool samePos = (curr.x[0] == mirror.x[0] &&
                     curr.x[1] == mirror.x[1] &&
                     curr.x[2] == mirror.x[2]);
+
+    // pB triggers the electric channel, sB the magnetic channel.
+    bool electricContact   = curr.pB || mirror.pB;
+    bool magneticContact   = curr.sB || mirror.sB;
+    bool electricCollapse  = curr.pB && mirror.pB;
+    bool magneticCollapse  = curr.sB && mirror.sB;
+    bool collapse          = electricCollapse || magneticCollapse;
+
+    if (!electricContact && !magneticContact)
+      return false;
+
+    if (collapse)
+    {
+      draft.kB = true;
+      draft.cB = true;
+    }
+    else
+    {
+      // Adiabatic: no collapse, but the two sources exchange
+      // affinity (a) and light clock (t) and drift one step toward each other.
+      std::swap(currDraft.a, mirrorDraft.a);
+      std::swap(currDraft.t, mirrorDraft.t);
+      moveOneStep(currDraft, currCenter, mirrorCenter);
+      moveOneStep(mirrorDraft, mirrorCenter, currCenter);
+      return false;
+    }
 
     // 1. K x K
     if (currSrc.kind == SourceKind::K && mirrorSrc.kind == SourceKind::K)

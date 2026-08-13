@@ -808,7 +808,7 @@ static __device__ inline void dev_reemitAtContact(::CellDevice& srcDraft,
     dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
 }
 
-__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& /*draft*/,
+__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/,
                                       ::CellDevice* d_curr, ::CellDevice* d_draft)
 {
@@ -829,6 +829,39 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& /*draft*
     dev_source_center((unsigned)currW, currCx, currCy, currCz);
     int mirrorCx, mirrorCy, mirrorCz;
     dev_source_center((unsigned)mirrorW, mirrorCx, mirrorCy, mirrorCz);
+
+    // pB triggers the electric channel, sB the magnetic channel.
+    bool electricContact  = curr.pB || mirror.pB;
+    bool magneticContact  = curr.sB || mirror.sB;
+    bool electricCollapse = curr.pB && mirror.pB;
+    bool magneticCollapse = curr.sB && mirror.sB;
+    bool collapse         = electricCollapse || magneticCollapse;
+
+    if (!electricContact && !magneticContact)
+        return;
+
+    if (collapse)
+    {
+        draft.kB = 1;
+        draft.cB = 1;
+    }
+    else
+    {
+        // Adiabatic: no collapse, but exchange affinity and light clock,
+        // then drift one light-step toward each other.
+        uint32_t tmpA = currDraft.a;
+        uint32_t tmpT = currDraft.t;
+        currDraft.a  = mirrorDraft.a;
+        currDraft.t  = mirrorDraft.t;
+        mirrorDraft.a = tmpA;
+        mirrorDraft.t = tmpT;
+
+        dev_moveOneStep(currDraft,  currCx,  currCy,  currCz,
+                        mirrorCx, mirrorCy, mirrorCz, d_draft);
+        dev_moveOneStep(mirrorDraft, mirrorCx, mirrorCy, mirrorCz,
+                        currCx,  currCy,  currCz, d_draft);
+        return;
+    }
 
     // 1. K x K
     if (currSrc.kind == SRC_K && mirrorSrc.kind == SRC_K)

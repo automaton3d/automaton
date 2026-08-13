@@ -132,13 +132,13 @@ struct NeighborResult
       WIndex leader_w;    // Auxiliary W identity copied from the core
       bool is_core;       // Winding core flag
       unsigned char ch;   // Charge bits q, w1, w0, c2, c1, c0
-      bool pB;            // Linear motion direction bit
-      bool sB;            // Rotation spiral bit
+      bool pB;            // local wave-momentum direction (pB = (u>0)); electric channel trigger
+      bool sB;            // emergent transverse polarisation (sB = (v>0)); magnetic channel trigger
       unsigned a;         // Affinity
       unsigned x[4];      // Relative position
       // Wavefront
       unsigned d;         // Euclidean distance
-      bool phiB;          // Fixed period mask bit
+      bool phiB;          // Active wavefront marker (phiB = active)
       unsigned t;         // Light frame counter
       unsigned f;         // Sine phase parameter
       // Operational variables
@@ -156,8 +156,8 @@ struct NeighborResult
       // Pulsating sphere
       unsigned int r2;    // Squared distance from center (BFS-propagated)
       int r;              // Integer radius isqrt(r2)
-      int u, v;           // Transverse polarisation pair
-      unsigned int active; // 1 if cell is on the current pulse wavefront
+      int u, v;           // Radial polarisation pair (u: in-phase, v: quadrature)
+      unsigned int active; // 1 when the cell is on the pulsating wavefront
       // Spin-rev source model
       SourceKind kind;      // K (chief), S (singleton), D (delegate), P (pair)
       uint32_t parent;      // Parent source index (for D/P)

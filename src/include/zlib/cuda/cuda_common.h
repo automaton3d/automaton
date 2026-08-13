@@ -12,15 +12,15 @@ constexpr uint32_t DEV_NO_PAIR   = 0xFFFFFFFFu;
 struct CellDevice
 {
     uint8_t ch;
-    uint8_t pB, sB;
+    uint8_t pB, sB;       // pB=(u>0) electric channel; sB=(v>0) magnetic channel
     uint32_t a;
 
     uint32_t x[4];
     uint32_t r2;
     int32_t  r;
-    int32_t  u, v;
-    uint32_t active;
-    uint32_t phiB;
+    int32_t  u, v;        // radial polarisation pair (u in-phase, v quadrature)
+    uint32_t active;      // 1 when cell is on the pulsating wavefront
+    uint32_t phiB;        // active wavefront marker (phiB == active)
     uint32_t t;
     uint32_t f;
 
