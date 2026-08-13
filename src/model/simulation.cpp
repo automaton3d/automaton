@@ -197,10 +197,9 @@ namespace automaton
             continue;
         }
 
-        // Active wavefront: thin shell around the current pulse r2 for this cell's clock.
-        unsigned int pulse_r2 = pulse_from_time(c.t);
-        unsigned int d = (c.r2 > pulse_r2) ? (c.r2 - pulse_r2) : (pulse_r2 - c.r2);
-        c.active = (d == 0) ? 1u : 0u;
+        // Active wavefront: thin shell around the current pulse radius for this cell's clock.
+        unsigned int pulse_r = effective_t(c.t);
+        c.active = (c.r == (int)pulse_r) ? 1u : 0u;
 
         // Phase advances 2*RMAX units per radial step, full turn = 2*RMAX^2.
         // Each layer w gets a deterministic, evenly spaced angular offset so

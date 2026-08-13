@@ -290,7 +290,7 @@ struct NeighborResult
   inline unsigned int pulse_from_time(unsigned int t)
   {
       const unsigned int min_r2 = 0;
-      const unsigned int max_r2 = (unsigned int)(RMAX * RMAX * 0.92);
+      const unsigned int max_r2 = RMAX * RMAX;
       const unsigned int step = 1;
       unsigned int span = max_r2 - min_r2;
       if (span == 0) return min_r2;

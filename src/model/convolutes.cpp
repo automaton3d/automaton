@@ -158,7 +158,7 @@ namespace automaton
    */
   bool convolute1(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
+    if (curr.active && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
       draft.c[0] = getRandomUnsigned(EL);
       draft.c[1] = getRandomUnsigned(EL);
@@ -178,7 +178,7 @@ namespace automaton
    */
   bool convolute2(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
+    if (curr.active && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
       draft.a = W_USED;
       ctrl = false;
@@ -196,7 +196,7 @@ namespace automaton
    */
   bool convolute3(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.x[3] == 0 && ctrl)
+    if (curr.active && effective_t(curr.t) == RMAX / 2 && curr.x[3] == 0 && ctrl)
     {
       draft.a = W_USED;
       draft.cB = true;
@@ -214,7 +214,7 @@ namespace automaton
    */
   bool convolute4(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.sB && curr.x[3] == 0 && ctrl)
+    if (curr.active && effective_t(curr.t) == RMAX / 2 && curr.sB && curr.x[3] == 0 && ctrl)
     {
       draft.hB = true;
       ctrl = false;
@@ -233,7 +233,7 @@ namespace automaton
    */
   bool convolute5(Cell& curr, Cell &draft, Cell &mirror)
   {
-    if (curr.active && pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2) && curr.pB && curr.x[3] == 0 &&
+    if (curr.active && effective_t(curr.t) == RMAX / 2 && curr.pB && curr.x[3] == 0 &&
        !curr.cB && curr.a != W_USED && ctrl)
     {
       draft.c[0] = curr.x[0];
@@ -271,7 +271,7 @@ namespace automaton
         if (curr.a != W_USED &&
             curr.W1() != mirror.W1() &&
             !curr.cB &&
-            pulse_from_time(curr.t) == (RMAX / 2) * (RMAX / 2))
+            effective_t(curr.t) == RMAX / 2)
         {
           if (curr.pB && mirror.sB)
           {

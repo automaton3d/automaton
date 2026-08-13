@@ -206,7 +206,7 @@ static __device__ inline unsigned dev_effective_t(unsigned t) {
 // Device helper: pulsating sphere threshold (triangle wave on r², no multiplication)
 static __device__ inline unsigned dev_pulse_from_time(unsigned t) {
     const unsigned min_r2 = 0;
-    const unsigned max_r2 = (unsigned)(dev_RMAX * dev_RMAX * 0.92);
+    const unsigned max_r2 = dev_RMAX * dev_RMAX;
     const unsigned step = 1;
     unsigned span = max_r2 - min_r2;
     if (span == 0) return min_r2;
@@ -261,15 +261,15 @@ static __device__ inline void dev_phase_step_cell(::CellDevice& c, unsigned w)
     c.r2 = (uint32_t)r2_int;
     c.r  = dev_isqrt(r2_int);
 
-    unsigned int pulse_r2 = dev_pulse_from_time(c.t);
-    c.active = (c.r2 == pulse_r2) ? 1u : 0u;
-
     if (c.r < 0 || c.r > (int)dev_RMAX)
     {
-        c.u = 0; c.v = 0;
+        c.u = 0; c.v = 0; c.active = 0;
         c.phiB = 0; c.pB = 0; c.sB = 0;
         return;
     }
+
+    unsigned int pulse_r = dev_effective_t(c.t);
+    c.active = (c.r == (int)pulse_r) ? 1u : 0u;
 
     unsigned int phase_full = 2u * dev_RMAX * dev_RMAX;
     unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)dev_W_USED);
@@ -336,7 +336,7 @@ __device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*dr
 __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned tid)
 {
-    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -351,7 +351,7 @@ __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.a = dev_W_USED;
@@ -361,7 +361,7 @@ __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -375,7 +375,7 @@ __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.sB && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && curr.sB && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.hB = 1;
@@ -385,7 +385,7 @@ __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.active && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.pB && w == 0 &&
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && curr.pB && w == 0 &&
         !curr.cB && curr.a != dev_W_USED)
     {
         int old = atomicExch(&dev_ctrl, 0);
@@ -415,7 +415,7 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
             if (curr.a != dev_W_USED &&
                 DEV_W1(curr) != DEV_W1(mirror) &&
                 !curr.cB &&
-                dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2))
+                dev_effective_t(curr.t) == dev_RMAX / 2)
             {
                 if (curr.pB && mirror.sB)
                 {
@@ -450,7 +450,7 @@ __device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& d
         {
             // Test dispersion
             if (DEV_W1(curr) != DEV_W1(mirror) &&
-                dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) &&
+                dev_effective_t(curr.t) == dev_RMAX / 2 &&
                 !curr.cB && curr.a != dev_W_USED)
             {
                 // Who has the pB true interacts once
