@@ -241,8 +241,13 @@ static __device__ inline int dev_isqrt(int n)
     return result;
 }
 
-// Compute radial polarisation pair (u,v) and interaction bits from (x,y,z,w,t).
-static __device__ inline void dev_phase_step_cell(::CellDevice& c, unsigned w)
+// Compute the next (u,v) for one cell using the 3-D integer wave equation.
+static __device__ inline void dev_phase_step_cell(
+    ::CellDevice& c,
+    unsigned w,
+    ::CellDevice* src,
+    unsigned x, unsigned y, unsigned z,
+    unsigned pulse_tick)
 {
     if (dev_RMAX == 0)
     {
@@ -261,50 +266,125 @@ static __device__ inline void dev_phase_step_cell(::CellDevice& c, unsigned w)
     c.r2 = (uint32_t)r2_int;
     c.r  = dev_isqrt(r2_int);
 
-    if (c.r < 0 || c.r > (int)dev_RMAX)
+    // Wave parameters (same scaling as the former SincWave test).
+    int R = (dev_RMAX > 2u) ? (int)(dev_RMAX - 2u) : 1;
+    int shellR = (int)((dev_RMAX * 24u) / 100u);
+    int shellW = (int)(dev_RMAX / 5u);
+    if (shellW < 1) shellW = 1;
+    int absorbW = (R / 27 > 2) ? (R / 27) : 2;
+
+    int diffDivShift = 2;
+    if (R >= 384)       diffDivShift = 6;
+    else if (R >= 192)  diffDivShift = 5;
+    else if (R >= 96)   diffDivShift = 4;
+    else if (R >= 40)   diffDivShift = 3;
+
+    int velDampShift = diffDivShift + 3;
+    const int DIFF_SHIFT = 4;
+    const int SHELL_TARGET = 16384;
+
+    unsigned int pulse_r = dev_effective_t(c.t);
+    bool active = (c.r == (int)pulse_r);
+
+    // Hard zero on spatial boundaries and outside the processed sphere.
+    if (x == 0 || x == dev_EL - 1 ||
+        y == 0 || y == dev_EL - 1 ||
+        z == 0 || z == dev_EL - 1 ||
+        c.r < 0 || c.r >= R)
     {
-        c.u = 0; c.v = 0; c.active = 0;
-        c.phiB = 0; c.pB = 0; c.sB = 0;
+        c.u = 0; c.v = 0;
+        c.active = active ? 1u : 0u;
+        c.phiB   = c.active;
+        c.pB = 0; c.sB = 0;
         return;
     }
 
-    unsigned int pulse_r = dev_effective_t(c.t);
-    c.active = (c.r == (int)pulse_r) ? 1u : 0u;
+    int u = c.u;
+    int v = c.v;
+    int r = c.r;
 
-    unsigned int phase_full = 2u * dev_RMAX * dev_RMAX;
-    unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)dev_W_USED);
-    unsigned int cell_phase = (((unsigned int)c.r * 2u * dev_RMAX) + w_offset) % phase_full;
-    int m = (int)(cell_phase / (unsigned int)dev_RMAX);
-    int R = (int)dev_RMAX;
-    int u, v;
+    int neighbors_u = 0;
+    if (x + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x + 1, (int)y, (int)z, (int)w).u;
+    if (x > 0)          neighbors_u += d_getCell(src, (int)x - 1, (int)y, (int)z, (int)w).u;
+    if (y + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x, (int)y + 1, (int)z, (int)w).u;
+    if (y > 0)          neighbors_u += d_getCell(src, (int)x, (int)y - 1, (int)z, (int)w).u;
+    if (z + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x, (int)y, (int)z + 1, (int)w).u;
+    if (z > 0)          neighbors_u += d_getCell(src, (int)x, (int)y, (int)z - 1, (int)w).u;
 
-    if (m < R)
+    int lap = neighbors_u - 6 * u;
+
+    int diffShift = DIFF_SHIFT + 1 - (r >> diffDivShift);
+    if (diffShift < DIFF_SHIFT - 1)
+        diffShift = DIFF_SHIFT - 1;
+
+    int v_new = v + (lap >> diffShift);
+    int u_new = u + v_new;
+    v_new -= (v_new >> velDampShift);
+
+    // Spherical-shell source forcing.
+    int dr = r - shellR;
+    if (dr < 0) dr = -dr;
+    if (dr <= shellW)
     {
-        int arg = m * (R - m);
-        int s   = dev_isqrt(arg);
-        u = R * (R - 2 * m);
-        v = 2 * R * s;
+        if (u > SHELL_TARGET)
+            v_new -= (u - SHELL_TARGET) >> 4;
+        else if ((pulse_tick & 3u) == 0u)
+            v_new += ((SHELL_TARGET - u) >> 10) + 1;
+    }
+
+    // Absorbing outer boundary.
+    if (R > absorbW && r > R - absorbW)
+    {
+        int dist = r - (R - absorbW);
+        if (dist >= absorbW)
+            u_new = 0;
+        else if (dist > 0)
+            u_new /= (1 << dist);
+    }
+
+    // Global damping.
+    u_new -= (u_new >> 12);
+    v_new -= (v_new >> 12);
+
+    // Per-w angular offset so different W copies see distinct pB/sB patterns
+    // while the underlying (u,v) wave field stays the same for all layers.
+    int helixR = (int)dev_RMAX;
+    unsigned int phase_full = 2u * (unsigned int)helixR * (unsigned int)helixR;
+    unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)dev_W_USED);
+    unsigned int cell_phase = w_offset % phase_full;
+    int m = (int)(cell_phase / (unsigned int)helixR);
+    int cos_w, sin_w;
+    if (m < helixR)
+    {
+        int arg = m * (helixR - m);
+        int s = dev_isqrt(arg);
+        cos_w = helixR - 2 * m;
+        sin_w = 2 * s;
     }
     else
     {
-        int m2 = m - R;
-        int arg = m2 * (R - m2);
-        int s   = dev_isqrt(arg);
-        u = R * (2 * m - 3 * R);
-        v = -2 * R * s;
+        int m2 = m - helixR;
+        int arg = m2 * (helixR - m2);
+        int s = dev_isqrt(arg);
+        cos_w = 2 * m - 3 * helixR;
+        sin_w = -2 * s;
     }
 
-    c.u = u;
-    c.v = v;
-    c.phiB = c.active;
-    c.pB   = (u > 0) ? 1 : 0;
-    c.sB   = (v > 0) ? 1 : 0;
+    int ru = (u_new * cos_w - v_new * sin_w) / helixR;
+    int rv = (u_new * sin_w + v_new * cos_w) / helixR;
+
+    c.u      = u_new;
+    c.v      = v_new;
+    c.active = active ? 1u : 0u;
+    c.phiB   = c.active;
+    c.pB     = (ru > 0) ? 1 : 0;
+    c.sB     = (rv > 0) ? 1 : 0;
 }
 
 // ===================================================================
 // PHASE STEP KERNEL — run before ca_update_kernel each tick
 // ===================================================================
-__global__ void phase_step_kernel(::CellDevice* lattice_curr)
+__global__ void phase_step_kernel(::CellDevice* src, ::CellDevice* dst, unsigned pulse_tick)
 {
     unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (dev_EL == 0 || dev_W_USED == 0) return;
@@ -318,9 +398,9 @@ __global__ void phase_step_kernel(::CellDevice* lattice_curr)
     unsigned y = (idx3d / dev_EL) % dev_EL;
     unsigned x = idx3d / (dev_EL * dev_EL);
 
-    ::CellDevice c = d_getCell(lattice_curr, x, y, z, w);
-    dev_phase_step_cell(c, w);
-    d_getCell(lattice_curr, x, y, z, w) = c;
+    ::CellDevice c = d_getCell(src, (int)x, (int)y, (int)z, (int)w);
+    dev_phase_step_cell(c, w, src, x, y, z, pulse_tick);
+    d_getCell(dst, (int)x, (int)y, (int)z, (int)w) = c;
 }
 
 // ===================================================================
@@ -1429,10 +1509,11 @@ bool downloadLatticeFromCuda(::CellDevice* hostCells, size_t totalCells)
 
 void cudaSimulationStep(
     unsigned CONVOL, unsigned GSLOT_Z,
-    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-    unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-    unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-    unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario)
+    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
+    unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6,
+    unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE,
+    unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario,
+    unsigned pulse_tick)
 {
     if (!g_cuda_initialized) {
         fprintf(stderr, "ERROR: CUDA not initialized\n");
@@ -1462,8 +1543,24 @@ void cudaSimulationStep(
     if (W > 0 && !automaton::lcenters.empty())
         setCudaSourceCenters(automaton::lcenters[0].data(), W);
 
-    // Phase step: update r2/r, (u,v), active and emergent pB/sB/phiB in place.
-    phase_step_kernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr);
+    // Phase step: update r2/r, (u,v), active and emergent pB/sB/phiB into d_lattice_draft,
+    // then swap so the main CA kernel reads the updated phase.
+    phase_step_kernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr, d_lattice_draft, pulse_tick);
+
+    cudaError_t phaseErr = cudaGetLastError();
+    if (phaseErr != cudaSuccess) {
+        fprintf(stderr, "phase_step_kernel launch failed: %s\n", cudaGetErrorString(phaseErr));
+        return;
+    }
+    phaseErr = cudaDeviceSynchronize();
+    if (phaseErr != cudaSuccess) {
+        fprintf(stderr, "phase_step_kernel execution failed: %s\n", cudaGetErrorString(phaseErr));
+        return;
+    }
+
+    ::CellDevice* temp = d_lattice_curr;
+    d_lattice_curr = d_lattice_draft;
+    d_lattice_draft = temp;
 
     // Launch main CA kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
@@ -1622,15 +1719,17 @@ namespace automaton
 
     void ca_update_gpu_wrapper(
         unsigned CONVOL, unsigned GSLOT_Z,
-        unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-        unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-        unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
+        unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
+        unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6,
+        unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE,
         unsigned FLOOD, unsigned FRAME, unsigned RMAX)
     {
+        automaton::pulse_tick++;
         cudaSimulationStep(
-            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
-            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-            FLOOD, FRAME, RMAX, gConfig.simulation.scenario
+            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
+            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE,
+            FLOOD, FRAME, RMAX, gConfig.simulation.scenario,
+            automaton::pulse_tick
         );
     }
 

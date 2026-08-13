@@ -94,6 +94,8 @@ void initGeneral()
                     cell.r  = isqrt((int)dist_r2);
                     cell.u = 0;
                     cell.v = 0;
+                    if (cell.r == 0)
+                        cell.u = 2048;  // seed the central wave source
                     cell.active = 0;
 
                     // Initialize flags

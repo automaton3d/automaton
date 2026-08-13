@@ -172,69 +172,152 @@ namespace automaton
   }
 
   // ============================================================
-  // RADIAL POLARISATION — (u,v) pair
+  // RADIAL POLARISATION — (u,v) pair, evolved as a 3-D integer wave
   // ============================================================
 
   static void phase_step()
   {
-    if (RMAX == 0)
+    if (RMAX == 0 || BLOCK == 0)
       return;
 
-    unsigned int phase_full = 2u * RMAX * RMAX;
+    // Wave parameters (same scaling as the former SincWave test).
+    int R = (RMAX > 2u) ? (int)(RMAX - 2u) : 1;
+    int shellR = (int)((RMAX * 24u) / 100u);
+    int shellW = (int)(RMAX / 5u);
+    if (shellW < 1) shellW = 1;
+    int absorbW = (R / 27 > 2) ? (R / 27) : 2;
 
-    for (size_t i = 0; i < BLOCK; ++i)
+    int diffDivShift = 2;
+    if (R >= 384)       diffDivShift = 6;
+    else if (R >= 192)  diffDivShift = 5;
+    else if (R >= 96)   diffDivShift = 4;
+    else if (R >= 40)   diffDivShift = 3;
+
+    int velDampShift = diffDivShift + 3;
+    constexpr int DIFF_SHIFT = 4;
+    constexpr int SHELL_TARGET = 16384;
+
+    int ELi = (int)EL;
+    int Wi  = (int)W_USED;
+
+    // First pass: compute next (u,v) and active/pB/sB into lattice_draft.
+    for (int x = 0; x < ELi; ++x)
+    for (int y = 0; y < ELi; ++y)
+    for (int z = 0; z < ELi; ++z)
+    for (int w = 0; w < Wi;  ++w)
     {
-        Cell &c = lattice_curr[i];
+        const Cell& c = getCell(lattice_curr, x, y, z, w);
+        Cell&       d = getCell(lattice_draft, x, y, z, w);
 
-        if (c.r2 == INF_R2 || c.r < 0 || c.r > (int)RMAX)
+        unsigned int pulse_r = effective_t(c.t);
+        bool active = (c.r == (int)pulse_r);
+
+        // Hard zero on spatial boundaries and outside the processed sphere.
+        if (x == 0 || x == ELi - 1 ||
+            y == 0 || y == ELi - 1 ||
+            z == 0 || z == ELi - 1 ||
+            c.r < 0 || c.r >= R)
         {
-            c.u = 0;
-            c.v = 0;
-            c.active = 0;
-            c.phiB = false;
-            c.pB = false;
-            c.sB = false;
+            d.u = 0;
+            d.v = 0;
+            d.active = active ? 1u : 0u;
+            d.phiB = active;
+            d.pB = false;
+            d.sB = false;
             continue;
         }
 
-        // Active wavefront: thin shell around the current pulse radius for this cell's clock.
-        unsigned int pulse_r = effective_t(c.t);
-        c.active = (c.r == (int)pulse_r) ? 1u : 0u;
+        int u = c.u;
+        int v = c.v;
+        int r = c.r;
 
-        // Phase advances 2*RMAX units per radial step, full turn = 2*RMAX^2.
-        // Each layer w gets a deterministic, evenly spaced angular offset so
-        // pB/sB differ across the w dimension without per-cell constants.
-        unsigned int w_offset = (unsigned int)(((uint64_t)c.x[3] * (uint64_t)phase_full) / (uint64_t)W_USED);
-        unsigned int cell_phase = (((unsigned int)c.r * 2u * RMAX) + w_offset) % phase_full;
-        int m = (int)(cell_phase / (unsigned int)RMAX);
-        int R = (int)RMAX;
-        int u, v;
+        int neighbors_u =
+            getCell(lattice_curr, x + 1, y, z, w).u
+          + getCell(lattice_curr, x - 1, y, z, w).u
+          + getCell(lattice_curr, x, y + 1, z, w).u
+          + getCell(lattice_curr, x, y - 1, z, w).u
+          + getCell(lattice_curr, x, y, z + 1, w).u
+          + getCell(lattice_curr, x, y, z - 1, w).u;
 
-        if (m < R)
+        int lap = neighbors_u - 6 * u;
+
+        int diffShift = DIFF_SHIFT + 1 - (r >> diffDivShift);
+        if (diffShift < DIFF_SHIFT - 1)
+            diffShift = DIFF_SHIFT - 1;
+
+        int v_new = v + (lap >> diffShift);
+        int u_new = u + v_new;
+        v_new -= (v_new >> velDampShift);
+
+        // Spherical-shell source forcing.
+        int dr = r - shellR;
+        if (dr < 0) dr = -dr;
+        if (dr <= shellW)
         {
-            int arg = m * (R - m);
-            int s   = isqrt(arg);
-            u = R * (R - 2 * m);
-            v = 2 * R * s;
+            if (u > SHELL_TARGET)
+                v_new -= (u - SHELL_TARGET) >> 4;
+            else if ((pulse_tick & 3u) == 0u)
+                v_new += ((SHELL_TARGET - u) >> 10) + 1;
+        }
+
+        // Absorbing outer boundary.
+        if (R > absorbW && r > R - absorbW)
+        {
+            int dist = r - (R - absorbW);
+            if (dist >= absorbW)
+                u_new = 0;
+            else if (dist > 0)
+                u_new /= (1 << dist);
+        }
+
+        // Global damping.
+        u_new -= (u_new >> 12);
+        v_new -= (v_new >> 12);
+
+        // Per-w angular offset so different W copies see distinct pB/sB patterns
+        // while the underlying (u,v) wave field stays the same for all layers.
+        int helixR = (int)RMAX;
+        unsigned int phase_full = 2u * (unsigned int)helixR * (unsigned int)helixR;
+        unsigned int w_offset = (unsigned int)(((uint64_t)w * (uint64_t)phase_full) / (uint64_t)Wi);
+        unsigned int cell_phase = w_offset % phase_full;
+        int m = (int)(cell_phase / (unsigned int)helixR);
+        int cos_w, sin_w;
+        if (m < helixR)
+        {
+            int arg = m * (helixR - m);
+            int s = isqrt(arg);
+            cos_w = helixR - 2 * m;
+            sin_w = 2 * s;
         }
         else
         {
-            int m2 = m - R;
-            int arg = m2 * (R - m2);
-            int s   = isqrt(arg);
-            u = R * (2 * m - 3 * R);
-            v = -2 * R * s;
+            int m2 = m - helixR;
+            int arg = m2 * (helixR - m2);
+            int s = isqrt(arg);
+            cos_w = 2 * m - 3 * helixR;
+            sin_w = -2 * s;
         }
 
-        c.u = u;
-        c.v = v;
+        int ru = (u_new * cos_w - v_new * sin_w) / helixR;
+        int rv = (u_new * sin_w + v_new * cos_w) / helixR;
 
-        // Emergent interaction bits from the polarisation pair:
-        // phiB follows the active wavefront (sieve mask),
-        // pB marks u>0, sB marks v>0.
-        c.phiB = c.active;
-        c.pB   = (u > 0);
-        c.sB   = (v > 0);
+        d.u      = u_new;
+        d.v      = v_new;
+        d.active = active ? 1u : 0u;
+        d.phiB   = active;
+        d.pB     = (ru > 0);
+        d.sB     = (rv > 0);
+    }
+
+    // Copy the new wave state back to lattice_curr for the interaction FSM.
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+        lattice_curr[i].u      = lattice_draft[i].u;
+        lattice_curr[i].v      = lattice_draft[i].v;
+        lattice_curr[i].active = lattice_draft[i].active;
+        lattice_curr[i].phiB   = lattice_draft[i].phiB;
+        lattice_curr[i].pB     = lattice_draft[i].pB;
+        lattice_curr[i].sB     = lattice_draft[i].sB;
     }
   }
 

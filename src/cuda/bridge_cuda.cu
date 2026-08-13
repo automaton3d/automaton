@@ -281,7 +281,8 @@ void cudaSimulationStepWrapper()
             automaton::FLOOD,
             automaton::FRAME,
             automaton::RMAX,
-            gConfig.simulation.scenario
+            gConfig.simulation.scenario,
+            automaton::pulse_tick + tick
         );
 
         if (wantDelay) {
@@ -301,8 +302,8 @@ void cudaSimulationStepWrapper()
         }
     }
 
-    // Advance pulsation tick (mirrors CPU's pulse_tick++ in update_lattice_cpu)
-    automaton::pulse_tick++;
+    // Advance pulsation tick (one per tick inside this light-frame loop)
+    automaton::pulse_tick += automaton::FRAME;
 
     // Final download (always needed)
     downloadAndSync();

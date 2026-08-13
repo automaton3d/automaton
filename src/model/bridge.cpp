@@ -217,7 +217,7 @@ namespace sinc_overlay
             cz = automaton::lcenters[selectedW][2];
         }
 
-        std::vector<int64_t> sumU(graphSize, 0);
+        std::vector<int64_t> sumAbsU(graphSize, 0);
         std::vector<int64_t> cntU(graphSize, 0);
 
         for (unsigned x = 0; x < automaton::EL; ++x)
@@ -231,7 +231,9 @@ namespace sinc_overlay
             if (r >= graphSize)
                 continue;
 
-            sumU[r] += (int64_t)c.u;
+            int64_t au = (int64_t)c.u;
+            if (au < 0) au = -au;
+            sumAbsU[r] += au;
             cntU[r]++;
 
             if (c.active)
@@ -248,8 +250,11 @@ namespace sinc_overlay
         int64_t maxAbsU = 1;
         for (unsigned r = 0; r < graphSize; ++r)
         {
-            int64_t a = sumU[r] >= 0 ? sumU[r] : -sumU[r];
-            if (a > maxAbsU) maxAbsU = a;
+            if (cntU[r] > 0)
+            {
+                int64_t avg = sumAbsU[r] / cntU[r];
+                if (avg > maxAbsU) maxAbsU = avg;
+            }
         }
         if (maxAbsU < 1) maxAbsU = 1;
 
@@ -266,7 +271,7 @@ namespace sinc_overlay
         for (unsigned r = 0; r < graphSize; ++r)
         {
             if (cntU[r] > 0)
-                profile[r] = (float)sumU[r] / (float)maxAbsU;
+                profile[r] = (float)(sumAbsU[r] / cntU[r]) / (float)maxAbsU;
             andMask[r] = frac[r] / maxFrac;
         }
 
@@ -428,6 +433,7 @@ bool initializeCudaSimulation()
 
 void cudaSimulationStepWrapper()
 {
+    automaton::pulse_tick++;
     cudaSimulationStep(
         automaton::CONVOL,
         automaton::SLOT1,
@@ -444,7 +450,8 @@ void cudaSimulationStepWrapper()
         automaton::FLOOD,
         automaton::FRAME,
         automaton::RMAX,
-        scenario
+        scenario,
+        automaton::pulse_tick
     );
 
     size_t totalCells =
