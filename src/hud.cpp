@@ -217,14 +217,14 @@ static void renderSincOverlay(int screenW, int screenH)
 
     const glm::mat4& P = proj2D();
 
-    const float scaleX   = 2.0f;
+    const float overlayW = 250.0f;
     const float graphH   = 100.0f;
-    const float margin   = 30.0f;
-    const float ox       = margin;
-    const float oy       = (float)screenH - margin;          // baseline at bottom-left
+    const float ox       = 230.0f;                         // left x position
+    const float oy       = (float)screenH - 30.0f;          // baseline at bottom-left
     const float top      = oy - graphH;
     const float midY     = (oy + top) * 0.5f;                // zero line for signed u
-    const float w        = (float)u.size() * scaleX;
+    const float scaleX   = overlayW / (float)u.size();
+    const float w        = overlayW;
 
     // Dark background panel
     drawQuad2D(ox - 4.0f, top - 4.0f, ox + w + 4.0f, oy + 4.0f,
