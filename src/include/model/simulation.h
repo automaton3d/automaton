@@ -316,6 +316,20 @@ struct NeighborResult
           return cycle - phase;
   }
 
+  // Active pulse radius used by the (u,v) wave update.  It is kept a few
+  // cells inside the processed radius R so the wavefront still carries
+  // amplitude when it reaches the absorbing boundary.
+  inline unsigned pulse_radius(unsigned t)
+  {
+      unsigned pulse_max = (RMAX > 3) ? (RMAX - 3) : 1;
+      unsigned cycle = 2 * pulse_max;
+      unsigned phase = t % cycle;
+      if (phase <= pulse_max)
+          return phase;
+      else
+          return cycle - phase;
+  }
+
 
 /// Cross variables ///
 extern std::vector<Cell> lattice_curr;

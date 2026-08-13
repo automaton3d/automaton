@@ -181,7 +181,7 @@ namespace automaton
       return;
 
     // Wave parameters (same scaling as the former SincWave test).
-    int R = (RMAX > 2u) ? (int)(RMAX - 2u) : 1;
+    int R = (RMAX > 0u) ? (int)RMAX : 1;
     int shellR = (int)((RMAX * 24u) / 100u);
     int shellW = (int)(RMAX / 5u);
     if (shellW < 1) shellW = 1;
@@ -200,6 +200,8 @@ namespace automaton
     int ELi = (int)EL;
     int Wi  = (int)W_USED;
 
+    unsigned int pulse_r = pulse_radius(pulse_tick);
+
     // First pass: compute next (u,v) and active/pB/sB into lattice_draft.
     for (int x = 0; x < ELi; ++x)
     for (int y = 0; y < ELi; ++y)
@@ -209,7 +211,6 @@ namespace automaton
         const Cell& c = getCell(lattice_curr, x, y, z, w);
         Cell&       d = getCell(lattice_draft, x, y, z, w);
 
-        unsigned int pulse_r = effective_t(c.t);
         bool active = (c.r == (int)pulse_r);
 
         // Hard zero on spatial boundaries and outside the processed sphere.

@@ -203,6 +203,16 @@ static __device__ inline unsigned dev_effective_t(unsigned t) {
     return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
 }
 
+// Device helper: active pulse radius for the (u,v) wave update.
+// Kept a few cells inside dev_RMAX so the wavefront still carries amplitude
+// when it reaches the absorbing boundary.
+static __device__ inline unsigned dev_pulse_radius(unsigned t) {
+    unsigned pulse_max = (dev_RMAX > 3) ? (dev_RMAX - 3) : 1;
+    unsigned period = 2 * pulse_max;
+    unsigned raw = t % period;
+    return (raw <= pulse_max) ? raw : (period - raw);
+}
+
 // Device helper: pulsating sphere threshold (triangle wave on r², no multiplication)
 static __device__ inline unsigned dev_pulse_from_time(unsigned t) {
     const unsigned min_r2 = 0;
@@ -267,7 +277,7 @@ static __device__ inline void dev_phase_step_cell(
     c.r  = dev_isqrt(r2_int);
 
     // Wave parameters (same scaling as the former SincWave test).
-    int R = (dev_RMAX > 2u) ? (int)(dev_RMAX - 2u) : 1;
+    int R = (dev_RMAX > 0u) ? (int)dev_RMAX : 1;
     int shellR = (int)((dev_RMAX * 24u) / 100u);
     int shellW = (int)(dev_RMAX / 5u);
     if (shellW < 1) shellW = 1;
@@ -283,7 +293,7 @@ static __device__ inline void dev_phase_step_cell(
     const int DIFF_SHIFT = 4;
     const int SHELL_TARGET = 16384;
 
-    unsigned int pulse_r = dev_effective_t(c.t);
+    unsigned int pulse_r = dev_pulse_radius(pulse_tick);
     bool active = (c.r == (int)pulse_r);
 
     // Hard zero on spatial boundaries and outside the processed sphere.

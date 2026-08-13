@@ -181,6 +181,12 @@ namespace sinc_overlay
     static std::vector<int64_t> g_andAcc;
     static std::vector<int64_t> g_activeCount;
 
+    // Running peak of the signed |u| profile, used to normalize the cyan curve.
+    static int64_t g_uPeak = 1;
+
+    // Reference amplitude for the green curve (SHELL_TARGET * 3 from mytry.c).
+    constexpr int64_t PROFILE_PEAK_REF = 16384 * 3;
+
     const std::vector<float>& profile()     { return profileBufs[frontIdx.load(std::memory_order_acquire)]; }
     const std::vector<float>& triggerRate() { return triggerRateBufs[frontIdx.load(std::memory_order_acquire)]; }
     const std::vector<float>& peakHistory() { return peakHistoryBufs[frontIdx.load(std::memory_order_acquire)]; }
@@ -205,6 +211,7 @@ namespace sinc_overlay
         {
             g_andAcc.assign(graphSize, 0);
             g_activeCount.assign(graphSize, 0);
+            g_uPeak = 1;
         }
 
         unsigned cx = automaton::CENTER;
@@ -217,7 +224,7 @@ namespace sinc_overlay
             cz = automaton::lcenters[selectedW][2];
         }
 
-        std::vector<int64_t> sumAbsU(graphSize, 0);
+        std::vector<int64_t> sumU(graphSize, 0);
         std::vector<int64_t> cntU(graphSize, 0);
 
         for (unsigned x = 0; x < automaton::EL; ++x)
@@ -231,9 +238,7 @@ namespace sinc_overlay
             if (r >= graphSize)
                 continue;
 
-            int64_t au = (int64_t)c.u;
-            if (au < 0) au = -au;
-            sumAbsU[r] += au;
+            sumU[r] += (int64_t)c.u;
             cntU[r]++;
 
             if (c.active)
@@ -244,45 +249,51 @@ namespace sinc_overlay
             }
         }
 
-        std::vector<float> profile(graphSize, 0.0f);
-        std::vector<float> andMask(graphSize, 0.0f);
-
-        int64_t maxAbsU = 1;
+        // Per-shell average of u(r) (signed) and running peak.
+        std::vector<int64_t> avgU(graphSize, 0);
         for (unsigned r = 0; r < graphSize; ++r)
         {
             if (cntU[r] > 0)
             {
-                int64_t avg = sumAbsU[r] / cntU[r];
-                if (avg > maxAbsU) maxAbsU = avg;
+                avgU[r] = sumU[r] / cntU[r];
+                int64_t a = avgU[r];
+                if (a < 0) a = -a;
+                if (a > g_uPeak) g_uPeak = a;
             }
         }
-        if (maxAbsU < 1) maxAbsU = 1;
+        if (g_uPeak < 1) g_uPeak = 1;
 
-        float maxFrac = 0.0f;
-        std::vector<float> frac(graphSize, 0.0f);
+        // Green: signed sinc(r) profile against the fixed reference amplitude.
+        // Cyan: profile normalized by the running peak (trigger rate).
+        // Yellow: running peak level.
+        std::vector<float> profile(graphSize, 0.0f);
+        std::vector<float> triggerRate(graphSize, 0.0f);
+        std::vector<float> peakHistory(graphSize, 0.0f);
         for (unsigned r = 0; r < graphSize; ++r)
         {
-            if (g_activeCount[r] > 0)
-                frac[r] = (float)g_andAcc[r] / (float)g_activeCount[r];
-            if (frac[r] > maxFrac) maxFrac = frac[r];
+            profile[r]     = (float)avgU[r] / (float)PROFILE_PEAK_REF;
+            triggerRate[r] = (g_uPeak > 0) ? ((float)avgU[r] / (float)g_uPeak) : 0.0f;
+            peakHistory[r] = std::min(1.0f, (float)g_uPeak / (float)PROFILE_PEAK_REF);
         }
-        if (maxFrac < 1e-6f) maxFrac = 1.0f;
 
+        // Red: accumulated AND counts per shell (r·sin(r) mask), absolute counts.
+        std::vector<float> andMask(graphSize, 0.0f);
+        int64_t maxAnd = 1;
         for (unsigned r = 0; r < graphSize; ++r)
         {
-            if (cntU[r] > 0)
-                profile[r] = (float)(sumAbsU[r] / cntU[r]) / (float)maxAbsU;
-            andMask[r] = frac[r] / maxFrac;
+            if (g_andAcc[r] > maxAnd) maxAnd = g_andAcc[r];
         }
+        if (maxAnd < 1) maxAnd = 1;
+        for (unsigned r = 0; r < graphSize; ++r)
+            andMask[r] = (float)g_andAcc[r] / (float)maxAnd;
 
-        const Cell& centre = getCell(automaton::lattice_curr, cx, cy, cz, selectedW);
-        unsigned pulseR = automaton::effective_t(centre.t);
+        unsigned pulseR = automaton::pulse_radius(automaton::pulse_tick);
 
         int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
-        profileBufs[backIdx]   = std::move(profile);
-        andMaskBufs[backIdx]   = std::move(andMask);
-        triggerRateBufs[backIdx].clear();
-        peakHistoryBufs[backIdx].clear();
+        profileBufs[backIdx]     = std::move(profile);
+        andMaskBufs[backIdx]     = std::move(andMask);
+        triggerRateBufs[backIdx] = std::move(triggerRate);
+        peakHistoryBufs[backIdx] = std::move(peakHistory);
 
         pulseRadius.store(pulseR, std::memory_order_release);
         gGraphSize.store(graphSize, std::memory_order_release);
