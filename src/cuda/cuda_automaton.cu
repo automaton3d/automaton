@@ -1717,29 +1717,5 @@ namespace automaton
 
     bool swap_lattices_gpu() { return true; }
 
-    void ca_update_gpu_wrapper(
-        unsigned CONVOL, unsigned GSLOT_Z,
-        unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
-        unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6,
-        unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE,
-        unsigned FLOOD, unsigned FRAME, unsigned RMAX)
-    {
-        automaton::pulse_tick++;
-        cudaSimulationStep(
-            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
-            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE,
-            FLOOD, FRAME, RMAX, gConfig.simulation.scenario,
-            automaton::pulse_tick
-        );
-    }
-
-    void ca_update_gpu_wrapper() {
-        ca_update_gpu_wrapper(
-            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
-            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-            FLOOD, FRAME, RMAX
-        );
-    }
-
     void free_cuda_memory() { ::free_cuda_memory(); }
 }

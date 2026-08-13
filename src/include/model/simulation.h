@@ -351,15 +351,8 @@ extern std::vector<Cell> lattice_mirror; // Add or verify
 #ifdef USE_CUDA
   // Internal GPU wrapper functions - only declared when CUDA is enabled
   // Implementations are in cuda_automaton.cu
-  void ca_update_gpu_wrapper();
-  void ca_update_gpu_wrapper(
-      unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-      unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-      unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-      unsigned FLOOD, unsigned FRAME, unsigned RMAX
-  );
   bool swap_lattices_gpu();
-  
+
   // Pointers for Device (GPU) memory
   extern Cell* d_lattice_curr;
   extern Cell* d_lattice_draft;
