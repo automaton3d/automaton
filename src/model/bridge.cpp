@@ -159,18 +159,19 @@ bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
 
 namespace
 {
-    // Integer-only 3-D sinc wave CA taken from sine2/mytry.c.
-    // It runs independently on the host, reads the BFS radius r/r2 from
-    // layer w = 0 of lattice_curr, and feeds the 2-D overlay with a
-    // radial sinc(r) displacement profile and a red (v > 0 && active)
-    // geometric-product mask.
+    // Self-contained integer-only 3-D sinc wave CA taken from sine2/mytry.c.
+    // It runs independently on the host, computes its own integer r/r2 from
+    // the lattice centre, and feeds the 2-D overlay with:
+    //   - green  : radial sinc(r) displacement profile
+    //   - cyan   : trigger rate (profile / u_peak) after convergence
+    //   - yellow : peak-history time series
+    //   - red    : and_count[r] geometric product (triggered && active)
     class SincWave
     {
     public:
         void run()
         {
-            if (automaton::EL == 0 || automaton::lattice_curr.empty() ||
-                automaton::lcenters.empty())
+            if (automaton::EL == 0)
                 return;
 
             if (m_el != automaton::EL || automaton::pulse_tick < m_lastPulseTick)
@@ -178,8 +179,6 @@ namespace
 
             if (m_tick == 0)
             {
-                // Produce an initial profile immediately so the overlay is
-                // populated even before the first simulation tick.
                 stepOnce();
                 m_lastPulseTick = automaton::pulse_tick;
             }
@@ -194,13 +193,20 @@ namespace
             updateProfile();
         }
 
-        const std::vector<float>& profile() const { return m_profile; }
-        const std::vector<float>& andMask() const { return m_andMask; }
+        const std::vector<float>& profile()      const { return m_profile; }
+        const std::vector<float>& triggerRate()  const { return m_triggerRate; }
+        const std::vector<float>& peakHistory()  const { return m_peakHistoryBuf; }
+        const std::vector<float>& andMask()      const { return m_andMask; }
         unsigned currentRadius() const { return static_cast<unsigned>(m_curSweepR); }
+        unsigned graphSize()     const { return m_graphSize; }
 
     private:
-        static constexpr int DIFF_SHIFT   = 4;
-        static constexpr int SHELL_TARGET = 16384;
+        static constexpr int DIFF_SHIFT         = 4;
+        static constexpr int SHELL_TARGET         = 16384;
+        static constexpr int STABILITY_THRESHOLD  = 35;
+        static constexpr int STABILITY_FRAMES   = 180;
+        static constexpr int PROFILE_PEAK_REF   = SHELL_TARGET * 3;
+        static constexpr int PEAK_HIST_W        = 600;
 
         unsigned m_el = 0;
         unsigned m_tick = 0;
@@ -208,8 +214,29 @@ namespace
         int m_curSweepR = 0;
         unsigned int m_curPulseR2 = 0;
 
-        std::vector<int>   m_u, m_v, m_uNext, m_vNext;
-        std::vector<float> m_profile, m_andMask;
+        int m_centerX = 0, m_centerY = 0, m_centerZ = 0;
+        int m_radius = 0;
+        int m_shellR = 0, m_shellW = 0, m_absorbW = 0, m_pulseStep = 0;
+        int m_diffDivShift = 2, m_velDampShift = 5, m_ttlDecayMask = 7;
+        int m_sincQ = 1;
+        unsigned int m_pulseTol = 1;
+        unsigned int m_graphSize = 0;
+
+        std::vector<int>           m_u, m_v, m_uNext, m_vNext;
+        std::vector<int>           m_sincP, m_acc;
+        std::vector<unsigned char> m_ttl;
+        std::vector<int64_t>       m_andCount;
+        std::vector<int64_t>       m_profileRaw;
+        std::vector<int64_t>       m_profilePrev;
+        std::vector<float>         m_profile;
+        std::vector<float>         m_triggerRate;
+        std::vector<float>         m_andMask;
+        std::vector<int>           m_peakHistory;
+        std::vector<float>         m_peakHistoryBuf;
+        size_t m_peakIdx = 0;
+        bool   m_sincConverged = false;
+        int    m_stableFrames = 0;
+        int64_t m_uPeak = 0;
 
         void reset()
         {
@@ -218,20 +245,65 @@ namespace
             m_lastPulseTick = automaton::pulse_tick;
             m_curSweepR = 0;
             m_curPulseR2 = 0;
+            m_sincConverged = false;
+            m_stableFrames = 0;
+            m_uPeak = 0;
+            m_peakIdx = 0;
+            m_sincQ = 1;
+
+            m_centerX = (int)automaton::CENTER;
+            m_centerY = m_centerX;
+            m_centerZ = m_centerX;
+
+            m_radius = (m_el > 4) ? (int)(m_el / 2 - 2) : 1;
+            if (m_radius < 1) m_radius = 1;
+            m_shellR   = (int)(m_el * 12 / 100);
+            m_shellW   = ((int)m_el / 10) > 0 ? ((int)m_el / 10) : 1;
+            m_absorbW  = ((m_radius / 27) > 2) ? (m_radius / 27) : 2;
+            m_pulseStep = ((int)m_el + 15) / 30;
+            if (m_pulseStep < 1) m_pulseStep = 1;
+            m_pulseTol = ((m_el * m_el + 150u) / 300u) > 0u
+                            ? ((m_el * m_el + 150u) / 300u)
+                            : 1u;
+            m_graphSize = (unsigned)m_radius;
+
+            m_diffDivShift = 2;
+            if (m_radius >= 384)       m_diffDivShift = 6;
+            else if (m_radius >= 192)  m_diffDivShift = 5;
+            else if (m_radius >= 96)   m_diffDivShift = 4;
+            else if (m_radius >= 40)   m_diffDivShift = 3;
+
+            m_velDampShift = m_diffDivShift + 3;
+
+            m_ttlDecayMask = 7;
+            if (m_radius >= 384)       m_ttlDecayMask = 127;
+            else if (m_radius >= 192) m_ttlDecayMask = 63;
+            else if (m_radius >= 96)  m_ttlDecayMask = 31;
+            else if (m_radius >= 40)  m_ttlDecayMask = 15;
 
             size_t n = (size_t)m_el * m_el * m_el;
             m_u.assign(n, 0);
             m_v.assign(n, 0);
             m_uNext.assign(n, 0);
             m_vNext.assign(n, 0);
-            m_profile.assign(m_el + 1, 0.0f);
-            m_andMask.assign(m_el + 1, 0.0f);
+            m_sincP.assign(n, 0);
+            m_acc.assign(n, 0);
+            m_ttl.assign(n, 0);
 
-            unsigned cx = automaton::lcenters[0][0];
-            unsigned cy = automaton::lcenters[0][1];
-            unsigned cz = automaton::lcenters[0][2];
+            m_andCount.assign(m_graphSize, 0);
+            m_profileRaw.assign(m_graphSize, 0);
+            m_profilePrev.assign(m_graphSize, 0);
+            m_profile.assign(m_graphSize, 0.0f);
+            m_triggerRate.assign(m_graphSize, 0.0f);
+            m_andMask.assign(m_graphSize, 0.0f);
+            m_peakHistory.assign(PEAK_HIST_W, 0);
+            m_peakHistoryBuf.assign(PEAK_HIST_W, 0.0f);
+
+            size_t cx = (size_t)m_centerX;
+            size_t cy = (size_t)m_centerY;
+            size_t cz = (size_t)m_centerZ;
             if (cx < m_el && cy < m_el && cz < m_el)
-                m_u[((size_t)cx * m_el + cy) * m_el + cz] = SHELL_TARGET / 8;
+                m_u[((cx * m_el + cy) * m_el + cz)] = SHELL_TARGET / 8;
         }
 
         void stepOnce()
@@ -240,29 +312,19 @@ namespace
             if (EL < 3)
                 return;
 
-            const int R = (EL > 4) ? (int)(EL / 2 - 2) : 1;
+            const int R = m_radius;
+            const int shellR = m_shellR;
+            const int shellW = m_shellW;
+            const int absorbW = m_absorbW;
+            const int diffDivShift = m_diffDivShift;
+            const int velDampShift = m_velDampShift;
+            const int ttlDecayMask = m_ttlDecayMask;
+            const int sincQ = m_sincQ;
+            const unsigned int pulseTol = m_pulseTol;
 
-            const int shellR   = (int)(EL * 12 / 100);
-            const int shellW   = (EL / 10) > 0 ? (EL / 10) : 1;
-            const int absorbW  = (R / 27) > 2 ? (R / 27) : 2;
-            const int pulseStep = ((EL + 15) / 30) > 0 ? ((EL + 15) / 30) : 1;
-
-            int diffDivShift = 2;
-            if (R >= 384) diffDivShift = 6;
-            else if (R >= 192) diffDivShift = 5;
-            else if (R >= 96) diffDivShift = 4;
-            else if (R >= 40) diffDivShift = 3;
-
-            int velDampShift = 2;
-            if (R >= 384) velDampShift = 9;
-            else if (R >= 192) velDampShift = 8;
-            else if (R >= 96) velDampShift = 7;
-            else if (R >= 40) velDampShift = 6;
-
-            m_curPulseR2 = automaton::pulse_from_time(m_tick * (unsigned)pulseStep);
-            m_curSweepR  = isqrt((int)m_curPulseR2);
-
-            const automaton::Cell* lattice = automaton::lattice_curr.data();
+            m_curPulseR2 = automaton::pulse_from_time(
+                (unsigned int)((uint64_t)m_tick * (unsigned int)m_pulseStep));
+            m_curSweepR = isqrt((int)m_curPulseR2);
 
             for (unsigned x = 1; x < EL - 1; ++x)
             {
@@ -278,16 +340,23 @@ namespace
                     size_t baseYp = rowBaseX  + (size_t)(y + 1) * EL;
                     size_t baseYm = rowBaseX  + (size_t)(y - 1) * EL;
 
-                    const automaton::Cell* rowC = lattice + baseX;
-
                     for (unsigned z = 1; z < EL - 1; ++z)
                     {
-                        const automaton::Cell& c = rowC[z];
-                        int r = c.r;
+                        int dx_ = (int)x - m_centerX;
+                        int dy_ = (int)y - m_centerY;
+                        int dz_ = (int)z - m_centerZ;
+                        unsigned int ax = (unsigned int)(dx_ < 0 ? -dx_ : dx_);
+                        unsigned int ay = (unsigned int)(dy_ < 0 ? -dy_ : dy_);
+                        unsigned int az = (unsigned int)(dz_ < 0 ? -dz_ : dz_);
+                        unsigned int r2 = ax * ax + ay * ay + az * az;
+                        int r = isqrt((int)r2);
+
                         if (r < 0 || r >= R)
                         {
                             m_uNext[baseX + z] = 0;
                             m_vNext[baseX + z] = 0;
+                            m_acc[baseX + z] = 0;
+                            m_ttl[baseX + z] = 0;
                             continue;
                         }
 
@@ -295,10 +364,11 @@ namespace
                         int u = m_u[idx];
                         int v = m_v[idx];
 
-                        int neighbors = m_u[baseXp + z] + m_u[baseXm + z]
-                                      + m_u[baseYp + z] + m_u[baseYm + z]
-                                      + m_u[baseX + z + 1]
-                                      + m_u[baseX + z - 1];
+                        int neighbors =
+                            m_u[baseXp + z] + m_u[baseXm + z]
+                          + m_u[baseYp + z] + m_u[baseYm + z]
+                          + m_u[baseX + z + 1]
+                          + m_u[baseX + z - 1];
 
                         int lap = neighbors - (u << 2) - (u << 1);
 
@@ -310,7 +380,6 @@ namespace
                         int u_new = u + v_new;
                         v_new -= (v_new >> velDampShift);
 
-                        // Shell forcing around SHELL_R.
                         int dr = r - shellR;
                         if (dr < 0) dr = -dr;
                         if (dr <= shellW)
@@ -327,7 +396,6 @@ namespace
                             }
                         }
 
-                        // Boundary absorption.
                         if (r > R - absorbW)
                         {
                             int dist = r - (R - absorbW);
@@ -340,8 +408,39 @@ namespace
                         if (u_new < 0)
                             u_new = 0;
 
+                        // Bresenham trigger
+                        int acc = m_acc[idx] + m_sincP[idx];
+                        int triggered = 0;
+                        if (sincQ > 0 && acc >= sincQ)
+                        {
+                            acc -= sincQ;
+                            triggered = 1;
+                        }
+
+                        // TTL persistence
+                        unsigned char ttl = m_ttl[idx];
+                        if (((int)m_tick & ttlDecayMask) == 0 && ttl > 0)
+                            ttl--;
+
+                        // Geometric product with pulsating wavefront
+                        unsigned int d = (r2 > m_curPulseR2)
+                                            ? (r2 - m_curPulseR2)
+                                            : (m_curPulseR2 - r2);
+                        bool active = (d <= pulseTol);
+
+                        if (triggered && active)
+                        {
+                            if (sincQ > 0)
+                                ttl = (unsigned char)(32 + (223 * m_sincP[idx]) / sincQ);
+
+                            if (r >= 0 && (unsigned)r < m_graphSize && r == m_curSweepR)
+                                m_andCount[r]++;
+                        }
+
                         m_uNext[idx] = u_new;
                         m_vNext[idx] = v_new;
+                        m_acc[idx]   = acc;
+                        m_ttl[idx]   = ttl;
                     }
                 }
             }
@@ -362,19 +461,9 @@ namespace
         void updateProfile()
         {
             const unsigned EL = m_el;
-            const unsigned size = EL + 1;
-            m_profile.assign(size, 0.0f);
-            m_andMask.assign(size, 0.0f);
-
-            std::vector<int64_t> profSum(size, 0);
+            const unsigned size = m_graphSize;
+            m_profileRaw.assign(size, 0);
             std::vector<int> counts(size, 0);
-            std::vector<int> andCounts(size, 0);
-
-            const automaton::Cell* lattice = automaton::lattice_curr.data();
-            const unsigned int pulseTol = ((EL * EL + 150) / 300) > 0
-                                            ? ((EL * EL + 150) / 300)
-                                            : 1;
-            const unsigned int pulseR2 = m_curPulseR2;
 
             for (unsigned x = 0; x < EL; ++x)
             {
@@ -382,48 +471,114 @@ namespace
                 for (unsigned y = 0; y < EL; ++y)
                 {
                     size_t base = rowBase + (size_t)y * EL;
-                    const automaton::Cell* row = lattice + base;
                     for (unsigned z = 0; z < EL; ++z)
                     {
-                        const automaton::Cell& c = row[z];
-                        int r = c.r;
+                        int dx_ = (int)x - m_centerX;
+                        int dy_ = (int)y - m_centerY;
+                        int dz_ = (int)z - m_centerZ;
+                        unsigned int ax = (unsigned int)(dx_ < 0 ? -dx_ : dx_);
+                        unsigned int ay = (unsigned int)(dy_ < 0 ? -dy_ : dy_);
+                        unsigned int az = (unsigned int)(dz_ < 0 ? -dz_ : dz_);
+                        unsigned int r2 = ax * ax + ay * ay + az * az;
+                        int r = isqrt((int)r2);
+
                         if (r < 0 || (unsigned)r >= size)
                             continue;
 
                         size_t idx = base + z;
-                        profSum[r] += m_u[idx];
+                        m_profileRaw[r] += m_u[idx];
                         counts[r]++;
-
-                        unsigned int d = (c.r2 > pulseR2) ? (c.r2 - pulseR2)
-                                                          : (pulseR2 - c.r2);
-                        bool active = (d <= pulseTol);
-                        if (m_v[idx] > 0 && active)
-                            andCounts[r]++;
                     }
                 }
             }
 
-            float maxU = 1.0f;
-            float maxA = 1.0f;
             for (unsigned i = 0; i < size; ++i)
             {
-                float p = (counts[i] > 0)
-                            ? static_cast<float>(profSum[i]) / static_cast<float>(counts[i])
-                            : 0.0f;
-                m_profile[i] = p;
-                m_andMask[i] = static_cast<float>(andCounts[i]);
-
-                if (p > maxU) maxU = p;
-                if (andCounts[i] > maxA) maxA = static_cast<float>(andCounts[i]);
+                if (counts[i] > 0)
+                    m_profileRaw[i] /= counts[i];
             }
 
-            if (maxU < 1.0f) maxU = 1.0f;
-            if (maxA < 1.0f) maxA = 1.0f;
+            int64_t maxChange = 0;
+            for (unsigned i = 0; i < size; ++i)
+            {
+                int64_t d = m_profileRaw[i] - m_profilePrev[i];
+                if (d < 0) d = -d;
+                if (d > maxChange) maxChange = d;
+            }
+
+            if (!m_sincConverged)
+            {
+                if (maxChange < STABILITY_THRESHOLD)
+                    m_stableFrames++;
+                else
+                    m_stableFrames = 0;
+
+                if (m_stableFrames >= STABILITY_FRAMES)
+                {
+                    m_sincConverged = true;
+                    m_uPeak = 0;
+                    for (unsigned i = 0; i < size; ++i)
+                    {
+                        if (m_profileRaw[i] > m_uPeak)
+                            m_uPeak = m_profileRaw[i];
+                    }
+
+                    if (m_uPeak > 0)
+                    {
+                        m_sincQ = (int)m_uPeak;
+                        size_t n = m_u.size();
+                        for (size_t i = 0; i < n; ++i)
+                        {
+                            m_sincP[i] = m_u[i];
+                            m_acc[i] = 0;
+                        }
+                    }
+                }
+            }
+
+            m_profilePrev = m_profileRaw;
+
+            int64_t peak = 1;
+            for (unsigned i = 0; i < size; ++i)
+            {
+                if (counts[i] > 0 && m_profileRaw[i] > peak)
+                    peak = m_profileRaw[i];
+            }
+            m_peakHistory[m_peakIdx] = (int)(peak > INT32_MAX ? INT32_MAX : peak);
+            m_peakIdx = (m_peakIdx + 1) % PEAK_HIST_W;
 
             for (unsigned i = 0; i < size; ++i)
             {
-                m_profile[i] /= maxU;
-                m_andMask[i] /= maxA;
+                m_profile[i] = (float)m_profileRaw[i] / (float)PROFILE_PEAK_REF;
+                m_triggerRate[i] = (m_sincConverged && m_uPeak > 0)
+                                        ? (float)m_profileRaw[i] / (float)m_uPeak
+                                        : 0.0f;
+            }
+
+            int64_t maxCount = 1;
+            for (unsigned i = 0; i < size; ++i)
+            {
+                if (m_andCount[i] > maxCount)
+                    maxCount = m_andCount[i];
+            }
+            if (maxCount < 1) maxCount = 1;
+
+            for (unsigned i = 0; i < size; ++i)
+                m_andMask[i] = (float)m_andCount[i] / (float)maxCount;
+
+            int maxHist = 1;
+            for (int i = 0; i < PEAK_HIST_W; ++i)
+            {
+                if (m_peakHistory[i] > maxHist)
+                    maxHist = m_peakHistory[i];
+            }
+            int denom = maxHist + (maxHist >> 3);
+            if (denom < 1) denom = 1;
+
+            for (int i = 0; i < PEAK_HIST_W; ++i)
+            {
+                int val = m_peakHistory[(m_peakIdx + i) % PEAK_HIST_W];
+                m_peakHistoryBuf[i] = (float)val / (float)denom;
             }
         }
     };
@@ -435,42 +590,40 @@ namespace sinc_overlay
 {
     // Double buffers for the HUD overlay.
     static std::array<std::vector<float>, 2> profileBufs;
+    static std::array<std::vector<float>, 2> triggerRateBufs;
+    static std::array<std::vector<float>, 2> peakHistoryBufs;
     static std::array<std::vector<float>, 2> andMaskBufs;
 
-    static std::atomic<int>     frontIdx{0};
+    static std::atomic<int>      frontIdx{0};
     static std::atomic<unsigned> pulseRadius{0};
-    static std::atomic<bool>    readyFlag{false};
+    static std::atomic<unsigned> gGraphSize{0};
+    static std::atomic<bool>     readyFlag{false};
 
-    const std::vector<float>& profile()
-    {
-        return profileBufs[frontIdx.load(std::memory_order_acquire)];
-    }
-
-    const std::vector<float>& andMask()
-    {
-        return andMaskBufs[frontIdx.load(std::memory_order_acquire)];
-    }
-
+    const std::vector<float>& profile()     { return profileBufs[frontIdx.load(std::memory_order_acquire)]; }
+    const std::vector<float>& triggerRate() { return triggerRateBufs[frontIdx.load(std::memory_order_acquire)]; }
+    const std::vector<float>& peakHistory() { return peakHistoryBufs[frontIdx.load(std::memory_order_acquire)]; }
+    const std::vector<float>& andMask()     { return andMaskBufs[frontIdx.load(std::memory_order_acquire)]; }
     unsigned currentRadius() { return pulseRadius.load(std::memory_order_acquire); }
+    unsigned graphSize()     { return gGraphSize.load(std::memory_order_acquire); }
     bool ready()             { return readyFlag.load(std::memory_order_acquire); }
 
     void update(unsigned selectedW)
     {
-        (void)selectedW; // overlay always uses the sinc wave on layer w = 0
+        (void)selectedW; // overlay uses its own self-contained CA centred on layer 0
 
-        using automaton::EL;
-        using automaton::lattice_curr;
-
-        if (EL == 0 || lattice_curr.empty())
+        if (automaton::EL == 0 || automaton::lattice_curr.empty())
             return;
 
         g_sincWave.run();
 
         int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
-        profileBufs[backIdx] = g_sincWave.profile();
-        andMaskBufs[backIdx] = g_sincWave.andMask();
+        profileBufs[backIdx]     = g_sincWave.profile();
+        triggerRateBufs[backIdx]  = g_sincWave.triggerRate();
+        peakHistoryBufs[backIdx]  = g_sincWave.peakHistory();
+        andMaskBufs[backIdx]      = g_sincWave.andMask();
 
         pulseRadius.store(g_sincWave.currentRadius(), std::memory_order_release);
+        gGraphSize.store(g_sincWave.graphSize(), std::memory_order_release);
         frontIdx.store(backIdx, std::memory_order_release);
         readyFlag.store(true, std::memory_order_release);
     }
@@ -696,6 +849,8 @@ void updateBufferCuda()
                     automaton::EL + z];
         }
     }
+
+    sinc_overlay::update(selectedW);
 }
 
 #endif // USE_CUDA && !CUDA_BRIDGE_CU

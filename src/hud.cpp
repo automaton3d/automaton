@@ -207,13 +207,18 @@ void renderAboutDialog()
 // ------------------------------------------------------------
 static void renderSincOverlay(int screenW, int screenH)
 {
+    (void)screenW;
+
     if (!sinc_overlay::ready())
         return;
 
-    const std::vector<float>& u = sinc_overlay::profile();
-    const std::vector<float>& a = sinc_overlay::andMask();
+    const std::vector<float>& u  = sinc_overlay::profile();
+    const std::vector<float>& tr = sinc_overlay::triggerRate();
+    const std::vector<float>& ph = sinc_overlay::peakHistory();
+    const std::vector<float>& am = sinc_overlay::andMask();
 
-    if (u.empty())
+    const unsigned graphSize = sinc_overlay::graphSize();
+    if (u.empty() || graphSize == 0)
         return;
 
     const glm::mat4& P = proj2D();
@@ -223,44 +228,83 @@ static void renderSincOverlay(int screenW, int screenH)
     const float ox       = 230.0f;                         // left x position
     const float oy       = (float)screenH - 30.0f;          // baseline at bottom-left
     const float top      = oy - graphH;
-    const float scaleX   = overlayW / (float)u.size();
-    const float w        = overlayW;
+
+    const float scaleX = (graphSize > 1)
+                            ? overlayW / (float)(graphSize - 1)
+                            : overlayW;
 
     // Dark background panel
-    drawQuad2D(ox - 4.0f, top - 4.0f, ox + w + 4.0f, oy + 4.0f,
+    drawQuad2D(ox - 4.0f, top - 4.0f, ox + overlayW + 4.0f, oy + 4.0f,
                glm::vec3(0.06f, 0.06f, 0.09f), P);
 
-    // Axis
-    drawLine2D_new(ox, oy, ox + w, oy,
+    // Axes
+    drawLine2D_new(ox, oy, ox + overlayW, oy,
                    glm::vec3(0.35f), glm::vec3(0.35f), P);
     drawLine2D_new(ox, top, ox, oy,
                    glm::vec3(0.35f), glm::vec3(0.35f), P);
 
-    // Green: radial sinc(r) displacement profile (u >= 0)
-    std::vector<glm::vec2> uPts;
-    uPts.reserve(u.size());
-    for (size_t i = 0; i < u.size(); ++i)
+    // Green: radial sinc(r) displacement profile
     {
-        float x = ox + (float)i * scaleX;
-        float y = oy - u[i] * graphH;
-        uPts.push_back(glm::vec2(x, y));
+        std::vector<glm::vec2> pts;
+        pts.reserve(graphSize);
+        for (unsigned r = 0; r < graphSize; ++r)
+        {
+            float x = ox + (float)r * scaleX;
+            float y = oy - u[r] * graphH;
+            if (y < top) y = top;
+            pts.emplace_back(x, y);
+        }
+        drawLineStrip2D(pts, glm::vec3(0.0f, 0.85f, 0.3f), P, 1.5f);
     }
-    drawLineStrip2D(uPts, glm::vec3(0.0f, 0.85f, 0.3f), P, 1.5f);
 
-    // Red: geometric product (wave velocity v > 0 && active) per shell
-    std::vector<glm::vec2> aPts;
-    aPts.reserve(a.size());
-    for (size_t i = 0; i < a.size(); ++i)
+    // Cyan: trigger rate (profile / u_peak) after convergence
     {
-        float x = ox + (float)i * scaleX;
-        float y = oy - a[i] * graphH;
-        aPts.push_back(glm::vec2(x, y));
+        std::vector<glm::vec2> pts;
+        pts.reserve(graphSize);
+        for (unsigned r = 0; r < graphSize; ++r)
+        {
+            float x = ox + (float)r * scaleX;
+            float y = oy - tr[r] * graphH;
+            if (y < top) y = top;
+            pts.emplace_back(x, y);
+        }
+        drawLineStrip2D(pts, glm::vec3(0.0f, 0.78f, 1.0f), P, 1.5f);
     }
-    drawLineStrip2D(aPts, glm::vec3(0.9f, 0.2f, 0.2f), P, 1.5f);
+
+    // Yellow: peak-history time series
+    if (!ph.empty())
+    {
+        const float scaleX2 = (ph.size() > 1)
+                                ? overlayW / (float)(ph.size() - 1)
+                                : overlayW;
+        std::vector<glm::vec2> pts;
+        pts.reserve(ph.size());
+        for (size_t i = 0; i < ph.size(); ++i)
+        {
+            float x = ox + (float)i * scaleX2;
+            float y = oy - ph[i] * graphH;
+            if (y < top) y = top;
+            pts.emplace_back(x, y);
+        }
+        drawLineStrip2D(pts, glm::vec3(1.0f, 0.9f, 0.0f), P, 1.5f);
+    }
+
+    // Red: and_count[r] scatter (triggered && active) per shell radius
+    {
+        glm::vec3 red(0.9f, 0.2f, 0.2f);
+        for (unsigned r = 0; r < graphSize; ++r)
+        {
+            if (am[r] <= 0.001f)
+                continue;
+            float x = ox + (float)r * scaleX;
+            float y = oy - am[r] * graphH;
+            drawQuad2D(x - 1.5f, y - 1.5f, x + 1.5f, y + 1.5f, red, P);
+        }
+    }
 
     // Gray vertical line at the current pulse radius
     unsigned pr = sinc_overlay::currentRadius();
-    if (pr < u.size())
+    if (pr < graphSize)
     {
         float x = ox + (float)pr * scaleX;
         drawLine2D_new(x, top, x, oy,
