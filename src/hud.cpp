@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <string>
 
 #include "GUI.h"
 #include "globals.h"
@@ -80,7 +81,7 @@ bool initHUD(AppContext& ctx,
 
     tbegin = glfwGetTime();
 
-    logo = new Logo("logo_bar.png");
+    logo = new Logo(std::string("logo_bar.png"));
 
     gHelpLink = new Button(
         0.0f, 0.0f,
