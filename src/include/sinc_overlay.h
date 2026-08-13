@@ -5,8 +5,9 @@
 
 namespace sinc_overlay {
 
-// Double-buffered radial profile of the emergent polarisation u(r)
-// and geometric product (sB && active) per shell.
+// Double-buffered radial sinc(r) displacement profile and geometric
+// product (wave velocity v > 0 && active) per shell, computed from
+// the integer wave CA on layer w = 0.
 void update(unsigned selectedW);
 
 // Read-front accessors for the HUD overlay.

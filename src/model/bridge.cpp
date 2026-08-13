@@ -71,6 +71,8 @@ namespace automaton
     extern unsigned FLOOD;
 
     extern std::vector<Cell> lattice_curr;
+    extern unsigned int pulse_tick;
+    extern std::vector<std::array<unsigned, 3>> lcenters;
 }
 
 // ============================================================
@@ -155,6 +157,280 @@ bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
 
 #include <array>
 
+namespace
+{
+    // Integer-only 3-D sinc wave CA taken from sine2/mytry.c.
+    // It runs independently on the host, reads the BFS radius r/r2 from
+    // layer w = 0 of lattice_curr, and feeds the 2-D overlay with a
+    // radial sinc(r) displacement profile and a red (v > 0 && active)
+    // geometric-product mask.
+    class SincWave
+    {
+    public:
+        void run()
+        {
+            if (automaton::EL == 0 || automaton::lattice_curr.empty() ||
+                automaton::lcenters.empty())
+                return;
+
+            if (m_el != automaton::EL || automaton::pulse_tick < m_lastPulseTick)
+                reset();
+
+            if (m_tick == 0)
+            {
+                // Produce an initial profile immediately so the overlay is
+                // populated even before the first simulation tick.
+                stepOnce();
+                m_lastPulseTick = automaton::pulse_tick;
+            }
+            else
+            {
+                unsigned delta = automaton::pulse_tick - m_lastPulseTick;
+                for (unsigned i = 0; i < delta; ++i)
+                    stepOnce();
+                m_lastPulseTick = automaton::pulse_tick;
+            }
+
+            updateProfile();
+        }
+
+        const std::vector<float>& profile() const { return m_profile; }
+        const std::vector<float>& andMask() const { return m_andMask; }
+        unsigned currentRadius() const { return static_cast<unsigned>(m_curSweepR); }
+
+    private:
+        static constexpr int DIFF_SHIFT   = 4;
+        static constexpr int SHELL_TARGET = 16384;
+
+        unsigned m_el = 0;
+        unsigned m_tick = 0;
+        unsigned m_lastPulseTick = 0xFFFFFFFFu;
+        int m_curSweepR = 0;
+        unsigned int m_curPulseR2 = 0;
+
+        std::vector<int>   m_u, m_v, m_uNext, m_vNext;
+        std::vector<float> m_profile, m_andMask;
+
+        void reset()
+        {
+            m_el = automaton::EL;
+            m_tick = 0;
+            m_lastPulseTick = automaton::pulse_tick;
+            m_curSweepR = 0;
+            m_curPulseR2 = 0;
+
+            size_t n = (size_t)m_el * m_el * m_el;
+            m_u.assign(n, 0);
+            m_v.assign(n, 0);
+            m_uNext.assign(n, 0);
+            m_vNext.assign(n, 0);
+            m_profile.assign(m_el + 1, 0.0f);
+            m_andMask.assign(m_el + 1, 0.0f);
+
+            unsigned cx = automaton::lcenters[0][0];
+            unsigned cy = automaton::lcenters[0][1];
+            unsigned cz = automaton::lcenters[0][2];
+            if (cx < m_el && cy < m_el && cz < m_el)
+                m_u[((size_t)cx * m_el + cy) * m_el + cz] = SHELL_TARGET / 8;
+        }
+
+        void stepOnce()
+        {
+            const unsigned EL = m_el;
+            if (EL < 3)
+                return;
+
+            const int R = (EL > 4) ? (int)(EL / 2 - 2) : 1;
+
+            const int shellR   = (int)(EL * 12 / 100);
+            const int shellW   = (EL / 10) > 0 ? (EL / 10) : 1;
+            const int absorbW  = (R / 27) > 2 ? (R / 27) : 2;
+            const int pulseStep = ((EL + 15) / 30) > 0 ? ((EL + 15) / 30) : 1;
+
+            int diffDivShift = 2;
+            if (R >= 384) diffDivShift = 6;
+            else if (R >= 192) diffDivShift = 5;
+            else if (R >= 96) diffDivShift = 4;
+            else if (R >= 40) diffDivShift = 3;
+
+            int velDampShift = 2;
+            if (R >= 384) velDampShift = 9;
+            else if (R >= 192) velDampShift = 8;
+            else if (R >= 96) velDampShift = 7;
+            else if (R >= 40) velDampShift = 6;
+
+            m_curPulseR2 = automaton::pulse_from_time(m_tick * (unsigned)pulseStep);
+            m_curSweepR  = automaton::isqrt((int)m_curPulseR2);
+
+            const automaton::Cell* lattice = automaton::lattice_curr.data();
+
+            for (unsigned x = 1; x < EL - 1; ++x)
+            {
+                size_t rowBaseXp = ((size_t)(x + 1) * EL) * EL;
+                size_t rowBaseX  = ((size_t)x       * EL) * EL;
+                size_t rowBaseXm = ((size_t)(x - 1) * EL) * EL;
+
+                for (unsigned y = 1; y < EL - 1; ++y)
+                {
+                    size_t baseXp = rowBaseXp + (size_t)y * EL;
+                    size_t baseX  = rowBaseX  + (size_t)y * EL;
+                    size_t baseXm = rowBaseXm + (size_t)y * EL;
+                    size_t baseYp = rowBaseX  + (size_t)(y + 1) * EL;
+                    size_t baseYm = rowBaseX  + (size_t)(y - 1) * EL;
+
+                    const automaton::Cell* rowC = lattice + baseX;
+
+                    for (unsigned z = 1; z < EL - 1; ++z)
+                    {
+                        const automaton::Cell& c = rowC[z];
+                        int r = c.r;
+                        if (r < 0 || r >= R)
+                        {
+                            m_uNext[baseX + z] = 0;
+                            m_vNext[baseX + z] = 0;
+                            continue;
+                        }
+
+                        size_t idx = baseX + z;
+                        int u = m_u[idx];
+                        int v = m_v[idx];
+
+                        int neighbors = m_u[baseXp + z] + m_u[baseXm + z]
+                                      + m_u[baseYp + z] + m_u[baseYm + z]
+                                      + m_u[baseX + z + 1]
+                                      + m_u[baseX + z - 1];
+
+                        int lap = neighbors - (u << 2) - (u << 1);
+
+                        int diffShift = DIFF_SHIFT + 1 - (r >> diffDivShift);
+                        if (diffShift < DIFF_SHIFT - 1)
+                            diffShift = DIFF_SHIFT - 1;
+
+                        int v_new = v + (lap >> diffShift);
+                        int u_new = u + v_new;
+                        v_new -= (v_new >> velDampShift);
+
+                        // Shell forcing around SHELL_R.
+                        int dr = r - shellR;
+                        if (dr < 0) dr = -dr;
+                        if (dr <= shellW)
+                        {
+                            if (u > SHELL_TARGET)
+                            {
+                                int excess = u - SHELL_TARGET;
+                                v_new -= (excess >> 4);
+                            }
+                            else if ((m_tick & 3) == 0)
+                            {
+                                int deficit = SHELL_TARGET - u;
+                                v_new += (deficit >> 10) + 1;
+                            }
+                        }
+
+                        // Boundary absorption.
+                        if (r > R - absorbW)
+                        {
+                            int dist = r - (R - absorbW);
+                            if (dist >= absorbW)
+                                u_new = 0;
+                            else
+                                u_new >>= dist;
+                        }
+
+                        if (u_new < 0)
+                            u_new = 0;
+
+                        m_uNext[idx] = u_new;
+                        m_vNext[idx] = v_new;
+                    }
+                }
+            }
+
+            // Copy back with global damping.
+            size_t n = m_u.size();
+            for (size_t i = 0; i < n; ++i)
+            {
+                int u_new = m_uNext[i];
+                int v_new = m_vNext[i];
+                m_u[i] = u_new - (u_new >> 12);
+                m_v[i] = v_new - (v_new >> 12);
+            }
+
+            ++m_tick;
+        }
+
+        void updateProfile()
+        {
+            const unsigned EL = m_el;
+            const unsigned size = EL + 1;
+            m_profile.assign(size, 0.0f);
+            m_andMask.assign(size, 0.0f);
+
+            std::vector<int64_t> profSum(size, 0);
+            std::vector<int> counts(size, 0);
+            std::vector<int> andCounts(size, 0);
+
+            const automaton::Cell* lattice = automaton::lattice_curr.data();
+            const unsigned int pulseTol = ((EL * EL + 150) / 300) > 0
+                                            ? ((EL * EL + 150) / 300)
+                                            : 1;
+            const unsigned int pulseR2 = m_curPulseR2;
+
+            for (unsigned x = 0; x < EL; ++x)
+            {
+                size_t rowBase = ((size_t)x * EL) * EL;
+                for (unsigned y = 0; y < EL; ++y)
+                {
+                    size_t base = rowBase + (size_t)y * EL;
+                    const automaton::Cell* row = lattice + base;
+                    for (unsigned z = 0; z < EL; ++z)
+                    {
+                        const automaton::Cell& c = row[z];
+                        int r = c.r;
+                        if (r < 0 || (unsigned)r >= size)
+                            continue;
+
+                        size_t idx = base + z;
+                        profSum[r] += m_u[idx];
+                        counts[r]++;
+
+                        unsigned int d = (c.r2 > pulseR2) ? (c.r2 - pulseR2)
+                                                          : (pulseR2 - c.r2);
+                        bool active = (d <= pulseTol);
+                        if (m_v[idx] > 0 && active)
+                            andCounts[r]++;
+                    }
+                }
+            }
+
+            float maxU = 1.0f;
+            float maxA = 1.0f;
+            for (unsigned i = 0; i < size; ++i)
+            {
+                float p = (counts[i] > 0)
+                            ? static_cast<float>(profSum[i]) / static_cast<float>(counts[i])
+                            : 0.0f;
+                m_profile[i] = p;
+                m_andMask[i] = static_cast<float>(andCounts[i]);
+
+                if (p > maxU) maxU = p;
+                if (andCounts[i] > maxA) maxA = static_cast<float>(andCounts[i]);
+            }
+
+            if (maxU < 1.0f) maxU = 1.0f;
+            if (maxA < 1.0f) maxA = 1.0f;
+
+            for (unsigned i = 0; i < size; ++i)
+            {
+                m_profile[i] /= maxU;
+                m_andMask[i] /= maxA;
+            }
+        }
+    };
+
+    SincWave g_sincWave;
+}
+
 namespace sinc_overlay
 {
     // Double buffers for the HUD overlay.
@@ -180,73 +456,21 @@ namespace sinc_overlay
 
     void update(unsigned selectedW)
     {
-        using automaton::Cell;
-        using automaton::EL;
-        using automaton::W_USED;
-        using automaton::lattice_curr;
-        using automaton::getCell;
-        using automaton::CENTER;
-        using automaton::pulse_from_time;
+        (void)selectedW; // overlay always uses the sinc wave on layer w = 0
 
-        if (EL == 0 || selectedW >= W_USED || lattice_curr.empty())
+        using automaton::EL;
+        using automaton::lattice_curr;
+
+        if (EL == 0 || lattice_curr.empty())
             return;
 
-        const unsigned size = EL + 1;
+        g_sincWave.run();
 
         int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
-        std::vector<float>& profileBack = profileBufs[backIdx];
-        std::vector<float>& andMaskBack = andMaskBufs[backIdx];
+        profileBufs[backIdx] = g_sincWave.profile();
+        andMaskBufs[backIdx] = g_sincWave.andMask();
 
-        profileBack.assign(size, 0.0f);
-        andMaskBack.assign(size, 0.0f);
-        std::vector<int> counts(size, 0);
-
-        const Cell& centre = getCell(lattice_curr, CENTER, CENTER, CENTER, selectedW);
-        unsigned int pulse_r2 = pulse_from_time(centre.t);
-        unsigned int pulse_r  = (unsigned int)std::sqrt((double)pulse_r2);
-
-        for (unsigned x = 0; x < EL; ++x)
-        for (unsigned y = 0; y < EL; ++y)
-        for (unsigned z = 0; z < EL; ++z)
-        {
-            const Cell& c = getCell(lattice_curr, x, y, z, selectedW);
-
-            if (c.r2 == INF_R2)
-                continue;
-
-            int r = c.r;
-            if (r < 0 || (unsigned)r >= size)
-                continue;
-
-            profileBack[r] += static_cast<float>(c.u);
-            if (c.sB && c.active)
-                andMaskBack[r] += 1.0f;
-            counts[r]++;
-        }
-
-        float maxU = 1.0f;
-        float maxA = 1.0f;
-
-        for (unsigned i = 0; i < size; ++i)
-        {
-            if (counts[i] > 0)
-                profileBack[i] /= static_cast<float>(counts[i]);
-
-            float au = std::fabs(profileBack[i]);
-            if (au > maxU) maxU = au;
-            if (andMaskBack[i] > maxA) maxA = andMaskBack[i];
-        }
-
-        if (maxU < 1.0f) maxU = 1.0f;
-        if (maxA < 1.0f) maxA = 1.0f;
-
-        for (unsigned i = 0; i < size; ++i)
-        {
-            profileBack[i] /= maxU;       // now in [-1, 1]
-            andMaskBack[i] /= maxA;       // now in [ 0, 1]
-        }
-
-        pulseRadius.store(pulse_r, std::memory_order_release);
+        pulseRadius.store(g_sincWave.currentRadius(), std::memory_order_release);
         frontIdx.store(backIdx, std::memory_order_release);
         readyFlag.store(true, std::memory_order_release);
     }

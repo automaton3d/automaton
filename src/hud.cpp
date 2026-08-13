@@ -223,7 +223,6 @@ static void renderSincOverlay(int screenW, int screenH)
     const float ox       = 230.0f;                         // left x position
     const float oy       = (float)screenH - 30.0f;          // baseline at bottom-left
     const float top      = oy - graphH;
-    const float midY     = (oy + top) * 0.5f;                // zero line for signed u
     const float scaleX   = overlayW / (float)u.size();
     const float w        = overlayW;
 
@@ -237,24 +236,24 @@ static void renderSincOverlay(int screenW, int screenH)
     drawLine2D_new(ox, top, ox, oy,
                    glm::vec3(0.35f), glm::vec3(0.35f), P);
 
-    // Green: radial profile of u(r)
+    // Green: radial sinc(r) displacement profile (u >= 0)
     std::vector<glm::vec2> uPts;
     uPts.reserve(u.size());
     for (size_t i = 0; i < u.size(); ++i)
     {
         float x = ox + (float)i * scaleX;
-        float y = midY - u[i] * (graphH * 0.5f);
+        float y = oy - u[i] * graphH;
         uPts.push_back(glm::vec2(x, y));
     }
     drawLineStrip2D(uPts, glm::vec3(0.0f, 0.85f, 0.3f), P, 1.5f);
 
-    // Red: geometric product (sB && active) per shell
+    // Red: geometric product (wave velocity v > 0 && active) per shell
     std::vector<glm::vec2> aPts;
     aPts.reserve(a.size());
     for (size_t i = 0; i < a.size(); ++i)
     {
         float x = ox + (float)i * scaleX;
-        float y = midY - a[i] * (graphH * 0.5f); // occupies the upper half
+        float y = oy - a[i] * graphH;
         aPts.push_back(glm::vec2(x, y));
     }
     drawLineStrip2D(aPts, glm::vec3(0.9f, 0.2f, 0.2f), P, 1.5f);
