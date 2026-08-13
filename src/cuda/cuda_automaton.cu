@@ -1558,9 +1558,9 @@ void cudaSimulationStep(
         return;
     }
 
-    ::CellDevice* temp = d_lattice_curr;
+    ::CellDevice* phaseTmp = d_lattice_curr;
     d_lattice_curr = d_lattice_draft;
-    d_lattice_draft = temp;
+    d_lattice_draft = phaseTmp;
 
     // Launch main CA kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
