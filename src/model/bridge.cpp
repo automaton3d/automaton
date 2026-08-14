@@ -291,11 +291,13 @@ namespace sinc_overlay
         if (!g_peakHistory.empty())
             g_peakHistory.back() = peakLevelRaw;
 
+        // Build a normalized copy for display without overwriting the raw window.
+        std::vector<float> peakHistoryNorm = g_peakHistory;
         float maxRaw = 1.0f;
-        for (float v : g_peakHistory)
+        for (float v : peakHistoryNorm)
             if (v > maxRaw) maxRaw = v;
         maxRaw += maxRaw / 8.0f;
-        for (float& v : g_peakHistory)
+        for (float& v : peakHistoryNorm)
             v /= maxRaw;
 
         // Red: accumulated AND counts per shell (r·sin(r) mask), absolute counts.
@@ -315,7 +317,7 @@ namespace sinc_overlay
         profileBufs[backIdx]     = std::move(profile);
         andMaskBufs[backIdx]     = std::move(andMask);
         triggerRateBufs[backIdx] = std::move(triggerRate);
-        peakHistoryBufs[backIdx] = g_peakHistory;
+        peakHistoryBufs[backIdx] = std::move(peakHistoryNorm);
 
         pulseRadius.store(pulseR, std::memory_order_release);
         gGraphSize.store(graphSize, std::memory_order_release);
