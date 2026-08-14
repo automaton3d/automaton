@@ -200,7 +200,9 @@ namespace automaton
     int ELi = (int)EL;
     int Wi  = (int)W_USED;
 
-    unsigned int pulse_r = pulse_radius(pulse_tick);
+    unsigned int pulseR2 = pulse_from_time(pulse_tick);
+    unsigned int pulseTol = (EL * EL + 150u) / 300u;
+    if (pulseTol < 1u) pulseTol = 1u;
 
     // First pass: compute next (u,v) and active/pB/sB into lattice_draft.
     for (int x = 0; x < ELi; ++x)
@@ -214,7 +216,8 @@ namespace automaton
         // Start from the current CA state and overwrite only the (u,v) wave fields.
         d = c;
 
-        bool active = (c.r == (int)pulse_r);
+        unsigned int r2diff = (c.r2 > pulseR2) ? (c.r2 - pulseR2) : (pulseR2 - c.r2);
+        bool active = (c.r2 != INF_R2 && r2diff <= pulseTol);
 
         // Hard zero on spatial boundaries and outside the processed sphere.
         if (x == 0 || x == ELi - 1 ||

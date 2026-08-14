@@ -120,7 +120,7 @@ void renderElapsedTime()
         buf,
         20.0f,
         40.0f,
-        0.35f,
+        0.25f,
         glm::vec3(1.0f)
     );
 }
@@ -252,6 +252,7 @@ static void renderSincOverlay(int screenW, int screenH)
             float x = ox + (float)r * scaleX;
             float y = oy - u[r] * graphH;
             if (y < top) y = top;
+            if (y > oy) y = oy;
             pts.emplace_back(x, y);
         }
         drawLineStrip2D(pts, glm::vec3(0.0f, 0.85f, 0.3f), P, 1.5f);
@@ -267,6 +268,7 @@ static void renderSincOverlay(int screenW, int screenH)
             float x = ox + (float)r * scaleX;
             float y = oy - tr[r] * graphH;
             if (y < top) y = top;
+            if (y > oy) y = oy;
             pts.emplace_back(x, y);
         }
         drawLineStrip2D(pts, glm::vec3(0.0f, 0.78f, 1.0f), P, 1.5f);
@@ -285,6 +287,7 @@ static void renderSincOverlay(int screenW, int screenH)
             float x = ox + (float)i * scaleX2;
             float y = oy - ph[i] * graphH;
             if (y < top) y = top;
+            if (y > oy) y = oy;
             pts.emplace_back(x, y);
         }
         drawLineStrip2D(pts, glm::vec3(1.0f, 0.9f, 0.0f), P, 1.5f);

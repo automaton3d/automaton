@@ -315,8 +315,8 @@ void cudaSimulationStepWrapper()
                                automaton::CENTER, automaton::CENTER,
                                automaton::CENTER, 0);
         unsigned eff = automaton::effective_t(center.t);
-        printf("[GPU] t=%u  eff_t=%u  RMAX=%u  center.gB=%d\n",
-               center.t, eff, automaton::RMAX, (int)center.gB);
+        // printf("[GPU] t=%u  eff_t=%u  RMAX=%u  center.gB=%d\n",
+        //        center.t, eff, automaton::RMAX, (int)center.gB);
     }
 }
 

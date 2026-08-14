@@ -203,27 +203,18 @@ static __device__ inline unsigned dev_effective_t(unsigned t) {
     return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
 }
 
-// Device helper: active pulse radius for the (u,v) wave update.
-// Kept a few cells inside dev_RMAX so the wavefront still carries amplitude
-// when it reaches the absorbing boundary.
-static __device__ inline unsigned dev_pulse_radius(unsigned t) {
-    unsigned pulse_max = (dev_RMAX > 3) ? (dev_RMAX - 3) : 1;
-    unsigned period = 2 * pulse_max;
-    unsigned raw = t % period;
-    return (raw <= pulse_max) ? raw : (period - raw);
-}
-
-// Device helper: pulsating sphere threshold (triangle wave on r², no multiplication)
+// Device helper: pulsating sphere threshold (triangle wave on r²)
+// Matches sine2/pulsating.h: max_r2 = 0.92 * R_MAX^2, step = (L+15)/30.
 static __device__ inline unsigned dev_pulse_from_time(unsigned t) {
-    const unsigned min_r2 = 0;
-    const unsigned max_r2 = dev_RMAX * dev_RMAX;
-    const unsigned step = 1;
-    unsigned span = max_r2 - min_r2;
-    if (span == 0) return min_r2;
+    const unsigned max_r2 = (dev_RMAX * dev_RMAX * 92u) / 100u;
+    const unsigned step = (dev_EL + 15u) / 30u;
+    if (step == 0) return 0;
+    unsigned span = max_r2;
+    if (span == 0) return 0;
     unsigned period = 2 * span;
     unsigned phase = (t * step) % period;
     if (phase < span)
-        return min_r2 + phase;
+        return phase;
     else
         return max_r2 - (phase - span);
 }
@@ -293,8 +284,11 @@ static __device__ inline void dev_phase_step_cell(
     const int DIFF_SHIFT = 4;
     const int SHELL_TARGET = 16384;
 
-    unsigned int pulse_r = dev_pulse_radius(pulse_tick);
-    bool active = (c.r == (int)pulse_r);
+    unsigned int pulseR2 = dev_pulse_from_time(pulse_tick);
+    unsigned int pulseTol = (dev_EL * dev_EL + 150u) / 300u;
+    if (pulseTol == 0u) pulseTol = 1u;
+    unsigned int r2diff = (c.r2 > pulseR2) ? (c.r2 - pulseR2) : (pulseR2 - c.r2);
+    bool active = (c.r2 != 0xFFFFFFFFu && r2diff <= pulseTol);
 
     // Hard zero on spatial boundaries and outside the processed sphere.
     if (x == 0 || x == dev_EL - 1 ||

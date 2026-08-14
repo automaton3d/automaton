@@ -286,18 +286,18 @@ struct NeighborResult
 
   #define INF_R2 0xFFFFFFFFu
 
-  // Pulsating sphere threshold (triangle wave on r²)
+  // Pulsating sphere threshold (triangle wave on r²), matching sine2/pulsating.h
   inline unsigned int pulse_from_time(unsigned int t)
   {
-      const unsigned int min_r2 = 0;
-      const unsigned int max_r2 = RMAX * RMAX;
-      const unsigned int step = 1;
-      unsigned int span = max_r2 - min_r2;
-      if (span == 0) return min_r2;
+      const unsigned int max_r2 = (RMAX * RMAX * 92u) / 100u;
+      const unsigned int step = (EL + 15u) / 30u;
+      if (step == 0) return 0;
+      unsigned int span = max_r2;
+      if (span == 0) return 0;
       unsigned int period = 2 * span;
       unsigned int phase = (t * step) % period;
       if (phase < span)
-          return min_r2 + phase;
+          return phase;
       else
           return max_r2 - (phase - span);
   }

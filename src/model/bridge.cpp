@@ -183,11 +183,9 @@ namespace sinc_overlay
     static std::vector<int64_t> g_andAcc;
     static std::vector<int64_t> g_activeCount;
 
-    // Running peak of the signed |u| profile, used to normalize the cyan curve.
+    // Running peak of the signed |u| profile, used as the per-frame
+    // display reference so the overlay stays visible at every grid size.
     static int64_t g_uPeak = 1;
-
-    // Reference amplitude for the green curve (SHELL_TARGET * 3 from mytry.c).
-    constexpr int64_t PROFILE_PEAK_REF = 16384 * 3;
 
     // Sliding window for the yellow peak-history curve.
     static std::vector<float> g_peakHistory;
@@ -270,24 +268,35 @@ namespace sinc_overlay
         }
         if (g_uPeak < 1) g_uPeak = 1;
 
-        // Green: envelope |u(r)| / reference (always positive).
+        // Use the running peak as a per-frame reference so the overlay stays
+        // visible even when the absolute |u| is far below SHELL_TARGET*3.
+        float peakRef = (float)std::max<int64_t>(1, g_uPeak);
+
+        // Green: envelope |u(r)| / running peak (always positive).
         // Cyan: signed profile / running peak (trigger rate).
-        // Yellow: sliding time series of the running peak level.
         std::vector<float> profile(graphSize, 0.0f);
         std::vector<float> triggerRate(graphSize, 0.0f);
         for (unsigned r = 0; r < graphSize; ++r)
         {
             int64_t au = avgU[r];
             if (au < 0) au = -au;
-            profile[r]     = (float)au / (float)PROFILE_PEAK_REF;
-            triggerRate[r] = (g_uPeak > 0) ? ((float)avgU[r] / (float)g_uPeak) : 0.0f;
+            profile[r]     = (float)au / peakRef;
+            triggerRate[r] = (float)avgU[r] / peakRef;
         }
 
-        float peakLevel = std::min(1.0f, (float)g_uPeak / (float)PROFILE_PEAK_REF);
+        // Yellow: raw running-peak history, auto-normalized like mytry.c.
+        float peakLevelRaw = (float)g_uPeak;
         for (size_t i = 0; i + 1 < g_peakHistory.size(); ++i)
             g_peakHistory[i] = g_peakHistory[i + 1];
         if (!g_peakHistory.empty())
-            g_peakHistory.back() = peakLevel;
+            g_peakHistory.back() = peakLevelRaw;
+
+        float maxRaw = 1.0f;
+        for (float v : g_peakHistory)
+            if (v > maxRaw) maxRaw = v;
+        maxRaw += maxRaw / 8.0f;
+        for (float& v : g_peakHistory)
+            v /= maxRaw;
 
         // Red: accumulated AND counts per shell (r·sin(r) mask), absolute counts.
         std::vector<float> andMask(graphSize, 0.0f);
@@ -300,7 +309,7 @@ namespace sinc_overlay
         for (unsigned r = 0; r < graphSize; ++r)
             andMask[r] = (float)g_andAcc[r] / (float)maxAnd;
 
-        unsigned pulseR = automaton::pulse_radius(automaton::pulse_tick);
+        unsigned pulseR = (unsigned)automaton::isqrt((int)automaton::pulse_from_time(automaton::pulse_tick));
 
         int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
         profileBufs[backIdx]     = std::move(profile);
