@@ -382,6 +382,13 @@ namespace automaton
     // the FSM can read it and write its own modifications back to lattice_draft.
     std::swap(lattice_curr, lattice_draft);
 
+    // DEBUG: throttle a snapshot of the central cell so we can verify (u,v) are evolving.
+    if (pulse_tick % 100 == 0) {
+        const Cell& c = getCell(lattice_curr, CENTER, CENTER, CENTER, 0);
+        printf("DEBUG phase tick %u: center u=%d v=%d active=%u pB=%d sB=%d\n",
+               pulse_tick, c.u, c.v, c.active, c.pB ? 1 : 0, c.sB ? 1 : 0);
+    }
+
     // Phase 3: FSM interaction loop (uses r2 instead of d)
     for (unsigned w = 0; w < W_USED; ++w)
     {

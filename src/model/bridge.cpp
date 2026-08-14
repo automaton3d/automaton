@@ -18,6 +18,7 @@
 #include <cstring>
 #include <cmath>
 #include <algorithm>
+#include <cstdio>
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -311,6 +312,14 @@ namespace sinc_overlay
         gGraphSize.store(graphSize, std::memory_order_release);
         frontIdx.store(backIdx, std::memory_order_release);
         readyFlag.store(true, std::memory_order_release);
+
+        // DEBUG: throttle a snapshot of the overlay read-out.
+        static int overlayReport = 0;
+        if (++overlayReport % 60 == 0) {
+            const Cell& c = automaton::getCell(automaton::lattice_curr, automaton::CENTER, automaton::CENTER, automaton::CENTER, selectedW);
+            printf("DEBUG overlay #%d selectedW=%u g_uPeak=%lld center u=%d v=%d active=%u\n",
+                   overlayReport, selectedW, g_uPeak, c.u, c.v, c.active);
+        }
     }
 } // namespace sinc_overlay
 
