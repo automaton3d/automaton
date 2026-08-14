@@ -177,7 +177,7 @@ Defined by bit constants $q$, $w_{1}$, $w_{0}$, $c_{2}$, $c_{1}$, $c_{0}$.
 Charge encompasses various discrete properties associated with the particles, derived from specific bit values that define their interactions. They are the main responsible for the emergence of forces.
 
 	\item \textbf{pBit ($pB$)} \\
-This bit marks the local wave momentum direction: it is true when the in-phase component $u$ of the emergent polarisation pair is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field and is not a precomputed constant.
+This bit marks the local wave momentum direction: it is true when the in-phase component $u$ of the emergent polarisation pair is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field.
 
 	\item \textbf{sBit ($sB$)} \\
 This bit signals the emergent transverse polarization of the cell. It is derived locally from the integer pair $(u,v)$ carried by the wave field, whose phase $\operatorname{atan2}(v,u)$ rotates through a full turn along the wavefront radius. No spiral path is precomputed.
