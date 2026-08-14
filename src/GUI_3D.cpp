@@ -22,6 +22,7 @@
 #include <map>
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 #include <mutex>
 
 extern AppContext ctx;
@@ -33,6 +34,7 @@ namespace automaton {
   extern unsigned W_USED;
   extern unsigned CENTER;
   extern std::vector<std::array<unsigned,3>> lcenters;
+  extern std::vector<std::array<int,3>>       lcenters_m;
   extern std::vector<Cell> lattice_curr;
 }
 
@@ -138,29 +140,35 @@ namespace framework {
   {
     const float GRID_SIZE = 0.5f / EL;
     const int CENTER_INT = EL / 2;
-    std::vector<glm::vec3> pts;
 
-    for (unsigned x=0;x<EL;x++)
-      for (unsigned y=0;y<EL;y++)
-        for (unsigned z=0;z<EL;z++) {
-          int wx=(x+gConfig.view.vis_dx+EL)%EL;
-          int wy=(y+gConfig.view.vis_dy+EL)%EL;
-          int wz=(z+gConfig.view.vis_dz+EL)%EL;
-          if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
-            float px,py,pz;
-            if (currentMode==REPLAY) {
-              auto& c=lcenters[layerList->getSelected()];
-              px=(int)(x-c[0])*GRID_SIZE;
-              py=(int)(y-c[1])*GRID_SIZE;
-              pz=(int)(z-c[2])*GRID_SIZE;
-            } else {
-              px=(int)(x-CENTER_INT)*GRID_SIZE;
-              py=(int)(y-CENTER_INT)*GRID_SIZE;
-              pz=(int)(z-CENTER_INT)*GRID_SIZE;
-            }
-            pts.emplace_back(px,py,pz);
-          }
+    unsigned selectedW = layerList->getSelected();
+    if (selectedW >= lcenters.size() || selectedW >= lcenters_m.size())
+        return;
+
+    const auto& c = lcenters[selectedW];
+    const auto& m = lcenters_m[selectedW];
+    if (m[0] == 0 && m[1] == 0 && m[2] == 0)
+        return;
+
+    std::vector<glm::vec3> pts;
+    int steps = std::max((int)EL / 4, 1);
+
+    for (int s = 0; s <= steps; ++s)
+    {
+        int gx, gy, gz;
+        if (currentMode == REPLAY) {
+            gx = s * m[0];
+            gy = s * m[1];
+            gz = s * m[2];
+        } else {
+            gx = (int)c[0] + s * m[0] - CENTER_INT;
+            gy = (int)c[1] + s * m[1] - CENTER_INT;
+            gz = (int)c[2] + s * m[2] - CENTER_INT;
         }
+        pts.emplace_back((float)gx * GRID_SIZE,
+                         (float)gy * GRID_SIZE,
+                         (float)gz * GRID_SIZE);
+    }
 
     glm::mat4 view = ctx.camera.GetViewMatrix();
     glm::mat4 projection = framework::mProjection_;

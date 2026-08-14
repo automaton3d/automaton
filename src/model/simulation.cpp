@@ -54,6 +54,7 @@ namespace automaton
 
   string lastAllocationError;
   std::vector<std::array<unsigned, 3>> lcenters;
+  std::vector<std::array<int, 3>>       lcenters_m;
 
   // ============================================================
   // SPHERICAL (ANTIPODAL) WRAPPING
@@ -357,6 +358,11 @@ namespace automaton
       int dx = c.m[0];
       int dy = c.m[1];
       int dz = c.m[2];
+
+      // Save the applied momentum for rendering before clearing it.
+      lcenters_m[w][0] = dx;
+      lcenters_m[w][1] = dy;
+      lcenters_m[w][2] = dz;
 
       if (dx || dy || dz)
       {

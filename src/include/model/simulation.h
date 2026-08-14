@@ -111,6 +111,7 @@ namespace automaton
   extern bool diffuse_delay;
   extern bool reloc_delay;
   extern std::vector<std::array<unsigned, 3>> lcenters;
+  extern std::vector<std::array<int, 3>>       lcenters_m;  // last per-source momentum step (for rendering)
 
 
 struct NeighborResult
@@ -132,7 +133,7 @@ struct NeighborResult
       WIndex leader_w;    // Auxiliary W identity copied from the core
       bool is_core;       // Winding core flag
       unsigned char ch;   // Charge bits q, w1, w0, c2, c1, c0
-      bool pB;            // local wave-momentum direction (pB = (u>0)); electric channel trigger
+      bool pB;            // local in-phase wave sign (pB = (u>0)); electric channel trigger
       bool sB;            // emergent transverse polarisation (sB = (v>0)); magnetic channel trigger
       unsigned a;         // Affinity
       unsigned x[4];      // Relative position

@@ -177,7 +177,7 @@ Defined by bit constants $q$, $w_{1}$, $w_{0}$, $c_{2}$, $c_{1}$, $c_{0}$.
 Charge encompasses various discrete properties associated with the particles, derived from specific bit values that define their interactions. They are the main responsible for the emergence of forces.
 
 	\item \textbf{pBit ($pB$)} \\
-This bit marks the local wave momentum direction: it is true when the in-phase component $u$ of the emergent polarisation pair is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field.
+This bit marks the local in-phase sign of the emergent polarisation pair $(u,v)$: it is true when the in-phase component $u$ is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field and triggers the electric interaction channel.
 
 	\item \textbf{sBit ($sB$)} \\
 This bit signals the emergent transverse polarization of the cell. It is derived locally from the integer pair $(u,v)$ carried by the wave field, whose phase $\operatorname{atan2}(v,u)$ rotates through a full turn along the wavefront radius. No spiral path is precomputed.
@@ -265,7 +265,7 @@ Variable $t$ better approaches the notion of physical time.
 \hline 
 charge & B6 & \emph{ch} & bits $q$, $w_{1}$, $w_{0}$, $c_{2}$, $c_{1}$, $c_{0}$\tabularnewline
 \hline 
-pBit & B & $pB$ & local wave momentum direction, $pB=(u>0)$\tabularnewline
+pBit & B & $pB$ & local in-phase wave sign, $pB=(u>0)$\tabularnewline
 \hline 
 sBit & B & $sB$ & emergent transverse polarization bit (derived from $(u,v)$)\tabularnewline
 \hline 
@@ -288,7 +288,9 @@ wave phase & DN & $f$ & local wave phase; the sieve bit $s2B$ is computed from $
 \multicolumn{4}{|c|}{\textbf{Operational variables}}\tabularnewline
 \hline 
 relocation offset & V & \textbf{\emph{c}} & determines reissue address\tabularnewline
-\hline 
+\hline
+momentum vector & V & $\boldsymbol{m}$ & signed displacement applied to the source center after interaction\tabularnewline
+\hline
 housekeeping tick & DN & $k$ & timeless clocking\tabularnewline
 \hline 
 sieve test result & B & $s2B$ & seeded from $u$ and $t$, propagated with the active flag\tabularnewline
@@ -344,7 +346,7 @@ Let signature be $sig=c_{2}+c_{1}+c_{0}$.
 A bubble is matter $M$ if $sig<2$, or antimatter $\overline{M}$, otherwise. 
 Also, it is neutral $N$, if $sig=0$ or anti-neutral $\overline{N}$, if $sig=3$.
 
-The pBit $pB$ points along the local wave momentum, while the sBit $sB$ records the transverse polarization derived from the emergent $(u,v)$ pair.  They are not precomputed path patterns; both emerge from the wavefront geometry.
+The pBit $pB$ marks the positive in-phase half-cycle of the wave, while the sBit $sB$ records the transverse polarization derived from the emergent $(u,v)$ pair.  They are not precomputed path patterns; both emerge from the wavefront geometry.
 
 \subsection{Dynamic charge quantization and organization in $W$ \label{subsec:charge-quantization}}
 
@@ -595,8 +597,8 @@ Else if two singletons have the same charge, we have fermion cohesion.
 One bubble is reissued from the contact point, while the other, from its active $sB$ site. 
 Also, they become entangled ($a_1=a_2$).
 
-On the other hand, if the two bubbles share the same affinity, but have different charges, then the singleton whose pBit is the contact point is reissued from the contact point.
-The other bubble is reissued from the inertial-transported pBit. 
+On the other hand, if the two bubbles share the same affinity, but have different charges, the bubble whose wavefront at the contact point has $pB=1$ is reissued from the contact point.
+The other bubble is reissued using the inertial-transported relocation offset, encoded in the momentum vector $\boldsymbol{m}$ (and, before application, in the relocation vector $\boldsymbol{c}$).
 That is, one bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
 
 For color-neutral combinations there are two cases: gluon$\times$gluon and quark$\times$gluon. 
@@ -721,7 +723,7 @@ A bubble can only be relocated to a point on its active surface.
 This guarantees that the speed of light will never be violated. 
 
 Inertia is acquired by an inertial transport mechanism. 
-It happens between two bubbles with the same affinity when the pBit of one bubble hits the surface of the other bubble. 
+When two bubbles with the same affinity interact, the momentum vector $\boldsymbol{m}$ of the active bubble is transported to the partner; during the next light step the source center is shifted by $\boldsymbol{m}$. 
 One bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
 
 The propeller (see Sect. \ref{subsubsec:propeller}) naturally emerges as a pair to avoid static interaction. 
@@ -754,7 +756,7 @@ A static interaction (Coulomb or magnetic) between two distant charges $q_1$ and
 
 \subsubsection{Coulomb interaction} \label{subsec:Coulomb-interaction}
 
-Coulomb attraction and repulsion occur in two steps: (a) the pBit of an orphan from the first charge hits an active cell of a graviton; if they are aligned or anti-aligned (matching $x$ vectors), the graviton is reissued from the contact point with the orphan's affinity; (b) the $pB$ of the second charge, already aligned with the graviton, hits the reissued graviton and becomes a propeller pointing in the correct direction.
+Coulomb attraction and repulsion occur in two steps: (a) the wavefront of an orphan from the first charge, with $pB=1$, contacts an active cell of a graviton; if their position vectors are aligned or anti-aligned, the graviton is reissued from the contact point with the orphan's affinity; (b) the second charge's wavefront, also with $pB=1$, contacts the reissued graviton and receives its momentum vector $\boldsymbol{m}$, becoming a propeller pointing in the correct direction.
 
 \subsubsection{Static magnetic interaction}
 
@@ -1062,7 +1064,7 @@ a_1 = a_2 = \min(A_1,A_2).
 In this picture, there is no black hole information paradox \cite{hawking1976breakdown,harlow2016jerusalem}.
 
 \subsection{What is spin in this model?}
-Spin in this model is the coherent radial alignment of the pBit $pB$ (local wave momentum) and the transverse polarization pair $(u,v)$. The pBit points outward or inward from the particle center, while the phase of $(u,v)$ winds once around the wavefront. This radial helix defines the two spin states, aligned consistently across the particle's constituent bubbles.
+Spin in this model is the coherent radial alignment of the pBit $pB$ (local in-phase sign) and the transverse polarization pair $(u,v)$. The positive in-phase half-cycle marked by $pB$ alternates outward and inward as the wave oscillates, while the phase of $(u,v)$ winds once around the wavefront. This radial helix defines the two spin states, aligned consistently across the particle's constituent bubbles.
 
 \subsection{The Hofer effect}
 

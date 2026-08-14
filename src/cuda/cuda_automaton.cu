@@ -1622,9 +1622,13 @@ void cudaSimulationStep(
             if (nx < 0) nx += M;
             if (ny < 0) ny += M;
             if (nz < 0) nz += M;
-            automaton::lcenters[iw][0] = (unsigned)nx;
-            automaton::lcenters[iw][1] = (unsigned)ny;
-            automaton::lcenters[iw][2] = (unsigned)nz;
+            automaton::lcenters[iw][0]   = (unsigned)nx;
+            automaton::lcenters[iw][1]   = (unsigned)ny;
+            automaton::lcenters[iw][2]   = (unsigned)nz;
+
+            automaton::lcenters_m[iw][0] = centerCell.m[0];
+            automaton::lcenters_m[iw][1] = centerCell.m[1];
+            automaton::lcenters_m[iw][2] = centerCell.m[2];
         }
     }
 
