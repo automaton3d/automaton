@@ -268,14 +268,14 @@ namespace sinc_overlay
         }
         if (g_uPeak < 1) g_uPeak = 1;
 
-        // Use the running peak as a per-frame reference so the overlay stays
-        // visible even when the absolute |u| is far below SHELL_TARGET*3.
+        // Cyan: signed profile / running peak (trigger rate).
         float peakRef = (float)std::max<int64_t>(1, g_uPeak);
 
-        // Green: envelope |u(r)| / (running peak with headroom) so it sits
-        // below the cyan trigger-rate curve and both remain visible.
-        // Cyan: signed profile / running peak (trigger rate).
-        float greenPeakRef = peakRef * 1.25f;
+        // Green: envelope |u(r)| / fixed target reference scaled by grid size.
+        // This makes the green profile grow from zero as the wave builds up,
+        // instead of being instantly auto-gained to full height.
+        constexpr int64_t SHELL_TARGET = 16384;
+        float greenPeakRef = (float)(SHELL_TARGET * 3) * (float)automaton::EL / 221.0f;
         if (greenPeakRef < 1.0f) greenPeakRef = 1.0f;
 
         std::vector<float> profile(graphSize, 0.0f);
