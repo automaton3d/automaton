@@ -272,15 +272,19 @@ namespace sinc_overlay
         // visible even when the absolute |u| is far below SHELL_TARGET*3.
         float peakRef = (float)std::max<int64_t>(1, g_uPeak);
 
-        // Green: envelope |u(r)| / running peak (always positive).
+        // Green: envelope |u(r)| / (running peak with headroom) so it sits
+        // below the cyan trigger-rate curve and both remain visible.
         // Cyan: signed profile / running peak (trigger rate).
+        float greenPeakRef = peakRef * 1.25f;
+        if (greenPeakRef < 1.0f) greenPeakRef = 1.0f;
+
         std::vector<float> profile(graphSize, 0.0f);
         std::vector<float> triggerRate(graphSize, 0.0f);
         for (unsigned r = 0; r < graphSize; ++r)
         {
             int64_t au = avgU[r];
             if (au < 0) au = -au;
-            profile[r]     = (float)au / peakRef;
+            profile[r]     = (float)au / greenPeakRef;
             triggerRate[r] = (float)avgU[r] / peakRef;
         }
 
@@ -328,8 +332,9 @@ namespace sinc_overlay
         static int overlayReport = 0;
         if (++overlayReport % 60 == 0) {
             const Cell& c = automaton::getCell(automaton::lattice_curr, automaton::CENTER, automaton::CENTER, automaton::CENTER, selectedW);
-            float pr0   = profile.empty() ? -1.0f : profile[0];
-            float prMid = profile.empty() ? -1.0f : profile[graphSize / 2];
+            const auto& prBuf = profileBufs[backIdx];
+            float pr0   = prBuf.empty() ? -1.0f : prBuf[0];
+            float prMid = prBuf.empty() ? -1.0f : prBuf[graphSize / 2];
             printf("DEBUG overlay #%d selectedW=%u g_uPeak=%lld center u=%d v=%d active=%u profile[0]=%.3f profile[mid]=%.3f pulseR=%u\n",
                    overlayReport, selectedW, g_uPeak, c.u, c.v, c.active,
                    pr0, prMid, pulseR);
