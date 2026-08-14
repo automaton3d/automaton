@@ -328,8 +328,11 @@ namespace sinc_overlay
         static int overlayReport = 0;
         if (++overlayReport % 60 == 0) {
             const Cell& c = automaton::getCell(automaton::lattice_curr, automaton::CENTER, automaton::CENTER, automaton::CENTER, selectedW);
-            printf("DEBUG overlay #%d selectedW=%u g_uPeak=%lld center u=%d v=%d active=%u\n",
-                   overlayReport, selectedW, g_uPeak, c.u, c.v, c.active);
+            float pr0   = profile.empty() ? -1.0f : profile[0];
+            float prMid = profile.empty() ? -1.0f : profile[graphSize / 2];
+            printf("DEBUG overlay #%d selectedW=%u g_uPeak=%lld center u=%d v=%d active=%u profile[0]=%.3f profile[mid]=%.3f pulseR=%u\n",
+                   overlayReport, selectedW, g_uPeak, c.u, c.v, c.active,
+                   pr0, prMid, pulseR);
         }
     }
 } // namespace sinc_overlay
