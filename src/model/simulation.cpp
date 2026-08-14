@@ -231,6 +231,7 @@ namespace automaton
             d.phiB = active;
             d.pB = false;
             d.sB = false;
+            d.s2B = false;
             continue;
         }
 
@@ -314,6 +315,16 @@ namespace automaton
         d.phiB   = active;
         d.pB     = (ru > 0);
         d.sB     = (rv > 0);
+
+        // Sieve trigger: probability proportional to positive wave amplitude.
+        bool s2B_trigger = false;
+        if (u_new > 0)
+        {
+            int64_t prod = (int64_t)u_new * (int64_t)(pulse_tick + 1);
+            int64_t mod = prod % (int64_t)SHELL_TARGET;
+            if (mod < (int64_t)u_new) s2B_trigger = true;
+        }
+        d.s2B    = active && s2B_trigger;
     }
 
     // Copy the new wave state back to lattice_curr for the interaction FSM.
@@ -325,6 +336,7 @@ namespace automaton
         lattice_curr[i].phiB   = lattice_draft[i].phiB;
         lattice_curr[i].pB     = lattice_draft[i].pB;
         lattice_curr[i].sB     = lattice_draft[i].sB;
+        lattice_curr[i].s2B    = lattice_draft[i].s2B;
     }
   }
 

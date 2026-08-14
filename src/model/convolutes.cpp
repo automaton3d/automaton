@@ -312,6 +312,9 @@ namespace automaton
     if (curr.x[3] == mirror.x[3])
       return false;
 
+    // Sieve propagation: s2B' = s2B AND active.
+    draft.s2B = draft.s2B && (curr.active != 0);
+
     // Source state is stored in the source-center cell of each W-layer.
     Cell& currSrc  = sourceCenterCurr(curr);
     Cell& mirrorSrc = sourceCenterCurr(mirror);

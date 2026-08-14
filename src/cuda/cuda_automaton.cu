@@ -253,7 +253,7 @@ static __device__ inline void dev_phase_step_cell(
     if (dev_RMAX == 0)
     {
         c.u = 0; c.v = 0; c.active = 0;
-        c.phiB = 0; c.pB = 0; c.sB = 0;
+        c.phiB = 0; c.pB = 0; c.sB = 0; c.s2B = 0;
         return;
     }
 
@@ -299,7 +299,7 @@ static __device__ inline void dev_phase_step_cell(
         c.u = 0; c.v = 0;
         c.active = active ? 1u : 0u;
         c.phiB   = c.active;
-        c.pB = 0; c.sB = 0;
+        c.pB = 0; c.sB = 0; c.s2B = 0;
         return;
     }
 
@@ -383,6 +383,16 @@ static __device__ inline void dev_phase_step_cell(
     c.phiB   = c.active;
     c.pB     = (ru > 0) ? 1 : 0;
     c.sB     = (rv > 0) ? 1 : 0;
+
+    // Sieve trigger: probability proportional to positive wave amplitude.
+    bool s2B_trigger = false;
+    if (u_new > 0)
+    {
+        int64_t prod = (int64_t)u_new * (int64_t)(pulse_tick + 1);
+        int64_t mod = prod % (int64_t)SHELL_TARGET;
+        if (mod < (int64_t)u_new) s2B_trigger = true;
+    }
+    c.s2B    = (active && s2B_trigger) ? 1u : 0u;
 }
 
 // ===================================================================
@@ -900,6 +910,9 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         return;
     if (curr.x[3] == mirror.x[3])
         return;
+
+    // Sieve propagation: s2B' = s2B AND active (phiB).
+    draft.s2B &= curr.phiB;
 
     int currW   = (int)curr.x[3];
     int mirrorW = (int)mirror.x[3];

@@ -249,7 +249,7 @@ namespace sinc_overlay
             if (c.active)
             {
                 g_activeCount[r]++;
-                if (c.sB)
+                if (c.s2B)
                     g_andAcc[r]++;
             }
         }
