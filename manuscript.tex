@@ -177,7 +177,7 @@ Defined by bit constants $q$, $w_{1}$, $w_{0}$, $c_{2}$, $c_{1}$, $c_{0}$.
 Charge encompasses various discrete properties associated with the particles, derived from specific bit values that define their interactions. They are the main responsible for the emergence of forces.
 
 	\item \textbf{pBit ($pB$)} \\
-This bit marks the local in-phase sign of the emergent polarisation pair $(u,v)$: it is true when the in-phase component $u$ is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field and triggers the electric interaction channel.
+This bit marks the local in-phase sign of the emergent polarization pair $(u,v)$: it is true when the in-phase component $u$ is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field and triggers the electric interaction channel.
 
 	\item \textbf{sBit ($sB$)} \\
 This bit signals the emergent transverse polarization of the cell. It is derived locally from the integer pair $(u,v)$ carried by the wave field, whose phase $\operatorname{atan2}(v,u)$ rotates through a full turn along the wavefront radius. No spiral path is precomputed.
@@ -403,7 +403,7 @@ Given the basic structure of our model, we shall now proceed to populate it with
 \subsection{Overview}
 Among the countless possibilities, we choose the following Platonic solution for the initial state problem, described below.
 
-The Platonic initial state is set up by fiat: it fixes only the static, non-dynamical configuration of every cell in the lattice. At $t=0$, the source center of each hosted bubble is placed at one of the six Cartesian face positions around the lattice centre, e.g. $(-L/2,0,0)$ relative to the centre, so that the bubbles are spread isotropically with no random numbers. This is still a single deterministic configuration, not a dynamic process.
+The Platonic initial state is set up by fiat: it fixes only the static, non-dynamical configuration of every cell in the lattice. At $t=0$, the source center of each hosted bubble is placed at one of the six Cartesian face positions around the lattice center, e.g. $(-L/2,0,0)$ relative to the center, so that the bubbles are spread isotropically with no random numbers. This is still a single deterministic configuration, not a dynamic process.
 
 The same initialization procedures are mirrored on the draft lattice, ensuring consistency and coherence across both structures.
 
@@ -427,7 +427,7 @@ The stable momentum-direction vector $\boldsymbol{m}$ of each hosted bubble is a
 The subsections that follow describe the first dynamical consequences of that Platonic seed. They are not additional initialization steps, but the beginning of the CA evolution presented here for clarity.
 
 \subsection{Dynamic radius}
-The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice centre. The squared radius $r^{2}$ and the radius $r$ then propagate dynamically by BFS through the 6-neighborhood from those centers.
+The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice center. The squared radius $r^{2}$ and the radius $r$ then propagate dynamically by BFS through the 6-neighborhood from those centers.
 
 \subsection{Emergence of the wave cloud} \label{subsec:sine-cloud}
 The cloud is generated on the fly inside each light frame. At $t=0$ the wave field is set to zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$. The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice. As the wave propagates and the pulsating wavefront expands, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density described in Sect.~\ref{subsec:Sine}. The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
@@ -447,7 +447,7 @@ Writing $m_{2}=m-R$ for $m\ge R$, the integer pair is reconstructed by
 \end{align}
 These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle whose radius $R^{2}$ is also emergent. The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as $r$ grows from the center to the edge, producing a radial polarization helix. No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the phase emerges from the local radius $r$ and the integer square-root relation.
 
-The wave field is seeded at each source centre with $u=v=0$ and $r^{2}=0$; all other cells begin with $r^{2}=\mathrm{INF}$. The BFS radius propagates outward through the 6-neighborhood, so the value of $r$ that enters the formula above is itself a local, dynamically computed quantity.
+The wave field is seeded at each source center with $u=v=0$ and $r^{2}=0$; all other cells begin with $r^{2}=\mathrm{INF}$. The BFS radius propagates outward through the 6-neighborhood, so the value of $r$ that enters the formula above is itself a local, dynamically computed quantity.
 
 Once the Platonic seed is fixed---spatial coordinates, charge distribution, and timing counters---the dynamic radius, the wave cloud and the polarization pair $(u,v)$ emerge through the first light-frame steps described above. These emergent quantities are governed by the CA rules, not by the fiat initialization.
 
