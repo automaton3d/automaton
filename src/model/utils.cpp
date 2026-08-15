@@ -125,6 +125,9 @@ namespace automaton
             dst.m[0] = src.m[0];
             dst.m[1] = src.m[1];
             dst.m[2] = src.m[2];
+            dst.reloc[0] = src.reloc[0];
+            dst.reloc[1] = src.reloc[1];
+            dst.reloc[2] = src.reloc[2];
 
             // Leave x[], ch, k, and c[] untouched
           }

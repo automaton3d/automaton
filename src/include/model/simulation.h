@@ -163,7 +163,8 @@ struct NeighborResult
       uint32_t parent;      // Parent source index (for D/P)
       int8_t spin_target;   // +1 outward / -1 inward / 0 neutral
       uint32_t pair_idx;    // Pair partner index for P sources
-      int m[3];             // Momentum vector (signed displacement)
+      int m[3];             // Momentum direction vector (long-term stable)
+      int reloc[3];         // Consumable relocation offset / impulse
       // Default constructor
       Cell()
         : w(0), leader_w(NO_LEADER_W), is_core(false),
@@ -177,6 +178,7 @@ struct NeighborResult
         fill(begin(c), end(c), 0);
         fill(begin(g), end(g), 0);
         fill(begin(m), end(m), 0);
+        fill(begin(reloc), end(reloc), 0);
       }
       // Serialization functions
       void serialize(ofstream& out) const;

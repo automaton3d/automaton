@@ -290,11 +290,12 @@ static __device__ inline void dev_phase_step_cell(
     unsigned int r2diff = (c.r2 > pulseR2) ? (c.r2 - pulseR2) : (pulseR2 - c.r2);
     bool active = (c.r2 != 0xFFFFFFFFu && r2diff <= pulseTol);
 
-    // Hard zero on spatial boundaries and outside the processed sphere.
-    if (x == 0 || x == dev_EL - 1 ||
+    // Hard zero on spatial boundaries and outside the processed sphere,
+    // except for the source-center cell (r2 == 0) which may sit on a face.
+    if (c.r2 != 0 && (x == 0 || x == dev_EL - 1 ||
         y == 0 || y == dev_EL - 1 ||
         z == 0 || z == dev_EL - 1 ||
-        c.r < 0 || c.r >= R)
+        c.r < 0 || c.r >= R))
     {
         c.u = 0; c.v = 0;
         c.active = active ? 1u : 0u;
@@ -840,32 +841,15 @@ static __device__ inline ::CellDevice& dev_source_center_cell(::CellDevice* latt
 
 static __device__ inline void dev_reemitSourceAt(::CellDevice& srcDraft,
                                                   int dx, int dy, int dz,
-                                                  ::CellDevice* d_draft)
+                                                  ::CellDevice* /*d_draft*/)
 {
-    int oldCx = (int)srcDraft.x[0];
-    int oldCy = (int)srcDraft.x[1];
-    int oldCz = (int)srcDraft.x[2];
-    int w     = (int)srcDraft.x[3];
-
-    unsigned newCx = dev_wrap(oldCx + dx, (int)dev_EL);
-    unsigned newCy = dev_wrap(oldCy + dy, (int)dev_EL);
-    unsigned newCz = dev_wrap(oldCz + dz, (int)dev_EL);
-
-    ::CellDevice& newDraft = d_getCell(d_draft, (int)newCx, (int)newCy, (int)newCz, w);
-    newDraft.kind        = srcDraft.kind;
-    newDraft.parent      = srcDraft.parent;
-    newDraft.spin_target = srcDraft.spin_target;
-    newDraft.pair_idx    = srcDraft.pair_idx;
-    newDraft.t           = 0;
-    newDraft.f           = 0;
-
-    // The momentum vector m is immutable: carry it to the new source center.
-    newDraft.m[0] = dx;
-    newDraft.m[1] = dy;
-    newDraft.m[2] = dz;
-    srcDraft.m[0] = dx;
-    srcDraft.m[1] = dy;
-    srcDraft.m[2] = dz;
+    // Preserve the long-term momentum direction m; accumulate the pending
+    // displacement in the consumable relocation vector reloc.
+    srcDraft.reloc[0] += dx;
+    srcDraft.reloc[1] += dy;
+    srcDraft.reloc[2] += dz;
+    srcDraft.t = 0;
+    srcDraft.f = 0;
 }
 
 static __device__ inline void dev_moveOneStep(::CellDevice& srcDraft,
@@ -1026,9 +1010,9 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         {
             dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
                                 mirrorCx, mirrorCy, mirrorCz, d_draft);
-            currDraft.m[0] = mirrorSrc.m[0];
-            currDraft.m[1] = mirrorSrc.m[1];
-            currDraft.m[2] = mirrorSrc.m[2];
+            currDraft.reloc[0] += mirrorSrc.m[0];
+            currDraft.reloc[1] += mirrorSrc.m[1];
+            currDraft.reloc[2] += mirrorSrc.m[2];
         }
         else
         {
@@ -1042,9 +1026,9 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         (mirrorSrc.kind == SRC_K || mirrorSrc.kind == SRC_S || mirrorSrc.kind == SRC_D))
     {
         dev_reemitAtContact(currDraft, curr, d_draft);
-        mirrorDraft.m[0] = currSrc.m[0];
-        mirrorDraft.m[1] = currSrc.m[1];
-        mirrorDraft.m[2] = currSrc.m[2];
+        mirrorDraft.reloc[0] += currSrc.m[0];
+        mirrorDraft.reloc[1] += currSrc.m[1];
+        mirrorDraft.reloc[2] += currSrc.m[2];
         return;
     }
 
@@ -1053,9 +1037,9 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         mirrorSrc.kind == SRC_P)
     {
         dev_reemitAtContact(currDraft, curr, d_draft);
-        currDraft.m[0] = mirrorSrc.m[0];
-        currDraft.m[1] = mirrorSrc.m[1];
-        currDraft.m[2] = mirrorSrc.m[2];
+        currDraft.reloc[0] += mirrorSrc.m[0];
+        currDraft.reloc[1] += mirrorSrc.m[1];
+        currDraft.reloc[2] += mirrorSrc.m[2];
         return;
     }
 
@@ -1605,8 +1589,9 @@ void cudaSimulationStep(
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
 
-    // Apply per-source momentum: move the source center, copy m to the new
-    // center and clear the old center. This mirrors CPU applyMomentum().
+    // Apply per-source relocation impulse: move the source center, preserve the
+    // long-term momentum direction m, and clear the old center.  This mirrors
+    // CPU applyMomentum().
     for (unsigned iw = 0; iw < W; ++iw)
     {
         int cx = (int)automaton::lcenters[iw][0];
@@ -1618,9 +1603,9 @@ void cudaSimulationStep(
         if (err != cudaSuccess)
             continue;
 
-        int dx = centerCell.m[0];
-        int dy = centerCell.m[1];
-        int dz = centerCell.m[2];
+        int dx = centerCell.reloc[0];
+        int dy = centerCell.reloc[1];
+        int dz = centerCell.reloc[2];
         if (dx == 0 && dy == 0 && dz == 0)
             continue;
 
@@ -1638,12 +1623,31 @@ void cudaSimulationStep(
         if (err != cudaSuccess)
             continue;
 
-        newCell.m[0] = dx;
-        newCell.m[1] = dy;
-        newCell.m[2] = dz;
-        centerCell.m[0] = 0;
-        centerCell.m[1] = 0;
-        centerCell.m[2] = 0;
+        // Carry source identity, momentum direction, and re-seed the wave.
+        newCell.kind        = centerCell.kind;
+        newCell.parent      = centerCell.parent;
+        newCell.spin_target = centerCell.spin_target;
+        newCell.pair_idx    = centerCell.pair_idx;
+        newCell.t           = 0;
+        newCell.f           = 0;
+        newCell.u           = 2048;
+        newCell.v           = 0;
+        newCell.m[0]        = centerCell.m[0];
+        newCell.m[1]        = centerCell.m[1];
+        newCell.m[2]        = centerCell.m[2];
+        newCell.reloc[0]    = newCell.reloc[1] = newCell.reloc[2] = 0;
+
+        // Old cell is no longer a source center.
+        centerCell.kind        = SRC_S;
+        centerCell.parent      = DEV_NO_PARENT;
+        centerCell.spin_target = 0;
+        centerCell.pair_idx    = DEV_NO_PAIR;
+        centerCell.t           = 0;
+        centerCell.f           = 0;
+        centerCell.u           = 0;
+        centerCell.v           = 0;
+        centerCell.m[0]        = centerCell.m[1] = centerCell.m[2] = 0;
+        centerCell.reloc[0]    = centerCell.reloc[1] = centerCell.reloc[2] = 0;
 
         cudaMemcpy(d_lattice_curr + idxNew, &newCell, sizeof(::CellDevice), cudaMemcpyHostToDevice);
         cudaMemcpy(d_lattice_curr + idx, &centerCell, sizeof(::CellDevice), cudaMemcpyHostToDevice);
@@ -1723,6 +1727,7 @@ namespace automaton
         dst.spin_target = static_cast<int32_t>(src.spin_target);
         dst.pair_idx = src.pair_idx;
         for (int i = 0; i < 3; ++i) dst.m[i] = static_cast<int32_t>(src.m[i]);
+        for (int i = 0; i < 3; ++i) dst.reloc[i] = static_cast<int32_t>(src.reloc[i]);
         return dst;
     }
 
@@ -1755,6 +1760,7 @@ namespace automaton
         dst.spin_target = static_cast<int8_t>(src.spin_target);
         dst.pair_idx = src.pair_idx;
         for (int i = 0; i < 3; ++i) dst.m[i] = static_cast<int>(src.m[i]);
+        for (int i = 0; i < 3; ++i) dst.reloc[i] = static_cast<int>(src.reloc[i]);
     }
 
     bool swap_lattices_gpu() { return true; }

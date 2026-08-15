@@ -76,36 +76,17 @@ namespace automaton
       return (v > 0) - (v < 0);
     }
 
-    // Move a source center by (dx, dy, dz) light-steps and reemit phase 0 there.
+    // Add an impulse (dx, dy, dz) to the source-center cell and reemit phase 0.
+    // The long-term momentum-direction vector m is preserved; the consumable
+    // relocation vector reloc records the pending displacement.  The actual move
+    // is performed after the FSM by applyMomentum().
     void reemitSourceAt(Cell& srcDraft, int dx, int dy, int dz)
     {
-      unsigned oldCx = srcDraft.x[0];
-      unsigned oldCy = srcDraft.x[1];
-      unsigned oldCz = srcDraft.x[2];
-      unsigned w = srcDraft.x[3];
-
-      unsigned newCx = wrapCoord((int)oldCx + dx);
-      unsigned newCy = wrapCoord((int)oldCy + dy);
-      unsigned newCz = wrapCoord((int)oldCz + dz);
-
-      // Source state is stored in the source-center cell.  Place the reemitted
-      // source at the new center so the next BFS wavefront starts from there.
-      Cell& newDraft = getCell(lattice_draft, newCx, newCy, newCz, w);
-      newDraft.kind        = srcDraft.kind;
-      newDraft.parent      = srcDraft.parent;
-      newDraft.spin_target = srcDraft.spin_target;
-      newDraft.pair_idx    = srcDraft.pair_idx;
-      newDraft.t           = 0;
-      newDraft.f           = 0;
-
-      // The momentum vector m is immutable: it records the displacement
-      // and is carried to the new source-center cell.
-      newDraft.m[0] = dx;
-      newDraft.m[1] = dy;
-      newDraft.m[2] = dz;
-      srcDraft.m[0] = dx;
-      srcDraft.m[1] = dy;
-      srcDraft.m[2] = dz;
+      srcDraft.reloc[0] += dx;
+      srcDraft.reloc[1] += dy;
+      srcDraft.reloc[2] += dz;
+      srcDraft.t = 0;
+      srcDraft.f = 0;
     }
 
     // Move one light-step along the direction from 'from' to 'to'.
@@ -423,10 +404,11 @@ namespace automaton
       {
         // Different tribes: reemit, repel one light-step, exchange momentum.
         moveOneStepAway(currDraft, currCenter, mirrorCenter);
-        // Simplified momentum exchange: copy the mirror's stored momentum.
-        currDraft.m[0] = mirrorSrc.m[0];
-        currDraft.m[1] = mirrorSrc.m[1];
-        currDraft.m[2] = mirrorSrc.m[2];
+        // Simplified momentum exchange: add the mirror's momentum direction
+        // to the target's relocation impulse, preserving its own m.
+        currDraft.reloc[0] += mirrorSrc.m[0];
+        currDraft.reloc[1] += mirrorSrc.m[1];
+        currDraft.reloc[2] += mirrorSrc.m[2];
       }
       else
       {
@@ -447,9 +429,9 @@ namespace automaton
       reemitAtContact(currDraft, curr);
 
       // Target receives a momentum impulse in the direction of P's momentum.
-      mirrorDraft.m[0] = currSrc.m[0];
-      mirrorDraft.m[1] = currSrc.m[1];
-      mirrorDraft.m[2] = currSrc.m[2];
+      mirrorDraft.reloc[0] += currSrc.m[0];
+      mirrorDraft.reloc[1] += currSrc.m[1];
+      mirrorDraft.reloc[2] += currSrc.m[2];
       return false;
     }
 
@@ -461,9 +443,9 @@ namespace automaton
     {
       // Target reemits on its own surface at the contact point and gets P's momentum.
       reemitAtContact(currDraft, curr);
-      currDraft.m[0] = mirrorSrc.m[0];
-      currDraft.m[1] = mirrorSrc.m[1];
-      currDraft.m[2] = mirrorSrc.m[2];
+      currDraft.reloc[0] += mirrorSrc.m[0];
+      currDraft.reloc[1] += mirrorSrc.m[1];
+      currDraft.reloc[2] += mirrorSrc.m[2];
       return false;
     }
 

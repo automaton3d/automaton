@@ -117,18 +117,22 @@ void initGeneral()
                     cell.spin_target= 0;
                     cell.pair_idx   = NO_PAIR;
 
-                    // Every hosted bubble has an immutable momentum vector M.
+                    // Each hosted bubble has a stable momentum-direction vector m and a
+                    // consumable relocation/impulse vector reloc.
                     // The six Cartesian directions are distributed across layers in pairs:
                     // two consecutive layers share the same axis and get opposite signs,
-                    // so the electric charge q = w0 ^ w1 determines the sign of M.
+                    // so the electric charge q = w0 ^ w1 determines the sign of m.
+                    // At t=0 the relocation impulse is zero; m is the long-term direction.
                     if (cell.r == 0) {
                         int axis  = (int)((w / 2u) % 3u);
                         int sign  = q ? +1 : -1;
                         cell.m[0] = (axis == 0) ? sign : 0;
                         cell.m[1] = (axis == 1) ? sign : 0;
                         cell.m[2] = (axis == 2) ? sign : 0;
+                        cell.reloc[0] = cell.reloc[1] = cell.reloc[2] = 0;
                     } else {
                         cell.m[0] = cell.m[1] = cell.m[2] = 0;
+                        cell.reloc[0] = cell.reloc[1] = cell.reloc[2] = 0;
                     }
                 }
             }
@@ -229,14 +233,31 @@ void initCenters(unsigned wDim)
 {
     lcenters.resize(wDim);
 
-    // All bubbles centered at lattice center in all layers
+    // Source centers are spread isotropically around the lattice centre:
+    // each hosted bubble starts at one of the six Cartesian face positions,
+    // e.g. (CENTER +/- RMAX, CENTER, CENTER), so the initial source
+    // coordinates look like (-L/2, 0, 0) relative to the centre.
     for (unsigned w = 0; w < wDim; ++w)
     {
-        lcenters[w][0] = CENTER;
-        lcenters[w][1] = CENTER;
-        lcenters[w][2] = CENTER;
+        int axis  = (int)((w / 2u) % 3u);
+        char w0   = (char)(w & 1u);
+        char w1   = (char)((w >> 1) & 1u);
+        int sign  = (w0 ^ w1) ? +1 : -1;
 
-        printf("initCenters: w=%u, center=(%u,%u,%u)\n", w, CENTER, CENTER, CENTER);
+        int cx = (axis == 0) ? (int)CENTER + sign * (int)RMAX : (int)CENTER;
+        int cy = (axis == 1) ? (int)CENTER + sign * (int)RMAX : (int)CENTER;
+        int cz = (axis == 2) ? (int)CENTER + sign * (int)RMAX : (int)CENTER;
+
+        cx = ((cx % (int)EL) + (int)EL) % (int)EL;
+        cy = ((cy % (int)EL) + (int)EL) % (int)EL;
+        cz = ((cz % (int)EL) + (int)EL) % (int)EL;
+
+        lcenters[w][0] = (unsigned)cx;
+        lcenters[w][1] = (unsigned)cy;
+        lcenters[w][2] = (unsigned)cz;
+
+        printf("initCenters: w=%u, center=(%u,%u,%u) axis=%d sign=%d\n",
+               w, lcenters[w][0], lcenters[w][1], lcenters[w][2], axis, sign);
     }
 }
 

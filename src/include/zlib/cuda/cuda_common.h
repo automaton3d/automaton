@@ -38,5 +38,6 @@ struct CellDevice
     uint32_t parent;      // Parent source index
     int32_t  spin_target; // +1 outward, -1 inward, 0 neutral
     uint32_t pair_idx;    // Pair partner index
-    int32_t  m[3];        // Momentum vector
+    int32_t  m[3];        // Momentum direction vector
+    int32_t  reloc[3];    // Consumable relocation offset / impulse
 };

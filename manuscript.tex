@@ -289,7 +289,9 @@ wave phase & DN & $f$ & local wave phase; the sieve bit $s2B$ is computed from $
 \hline 
 relocation offset & V & \textbf{\emph{c}} & determines reissue address\tabularnewline
 \hline
-momentum vector & V & $\boldsymbol{m}$ & signed displacement applied to the source center after interaction\tabularnewline
+momentum vector & V & $\boldsymbol{m}$ & stable direction of the bubble's momentum (six Cartesian directions, one per layer)\tabularnewline
+\hline
+relocation impulse & V & $\boldsymbol{\mathit{reloc}}$ & signed displacement applied to the source center after interaction; consumed in one light step\tabularnewline
 \hline
 housekeeping tick & DN & $k$ & timeless clocking\tabularnewline
 \hline 
@@ -393,7 +395,7 @@ Given the basic structure of our model, we shall now proceed to populate it with
 \subsection{Overview}
 Among the countless possibilities, we choose the following Platonic solution for the initial state problem, described below.
 
-The Platonic initial state is set up by fiat: it fixes only the static, non-dynamical configuration of every cell in the lattice. At $t=0$, when all bubbles are superposed at the center ($L/2$, $L/2$, $L$/2), this state is referred to as the \textit{singularity}.
+The Platonic initial state is set up by fiat: it fixes only the static, non-dynamical configuration of every cell in the lattice. At $t=0$, the source center of each hosted bubble is placed at one of the six Cartesian face positions around the lattice centre, e.g. $(-L/2,0,0)$ relative to the centre, so that the bubbles are spread isotropically with no random numbers. This is still a single deterministic configuration, not a dynamic process.
 
 The same initialization procedures are mirrored on the draft lattice, ensuring consistency and coherence across both structures.
 
@@ -412,15 +414,15 @@ The weak charge is defined as $w_{0}^{i} = i \,\boldsymbol{\bmod}\, 2$ and $w_{1
 
 This and the following pattern creation are then replicated across all layers in dimension W.
 
-The immutable momentum vector $\boldsymbol{m}$ of each hosted bubble is also set at this stage. The six Cartesian directions are distributed across the $W$ layers in pairs of consecutive layers sharing the same axis and receiving opposite signs. Concretely, for layer $i$ the axis is $(i/2) \bmod 3$ and the sign is given by the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction. Because $W=3L^{2}$ with $L$ odd leaves a remainder of three when divided by six, this assignment yields the most perfect balance possible: the residual net momentum has magnitude one and the counts of any two opposite directions differ by at most one.
+The stable momentum-direction vector $\boldsymbol{m}$ of each hosted bubble is also set at this stage. The six Cartesian directions are distributed across the $W$ layers in pairs of consecutive layers sharing the same axis and receiving opposite signs. Concretely, for layer $i$ the axis is $(i/2) \bmod 3$ and the sign is given by the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction. Because $W=3L^{2}$ with $L$ odd leaves a remainder of three when divided by six, this assignment yields the most perfect balance possible: the residual net momentum has magnitude one and the counts of any two opposite directions differ by at most one. The momentum vector is no longer treated as hard-coded immutable; it is a per-bubble property that is initialized here and remains stable in the long run, being modified only by interactions. The consumable relocation impulse $\boldsymbol{\mathit{reloc}}$ starts at zero.
 
 The subsections that follow describe the first dynamical consequences of that Platonic seed. They are not additional initialization steps, but the beginning of the CA evolution presented here for clarity.
 
 \subsection{Dynamic radius}
-The wave field is seeded at the center of the lattice. A unique central point $(MID,MID,MID)$ exists only when $L$ is odd; once the seed is set, the squared radius $r^{2}$ and the radius $r$ propagate dynamically by BFS through the 6-neighborhood.
+The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice centre. The squared radius $r^{2}$ and the radius $r$ then propagate dynamically by BFS through the 6-neighborhood from those centers.
 
 \subsection{Emergence of the wave cloud} \label{subsec:sine-cloud}
-The cloud is generated on the fly inside each light frame. At $t=0$ the wave field is set to zero except for a single central excitation of fixed amplitude $U_{0}$ with $r^{2}=0$ at the center; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$. The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice. As the wave propagates and the pulsating wavefront expands, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density described in Sect.~\ref{subsec:Sine}. The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
+The cloud is generated on the fly inside each light frame. At $t=0$ the wave field is set to zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$. The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice. As the wave propagates and the pulsating wavefront expands, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density described in Sect.~\ref{subsec:Sine}. The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
 
 \subsection{Emergent polarization pair $(u,v)$}
 
@@ -437,7 +439,7 @@ Writing $m_{2}=m-R$ for $m\ge R$, the integer pair is reconstructed by
 \end{align}
 These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle whose radius $R^{2}$ is also emergent. The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as $r$ grows from the center to the edge, producing a radial polarization helix. No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the phase emerges from the local radius $r$ and the integer square-root relation.
 
-The wave field is seeded at the center with $u=v=0$ and $r^{2}=0$; all other cells begin with $r^{2}=\mathrm{INF}$. The BFS radius propagates outward through the 6-neighborhood, so the value of $r$ that enters the formula above is itself a local, dynamically computed quantity.
+The wave field is seeded at each source centre with $u=v=0$ and $r^{2}=0$; all other cells begin with $r^{2}=\mathrm{INF}$. The BFS radius propagates outward through the 6-neighborhood, so the value of $r$ that enters the formula above is itself a local, dynamically computed quantity.
 
 Once the Platonic seed is fixed---spatial coordinates, charge distribution, and timing counters---the dynamic radius, the wave cloud and the polarization pair $(u,v)$ emerge through the first light-frame steps described above. These emergent quantities are governed by the CA rules, not by the fiat initialization.
 
@@ -604,7 +606,7 @@ One bubble is reissued from the contact point, while the other, from its active 
 Also, they become entangled ($a_1=a_2$).
 
 On the other hand, if the two bubbles share the same affinity, but have different charges, the bubble whose wavefront at the contact point has $pB=1$ is reissued from the contact point.
-The other bubble is reissued using the inertial-transported relocation offset, encoded in the momentum vector $\boldsymbol{m}$ (and, before application, in the relocation vector $\boldsymbol{c}$).
+The other bubble is reissued using the inertial-transported relocation impulse, accumulated in the vector $\boldsymbol{\mathit{reloc}}$; the stable momentum vector $\boldsymbol{m}$ supplies the direction of that impulse, while the relocation vector $\boldsymbol{c}$ is consumed during the reissue step.
 That is, one bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
 
 For color-neutral combinations there are two cases: gluon$\times$gluon and quark$\times$gluon. 
@@ -729,7 +731,7 @@ A bubble can only be relocated to a point on its active surface.
 This guarantees that the speed of light will never be violated. 
 
 Inertia is acquired by an inertial transport mechanism. 
-When two bubbles with the same affinity interact, the momentum vector $\boldsymbol{m}$ of the active bubble is transported to the partner; during the next light step the source center is shifted by $\boldsymbol{m}$. 
+When two bubbles with the same affinity interact, the momentum direction $\boldsymbol{m}$ of the active bubble is added to the partner's relocation impulse $\boldsymbol{\mathit{reloc}}$; during the next light step the source center is shifted by $\boldsymbol{\mathit{reloc}}$, while $\boldsymbol{m}$ remains a stable property of the bubble. 
 One bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
 
 The propeller (see Sect. \ref{subsubsec:propeller}) naturally emerges as a pair to avoid static interaction. 
@@ -762,7 +764,7 @@ A static interaction (Coulomb or magnetic) between two distant charges $q_1$ and
 
 \subsubsection{Coulomb interaction} \label{subsec:Coulomb-interaction}
 
-Coulomb attraction and repulsion occur in two steps: (a) the wavefront of an orphan from the first charge, with $pB=1$, contacts an active cell of a graviton; if their position vectors are aligned or anti-aligned, the graviton is reissued from the contact point with the orphan's affinity; (b) the second charge's wavefront, also with $pB=1$, contacts the reissued graviton and receives its momentum vector $\boldsymbol{m}$, becoming a propeller pointing in the correct direction.
+Coulomb attraction and repulsion occur in two steps: (a) the wavefront of an orphan from the first charge, with $pB=1$, contacts an active cell of a graviton; if their position vectors are aligned or anti-aligned, the graviton is reissued from the contact point with the orphan's affinity; (b) the second charge's wavefront, also with $pB=1$, contacts the reissued graviton and receives a relocation impulse in the direction of its momentum vector $\boldsymbol{m}$, becoming a propeller pointing in the correct direction.
 
 \subsubsection{Static magnetic interaction}
 

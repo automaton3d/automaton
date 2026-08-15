@@ -186,6 +186,7 @@ void FrameRecorder::applyFrame(const Frame& frame,
     cell.spin_target = 0;
     cell.pair_idx = automaton::NO_PAIR;
     cell.m[0] = cell.m[1] = cell.m[2] = 0;
+    cell.reloc[0] = cell.reloc[1] = cell.reloc[2] = 0;
   }
 
   // Apply each layer's state

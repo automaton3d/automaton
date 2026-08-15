@@ -219,11 +219,12 @@ namespace automaton
         unsigned int r2diff = (c.r2 > pulseR2) ? (c.r2 - pulseR2) : (pulseR2 - c.r2);
         bool active = (c.r2 != INF_R2 && r2diff <= pulseTol);
 
-        // Hard zero on spatial boundaries and outside the processed sphere.
-        if (x == 0 || x == ELi - 1 ||
+        // Hard zero on spatial boundaries and outside the processed sphere,
+        // except for the source-center cell (r2 == 0) which may sit on a face.
+        if (c.r2 != 0 && (x == 0 || x == ELi - 1 ||
             y == 0 || y == ELi - 1 ||
             z == 0 || z == ELi - 1 ||
-            c.r < 0 || c.r >= R)
+            c.r < 0 || c.r >= R))
         {
             d.u = 0;
             d.v = 0;
@@ -344,7 +345,17 @@ namespace automaton
   // CPU UPDATE — BFS + interaction FSM
   // ============================================================
 
-  // Apply per-source momentum stored in the source-center cell and clear it.
+  // Apply the consumable relocation/impulse stored in the source-center cell.
+  // The long-term momentum-direction vector m is preserved; only reloc is
+  // consumed when a non-zero displacement is pending.
+  static int wrapCoord(int v)
+  {
+    int M = (int)EL;
+    int r = v % M;
+    if (r < 0) r += M;
+    return r;
+  }
+
   static void applyMomentum()
   {
     for (unsigned w = 0; w < W_USED; ++w)
@@ -352,35 +363,51 @@ namespace automaton
       unsigned cx = lcenters[w][0];
       unsigned cy = lcenters[w][1];
       unsigned cz = lcenters[w][2];
-      Cell& c = getCell(lattice_draft, cx, cy, cz, w);
+      Cell& old = getCell(lattice_draft, cx, cy, cz, w);
 
-      int dx = c.m[0];
-      int dy = c.m[1];
-      int dz = c.m[2];
+      int dx = old.reloc[0];
+      int dy = old.reloc[1];
+      int dz = old.reloc[2];
 
-      if (dx || dy || dz)
-      {
-        int M = (int)EL;
-        int nx = ((int)cx + dx) % M;
-        int ny = ((int)cy + dy) % M;
-        int nz = ((int)cz + dz) % M;
-        if (nx < 0) nx += M;
-        if (ny < 0) ny += M;
-        if (nz < 0) nz += M;
+      if (dx == 0 && dy == 0 && dz == 0)
+        continue;
 
-        // Move the source center.  The momentum vector m is immutable, so it
-        // is copied to the new source-center cell; the old cell is cleared.
-        Cell& newCenter = getCell(lattice_draft, (unsigned)nx, (unsigned)ny, (unsigned)nz, w);
-        newCenter.m[0] = dx;
-        newCenter.m[1] = dy;
-        newCenter.m[2] = dz;
+      int nx = wrapCoord((int)cx + dx);
+      int ny = wrapCoord((int)cy + dy);
+      int nz = wrapCoord((int)cz + dz);
 
-        lcenters[w][0] = (unsigned)nx;
-        lcenters[w][1] = (unsigned)ny;
-        lcenters[w][2] = (unsigned)nz;
+      Cell& nw = getCell(lattice_draft, (unsigned)nx, (unsigned)ny, (unsigned)nz, w);
 
-        c.m[0] = c.m[1] = c.m[2] = 0;
-      }
+      // Carry the source identity and the stable momentum direction m to the
+      // new center, and re-seed the pulsating wave there.
+      nw.kind        = old.kind;
+      nw.parent      = old.parent;
+      nw.spin_target = old.spin_target;
+      nw.pair_idx    = old.pair_idx;
+      nw.t           = 0;
+      nw.f           = 0;
+      nw.u           = 2048;
+      nw.v           = 0;
+      nw.m[0]        = old.m[0];
+      nw.m[1]        = old.m[1];
+      nw.m[2]        = old.m[2];
+      nw.reloc[0]    = nw.reloc[1] = nw.reloc[2] = 0;
+
+      // The old cell is no longer a source center.
+      old.kind        = SourceKind::S;
+      old.parent      = NO_PARENT;
+      old.spin_target = 0;
+      old.pair_idx    = NO_PAIR;
+      old.t           = 0;
+      old.f           = 0;
+      old.u           = 0;
+      old.v           = 0;
+      old.m[0]        = old.m[1] = old.m[2] = 0;
+      old.reloc[0]    = old.reloc[1] = old.reloc[2] = 0;
+
+      lcenters[w][0] = (unsigned)nx;
+      lcenters[w][1] = (unsigned)ny;
+      lcenters[w][2] = (unsigned)nz;
     }
   }
 
