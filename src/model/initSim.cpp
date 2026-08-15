@@ -118,9 +118,12 @@ void initGeneral()
                     cell.pair_idx   = NO_PAIR;
 
                     // Every hosted bubble has an immutable momentum vector M.
+                    // The six Cartesian directions are distributed across layers in pairs:
+                    // two consecutive layers share the same axis and get opposite signs,
+                    // so the electric charge q = w0 ^ w1 determines the sign of M.
                     if (cell.r == 0) {
-                        int axis  = (int)(w % 3u);
-                        int sign  = ((w / 3u) % 2u == 0u) ? +1 : -1;
+                        int axis  = (int)((w / 2u) % 3u);
+                        int sign  = q ? +1 : -1;
                         cell.m[0] = (axis == 0) ? sign : 0;
                         cell.m[1] = (axis == 1) ? sign : 0;
                         cell.m[2] = (axis == 2) ? sign : 0;
