@@ -1626,9 +1626,13 @@ void cudaSimulationStep(
             automaton::lcenters[iw][1]   = (unsigned)ny;
             automaton::lcenters[iw][2]   = (unsigned)nz;
 
-            automaton::lcenters_m[iw][0] = centerCell.m[0];
-            automaton::lcenters_m[iw][1] = centerCell.m[1];
-            automaton::lcenters_m[iw][2] = centerCell.m[2];
+            // Persist the last non-zero momentum step for rendering.
+            if (centerCell.m[0] || centerCell.m[1] || centerCell.m[2])
+            {
+                automaton::lcenters_m[iw][0] = centerCell.m[0];
+                automaton::lcenters_m[iw][1] = centerCell.m[1];
+                automaton::lcenters_m[iw][2] = centerCell.m[2];
+            }
         }
     }
 

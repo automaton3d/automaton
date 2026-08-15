@@ -359,13 +359,14 @@ namespace automaton
       int dy = c.m[1];
       int dz = c.m[2];
 
-      // Save the applied momentum for rendering before clearing it.
-      lcenters_m[w][0] = dx;
-      lcenters_m[w][1] = dy;
-      lcenters_m[w][2] = dz;
-
       if (dx || dy || dz)
       {
+        // Persist the last non-zero momentum step so the Momentum tickbox
+        // stays visible after the source center has moved.
+        lcenters_m[w][0] = dx;
+        lcenters_m[w][1] = dy;
+        lcenters_m[w][2] = dz;
+
         int M = (int)EL;
         int nx = ((int)cx + dx) % M;
         int ny = ((int)cy + dy) % M;
