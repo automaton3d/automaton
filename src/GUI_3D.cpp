@@ -23,6 +23,7 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <cstdio>
 #include <mutex>
 
 extern AppContext ctx;
@@ -144,11 +145,20 @@ namespace framework {
     if (selectedW >= lcenters.size())
         return;
 
+    static unsigned frame = 0;
+    bool doPrint = (++frame % 60 == 0);
+
     const auto& c = lcenters[selectedW];
     Cell& cell = getCell(lattice_curr, c[0], c[1], c[2], selectedW);
     int mx = cell.m[0];
     int my = cell.m[1];
     int mz = cell.m[2];
+
+    if (doPrint)
+        std::printf("DEBUG renderMomentum w=%u center=(%u,%u,%u) m=(%d,%d,%d) %s\n",
+                    selectedW, c[0], c[1], c[2], mx, my, mz,
+                    (mx || my || mz) ? "DRAW" : "SKIP");
+
     if (mx == 0 && my == 0 && mz == 0)
         return;
 

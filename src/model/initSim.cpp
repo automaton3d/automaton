@@ -119,7 +119,17 @@ void initGeneral()
                     cell.parent     = NO_PARENT;
                     cell.spin_target= 0;
                     cell.pair_idx   = NO_PAIR;
-                    cell.m[0] = cell.m[1] = cell.m[2] = 0;
+
+                    // Every hosted bubble has an immutable momentum vector M.
+                    if (cell.r == 0) {
+                        int axis  = (int)(w % 3u);
+                        int sign  = ((w / 3u) % 2u == 0u) ? +1 : -1;
+                        cell.m[0] = (axis == 0) ? sign : 0;
+                        cell.m[1] = (axis == 1) ? sign : 0;
+                        cell.m[2] = (axis == 2) ? sign : 0;
+                    } else {
+                        cell.m[0] = cell.m[1] = cell.m[2] = 0;
+                    }
                 }
             }
         }
