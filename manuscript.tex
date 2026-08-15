@@ -393,12 +393,13 @@ Given the basic structure of our model, we shall now proceed to populate it with
 \subsection{Overview}
 Among the countless possibilities, we choose the following Platonic solution for the initial state problem, described below.
 
-The initial state sets up the configuration of all cells within the lattice. 
-At $t=0$, when all bubbles are superposed at the center ($L/2$, $L/2$, $L$/2), this state is referred to as the \textit{singularity}.
+The Platonic initial state is set up by fiat: it fixes only the static, non-dynamical configuration of every cell in the lattice. At $t=0$, when all bubbles are superposed at the center ($L/2$, $L/2$, $L$/2), this state is referred to as the \textit{singularity}.
 
-Additionally, the same initialization procedures are mirrored on the draft lattice, ensuring consistency and coherence across both structures.
+The same initialization procedures are mirrored on the draft lattice, ensuring consistency and coherence across both structures.
 
 Real numbers and high-level functions are used only as intermediaries to compute the integer parameters of the initial state; they are not stored in the lattice. The dynamics therefore remains strictly integer-based.
+
+The following subsections on the dynamic radius, the wave cloud and the polarization pair $(u,v)$ are \textit{not} part of the Platonic initial state. They are a didactic preview of the first steps of the CA evolution, governed by the same local rules that are formalized in Section~\ref{sec:light-frame}.
 
 \subsection{Miscellaneous procedures}
 
@@ -410,6 +411,8 @@ The vector $\mathbf{c}$ is also set to zero and  $s2B$ is reset.
 The weak charge is defined as $w_{0}^{i} = i \,\boldsymbol{\bmod}\, 2$ and $w_{1}^{i} = (i / 2) \land 1$, while the electric charge is given by $q_{i} = w_{1}^{i} \,\boldsymbol{\oplus}\, w_{0}^{i}$ ($i=0...W-1$). The color is determined as $color = i \,\boldsymbol{\bmod}\, 8$. Finally, all bubbles are initialized as $a_{i} = w$. These choices result in a regular pattern of charge distribution.
 
 This and the following pattern creation are then replicated across all layers in dimension W.
+
+The subsections that follow describe the first dynamical consequences of that Platonic seed. They are not additional initialization steps, but the beginning of the CA evolution presented here for clarity.
 
 \subsection{Dynamic radius}
 The wave field is seeded at the center of the lattice. A unique central point $(MID,MID,MID)$ exists only when $L$ is odd; once the seed is set, the squared radius $r^{2}$ and the radius $r$ propagate dynamically by BFS through the 6-neighborhood.
@@ -434,8 +437,9 @@ These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle wh
 
 The wave field is seeded at the center with $u=v=0$ and $r^{2}=0$; all other cells begin with $r^{2}=\mathrm{INF}$. The BFS radius propagates outward through the 6-neighborhood, so the value of $r$ that enters the formula above is itself a local, dynamically computed quantity.
 
-With the full initialization complete—including the setup of spatial coordinates, charge distributions, and wave-field timing variables—the system is ready to evolve dynamically. 
-The following section introduces the operational heart of the model: the light frame. 
+Once the Platonic seed is fixed---spatial coordinates, charge distribution, and timing counters---the dynamic radius, the wave cloud and the polarization pair $(u,v)$ emerge through the first light-frame steps described above. These emergent quantities are governed by the CA rules, not by the fiat initialization.
+
+The system is now ready for the cyclic evolution described in the next section. 
 This framework governs the evolution of bubbles across the lattice through a cyclic sequence of interaction, propagation, and relocation steps. 
 Within this structured loop particles begin to move, interact, and display emergent physical behavior.
 
