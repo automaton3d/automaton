@@ -98,8 +98,11 @@ namespace automaton
       newDraft.t           = 0;
       newDraft.f           = 0;
 
-      // Record the displacement on the old center cell; applyMomentum() will
-      // update lcenters[w] and then clear it.
+      // The momentum vector m is immutable: it records the displacement
+      // and is carried to the new source-center cell.
+      newDraft.m[0] = dx;
+      newDraft.m[1] = dy;
+      newDraft.m[2] = dz;
       srcDraft.m[0] = dx;
       srcDraft.m[1] = dy;
       srcDraft.m[2] = dz;

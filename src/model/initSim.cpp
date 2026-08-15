@@ -26,7 +26,6 @@ namespace automaton
   extern std::vector<Cell> lattice_mirror;
 
   extern std::vector<std::array<unsigned, 3>> lcenters;
-  extern std::vector<std::array<int, 3>>       lcenters_m;
 
   inline size_t index(unsigned x, unsigned y, unsigned z, unsigned w)
   {
@@ -219,7 +218,6 @@ void initGeneral()
 void initCenters(unsigned wDim)
 {
     lcenters.resize(wDim);
-    lcenters_m.resize(wDim);
 
     // All bubbles centered at lattice center in all layers
     for (unsigned w = 0; w < wDim; ++w)
@@ -227,10 +225,6 @@ void initCenters(unsigned wDim)
         lcenters[w][0] = CENTER;
         lcenters[w][1] = CENTER;
         lcenters[w][2] = CENTER;
-
-        lcenters_m[w][0] = 0;
-        lcenters_m[w][1] = 0;
-        lcenters_m[w][2] = 0;
 
         printf("initCenters: w=%u, center=(%u,%u,%u)\n", w, CENTER, CENTER, CENTER);
     }

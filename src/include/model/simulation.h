@@ -111,7 +111,6 @@ namespace automaton
   extern bool diffuse_delay;
   extern bool reloc_delay;
   extern std::vector<std::array<unsigned, 3>> lcenters;
-  extern std::vector<std::array<int, 3>>       lcenters_m;  // last per-source momentum step (for rendering)
 
 
 struct NeighborResult

@@ -221,7 +221,8 @@ bool initializeCudaSimulation()
 }
 
 // -----------------------------------------------------------------
-// Helper: download GPU lattice → lattice_curr + update lcenters
+// Helper: download GPU lattice → lattice_curr.
+// lcenters is authoritative on the host (updated from the conserved m vector).
 // -----------------------------------------------------------------
 static void downloadAndSync()
 {
@@ -232,16 +233,6 @@ static void downloadAndSync()
     if (downloadLatticeFromCuda(deviceCells.data(), totalCells)) {
         for (size_t i = 0; i < totalCells; i++)
             convertCellDeviceToCell(deviceCells[i], automaton::lattice_curr[i]);
-
-        for (unsigned w = 0; w < automaton::W_USED; ++w)
-        for (unsigned x = 0; x < automaton::EL; ++x)
-        for (unsigned y = 0; y < automaton::EL; ++y)
-        for (unsigned z = 0; z < automaton::EL; ++z) {
-            const automaton::Cell& cell =
-                automaton::getCell(automaton::lattice_curr, x, y, z, w);
-            if (cell.r2 == 0)
-                updateLCenter(w, x, y, z);
-        }
     } else {
         fprintf(stderr, "Warning: Failed to download lattice from CUDA\n");
     }

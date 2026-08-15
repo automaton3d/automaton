@@ -858,10 +858,11 @@ static __device__ inline void dev_reemitSourceAt(::CellDevice& srcDraft,
     newDraft.pair_idx    = srcDraft.pair_idx;
     newDraft.t           = 0;
     newDraft.f           = 0;
-    newDraft.m[0]        = 0;
-    newDraft.m[1]        = 0;
-    newDraft.m[2]        = 0;
 
+    // The momentum vector m is immutable: carry it to the new source center.
+    newDraft.m[0] = dx;
+    newDraft.m[1] = dy;
+    newDraft.m[2] = dz;
     srcDraft.m[0] = dx;
     srcDraft.m[1] = dy;
     srcDraft.m[2] = dz;
@@ -1625,14 +1626,6 @@ void cudaSimulationStep(
             automaton::lcenters[iw][0]   = (unsigned)nx;
             automaton::lcenters[iw][1]   = (unsigned)ny;
             automaton::lcenters[iw][2]   = (unsigned)nz;
-
-            // Persist the last non-zero momentum step for rendering.
-            if (centerCell.m[0] || centerCell.m[1] || centerCell.m[2])
-            {
-                automaton::lcenters_m[iw][0] = centerCell.m[0];
-                automaton::lcenters_m[iw][1] = centerCell.m[1];
-                automaton::lcenters_m[iw][2] = centerCell.m[2];
-            }
         }
     }
 

@@ -54,7 +54,6 @@ namespace automaton
 
   string lastAllocationError;
   std::vector<std::array<unsigned, 3>> lcenters;
-  std::vector<std::array<int, 3>>       lcenters_m;
 
   // ============================================================
   // SPHERICAL (ANTIPODAL) WRAPPING
@@ -361,12 +360,6 @@ namespace automaton
 
       if (dx || dy || dz)
       {
-        // Persist the last non-zero momentum step so the Momentum tickbox
-        // stays visible after the source center has moved.
-        lcenters_m[w][0] = dx;
-        lcenters_m[w][1] = dy;
-        lcenters_m[w][2] = dz;
-
         int M = (int)EL;
         int nx = ((int)cx + dx) % M;
         int ny = ((int)cy + dy) % M;
@@ -375,19 +368,19 @@ namespace automaton
         if (ny < 0) ny += M;
         if (nz < 0) nz += M;
 
+        // Move the source center.  The momentum vector m is immutable, so it
+        // is copied to the new source-center cell; the old cell is cleared.
+        Cell& newCenter = getCell(lattice_draft, (unsigned)nx, (unsigned)ny, (unsigned)nz, w);
+        newCenter.m[0] = dx;
+        newCenter.m[1] = dy;
+        newCenter.m[2] = dz;
+
         lcenters[w][0] = (unsigned)nx;
         lcenters[w][1] = (unsigned)ny;
         lcenters[w][2] = (unsigned)nz;
 
         c.m[0] = c.m[1] = c.m[2] = 0;
       }
-    }
-
-    for (size_t i = 0; i < BLOCK; ++i)
-    {
-      lattice_draft[i].m[0] = 0;
-      lattice_draft[i].m[1] = 0;
-      lattice_draft[i].m[2] = 0;
     }
   }
 

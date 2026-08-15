@@ -34,7 +34,6 @@ namespace automaton {
   extern unsigned W_USED;
   extern unsigned CENTER;
   extern std::vector<std::array<unsigned,3>> lcenters;
-  extern std::vector<std::array<int,3>>       lcenters_m;
   extern std::vector<Cell> lattice_curr;
 }
 
@@ -142,40 +141,40 @@ namespace framework {
     const int CENTER_INT = EL / 2;
 
     unsigned selectedW = layerList->getSelected();
-    if (selectedW >= lcenters.size() || selectedW >= lcenters_m.size())
+    if (selectedW >= lcenters.size())
         return;
 
     const auto& c = lcenters[selectedW];
-    const auto& m = lcenters_m[selectedW];
-    if (m[0] == 0 && m[1] == 0 && m[2] == 0)
+    Cell& cell = getCell(lattice_curr, c[0], c[1], c[2], selectedW);
+    int mx = cell.m[0];
+    int my = cell.m[1];
+    int mz = cell.m[2];
+    if (mx == 0 && my == 0 && mz == 0)
         return;
 
-    std::vector<glm::vec3> pts;
-    int steps = std::max((int)EL / 4, 1);
+    // Start at the source center; the arrow points in the direction of m.
+    glm::vec3 start(
+        ((int)(((int)cell.x[0] + gConfig.view.vis_dx) % (int)EL) - CENTER_INT) * GRID_SIZE,
+        ((int)(((int)cell.x[1] + gConfig.view.vis_dy) % (int)EL) - CENTER_INT) * GRID_SIZE,
+        ((int)(((int)cell.x[2] + gConfig.view.vis_dz) % (int)EL) - CENTER_INT) * GRID_SIZE);
 
-    for (int s = 0; s <= steps; ++s)
-    {
-        int gx, gy, gz;
-        if (currentMode == REPLAY) {
-            gx = s * m[0];
-            gy = s * m[1];
-            gz = s * m[2];
-        } else {
-            gx = (int)c[0] + s * m[0] - CENTER_INT;
-            gy = (int)c[1] + s * m[1] - CENTER_INT;
-            gz = (int)c[2] + s * m[2] - CENTER_INT;
-        }
-        pts.emplace_back((float)gx * GRID_SIZE,
-                         (float)gy * GRID_SIZE,
-                         (float)gz * GRID_SIZE);
-    }
+    glm::vec3 dir((float)mx, (float)my, (float)mz);
+    float mag = glm::length(dir);
+    if (mag == 0.0f) return;
+
+    int arrowCells = std::max((int)EL / 4, 1);
+    glm::vec3 end = start + dir * ((float)arrowCells / mag) * GRID_SIZE;
+
+    std::vector<glm::vec3> verts;
+    verts.emplace_back(start);
+    verts.emplace_back(end);
 
     glm::mat4 view = ctx.camera.GetViewMatrix();
     glm::mat4 projection = framework::mProjection_;
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 mvp = projection * view * model;
 
-    drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 4.0f);
+    drawLines(verts, glm::vec3(1.0f,1.0f,0.0f), mvp, 2.0f);
   }
 
   void renderSpin()
