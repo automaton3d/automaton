@@ -10,9 +10,6 @@ namespace automaton
     // Checks if point is inside the sphere
     bool isInsideSphere(int x, int y, int z);
     
-    // Relocate all cells randomly (debug)
-    void relocateAllWRandom();
-    
     // Antipodal wrapping
     void spherical_wrap(int& x, int& y, int& z);
 }

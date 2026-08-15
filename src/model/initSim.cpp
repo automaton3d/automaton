@@ -17,9 +17,6 @@ namespace automaton
 {
   using namespace std;
 
-  // DEBUG
-  void relocateAllWRandom();
-
   // Global variables for lattice
   extern std::vector<Cell> lattice_curr;
   extern std::vector<Cell> lattice_draft;
@@ -171,7 +168,7 @@ void initGeneral()
         break;
         
       case 5:
-        relocateAllWRandom();
+        // Previously used for debug topological relocation; removed.
         break;
         
       case 6:
