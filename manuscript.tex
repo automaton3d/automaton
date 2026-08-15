@@ -412,6 +412,8 @@ The weak charge is defined as $w_{0}^{i} = i \,\boldsymbol{\bmod}\, 2$ and $w_{1
 
 This and the following pattern creation are then replicated across all layers in dimension W.
 
+The immutable momentum vector $\boldsymbol{m}$ of each hosted bubble is also set at this stage. The six Cartesian directions are distributed across the $W$ layers in pairs of consecutive layers sharing the same axis and receiving opposite signs. Concretely, for layer $i$ the axis is $(i/2) \bmod 3$ and the sign is given by the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction. Because $W=3L^{2}$ with $L$ odd leaves a remainder of three when divided by six, this assignment yields the most perfect balance possible: the residual net momentum has magnitude one and the counts of any two opposite directions differ by at most one.
+
 The subsections that follow describe the first dynamical consequences of that Platonic seed. They are not additional initialization steps, but the beginning of the CA evolution presented here for clarity.
 
 \subsection{Dynamic radius}
