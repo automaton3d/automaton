@@ -1605,7 +1605,8 @@ void cudaSimulationStep(
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
 
-    // Update host source centers from the stored momentum on the old center cells.
+    // Apply per-source momentum: move the source center, copy m to the new
+    // center and clear the old center. This mirrors CPU applyMomentum().
     for (unsigned iw = 0; iw < W; ++iw)
     {
         int cx = (int)automaton::lcenters[iw][0];
@@ -1614,19 +1615,42 @@ void cudaSimulationStep(
         size_t idx = (size_t)((((cx * (int)L) + cy) * (int)L) + cz) * (int)W + iw;
         ::CellDevice centerCell;
         err = cudaMemcpy(&centerCell, d_lattice_curr + idx, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
-        if (err == cudaSuccess)
-        {
-            int M = (int)L;
-            int nx = (cx + centerCell.m[0]) % M;
-            int ny = (cy + centerCell.m[1]) % M;
-            int nz = (cz + centerCell.m[2]) % M;
-            if (nx < 0) nx += M;
-            if (ny < 0) ny += M;
-            if (nz < 0) nz += M;
-            automaton::lcenters[iw][0]   = (unsigned)nx;
-            automaton::lcenters[iw][1]   = (unsigned)ny;
-            automaton::lcenters[iw][2]   = (unsigned)nz;
-        }
+        if (err != cudaSuccess)
+            continue;
+
+        int dx = centerCell.m[0];
+        int dy = centerCell.m[1];
+        int dz = centerCell.m[2];
+        if (dx == 0 && dy == 0 && dz == 0)
+            continue;
+
+        int M = (int)L;
+        int nx = (cx + dx) % M;
+        int ny = (cy + dy) % M;
+        int nz = (cz + dz) % M;
+        if (nx < 0) nx += M;
+        if (ny < 0) ny += M;
+        if (nz < 0) nz += M;
+
+        size_t idxNew = (size_t)((((nx * (int)L) + ny) * (int)L) + nz) * (int)W + iw;
+        ::CellDevice newCell;
+        err = cudaMemcpy(&newCell, d_lattice_curr + idxNew, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess)
+            continue;
+
+        newCell.m[0] = dx;
+        newCell.m[1] = dy;
+        newCell.m[2] = dz;
+        centerCell.m[0] = 0;
+        centerCell.m[1] = 0;
+        centerCell.m[2] = 0;
+
+        cudaMemcpy(d_lattice_curr + idxNew, &newCell, sizeof(::CellDevice), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_lattice_curr + idx, &centerCell, sizeof(::CellDevice), cudaMemcpyHostToDevice);
+
+        automaton::lcenters[iw][0] = (unsigned)nx;
+        automaton::lcenters[iw][1] = (unsigned)ny;
+        automaton::lcenters[iw][2] = (unsigned)nz;
     }
 
     // Read new k from first cell (only after successful kernel execution)

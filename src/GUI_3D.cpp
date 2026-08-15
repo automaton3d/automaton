@@ -135,23 +135,37 @@ namespace framework {
     glDeleteVertexArrays(1, &vao);
   }
 
+  // Locate the source-center cell of a layer by its conserved momentum m.
+  static Cell* findSourceCell(unsigned w)
+  {
+    for (unsigned x = 0; x < EL; ++x)
+    for (unsigned y = 0; y < EL; ++y)
+    for (unsigned z = 0; z < EL; ++z)
+    {
+      Cell& c = getCell(lattice_curr, x, y, z, w);
+      if (c.m[0] != 0 || c.m[1] != 0 || c.m[2] != 0)
+        return &c;
+    }
+    return nullptr;
+  }
+
   void renderMomentum(AppContext& ctx)
   {
     const float GRID_SIZE = 0.5f / EL;
     const int CENTER_INT = EL / 2;
 
     unsigned selectedW = layerList->getSelected();
-    if (selectedW >= lcenters.size())
-        return;
+    if (selectedW >= W_USED)
+      return;
 
-    const auto& c = lcenters[selectedW];
-    Cell& cell = getCell(lattice_curr, c[0], c[1], c[2], selectedW);
+    Cell* pCell = findSourceCell(selectedW);
+    if (!pCell)
+      return;
+
+    Cell& cell = *pCell;
     int mx = cell.m[0];
     int my = cell.m[1];
     int mz = cell.m[2];
-
-    if (mx == 0 && my == 0 && mz == 0)
-        return;
 
     // Start at the source center; the arrow points in the direction of m.
     glm::vec3 start(

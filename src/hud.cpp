@@ -221,17 +221,6 @@ static void renderSincOverlay(int screenW, int screenH)
     if (u.empty() || graphSize == 0)
         return;
 
-    static int hudReport = 0;
-    if (++hudReport % 60 == 0) {
-        printf("DEBUG hud graphSize=%u u[0]=%.3f u[mid]=%.3f tr[0]=%.3f ph[0]=%.3f am[0]=%.3f\n",
-               graphSize,
-               u[0],
-               u[graphSize / 2],
-               tr.empty() ? -1.0f : tr[0],
-               ph.empty() ? -1.0f : ph[0],
-               am.empty() ? -1.0f : am[0]);
-    }
-
     const glm::mat4& P = proj2D();
 
     const float overlayW = 250.0f;
