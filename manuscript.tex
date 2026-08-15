@@ -132,6 +132,10 @@ Wolfram's \emph{A New Kind of Science}~\cite{wolfram} argues that simple CA rule
 
 The Wolfram Physics Project generalizes CA from grid cells to hypergraph nodes; it remains incomplete as of 2025.
 
+\subsection*{Non-uniform cellular automata}
+
+Conventional cellular automata impose a single local transition rule at every cell. Non-uniform cellular automata relax that requirement, allowing rules to vary in space or to depend on global parameters such as the lattice size. A systematic treatment is given by S.~Das and B.~K.~Sikdar, \textit{Non-Uniform Cellular Automata} (Springer, 2025), DOI 10.1007/978-3-032-00257-0, covering reversibility, number conservation, maximal-length rules, and cycle structure.
+
 \section{The universal fabric \label{sec:space-and-time}}
 
 Let \( L \) be a large odd integer, divisible by 3. The fundamental fabric of this toy universe is a lattice of cells arranged in a 
@@ -324,7 +328,7 @@ The space described above is occupied by three coexisting \emph{3D}-Euclidean sp
 All cells within each layer pulsate in unison, incrementing alternately the couple of evolution counters ($k$ and $t$) and exchanging information with their seven neighbors (six in dimensions $x$, $y$, and \ensuremath{z} , and one in dimension $W  $, which facilitates the transfer of information between lattices and detects interactions).
 This exchange occurs alternately, ensuring time homogeneity is recovered every two clock ticks, grouped in four passes (see further details below), thus configuring a cellular automaton.
 
-It is not a purely scale-invariant CA: the local rules use the fixed lattice size $L$ as a parameter---for example through periodic boundary modulo $L$, $R_{\max}=L/2$, and $W=3L^{2}$---so the model is a finite, $L$-parameterized cellular automaton.
+It is not a purely scale-invariant CA: the local rules use the fixed lattice size $L$ as a parameter---for example through periodic boundary modulo $L$, $R_{\max}=L/2$, and $W=3L^{2}$---so the model is a finite, $L$-parameterized cellular automaton, a special case of the non-uniform CA framework surveyed by Das and Sikdar (2025).
 
 The distance between cells along the three spatial axes corresponds to the fundamental quantity $X$ in the real world (calculated in Appendix \ref{sec:Calculation-of-X}).
 
