@@ -76,6 +76,37 @@ namespace automaton
       return (v > 0) - (v < 0);
     }
 
+    // Pair-formation test from the six superposing-bubble rules.
+    // A pair can form when two overlapping bubbles have complementary charges.
+    bool canFormPair(const Cell& a, const Cell& b)
+    {
+      unsigned char ca = a.ch;
+      unsigned char cb = b.ch;
+      // Rule 3: both neutral (000000)
+      if (ca == 0x00 && cb == 0x00) return true;
+      // Rule 4: both anti-neutral (111111)
+      if (ca == 0x3F && cb == 0x3F) return true;
+      // Rule 1: every charge bit complementary
+      if ((ca ^ cb) == 0x3F) return true;
+
+      bool qa = (ca & 0x08) != 0;
+      bool qb = (cb & 0x08) != 0;
+      bool w1a = (ca & 0x20) != 0;
+      bool w1b = (cb & 0x20) != 0;
+      bool w0a = (ca & 0x10) != 0;
+      bool w0b = (cb & 0x10) != 0;
+      unsigned char cola = ca & 0x07;
+      unsigned char colb = cb & 0x07;
+
+      // Rule 2: q, w0 and color complementary; w1 identical
+      if ((qa ^ qb) && (w1a == w1b) && (w0a ^ w0b) && ((cola ^ colb) == 0x07)) return true;
+      // Rule 5: q=0, w1=0, w0=1, same non-neutral color
+      if (!qa && !qb && !w1a && !w1b && w0a && w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
+      // Rule 6: q=1, w1=1, w0=0, same non-neutral color
+      if (qa && qb && w1a && w1b && !w0a && !w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
+      return false;
+    }
+
     // Add an impulse (dx, dy, dz) to the source-center cell and reemit phase 0.
     // The long-term momentum-direction vector m is preserved; the consumable
     // relocation vector reloc records the pending displacement.  The actual move
@@ -287,6 +318,23 @@ namespace automaton
    *   - only one pB or one sB true → adiabatic exchange of affinity and phase
    * The source-center cells are then updated according to K/S/D/P rules.
    */
+  // Convenience: make a cell adopt a leader identity.
+  inline void adoptLeader(Cell& dst, WIndex leader)
+  {
+    dst.leader_w = leader;
+    dst.a = (unsigned)leader;
+  }
+
+  // Choose the dominant leader between two sources; if neither has one,
+  // fall back to the smaller intrinsic W address.
+  inline WIndex dominantLeader(const Cell& a, const Cell& b)
+  {
+    WIndex leader = std::min(a.leader_w, b.leader_w);
+    if (leader == NO_LEADER_W)
+      leader = std::min(a.w, b.w);
+    return leader;
+  }
+
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
   {
     if (!curr.active || !mirror.active)
@@ -296,8 +344,9 @@ namespace automaton
     if (curr.x[3] == mirror.x[3])
       return false;
 
-    // Sieve propagation: s2B' = s2B AND active.
-    draft.s2B = draft.s2B && (curr.active != 0);
+    // Sieve: the electroweak interaction channel is only active where s2B is set.
+    if (!curr.s2B)
+      return false;
 
     // Source state is stored in the source-center cell of each W-layer.
     Cell& currSrc  = sourceCenterCurr(curr);
@@ -311,6 +360,52 @@ namespace automaton
     bool samePos = (curr.x[0] == mirror.x[0] &&
                     curr.x[1] == mirror.x[1] &&
                     curr.x[2] == mirror.x[2]);
+    bool sameT   = (curr.t == mirror.t);
+
+    // ---------------------------------------------------------------
+    // Pair formation (photon-like P sources).
+    // Two overlapping bubbles with the same wavefront time and complementary
+    // charges can form a pair. The pair is "dressing" if both bubbles already
+    // share the same leader; otherwise it is a free photon.
+    // ---------------------------------------------------------------
+    if (samePos && sameT && canFormPair(currSrc, mirrorSrc))
+    {
+      bool dressing = (currSrc.leader_w != NO_LEADER_W &&
+                       currSrc.leader_w == mirrorSrc.leader_w);
+      WIndex newLeader = dressing ? currSrc.leader_w : NO_LEADER_W;
+      unsigned newA    = dressing ? (unsigned)newLeader : W_USED;
+      WIndex parent    = dressing ? currSrc.leader_w : NO_PARENT;
+
+      // If both sources are already a pair with each other, do not re-form.
+      bool alreadyPaired = (currSrc.kind == SourceKind::P &&
+                            mirrorSrc.kind == SourceKind::P &&
+                            currSrc.pair_idx == mirrorSrc.w &&
+                            mirrorSrc.pair_idx == currSrc.w);
+      if (alreadyPaired)
+        return false;
+
+      uint8_t newCount = 1;
+      if (currSrc.kind == SourceKind::P) newCount += currSrc.pair_count;
+      if (mirrorSrc.kind == SourceKind::P) newCount += mirrorSrc.pair_count;
+
+      currDraft.kind  = SourceKind::P;
+      mirrorDraft.kind = SourceKind::P;
+      currDraft.pair_idx   = mirrorSrc.w;
+      mirrorDraft.pair_idx = currSrc.w;
+      currDraft.pair_count = newCount;
+      mirrorDraft.pair_count = newCount;
+      currDraft.leader_w  = newLeader;
+      mirrorDraft.leader_w = newLeader;
+      currDraft.a  = newA;
+      mirrorDraft.a = newA;
+      currDraft.parent  = parent;
+      mirrorDraft.parent = parent;
+
+      // Move both source centers to the contact point and reset their clocks.
+      reemitAtContact(currDraft, curr);
+      reemitAtContact(mirrorDraft, mirror);
+      return false;
+    }
 
     // pB triggers the electric channel, sB the magnetic channel.
     bool electricContact   = curr.pB || mirror.pB;
@@ -324,14 +419,18 @@ namespace automaton
 
     if (collapse)
     {
+      // Collapse flag propagates inward and triggers reissue.
       draft.kB = true;
       draft.cB = true;
     }
     else
     {
       // Adiabatic: no collapse, but the two sources exchange
-      // affinity (a) and light clock (t) and drift one step toward each other.
-      std::swap(currDraft.a, mirrorDraft.a);
+      // leader identity, affinity and light clock, then drift one step
+      // toward each other.
+      WIndex minLeader = dominantLeader(currSrc, mirrorSrc);
+      adoptLeader(currDraft, minLeader);
+      adoptLeader(mirrorDraft, minLeader);
       std::swap(currDraft.t, mirrorDraft.t);
       moveOneStep(currDraft, currCenter, mirrorCenter);
       moveOneStep(mirrorDraft, mirrorCenter, currCenter);
@@ -353,7 +452,8 @@ namespace automaton
     if (currSrc.kind == SourceKind::S && mirrorSrc.kind == SourceKind::K)
     {
       currDraft.kind = SourceKind::D;
-      currDraft.parent = mirrorSrc.x[3];
+      currDraft.parent = mirrorSrc.w;
+      adoptLeader(currDraft, mirrorSrc.leader_w == NO_LEADER_W ? mirrorSrc.w : mirrorSrc.leader_w);
       // S vector direction relative to K is approximated as outward for now.
       currDraft.spin_target = 1;
       moveOneStep(currDraft, currCenter, mirrorCenter);
@@ -370,9 +470,14 @@ namespace automaton
       }
       else
       {
-        // Opposite field sign: both become mutual D delegates.
-        currDraft.kind = SourceKind::D;
-        currDraft.parent = mirrorSrc.x[3];
+        // Opposite field sign: both become D delegates of the dominant leader.
+        WIndex leader = dominantLeader(currSrc, mirrorSrc);
+        currDraft.kind  = SourceKind::D;
+        mirrorDraft.kind = SourceKind::D;
+        currDraft.parent  = leader;
+        mirrorDraft.parent = leader;
+        adoptLeader(currDraft, leader);
+        adoptLeader(mirrorDraft, leader);
       }
       return false;
     }
@@ -388,8 +493,11 @@ namespace automaton
       const auto& dCenter = (currSrc.kind == SourceKind::S ? mirrorCenter : currCenter);
 
       // S becomes a D delegate of the K parent of the D.
+      WIndex leader = (dSrc.leader_w == NO_LEADER_W ? dSrc.parent : dSrc.leader_w);
+      if (leader == NO_LEADER_W) leader = dSrc.w;
       sSrcDraft.kind = SourceKind::D;
-      sSrcDraft.parent = dSrc.parent;
+      sSrcDraft.parent = dSrc.parent == NO_PARENT ? leader : dSrc.parent;
+      adoptLeader(sSrcDraft, leader);
 
       // Both reemit and move one light-step toward each other.
       moveOneStep(sSrcDraft, sCenter, dCenter);
@@ -405,7 +513,7 @@ namespace automaton
         // Different tribes: reemit, repel one light-step, exchange momentum.
         moveOneStepAway(currDraft, currCenter, mirrorCenter);
         // Simplified momentum exchange: add the mirror's momentum direction
-        // to the target's relocation impulse, preserving its own m.
+        // to the target's relocation impulse. applyMomentum will update m.
         currDraft.reloc[0] += mirrorSrc.m[0];
         currDraft.reloc[1] += mirrorSrc.m[1];
         currDraft.reloc[2] += mirrorSrc.m[2];
@@ -415,6 +523,9 @@ namespace automaton
         // Same tribe: outer delegate imposes spin_target on inner one.
         // (Tangential/radial orbital motion is left as a refinement.)
         currDraft.spin_target = mirrorSrc.spin_target;
+        // Enforce a common leader identity.
+        WIndex leader = dominantLeader(currSrc, mirrorSrc);
+        adoptLeader(currDraft, leader);
       }
       return false;
     }

@@ -383,8 +383,13 @@ static void convertCellToCellDevice(
     dst.parent     = src.parent;
     dst.spin_target= static_cast<int32_t>(src.spin_target);
     dst.pair_idx   = src.pair_idx;
+    dst.leader_w   = src.leader_w;
+    dst.pair_count = static_cast<uint32_t>(src.pair_count);
     for (int i = 0; i < 3; ++i)
-        dst.m[i]   = static_cast<int32_t>(src.m[i]);
+    {
+        dst.m[i]     = static_cast<int32_t>(src.m[i]);
+        dst.reloc[i] = static_cast<int32_t>(src.reloc[i]);
+    }
 }
 
 static void convertCellDeviceToCell(
@@ -423,8 +428,13 @@ static void convertCellDeviceToCell(
     dst.parent     = src.parent;
     dst.spin_target= static_cast<int8_t>(src.spin_target);
     dst.pair_idx   = src.pair_idx;
+    dst.leader_w   = src.leader_w;
+    dst.pair_count = static_cast<uint8_t>(src.pair_count);
     for (int i = 0; i < 3; ++i)
-        dst.m[i]   = static_cast<int>(src.m[i]);
+    {
+        dst.m[i]     = static_cast<int>(src.m[i]);
+        dst.reloc[i] = static_cast<int>(src.reloc[i]);
+    }
 }
 
 // ============================================================

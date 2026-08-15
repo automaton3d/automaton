@@ -57,11 +57,13 @@ void initGeneral()
                 for (unsigned z = 0; z < EL; ++z)
                 {
                     Cell& cell = getCell(lattice_curr, x, y, z, w);
-                    
+
                     // Basic configuration
                     cell.w = static_cast<WIndex>(w);
-                    cell.leader_w = NO_LEADER_W;
                     cell.is_core = false;
+
+                    unsigned island = islandOf(cell.w);
+                    WIndex chiefW   = firstWOfIsland(island);
 
                     char w0 = w % 2;
                     char w1 = (w >> 1) % 2;
@@ -81,9 +83,12 @@ void initGeneral()
                     unsigned int R2 = RMAX * RMAX;
                     
                     if (dist_r2 <= R2) {
-                        cell.a = w;
+                        // Affinity and leader identity are shared by the W-island.
+                        cell.leader_w = chiefW;
+                        cell.a = (unsigned)chiefW;
                     } else {
-                        cell.a = W_USED;  // Orphan outside sphere
+                        cell.a = W_USED;            // Orphan outside sphere
+                        cell.leader_w = NO_LEADER_W;
                     }
                     
                     // Initialize r2 (squared distance from center, integer only)
@@ -111,11 +116,12 @@ void initGeneral()
                     cell.c[2] = 0;
 
                     // Spin-rev source model: default to singleton,
-                    // layer 0 is the initial K (chief) source.
-                    cell.kind       = (w == 0 ? SourceKind::K : SourceKind::S);
+                    // the first copy of each W-island is the seed chief (K).
+                    cell.kind       = (isIslandChief(cell.w) ? SourceKind::K : SourceKind::S);
                     cell.parent     = NO_PARENT;
                     cell.spin_target= 0;
                     cell.pair_idx   = NO_PAIR;
+                    cell.pair_count = 0;
 
                     // Each hosted bubble has a stable momentum-direction vector m and a
                     // consumable relocation/impulse vector reloc.
@@ -303,10 +309,15 @@ void initCenters(unsigned wDim)
     FLOOD     = REISSUE + 3 * (L - 1);
     
     FRAME     = FLOOD;
-    
-    printf("calculateParameters: EL=%u, W_USED=%u, RMAX=%u, CENTER=%u, FRAME=%u\n", 
-           EL, W_USED, RMAX, CENTER, FRAME);
-    
+
+    // W-island topology: W = 3L^2 is partitioned into 9L islands of L/3 copies.
+    ISLAND_COUNT = 9 * EL;
+    ISLAND_SIZE  = (ISLAND_COUNT > 0) ? (W_USED / ISLAND_COUNT) : 0;
+    if (ISLAND_SIZE == 0) ISLAND_SIZE = 1;
+
+    printf("calculateParameters: EL=%u, W_USED=%u, RMAX=%u, CENTER=%u, FRAME=%u, ISLAND_SIZE=%u, ISLAND_COUNT=%u\n",
+           EL, W_USED, RMAX, CENTER, FRAME, ISLAND_SIZE, ISLAND_COUNT);
+
     initCenters(W_USED);
   }
 

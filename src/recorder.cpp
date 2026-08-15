@@ -181,10 +181,12 @@ void FrameRecorder::applyFrame(const Frame& frame,
     cell.t = UINT16_MAX;
     cell.r2 = INF_R2;
     cell.a = automaton::W_USED;
+    cell.leader_w = automaton::NO_LEADER_W;
     cell.kind = automaton::SourceKind::S;
     cell.parent = automaton::NO_PARENT;
     cell.spin_target = 0;
     cell.pair_idx = automaton::NO_PAIR;
+    cell.pair_count = 0;
     cell.m[0] = cell.m[1] = cell.m[2] = 0;
     cell.reloc[0] = cell.reloc[1] = cell.reloc[2] = 0;
   }

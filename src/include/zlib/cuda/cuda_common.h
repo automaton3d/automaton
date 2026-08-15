@@ -7,7 +7,8 @@ constexpr uint8_t SRC_S = 1;
 constexpr uint8_t SRC_D = 2;
 constexpr uint8_t SRC_P = 3;
 constexpr uint32_t DEV_NO_PARENT = 0xFFFFFFFFu;
-constexpr uint32_t DEV_NO_PAIR   = 0xFFFFFFFFu;
+constexpr uint32_t DEV_NO_PAIR    = 0xFFFFFFFFu;
+constexpr uint32_t DEV_NO_LEADER_W = 0xFFFFFFFFu;
 
 struct CellDevice
 {
@@ -34,10 +35,12 @@ struct CellDevice
     int32_t  g[3];
 
     // Spin-rev source model
-    uint8_t  kind;        // SRC_K, SRC_S, SRC_D, SRC_P
-    uint32_t parent;      // Parent source index
-    int32_t  spin_target; // +1 outward, -1 inward, 0 neutral
-    uint32_t pair_idx;    // Pair partner index
-    int32_t  m[3];        // Momentum direction vector
-    int32_t  reloc[3];    // Consumable relocation offset / impulse
+    uint8_t  kind;         // SRC_K, SRC_S, SRC_D, SRC_P
+    uint32_t parent;       // Parent source index
+    int32_t  spin_target;  // +1 outward, -1 inward, 0 neutral
+    uint32_t pair_idx;     // Pair partner index
+    uint32_t leader_w;     // Auxiliary W identity copied from the core
+    uint32_t pair_count;   // Number of overlapping pairs (frequency = 2 * pair_count)
+    int32_t  m[3];         // Momentum direction vector
+    int32_t  reloc[3];     // Consumable relocation offset / impulse
 };

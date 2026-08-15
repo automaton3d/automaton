@@ -462,6 +462,7 @@ __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
         if (old == 1)
         {
             draft.a = dev_W_USED;
+            draft.leader_w = DEV_NO_LEADER_W;
             draft.cB = 1;
         }
     }
@@ -491,6 +492,7 @@ __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
             draft.c[2] = curr.x[2];
             draft.cB = 1;
             draft.a = dev_W_USED;
+            draft.leader_w = DEV_NO_LEADER_W;
         }
     }
 }
@@ -519,12 +521,14 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
                     draft.c[2] = curr.x[2];
                     draft.cB = 1;
                     draft.a = dev_W_USED;
+                    draft.leader_w = DEV_NO_LEADER_W;
                 }
                 else if (curr.sB && !mirror.pB)
                 {
                     draft.hB = 1;
                     draft.cB = 1;
                     draft.a = dev_W_USED;
+                    draft.leader_w = DEV_NO_LEADER_W;
                 }
             }
         }
@@ -661,6 +665,7 @@ __device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& d
                     draft.c[2] = curr.x[2];
                     draft.kB = 1;
                     draft.a = curr.x[3];
+                    draft.leader_w = curr.x[3];
                 }
                 // Fermion cohesion?
                 else if (curr.ch == mirror.ch &&
@@ -743,6 +748,7 @@ __device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& d
                         else
                         {
                             draft.a = mirror.a;
+                            draft.leader_w = (mirror.a == dev_W_USED ? DEV_NO_LEADER_W : mirror.a);
                             draft.t = mirror.t;
                             draft.c[0] = mirror.x[0];
                             draft.c[1] = mirror.x[1];
@@ -762,6 +768,7 @@ __device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& d
                         else
                         {
                             draft.a = mirror.a;
+                            draft.leader_w = (mirror.a == dev_W_USED ? DEV_NO_LEADER_W : mirror.a);
                             draft.t = mirror.t;
                             draft.c[0] = mirror.x[0];
                             draft.c[1] = mirror.x[1];
@@ -782,6 +789,7 @@ __device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& d
             draft.c[1] = curr.x[1];
             draft.c[2] = curr.x[2];
             draft.a = curr.x[3];
+            draft.leader_w = curr.x[3];
         }
         // Electroweak interaction: Harmonic?
         else if (curr.phiB && mirror.phiB)
@@ -887,6 +895,43 @@ static __device__ inline void dev_reemitAtContact(::CellDevice& srcDraft,
     dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
 }
 
+static __device__ inline bool dev_canFormPair(const ::CellDevice& a, const ::CellDevice& b)
+{
+    uint8_t ca = a.ch;
+    uint8_t cb = b.ch;
+    if (ca == 0x00 && cb == 0x00) return true;
+    if (ca == 0x3F && cb == 0x3F) return true;
+    if ((ca ^ cb) == 0x3F) return true;
+
+    bool qa = (ca & 0x08) != 0;
+    bool qb = (cb & 0x08) != 0;
+    bool w1a = (ca & 0x20) != 0;
+    bool w1b = (cb & 0x20) != 0;
+    bool w0a = (ca & 0x10) != 0;
+    bool w0b = (cb & 0x10) != 0;
+    uint8_t cola = ca & 0x07;
+    uint8_t colb = cb & 0x07;
+
+    if ((qa ^ qb) && (w1a == w1b) && (w0a ^ w0b) && ((cola ^ colb) == 0x07)) return true;
+    if (!qa && !qb && !w1a && !w1b && w0a && w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
+    if (qa && qb && w1a && w1b && !w0a && !w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
+    return false;
+}
+
+static __device__ inline void dev_adoptLeader(::CellDevice& dst, uint32_t leader)
+{
+    dst.leader_w = leader;
+    dst.a = leader;
+}
+
+static __device__ inline uint32_t dev_dominantLeader(const ::CellDevice& a, const ::CellDevice& b)
+{
+    uint32_t leader = (a.leader_w < b.leader_w) ? a.leader_w : b.leader_w;
+    if (leader == DEV_NO_LEADER_W)
+        leader = (a.x[3] < b.x[3]) ? a.x[3] : b.x[3];
+    return leader;
+}
+
 __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/,
                                       ::CellDevice* d_curr, ::CellDevice* d_draft)
@@ -896,8 +941,9 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
     if (curr.x[3] == mirror.x[3])
         return;
 
-    // Sieve propagation: s2B' = s2B AND active (phiB).
-    draft.s2B &= curr.phiB;
+    // Sieve: the electroweak interaction channel is only active where s2B is set.
+    if (curr.s2B == 0)
+        return;
 
     int currW   = (int)curr.x[3];
     int mirrorW = (int)mirror.x[3];
@@ -911,6 +957,49 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
     dev_source_center((unsigned)currW, currCx, currCy, currCz);
     int mirrorCx, mirrorCy, mirrorCz;
     dev_source_center((unsigned)mirrorW, mirrorCx, mirrorCy, mirrorCz);
+
+    bool samePos = (curr.x[0] == mirror.x[0] &&
+                    curr.x[1] == mirror.x[1] &&
+                    curr.x[2] == mirror.x[2]);
+    bool sameT   = (curr.t == mirror.t);
+
+    // Pair formation (photon-like P sources).
+    if (samePos && sameT && dev_canFormPair(currSrc, mirrorSrc))
+    {
+        bool dressing = (currSrc.leader_w != DEV_NO_LEADER_W &&
+                         currSrc.leader_w == mirrorSrc.leader_w);
+        uint32_t newLeader = dressing ? currSrc.leader_w : DEV_NO_LEADER_W;
+        uint32_t newA      = dressing ? newLeader : dev_W_USED;
+        uint32_t parent    = dressing ? currSrc.leader_w : DEV_NO_PARENT;
+
+        bool alreadyPaired = (currSrc.kind == SRC_P &&
+                              mirrorSrc.kind == SRC_P &&
+                              currSrc.pair_idx == (uint32_t)mirrorW &&
+                              mirrorSrc.pair_idx == (uint32_t)currW);
+        if (alreadyPaired)
+            return;
+
+        uint32_t newCount = 1;
+        if (currSrc.kind == SRC_P) newCount += currSrc.pair_count;
+        if (mirrorSrc.kind == SRC_P) newCount += mirrorSrc.pair_count;
+
+        currDraft.kind  = SRC_P;
+        mirrorDraft.kind = SRC_P;
+        currDraft.pair_idx   = (uint32_t)mirrorW;
+        mirrorDraft.pair_idx = (uint32_t)currW;
+        currDraft.pair_count = newCount;
+        mirrorDraft.pair_count = newCount;
+        currDraft.leader_w  = newLeader;
+        mirrorDraft.leader_w = newLeader;
+        currDraft.a  = newA;
+        mirrorDraft.a = newA;
+        currDraft.parent  = parent;
+        mirrorDraft.parent = parent;
+
+        dev_reemitAtContact(currDraft, curr, d_draft);
+        dev_reemitAtContact(mirrorDraft, mirror, d_draft);
+        return;
+    }
 
     // pB triggers the electric channel, sB the magnetic channel.
     bool electricContact  = curr.pB || mirror.pB;
@@ -929,13 +1018,11 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
     }
     else
     {
-        // Adiabatic: no collapse, but exchange affinity and light clock,
-        // then drift one light-step toward each other.
-        uint32_t tmpA = currDraft.a;
+        uint32_t minLeader = dev_dominantLeader(currSrc, mirrorSrc);
+        dev_adoptLeader(currDraft, minLeader);
+        dev_adoptLeader(mirrorDraft, minLeader);
         uint32_t tmpT = currDraft.t;
-        currDraft.a  = mirrorDraft.a;
         currDraft.t  = mirrorDraft.t;
-        mirrorDraft.a = tmpA;
         mirrorDraft.t = tmpT;
 
         dev_moveOneStep(currDraft,  currCx,  currCy,  currCz,
@@ -958,6 +1045,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
     {
         currDraft.kind = SRC_D;
         currDraft.parent = (uint32_t)mirrorW;
+        dev_adoptLeader(currDraft, mirrorSrc.leader_w == DEV_NO_LEADER_W ? (uint32_t)mirrorW : mirrorSrc.leader_w);
         currDraft.spin_target = 1;
         dev_moveOneStep(currDraft, currCx, currCy, currCz,
                         mirrorCx, mirrorCy, mirrorCz, d_draft);
@@ -974,8 +1062,13 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         }
         else
         {
-            currDraft.kind = SRC_D;
-            currDraft.parent = (uint32_t)mirrorW;
+            uint32_t leader = dev_dominantLeader(currSrc, mirrorSrc);
+            currDraft.kind  = SRC_D;
+            mirrorDraft.kind = SRC_D;
+            currDraft.parent  = leader;
+            mirrorDraft.parent = leader;
+            dev_adoptLeader(currDraft, leader);
+            dev_adoptLeader(mirrorDraft, leader);
         }
         return;
     }
@@ -995,8 +1088,11 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         int dCy = (currSrc.kind == SRC_S ? mirrorCy : currCy);
         int dCz = (currSrc.kind == SRC_S ? mirrorCz : currCz);
 
+        uint32_t leader = (dSrc->leader_w == DEV_NO_LEADER_W ? dSrc->parent : dSrc->leader_w);
+        if (leader == DEV_NO_LEADER_W) leader = dSrc->x[3];
         sDraft->kind = SRC_D;
-        sDraft->parent = dSrc->parent;
+        sDraft->parent = (dSrc->parent == DEV_NO_PARENT ? leader : dSrc->parent);
+        dev_adoptLeader(*sDraft, leader);
 
         dev_moveOneStep(*sDraft, sCx, sCy, sCz, dCx, dCy, dCz, d_draft);
         dev_moveOneStep(*dDraft, dCx, dCy, dCz, sCx, sCy, sCz, d_draft);
@@ -1017,6 +1113,8 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         else
         {
             currDraft.spin_target = mirrorSrc.spin_target;
+            uint32_t leader = dev_dominantLeader(currSrc, mirrorSrc);
+            dev_adoptLeader(currDraft, leader);
         }
         return;
     }
@@ -1119,6 +1217,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (east.a  == dev_W_USED && curr.r2 >= east.r2)  ||
                 (up.a    == dev_W_USED && curr.r2 >= up.r2)) {
                 draft.a = dev_W_USED;
+                draft.leader_w = DEV_NO_LEADER_W;
             }
         }
         // SLOT II
@@ -1130,6 +1229,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (east.a  == dev_W_USED && curr.r2 >= east.r2)  ||
                 (up.a    == dev_W_USED && curr.r2 >= up.r2)) {
                 draft.a = dev_W_USED;
+                draft.leader_w = DEV_NO_LEADER_W;
             }
             // Hunting using hB (matches CPU: pulse_from_time condition, no modulo on c[])
             if (curr.active) {
@@ -1172,22 +1272,22 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             if (!curr.cB) {
                 if (north.cB && north.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (north.a != dev_W_USED) draft.a = north.a;
+                    if (north.a != dev_W_USED) { draft.a = north.a; draft.leader_w = north.a; }
                 } else if (south.cB && south.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (south.a != dev_W_USED) draft.a = south.a;
+                    if (south.a != dev_W_USED) { draft.a = south.a; draft.leader_w = south.a; }
                 } else if (east.cB && east.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (east.a != dev_W_USED) draft.a = east.a;
+                    if (east.a != dev_W_USED) { draft.a = east.a; draft.leader_w = east.a; }
                 } else if (west.cB && west.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (west.a != dev_W_USED) draft.a = west.a;
+                    if (west.a != dev_W_USED) { draft.a = west.a; draft.leader_w = west.a; }
                 } else if (down.cB && down.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (down.a != dev_W_USED) draft.a = down.a;
+                    if (down.a != dev_W_USED) { draft.a = down.a; draft.leader_w = down.a; }
                 } else if (up.cB && up.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (up.a != dev_W_USED) draft.a = up.a;
+                    if (up.a != dev_W_USED) { draft.a = up.a; draft.leader_w = up.a; }
                 }
             }
         }
@@ -1222,6 +1322,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         else if (curr.k < SLOT5) {
             if (curr.a == dev_W_USED && curr.r2 < curr.t * curr.t) {
                 draft.a = curr.x[3];
+                draft.leader_w = curr.x[3];
             }
         }
     }
@@ -1267,12 +1368,12 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         draft.hB = 0;
         draft.bB = 0;
         if (curr.active) {
-            if (north.r2 > curr.r2) draft.a = north.a;
-            if (south.r2 > curr.r2) draft.a = south.a;
-            if (east.r2  > curr.r2) draft.a = east.a;
-            if (west.r2  > curr.r2) draft.a = west.a;
-            if (up.r2    > curr.r2) draft.a = up.a;
-            if (down.r2  > curr.r2) draft.a = down.a;
+            if (north.r2 > curr.r2) { draft.a = north.a; draft.leader_w = (north.a == dev_W_USED ? DEV_NO_LEADER_W : north.a); }
+            if (south.r2 > curr.r2) { draft.a = south.a; draft.leader_w = (south.a == dev_W_USED ? DEV_NO_LEADER_W : south.a); }
+            if (east.r2 > curr.r2) { draft.a = east.a; draft.leader_w = (east.a == dev_W_USED ? DEV_NO_LEADER_W : east.a); }
+            if (west.r2 > curr.r2) { draft.a = west.a; draft.leader_w = (west.a == dev_W_USED ? DEV_NO_LEADER_W : west.a); }
+            if (up.r2 > curr.r2) { draft.a = up.a; draft.leader_w = (up.a == dev_W_USED ? DEV_NO_LEADER_W : up.a); }
+            if (down.r2 > curr.r2) { draft.a = down.a; draft.leader_w = (down.a == dev_W_USED ? DEV_NO_LEADER_W : down.a); }
         }
         if (curr.cB) {
             draft.cB = 0;
@@ -1603,11 +1704,74 @@ void cudaSimulationStep(
         if (err != cudaSuccess)
             continue;
 
+        // Free photon pairs expand and are gradually consumed. At maximum
+        // radius (t == RMAX) one pair is consumed; when the stack empties the
+        // two partner source centers are released as singletons moving apart.
+        if (centerCell.kind == SRC_P &&
+            centerCell.a == (uint32_t)W &&
+            centerCell.pair_idx != DEV_NO_PAIR &&
+            centerCell.pair_idx < (uint32_t)W &&
+            centerCell.t == (uint32_t)RMAX &&
+            centerCell.x[3] < centerCell.pair_idx)
+        {
+            if (centerCell.pair_count > 0)
+                centerCell.pair_count--;
+
+            uint32_t pw = centerCell.pair_idx;
+            int pcx = (int)automaton::lcenters[pw][0];
+            int pcy = (int)automaton::lcenters[pw][1];
+            int pcz = (int)automaton::lcenters[pw][2];
+            size_t idxPartner = (size_t)((((pcx * (int)L) + pcy) * (int)L) + pcz) * (int)W + (size_t)pw;
+            ::CellDevice partner;
+            err = cudaMemcpy(&partner, d_lattice_curr + idxPartner, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
+            if (err == cudaSuccess)
+            {
+                if (centerCell.pair_count == 0)
+                {
+                    centerCell.kind       = SRC_S;
+                    centerCell.pair_idx   = DEV_NO_PAIR;
+                    centerCell.pair_count = 0;
+                    centerCell.leader_w   = DEV_NO_LEADER_W;
+                    centerCell.a          = (uint32_t)W;
+
+                    partner.kind       = SRC_S;
+                    partner.pair_idx   = DEV_NO_PAIR;
+                    partner.pair_count = 0;
+                    partner.leader_w   = DEV_NO_LEADER_W;
+                    partner.a          = (uint32_t)W;
+
+                    int axis = (int)(centerCell.x[3] % 3u);
+                    int sign = ((centerCell.x[3] & 1u) ? +1 : -1);
+                    centerCell.reloc[axis] += sign;
+                    partner.reloc[axis]    -= sign;
+                }
+                else
+                {
+                    partner.pair_count = centerCell.pair_count;
+                }
+                cudaMemcpy(d_lattice_curr + idxPartner, &partner, sizeof(::CellDevice), cudaMemcpyHostToDevice);
+            }
+        }
+
         int dx = centerCell.reloc[0];
         int dy = centerCell.reloc[1];
         int dz = centerCell.reloc[2];
         if (dx == 0 && dy == 0 && dz == 0)
             continue;
+
+        // Update the long-term momentum direction from the consumed impulse.
+        int new_m[3] = { centerCell.m[0], centerCell.m[1], centerCell.m[2] };
+        {
+            int abs_dx = (dx < 0) ? -dx : dx;
+            int abs_dy = (dy < 0) ? -dy : dy;
+            int abs_dz = (dz < 0) ? -dz : dz;
+            int axis = 0, best = abs_dx;
+            if (abs_dy > best) { axis = 1; best = abs_dy; }
+            if (abs_dz > best) { axis = 2; }
+            int val = (axis == 0 ? dx : (axis == 1 ? dy : dz));
+            new_m[0] = new_m[1] = new_m[2] = 0;
+            new_m[axis] = (val < 0) ? -1 : +1;
+        }
 
         int M = (int)L;
         int nx = (cx + dx) % M;
@@ -1628,13 +1792,16 @@ void cudaSimulationStep(
         newCell.parent      = centerCell.parent;
         newCell.spin_target = centerCell.spin_target;
         newCell.pair_idx    = centerCell.pair_idx;
+        newCell.pair_count  = centerCell.pair_count;
+        newCell.leader_w    = centerCell.leader_w;
+        newCell.a           = centerCell.a;
         newCell.t           = 0;
         newCell.f           = 0;
         newCell.u           = 2048;
         newCell.v           = 0;
-        newCell.m[0]        = centerCell.m[0];
-        newCell.m[1]        = centerCell.m[1];
-        newCell.m[2]        = centerCell.m[2];
+        newCell.m[0]        = new_m[0];
+        newCell.m[1]        = new_m[1];
+        newCell.m[2]        = new_m[2];
         newCell.reloc[0]    = newCell.reloc[1] = newCell.reloc[2] = 0;
 
         // Old cell is no longer a source center.
@@ -1642,6 +1809,9 @@ void cudaSimulationStep(
         centerCell.parent      = DEV_NO_PARENT;
         centerCell.spin_target = 0;
         centerCell.pair_idx    = DEV_NO_PAIR;
+        centerCell.pair_count  = 0;
+        centerCell.leader_w    = DEV_NO_LEADER_W;
+        centerCell.a           = (uint32_t)W;
         centerCell.t           = 0;
         centerCell.f           = 0;
         centerCell.u           = 0;
@@ -1726,6 +1896,8 @@ namespace automaton
         dst.parent = src.parent;
         dst.spin_target = static_cast<int32_t>(src.spin_target);
         dst.pair_idx = src.pair_idx;
+        dst.leader_w = src.leader_w;
+        dst.pair_count = static_cast<uint32_t>(src.pair_count);
         for (int i = 0; i < 3; ++i) dst.m[i] = static_cast<int32_t>(src.m[i]);
         for (int i = 0; i < 3; ++i) dst.reloc[i] = static_cast<int32_t>(src.reloc[i]);
         return dst;
@@ -1759,6 +1931,8 @@ namespace automaton
         dst.parent = src.parent;
         dst.spin_target = static_cast<int8_t>(src.spin_target);
         dst.pair_idx = src.pair_idx;
+        dst.leader_w = src.leader_w;
+        dst.pair_count = static_cast<uint8_t>(src.pair_count);
         for (int i = 0; i < 3; ++i) dst.m[i] = static_cast<int>(src.m[i]);
         for (int i = 0; i < 3; ++i) dst.reloc[i] = static_cast<int>(src.reloc[i]);
     }

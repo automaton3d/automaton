@@ -71,6 +71,7 @@ namespace automaton
 	        (up.a    == W_USED && curr.r2 >= up.r2))
 	    {
 	      draft.a = W_USED;
+	      draft.leader_w = NO_LEADER_W;
 	    }
 	  }
 	  /****** SLOT II ******/
@@ -85,6 +86,7 @@ namespace automaton
           (up.a    == W_USED && curr.r2 >= up.r2))
       {
         draft.a = W_USED;
+        draft.leader_w = NO_LEADER_W;
       }
       /*--- Hunting using hB ---*/
       if (curr.active)
@@ -129,38 +131,44 @@ namespace automaton
         if (north.cB && north.r2 > curr.r2)
         {
           draft.cB = true;
-          if (north.a != W_USED)
+          if (north.a != W_USED) {
             draft.a = north.a;
+            draft.leader_w = (WIndex)north.a; }
         }
         else if (south.cB && south.r2 > curr.r2)
         {
           draft.cB = true;
-          if (south.a != W_USED)
+          if (south.a != W_USED) {
             draft.a = south.a;
+            draft.leader_w = (WIndex)south.a; }
         }
         else if (east.cB && east.r2 > curr.r2)
         {
           draft.cB = true;
-          if (east.a != W_USED)
+          if (east.a != W_USED) {
             draft.a = east.a;
+            draft.leader_w = (WIndex)east.a; }
         }
         else if (west.cB && west.r2 > curr.r2)
         {
           draft.cB = true;
-          if (west.a != W_USED)
+          if (west.a != W_USED) {
             draft.a = west.a;
+            draft.leader_w = (WIndex)west.a; }
         }
         else if (down.cB && down.r2 > curr.r2)
         {
           draft.cB = true;
-          if (down.a != W_USED)
+          if (down.a != W_USED) {
             draft.a = down.a;
+            draft.leader_w = (WIndex)down.a; }
         }
         else if (up.cB && up.r2 > curr.r2)
         {
           draft.cB = true;
-          if (up.a != W_USED)
+          if (up.a != W_USED) {
             draft.a = up.a;
+            draft.leader_w = (WIndex)up.a; }
         }
       }
     }
@@ -259,26 +267,32 @@ namespace automaton
           {
               // Copy a from inner to outer cell
               draft.a = north.a;
+              draft.leader_w = (north.a == W_USED ? NO_LEADER_W : (WIndex)north.a);
           }
           if (south.r2 > curr.r2)
           {
               draft.a = south.a;
+              draft.leader_w = (south.a == W_USED ? NO_LEADER_W : (WIndex)south.a);
           }
           if (east.r2 > curr.r2)
           {
               draft.a = east.a;
+              draft.leader_w = (east.a == W_USED ? NO_LEADER_W : (WIndex)east.a);
           }
           if (west.r2 > curr.r2)
           {
               draft.a = west.a;
+              draft.leader_w = (west.a == W_USED ? NO_LEADER_W : (WIndex)west.a);
           }
           if (up.r2 > curr.r2)
           {
               draft.a = up.a;
+              draft.leader_w = (up.a == W_USED ? NO_LEADER_W : (WIndex)up.a);
           }
           if (down.r2 > curr.r2)
           {
               draft.a = down.a;
+              draft.leader_w = (down.a == W_USED ? NO_LEADER_W : (WIndex)down.a);
           }
       }
       if (curr.cB)

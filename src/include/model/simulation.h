@@ -163,6 +163,7 @@ struct NeighborResult
       uint32_t parent;      // Parent source index (for D/P)
       int8_t spin_target;   // +1 outward / -1 inward / 0 neutral
       uint32_t pair_idx;    // Pair partner index for P sources
+      uint8_t pair_count;   // Number of overlapping pairs in a P source (frequency = 2 * pair_count)
       int m[3];             // Momentum direction vector (long-term stable)
       int reloc[3];         // Consumable relocation offset / impulse
       // Default constructor
@@ -172,7 +173,7 @@ struct NeighborResult
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
           gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0),
-          kind(SourceKind::S), parent(NO_PARENT), spin_target(0), pair_idx(NO_PAIR)
+          kind(SourceKind::S), parent(NO_PARENT), spin_target(0), pair_idx(NO_PAIR), pair_count(0)
       {
         fill(begin(x), end(x), 0);
         fill(begin(c), end(c), 0);
@@ -285,6 +286,14 @@ struct NeighborResult
   extern unsigned FLOOD;
   extern unsigned FRAME;
   extern unsigned int pulse_tick;
+
+  // W-island topology (W = 3L^2 = (9L) * (L/3))
+  extern unsigned ISLAND_SIZE;
+  extern unsigned ISLAND_COUNT;
+
+  inline unsigned islandOf(WIndex w)       { return (ISLAND_SIZE > 0) ? (unsigned)(w / ISLAND_SIZE) : 0; }
+  inline WIndex firstWOfIsland(unsigned i) { return (WIndex)(i * ISLAND_SIZE); }
+  inline bool   isIslandChief(WIndex w)    { return (ISLAND_SIZE > 0) && ((w % ISLAND_SIZE) == 0); }
 
   #define INF_R2 0xFFFFFFFFu
 

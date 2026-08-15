@@ -46,6 +46,8 @@ namespace automaton
   unsigned CENTER;
   unsigned FCENTER;
   unsigned int pulse_tick = 0;
+  unsigned ISLAND_SIZE = 0;
+  unsigned ISLAND_COUNT = 0;
 
   // Lattices
   std::vector<Cell> lattice_curr;
@@ -365,6 +367,52 @@ namespace automaton
       unsigned cz = lcenters[w][2];
       Cell& old = getCell(lattice_draft, cx, cy, cz, w);
 
+      // Free photon pairs expand and are gradually consumed. At maximum
+      // radius (t == RMAX) one pair is consumed; when the stack empties the
+      // two partner source centers are released as singletons moving apart.
+      if (old.kind == SourceKind::P &&
+          old.a == W_USED &&
+          old.pair_idx != NO_PAIR &&
+          old.t == (unsigned)RMAX &&
+          old.w < old.pair_idx)
+      {
+          if (old.pair_count > 0)
+              old.pair_count--;
+
+          WIndex pw = old.pair_idx;
+          Cell& partner = getCell(lattice_draft,
+                                  (unsigned)lcenters[pw][0],
+                                  (unsigned)lcenters[pw][1],
+                                  (unsigned)lcenters[pw][2],
+                                  pw);
+
+          if (old.pair_count == 0)
+          {
+              // Last pair consumed: release two singletons.
+              old.kind       = SourceKind::S;
+              old.pair_idx   = NO_PAIR;
+              old.pair_count = 0;
+              old.leader_w   = NO_LEADER_W;
+              old.a          = W_USED;
+
+              partner.kind       = SourceKind::S;
+              partner.pair_idx   = NO_PAIR;
+              partner.pair_count = 0;
+              partner.leader_w   = NO_LEADER_W;
+              partner.a          = W_USED;
+
+              int axis = (int)(old.w % 3u);
+              int sign = ((old.w & 1u) ? +1 : -1);
+              old.reloc[axis]     += sign;
+              partner.reloc[axis] -= sign;
+          }
+          else
+          {
+              // The stack still holds pairs; keep the remaining count in sync.
+              partner.pair_count = old.pair_count;
+          }
+      }
+
       int dx = old.reloc[0];
       int dy = old.reloc[1];
       int dz = old.reloc[2];
@@ -378,19 +426,38 @@ namespace automaton
 
       Cell& nw = getCell(lattice_draft, (unsigned)nx, (unsigned)ny, (unsigned)nz, w);
 
+      // Update the long-term momentum direction from the consumed impulse.
+      // m stays a unit vector along one Cartesian axis, but its sign can flip
+      // to match the dominant component of the relocation impulse.
+      int new_m[3] = { old.m[0], old.m[1], old.m[2] };
+      if (dx != 0 || dy != 0 || dz != 0)
+      {
+        int abs_dx = (dx < 0) ? -dx : dx;
+        int abs_dy = (dy < 0) ? -dy : dy;
+        int abs_dz = (dz < 0) ? -dz : dz;
+        int axis = 0, best = abs_dx;
+        if (abs_dy > best) { axis = 1; best = abs_dy; }
+        if (abs_dz > best) { axis = 2; best = abs_dz; }
+        int sign = (axis == 0 ? dx : (axis == 1 ? dy : dz));
+        new_m[0] = new_m[1] = new_m[2] = 0;
+        new_m[axis] = (sign < 0) ? -1 : +1;
+      }
+
       // Carry the source identity and the stable momentum direction m to the
       // new center, and re-seed the pulsating wave there.
       nw.kind        = old.kind;
       nw.parent      = old.parent;
       nw.spin_target = old.spin_target;
       nw.pair_idx    = old.pair_idx;
+      nw.pair_count  = old.pair_count;
+      nw.leader_w    = old.leader_w;
       nw.t           = 0;
       nw.f           = 0;
       nw.u           = 2048;
       nw.v           = 0;
-      nw.m[0]        = old.m[0];
-      nw.m[1]        = old.m[1];
-      nw.m[2]        = old.m[2];
+      nw.m[0]        = new_m[0];
+      nw.m[1]        = new_m[1];
+      nw.m[2]        = new_m[2];
       nw.reloc[0]    = nw.reloc[1] = nw.reloc[2] = 0;
 
       // The old cell is no longer a source center.
@@ -398,6 +465,9 @@ namespace automaton
       old.parent      = NO_PARENT;
       old.spin_target = 0;
       old.pair_idx    = NO_PAIR;
+      old.pair_count  = 0;
+      old.leader_w    = NO_LEADER_W;
+      old.a           = W_USED;
       old.t           = 0;
       old.f           = 0;
       old.u           = 0;
