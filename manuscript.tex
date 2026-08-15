@@ -405,11 +405,15 @@ Among the countless possibilities, we choose the following Platonic solution for
 
 The Platonic initial state is set up by fiat: it fixes only the static, non-dynamical configuration of every cell in the lattice. At $t=0$, the source center of each hosted bubble is placed at one of the six Cartesian face positions around the lattice center, e.g. $(-L/2,0,0)$ relative to the center, so that the bubbles are spread isotropically with no random numbers. This is still a single deterministic configuration, not a dynamic process.
 
+All bubbles are initially superposed, each carrying the Platonic data. If no interactions occurred, each would simply expand to the maximum radius and contract continuously. The W address $w$ of every bubble is immutable; the 3D source-center position changes only as a result of an interaction.
+
 The same initialization procedures are mirrored on the draft lattice, ensuring consistency and coherence across both structures.
 
 Real numbers and high-level functions are used only as intermediaries to compute the integer parameters of the initial state; they are not stored in the lattice. The dynamics therefore remains strictly integer-based.
 
-The following subsections on the dynamic radius, the wave cloud and the polarization pair $(u,v)$ are \textit{not} part of the Platonic initial state. They are a didactic preview of the first steps of the CA evolution, governed by the same local rules that are formalized in Section~\ref{sec:light-frame}.
+Before the dynamic patterns---the vectors $\boldsymbol{m}$, the charge islands, and the wave cloud---stabilize, the evolution is chaotic. This early mixing is not a defect: it acts as a deterministic ``thermal bath'' that contributes to the apparent randomness of particle physics once the stable attractors are reached.
+
+The following subsections on the dynamic radius, the wave cloud and the polarization pair $(u,v)$ are \textit{not} part of the Platonic initial state. They are a didactic preview of the first steps of the CA evolution, governed by the same local rules that are formalized in Section~\ref{sec:light-frame}. The dynamic initialization is therefore indistinguishable from the ordinary CA dynamics that follows.
 
 \subsection{Miscellaneous procedures}
 
@@ -422,7 +426,9 @@ The weak charge is defined as $w_{0}^{i} = i \,\boldsymbol{\bmod}\, 2$ and $w_{1
 
 This and the following pattern creation are then replicated across all layers in dimension W.
 
-The stable momentum-direction vector $\boldsymbol{m}$ of each hosted bubble is also set at this stage. The six Cartesian directions are distributed across the $W$ layers in pairs of consecutive layers sharing the same axis and receiving opposite signs. Concretely, for layer $i$ the axis is $(i/2) \bmod 3$ and the sign is given by the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction. Because $W=3L^{2}$ with $L$ odd leaves a remainder of three when divided by six, this assignment yields the most perfect balance possible: the residual net momentum has magnitude one and the counts of any two opposite directions differ by at most one. The momentum vector is no longer treated as hard-coded immutable; it is a per-bubble property that is initialized here and remains stable in the long run, being modified only by interactions. The consumable relocation impulse $\boldsymbol{\mathit{reloc}}$ starts at zero.
+The momentum-direction vector $\boldsymbol{m}$ of each hosted bubble is also set at this stage. The six Cartesian directions are distributed across the $W$ layers in pairs of consecutive layers sharing the same axis and receiving opposite signs. Concretely, for layer $i$ the axis is $(i/2) \bmod 3$ and the sign is given by the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction. Because $W=3L^{2}$ with $L$ odd leaves a remainder of three when divided by six, this assignment yields the most perfect balance possible: the residual net momentum has magnitude one and the counts of any two opposite directions differ by at most one.
+
+The magnitude of $\boldsymbol{m}$ is fixed (a single unit step along the active Cartesian axis); only the direction changes, and only through interactions. Over long times the directions are expected to become distributed as uniformly as possible, with antipodal pairs balancing the total momentum. The direction stored in $\boldsymbol{m}$ is used in the $P\times K$ and $P\times D$ interactions that perform the inertial transport of a bubble. The vector sum of all momentum contributions acting on a 3D island gives the velocity of the particle in the absolute grid frame; if the sum is zero, the particle remains at rest. The consumable relocation impulse $\boldsymbol{\mathit{reloc}}$ starts at zero and accumulates the displacement that will be consumed during relocation.
 
 The subsections that follow describe the first dynamical consequences of that Platonic seed. They are not additional initialization steps, but the beginning of the CA evolution presented here for clarity.
 
@@ -459,7 +465,7 @@ Within this structured loop particles begin to move, interact, and display emerg
 
 \section{The light frame}\label{sec:light-frame}
 
-The light frame (Figure \ref{fig:light_frame}) cycles through Convolution, Diffusion and Relocation.
+The light frame (Figure \ref{fig:light_frame}) is one complete light step of the cellular automaton. It is divided into five stages: \texttt{CONVOL} (interactions and pair formation), \texttt{DIFFUSION} (propagation of contact, collapse, and relocation information), \texttt{RELOC} (physical displacement of source centers), \texttt{REISSUE} (re-emission of the wavefront from the new source center), and \texttt{FLOOD} (final synchronization of the three lattices). The global housekeeping counter $k$ advances synchronously in every cell, marking the current stage; the wavefront counter $t$ is local and resets to zero whenever a bubble is reissued. The separation between the common $k$ and the local $t$ is what lets the finite-state machine coordinate seemingly non-local operations without introducing any superluminal signal.
 
 \begin{figure}
 \begin{center}
@@ -512,8 +518,14 @@ $CONVOL + 2W + \lfloor\sqrt{3}(L-1)/2\rfloor + 9(L-1) + 2W$: diffusion range alo
 \item \textbf{RELOC}\\
 $DIFFUSION + 3(L-1)$: relocation phase.
 
+\item \textbf{REISSUE}\\
+$RELOC + 1$: re-emission of the wavefront from the new source center.
+
+\item \textbf{FLOOD}\\
+$REISSUE + 3(L-1)$: final synchronization of the three lattices.
+
 \item \textbf{FRAME}\\
-Same value as $RELOC$; total duration of the light step.
+Same value as $FLOOD$; total duration of the light step.
 
 \end{itemize}
 
@@ -522,13 +534,13 @@ Same value as $RELOC$; total duration of the light step.
 A \emph{bubble} is an expanding spherical wavefront of information organized across cells within a common layer. Spherical propagation is determined by comparing the dynamic radius $r$ to the wavefront tick $t$. 
 
 \subsubsection{Pair}
-Two bubbles are overlapping if they share the same spatial coordinates and $t_1=t_2$. Overlapping bubbles can form a \emph{pair} if they have the same affinity, that is, $a_1=a_2$; the two partners share a center and phase, and their charges are complementary or matching depending on the pair's role.
+Two bubbles are overlapping if they share the same spatial coordinates and $t_1=t_2$. Overlapping bubbles can form a \emph{pair} if they have the same affinity, that is, $a_1=a_2$; the two partners share a center and phase, and their charges are complementary or matching depending on the pair's role. Pairs may remain bound to a particle as \emph{dressing} pairs or propagate freely as photons; a free pair expands outward and is gradually consumed, releasing two singletons at distinct locations.
 
 \subsubsection{Propeller} \label{subsubsec:propeller}
 A pair can act as a \textit{propeller}, repositioning other bubbles and providing inertia.
 
 \subsubsection{Singleton}
-A bubble that does not form a pair is called a \textit{singleton}.
+An unpaired bubble is called a \textit{singleton}; it is not a generic synonym for bubble.
 
 \subsubsection{Blob}
 The \textit{blob} is a group of superposed pairs having the same affinity, same true $bB$ bits and the same (active) pBits.
@@ -859,7 +871,7 @@ Initially the $L/3$ copies of a $W$-island are singletons ($S$). When two copies
 \begin{equation}
 1K + nD.
 \end{equation}
-Copies of the same $W$-island always merge into a single $1K+nD$ island; distinct $W$-islands interact through the usual $K\times K$, $D\times D$, and convolution rules. The chief is thus not selected by a modulo operation or by a fixed index during initialization; it emerges dynamically among the identical copies. The total number of possible chiefs is bounded by $9L$, and the total primitive bubble population is
+Copies of the same $W$-island always merge into a single $1K+nD$ island; distinct $W$-islands interact through the usual $K\times K$, $D\times D$, and convolution rules. The chief is thus not selected by a modulo operation or by a fixed index during initialization; it emerges dynamically among the identical copies. Each bubble keeps its intrinsic W address $w$ immutable; only the auxiliary identity \texttt{leader\_w}, copied from the chief, converges to the dominant value after mergers. The total number of possible chiefs is bounded by $9L$, and the total primitive bubble population is
 \begin{equation}
 3L^3 = (9L)\left(\frac{L}{3}\right).
 \end{equation}
