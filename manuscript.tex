@@ -324,7 +324,13 @@ The space described above is occupied by three coexisting \emph{3D}-Euclidean sp
 All cells within each layer pulsate in unison, incrementing alternately the couple of evolution counters ($k$ and $t$) and exchanging information with their seven neighbors (six in dimensions $x$, $y$, and \ensuremath{z} , and one in dimension $W  $, which facilitates the transfer of information between lattices and detects interactions).
 This exchange occurs alternately, ensuring time homogeneity is recovered every two clock ticks, grouped in four passes (see further details below), thus configuring a cellular automaton.
 
-It is not a purely scale-invariant CA: the local rules use the fixed lattice size $L$ as a parameter---for example through periodic boundary modulo $L$, $R_{\max}=L/2$, and $W=3L^{2}$---so the model is a finite, $L$-parameterized cellular automaton, a special case of the non-uniform CA framework surveyed by Das and Sikdar~\cite{das2025nonuniform}.
+\subsection{Purity of the transition rule\label{subsec:purity}}
+
+A \emph{pure} cellular automaton is usually defined by a transition rule that is local, homogeneous, deterministic, and independent of the size of the lattice. We strengthen this to require that the rule be finite-state: it operates on a small set of integer variables, uses only integer arithmetic, contains no Turing-complete constructs, and has no explicit iteration beyond the synchronous update itself.
+
+The present model is finite and defined on a $3$-torus of side $L$, so $L$ and $W=3L^{2}$ enter as \emph{topological data} (the size of space and of the internal dimension), not as free parameters of the rule. The same holds for the FSM phase durations \texttt{CONVOL}, \texttt{DIFFUSION}, \texttt{RELOC}, \texttt{REISSUE}, and \texttt{FLOOD}: these are the integer propagation times required for signals to cross the bubble radius $R_{\max}=L/2$ or to sweep one axis of the torus. For example, $2R_{\max}$ is the light-crossing time of the torus, while terms proportional to $L-1$ or $W$ count the ticks needed for diffusion and reissue to visit the whole lattice. Because the rule itself uses only these pre-computed integer bounds, the dependence on $L$ remains at the level of topology; the transition function is still local, homogeneous, and free of size-dependent case distinctions.
+
+Consequently, the model is not scale-invariant, but it is an $L$-parameterized finite CA in the sense surveyed by Das and Sikdar~\cite{das2025nonuniform}: the lattice size fixes the arena, not the logical form of the transition.
 
 The distance between cells along the three spatial axes corresponds to the fundamental quantity $X$ in the real world (calculated in Appendix \ref{sec:Calculation-of-X}).
 
