@@ -211,7 +211,9 @@ The wave phase $f$ and the wavefront tick $t$ advance together; the test produce
  
 \subsubsection{Operational variables}
 
-This model is intrinsically nonlocal, relying on mechanisms that extend beyond conventional spatial limitations. To support this nonlocality, it employs a rapid timing system that ensures seamless coordination across the lattice. The variables defined below are essential components of this framework, managing the dynamics of relocation (this massive shift of data inside a layer is considered in Sect. \ref{subsec:relocation}), convolution (see Sect. \ref{subsec:convolution}), and wavefront propagation.
+The model performs operations---relocation, convolution, and wavefront propagation---that must be coordinated across the lattice and therefore may appear nonlocal. Such coordination is supported by the distinction between two clocks. The housekeeping tick $k$ is incremented synchronously in every cell (all cells share the same value) and therefore acts as an atemporal, global phase clock for the FSM. The wavefront tick $t$, on the other hand, is a local physical clock: it is reset at each source and may differ across layers and regions, carrying the actual light-step evolution. The interplay between the common $k$ and the local $t$ is what allows the framework to schedule seemingly nonlocal processes without introducing any superluminal signal.
+
+The variables defined below are the essential components of this two-clock scheme, managing the dynamics of relocation (this massive shift of data inside a layer is considered in Sect. \ref{subsec:relocation}), convolution (see Sect. \ref{subsec:convolution}), and wavefront propagation.
 \begin{itemize}
     \item \textbf{Relocation offset} ($\textbf{c}$)\\
  This integer vector determines the reissue address, guiding the position where an element is reallocated within the system. This variable controls the adjustment needed to realign or reposition bubbles in the lattice. The displacements follow the general rule
