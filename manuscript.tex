@@ -358,22 +358,6 @@ Also, it is neutral $N$, if $sig=0$ or anti-neutral $\overline{N}$, if $sig=3$.
 
 The pBit $pB$ marks the positive in-phase half-cycle of the wave, while the sBit $sB$ records the transverse polarization derived from the emergent $(u,v)$ pair.  They are not precomputed path patterns; both emerge from the wavefront geometry.
 
-\subsection{Dynamic charge quantization and organization in $W$ \label{subsec:charge-quantization}}
-
-The internal non-spatial dimension has size
-\begin{equation}
-W=3L^2,
-\end{equation}
-where $L$ is a large odd integer divisible by $3$. During the \textit{Platonic Initialization}, $W$ is partitioned axiomatically into
-\begin{equation}
-N_I=9L
-\end{equation}
-identical \emph{$W$-islands}, each containing
-\begin{equation}
-\ell=\frac{W}{N_I}=\frac{L}{3}
-\end{equation}
-positions. A $W$-island is an internal charge family: its $\ell$ copies share the same six charge bits but have distinct $pB$/$sB$ patterns. The distinct polarizations provide the internal angular diversity needed for the Hofer effect. The $L/3$ copies of an island initially behave as singletons ($S$). When two copies of the same island meet in the 3-torus, one becomes a chief ($K$) and the other a delegate ($D$); a mature 3D island has the form $1K+nD$. The chief is not selected by a modulo or by a fixed index, but emerges locally among identical copies. A $W$-island is not a spatial object; its identity is carried by bubbles and migrates through convolution. Charge quantization is the stabilization of the 3D island population by local capture and escape rates. A detailed account is given in Section~\ref{sec:dynamic-charge-quantization}.
-
 \subsection{The wave cloud}\label{subsec:Sine}
 
 The wave cloud is not a precomputed mask. It emerges from a discrete wave field that propagates outward from each bubble. Each cell carries a wave amplitude that evolves according to an integer-only wave equation, while a pulsating spherical wavefront marks the cells whose dynamic squared radius $r^{2}$ satisfies $|\,r^{2}-\mathrm{pulse}(t)\,|\le\mathrm{tolerance}$ as \emph{active}. The sieve bit $s2B$ is computed directly from the local displacement $u$: for $u>0$,
@@ -402,6 +386,26 @@ Given the basic structure of our model, we shall now proceed to populate it with
 
 The initial state is the only information set by fiat.  It fixes the static, non-dynamical configuration of every cell at $t=0$ and is copied to the draft lattice as well.  All dynamic quantities---the BFS radius, the wave cloud, the polarization pair $(u,v)$, and the interactions---are generated from this seed by the same local transition rule.
 
+\subsection{Internal addressing and $W$-islands}\label{subsec:w-islands}
+
+The internal non-spatial dimension has size
+\begin{equation}
+W=3L^{2},
+\end{equation}
+where $L$ is a large odd integer divisible by $3$.
+During the Platonic Initialization, $W$ is partitioned axiomatically into
+\begin{equation}
+N_{I}=9L
+\end{equation}
+identical \emph{$W$-islands}, each containing
+\begin{equation}
+\ell=\frac{W}{N_{I}}=\frac{L}{3}
+\end{equation}
+positions.
+A $W$-island is an internal charge family: its $\ell$ copies share the same six charge bits but have distinct $pB$/$sB$ patterns.
+The distinct polarizations provide the internal angular diversity needed for the Hofer effect.
+The detailed dynamics of how these copies aggregate into $1K+nD$ islands, and how the island population stabilizes, is treated in Section~\ref{sec:dynamic-charge-quantization}.
+
 \subsection{The Platonic seed}
 
 Among the many possible choices, we select the following deterministic Platonic seed:
@@ -409,7 +413,7 @@ Among the many possible choices, we select the following deterministic Platonic 
 \begin{itemize}
   \item The spatial address $\boldsymbol{x}$ is set to the appropriate Cartesian positive coordinates ($0\ldots L-1$).  Each source center is placed on one of the six Cartesian face positions around the lattice center, e.g.~$(-L/2,0,0)$ relative to the center, so that the bubbles are spread isotropically without random numbers.
   \item The internal address $w$ is immutable; the charge bits $w_{0}$, $w_{1}$, electric charge $q=w_{1}\oplus w_{0}$, and color are derived from $w$ as described above.
-  \item The affinity $a$ and the auxiliary leader identity $\mathit{leader\_w}$ are initialized to the chief of the $W$-island to which $w$ belongs (Sect.~\ref{subsec:charge-quantization}).
+  \item The affinity $a$ and the auxiliary leader identity $\mathit{leader\_w}$ are initialized to the island index of the $W$-island to which $w$ belongs (Sect.~\ref{subsec:w-islands}).  A true chief ($K$) emerges later through convolution, as described in Section~\ref{sec:dynamic-charge-quantization}.
   \item The housekeeping counter $k$ and the wavefront counter $t$ are set to zero; the contraction/phase vectors $\mathbf{c}$ are zero and $s2B$ is reset.
   \item The momentum-direction vector $\boldsymbol{m}$ is assigned a fixed unit step along one Cartesian axis.  Consecutive layers share the same axis and receive opposite signs according to the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction.  With $W=3L^{2}$ and $L$ odd, this leaves the most perfect antipodal balance possible.
   \item The consumable relocation impulse $\mathit{reloc}$ is zero.
@@ -861,7 +865,7 @@ Particles are composite structures of bubbles. A particle is primarily identifie
 In a complementary pair, weak and strong interactions are inhibited (but electric charge remains active). Both bubbles are reissued in a pair interaction, and such combinations generally form boson fragments.
 
 \subsection{Fermions}
-A fermion contains more than paired kinematic components. It typically has a 3D island sustained by dynamic charge quantization (Sect.~\ref{subsec:charge-quantization})—the up quark is the specialized pair of Sect.~\ref{subsec:specialized-pairs}—plus propeller pairs responsible for inertial motion. Fermions form a small, ``punctiform'' bubble cloud surrounded by concentric orphans from frequent reissues, which constitute their \textit{field}.
+A fermion contains more than paired kinematic components. It typically has a 3D island sustained by dynamic charge quantization (Sect.~\ref{sec:dynamic-charge-quantization})—the up quark is the specialized pair of Sect.~\ref{subsec:specialized-pairs}—plus propeller pairs responsible for inertial motion. Fermions form a small, ``punctiform'' bubble cloud surrounded by concentric orphans from frequent reissues, which constitute their \textit{field}.
 
 Quark confinement follows from the priority of color cohesion and quark-gluon interaction. In atoms, electrons distribute around the nucleus according to spherical harmonics.
 
@@ -880,7 +884,7 @@ Orphans ($a=W$) do not interact with photons but do interact with gravitons. Neu
 
 \section{Dynamic charge quantization and the scaling of $W$}\label{sec:dynamic-charge-quantization}
 
-This section expands Sect.~\ref{subsec:charge-quantization}.
+This section expands Sect.~\ref{subsec:w-islands} and details the dynamic organization and quantization of $W$-islands.
 
 \subsection{Objects and identity}
 
