@@ -358,27 +358,7 @@ Also, it is neutral $N$, if $sig=0$ or anti-neutral $\overline{N}$, if $sig=3$.
 
 The pBit $pB$ marks the positive in-phase half-cycle of the wave, while the sBit $sB$ records the transverse polarization derived from the emergent $(u,v)$ pair.  They are not precomputed path patterns; both emerge from the wavefront geometry.
 
-\subsection{The wave cloud}\label{subsec:Sine}
-
-The wave cloud is not a precomputed mask. It emerges from a discrete wave field that propagates outward from each bubble. Each cell carries a wave amplitude that evolves according to an integer-only wave equation, while a pulsating spherical wavefront marks the cells whose dynamic squared radius $r^{2}$ satisfies $|\,r^{2}-\mathrm{pulse}(t)\,|\le\mathrm{tolerance}$ as \emph{active}. The sieve bit $s2B$ is computed directly from the local displacement $u$: for $u>0$,
-\[
-\bigl((u \cdot t) \bmod \mathrm{SHELL\_TARGET}\bigr) < u,
-\qquad \mathrm{SHELL\_TARGET}=16384,
-\]
-sets a trigger, and the result stored in the cell is $s2B = \mathit{active} \land \mathit{trigger}$. During interactions the bit is propagated as $s2B' = s2B \land \mathit{active}$. The coincidence of \emph{active} cells whose $s2B$ bit is true forms the sieve.
-
-Because the number of cells at radius $r$ on a cubic lattice scales approximately as $r^{2}$, the radial density of active cells with $s2B$ true follows $r\cdot\sin(r)$, which is the electromagnetic coupling density (see Figure \ref{fig1}). The underlying wave amplitude per cell is $\sin(r)/r$, so the $r\cdot\sin(r)$ density is a geometric consequence of binning active $s2B$ cells over spherical shells and replaces the former static sine mask. The $s2B$ bit propagates this test between bubbles.
-
 Given the basic structure of our model, we shall now proceed to populate it with initial information.
-
-\begin{figure}
-\begin{center}
-\scalebox{0.8}{\includegraphics{fig1}}
-\end{center}
-\caption{The emergent $r\cdot\sin(r)$ wave cloud.}
-\footnotesize{The cell-by-cell wave amplitude follows $\sin(r)/r$, while the number of cells per spherical shell scales as $r^{2}$; their product gives the radial interaction density $r\cdot\sin(r)$ used for electromagnetic coupling. See Sect.~\ref{subsec:Sine} for further details.}
-\label{fig1}
-\end{figure}
 
 %%%%%%%% INITIAL STATE %%%%%%%%%%
 
@@ -476,8 +456,27 @@ The 6-neighborhood corresponds to the three Cartesian axes and is the minimal se
 \paragraph{Boundary behavior.}
 Because the lattice is a 3-torus, the BFS wraps through the periodic boundaries.  The update remains local: a step that crosses a face of the cube uses the periodic coordinate and the same $2a+1$ increment.  As long as the source center is taken modulo $L$ in each axis, the resulting $r^{2}$ is the squared distance on the torus.  Multiple source centers are handled independently, one per $W$-layer, and the BFS within each layer does not mix their fields.
 
-\subsection{The wave cloud from the seed}\label{subsec:sine-cloud}
-The cloud is generated on the fly inside each light frame.  At $t=0$ the wave field is zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$.  The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice.  As the wave propagates and the pulsating wavefront expands, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density described in Sect.~\ref{subsec:Sine}.  The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
+\subsection{The wave cloud}\label{subsec:Sine}
+
+The wave cloud is not a precomputed mask. It emerges from a discrete wave field that propagates outward from each bubble. Each cell carries a wave amplitude that evolves according to an integer-only wave equation, while a pulsating spherical wavefront marks the cells whose dynamic squared radius $r^{2}$ satisfies $|\,r^{2}-\mathrm{pulse}(t)\,|\le\mathrm{tolerance}$ as \emph{active}. The sieve bit $s2B$ is computed directly from the local displacement $u$: for $u>0$,
+\[
+\bigl((u \cdot t) \bmod \mathrm{SHELL\_TARGET}\bigr) < u,
+\qquad \mathrm{SHELL\_TARGET}=16384,
+\]
+sets a trigger, and the result stored in the cell is $s2B = \mathit{active} \land \mathit{trigger}$. During interactions the bit is propagated as $s2B' = s2B \land \mathit{active}$. The coincidence of \emph{active} cells whose $s2B$ bit is true forms the sieve.
+
+Because the number of cells at radius $r$ on a cubic lattice scales approximately as $r^{2}$, the radial density of active cells with $s2B$ true follows $r\cdot\sin(r)$, which is the electromagnetic coupling density (see Figure \ref{fig1}). The underlying wave amplitude per cell is $\sin(r)/r$, so the $r\cdot\sin(r)$ density is a geometric consequence of binning active $s2B$ cells over spherical shells and replaces the former static sine mask. The $s2B$ bit propagates this test between bubbles.
+
+The cloud is generated on the fly inside each light frame.  At $t=0$ the wave field is zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$.  The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice.  As the wave propagates and the pulsating wavefront expands, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density.  The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
+
+\begin{figure}
+\begin{center}
+\scalebox{0.8}{\includegraphics{fig1}}
+\end{center}
+\caption{The emergent $r\cdot\sin(r)$ wave cloud.}
+\footnotesize{The cell-by-cell wave amplitude follows $\sin(r)/r$, while the number of cells per spherical shell scales as $r^{2}$; their product gives the radial interaction density $r\cdot\sin(r)$ used for electromagnetic coupling.}
+\label{fig1}
+\end{figure}
 
 \subsection{Emergent polarization pair $(u,v)$}
 The polarization state is not imprinted at initialization.  Each active cell carries an integer pair $(u,v)$ that represents the transverse polarization in the plane tangent to the spherical wavefront.  The pair is recomputed locally at every tick by a purely integer rule.
