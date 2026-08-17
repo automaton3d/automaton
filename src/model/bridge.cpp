@@ -315,7 +315,7 @@ namespace sinc_overlay
         for (unsigned r = 0; r < graphSize; ++r)
             andMask[r] = (float)g_andAcc[r] / (float)maxAnd;
 
-        unsigned pulseR = (unsigned)::isqrt((int)automaton::pulse_from_time(automaton::pulse_tick));
+        unsigned pulseR = static_cast<unsigned>(std::sqrt(static_cast<double>(automaton::pulse_from_time(automaton::pulse_tick))) + 0.5);
 
         int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
         profileBufs[backIdx]     = std::move(profile);
