@@ -190,7 +190,7 @@ Groups layers into particles, facilitating the aggregation of smaller units into
 This set of variables and constants forms the mechanism for nearly perfect spherical wave propagation (with discrete constraints).
 \begin{itemize}
     \item \textbf{Dynamic squared radius ($r^{2}$)} \\
-    The squared Euclidean distance from the current wave source, propagated by BFS through the 6-neighborhood. It is $\mathrm{INF}$ before the wavefront reaches the cell.
+    The squared Euclidean distance from the current wave source, propagated by a Breadth-First Search (BFS) through the 6-neighborhood. It is $\mathrm{INF}$ before the wavefront reaches the cell.
 
     \item \textbf{Dynamic radius ($r$)} \\
     $r = \mathrm{isqrt}(r^{2})$, used in the wave equation, shell forcing, and boundary absorption.
