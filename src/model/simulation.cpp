@@ -93,9 +93,12 @@ namespace automaton
 
   void update_pulsating_wavefront()
   {
-    // Copy current r2 values into draft
+    // Copy current r2 and integer radius r into draft
     for (size_t i = 0; i < BLOCK; ++i)
+    {
         lattice_draft[i].r2 = lattice_curr[i].r2;
+        lattice_draft[i].r  = lattice_curr[i].r;
+    }
 
     for (unsigned w = 0; w < W_USED; ++w)
     {
@@ -148,7 +151,26 @@ namespace automaton
             Cell &nxt = getCell(lattice_draft, nx, ny, nz, w);
 
             if (new_r2 < nxt.r2)
+            {
                 nxt.r2 = new_r2;
+
+                // Propagate the integer radius without isqrt.
+                // Moving one 6-neighbor step changes the true radius by 0 or 1,
+                // so the new radius is either the parent's r or r+1.
+                int child_r = (curr.r < 0) ? 0 : curr.r;
+                unsigned int next_sq = (unsigned int)(child_r + 1) * (unsigned int)(child_r + 1);
+                if (new_r2 >= next_sq)
+                    child_r++;
+
+                // Tiny correction for the parent's r being one unit stale
+                // (source centers move at most one cell per light frame).
+                while (child_r > 0 && (unsigned int)new_r2 < (unsigned int)child_r * (unsigned int)child_r)
+                    child_r--;
+                while ((unsigned int)(child_r + 1) * (unsigned int)(child_r + 1) <= (unsigned int)new_r2)
+                    child_r++;
+
+                nxt.r = child_r;
+            }
         }
     }
     }
@@ -159,17 +181,16 @@ namespace automaton
         int cx = (int)lcenters[w][0];
         int cy = (int)lcenters[w][1];
         int cz = (int)lcenters[w][2];
-        getCell(lattice_draft, (unsigned)cx, (unsigned)cy, (unsigned)cz, w).r2 = 0;
+        Cell &src = getCell(lattice_draft, (unsigned)cx, (unsigned)cy, (unsigned)cz, w);
+        src.r2 = 0;
+        src.r  = 0;
     }
 
-    // Copy r2 back to curr and update integer radius
+    // Copy r2 and r back to curr; no isqrt needed.
     for (size_t i = 0; i < BLOCK; ++i)
     {
         lattice_curr[i].r2 = lattice_draft[i].r2;
-        if (lattice_curr[i].r2 == INF_R2)
-            lattice_curr[i].r = -1;
-        else
-            lattice_curr[i].r = isqrt((int)lattice_curr[i].r2);
+        lattice_curr[i].r  = lattice_draft[i].r;
     }
   }
 

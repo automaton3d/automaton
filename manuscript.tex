@@ -454,15 +454,17 @@ where $a$ is the cell's own absolute coordinate along the moved axis.  Each cell
 
 The same propagation can be understood as Dijkstra's algorithm with edge weights $(2a+1)$; because these weights are non-negative, the BFS order produces the true minima.
 
-\paragraph{From $r^{2}$ to $r$.}
-Several physical formulas require the ordinary radius $r$ rather than its square: the wave phase $(r\cdot 2R)\bmod\mathrm{phase\_full}$, the wave envelope $\sin(r)/r$, and the radial shell count used for the $r\cdot\sin(r)$ density all use $r$ directly.  Since the lattice is integer-valued, we compute
+\paragraph{From $r^{2}$ to $r$ without isqrt.}
+Several physical formulas require the ordinary radius $r$ rather than its square: the wave phase $(r\cdot 2R)\bmod\mathrm{phase\_full}$, the wave envelope $\sin(r)/r$, and the radial shell count used for the $r\cdot\sin(r)$ density all use $r$ directly.  The lattice is integer-valued, so $r$ is the largest integer not exceeding the true Euclidean distance, $r=\lfloor\sqrt{r^{2}}\rfloor$.  Rather than extracting this root with a per-cell `isqrt`, we propagate $r$ alongside $r^{2}$ during the BFS.  When a cell with radius $r$ passes the wavefront to a 6-neighbor, the neighbor's squared distance increases by $2a+1$, which changes the true radius by $0$ or $1$.  Hence the neighbor's integer radius is either $r$ or $r+1$, and the correct choice is the one that satisfies
 \[
-r=\mathrm{isqrt}(r^{2})=\lfloor\sqrt{r^{2}}\rfloor.
+(r')^{2}\le r^{2}_{\text{new}}<((r')+1)^{2}.
 \]
-This is the largest integer not exceeding the true Euclidean distance; the discretization error is at most one lattice unit and does not accumulate, because $r^{2}$ is recomputed exactly every tick.
+This test uses only integer multiplications and comparisons.  A one-step source-center motion changes any cell's radius by at most one, so a tiny correction loop around the previous $r$ is enough to keep the value exact after the source moves.
 
-\paragraph{Why not store $r$ directly?}
-One might try to update $r$ during the BFS instead of updating $r^{2}$.  However, incrementing $r$ at a cell is equivalent to detecting that $r^{2}$ has crossed the next perfect square $(r+1)^{2}$.  That detection is again a square-root test; it cannot be decided by comparing only $r^{2}$ against a constant.  Thus storing $r$ directly would not eliminate the need for an integer root extraction---it would merely embed it inside the propagation rule.  Keeping $r^{2}$ as the primary propagated field and extracting $r=\mathrm{isqrt}(r^{2})$ once per tick is the simplest exact formulation.
+The discretization error is still at most one lattice unit and does not accumulate, because $r^{2}$ is recomputed exactly every tick and the radius is re-corrected from the exact $r^{2}$.
+
+\paragraph{Why this is better than a direct isqrt.}
+Extracting $r=\mathrm{isqrt}(r^{2})$ once per cell per tick would require a bounded loop of bit operations.  By propagating $r$ together with $r^{2}$ we replace that generic root extraction by a single local square-boundary test: the parent cell already knows its own radius, and the child radius is either the same or one larger.  The source center re-anchors $r=0$ each tick, so errors cannot drift.  This keeps the FSM transition small and avoids carrying a full integer square-root routine in the inner loop.
 
 \paragraph{Why the 6-neighborhood?}
 The 6-neighborhood corresponds to the three Cartesian axes and is the minimal set of edges compatible with the discrete rotation/reflection symmetries of the cubic lattice.  Edge weights $(2a+1)$ then give the correct squared Euclidean increments for those edges.  Moves along face diagonals or body diagonals would require larger neighborhoods and non-integer corrections; the 6-neighborhood together with the squared-distance update already captures the Euclidean metric without adding extra edges.

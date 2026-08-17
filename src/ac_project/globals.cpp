@@ -61,7 +61,10 @@ namespace automaton {
                     c.x[2] = z;
                     c.x[3] = w;
                     c.r2 = (unsigned int)r2_int;
-                    c.r  = isqrt(r2_int);
+                    unsigned int r = 0;
+                    while ((r + 1u) * (r + 1u) <= c.r2)
+                        r++;
+                    c.r = (int)r;
                 }
             }
 

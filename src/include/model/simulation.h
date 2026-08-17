@@ -155,7 +155,7 @@ struct NeighborResult
       int  g[3] = {0,0,0}; // Signed displacement to antipodal
       // Pulsating sphere
       unsigned int r2;    // Squared distance from center (BFS-propagated)
-      int r;              // Integer radius isqrt(r2)
+      int r;              // Integer radius propagated/corrected from r2
       int u, v;           // Radial polarisation pair (u: in-phase, v: quadrature)
       unsigned int active; // 1 when the cell is on the pulsating wavefront
       // Spin-rev source model

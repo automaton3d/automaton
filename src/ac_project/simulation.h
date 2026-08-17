@@ -120,7 +120,7 @@ struct NeighborResult
       int  g[3] = {0,0,0}; // Signed displacement to antipodal
       // Pulsating sphere
       unsigned int r2;    // Squared distance from center (BFS-propagated)
-      int r;              // Integer radius isqrt(r2)
+      int r;              // Integer radius propagated/corrected from r2
       int u, v;           // Transverse polarisation pair
       unsigned int active; // 1 if cell is on the current pulse wavefront
       // Default constructor

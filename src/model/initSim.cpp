@@ -93,7 +93,10 @@ void initGeneral()
                     
                     // Initialize r2 (squared distance from center, integer only)
                     cell.r2 = dist_r2;
-                    cell.r  = isqrt((int)dist_r2);
+                    unsigned int r = 0;
+                    while ((uint32_t)(r + 1u) * (uint32_t)(r + 1u) <= dist_r2)
+                        r++;
+                    cell.r = (int)r;
                     cell.u = 0;
                     cell.v = 0;
                     if (cell.r == 0)

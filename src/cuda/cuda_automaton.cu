@@ -265,7 +265,18 @@ static __device__ inline void dev_phase_step_cell(
     int r2_int = dx*dx + dy*dy + dz*dz;
     if (r2_int < 0) r2_int = 0;
     c.r2 = (uint32_t)r2_int;
-    c.r  = dev_isqrt(r2_int);
+
+    // Update integer radius from exact r^2 without isqrt.
+    // Source centers move at most one cell per frame, so the previous r
+    // is an excellent starting estimate; correct it with at most a few
+    // square comparisons.
+    int r = c.r;
+    if (r < 0) r = 0;
+    while (r > 0 && (uint32_t)r * (uint32_t)r > c.r2)
+        r--;
+    while ((uint32_t)(r + 1) * (uint32_t)(r + 1) <= c.r2)
+        r++;
+    c.r = r;
 
     // Wave parameters (same scaling as the former SincWave test).
     int R = (dev_RMAX > 0u) ? (int)dev_RMAX : 1;

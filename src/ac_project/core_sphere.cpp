@@ -84,7 +84,16 @@ void sphere_phase_step() {
         int r2_int = dx*dx + dy*dy + dz*dz;
         if (r2_int < 0) r2_int = 0;
         c.r2 = (unsigned int)r2_int;
-        c.r  = isqrt(r2_int);
+
+        // Update integer radius from exact r^2 without isqrt.
+        // The previous radius is an excellent starting estimate.
+        int r = c.r;
+        if (r < 0) r = 0;
+        while (r > 0 && (unsigned int)r * (unsigned int)r > c.r2)
+            r--;
+        while ((unsigned int)(r + 1) * (unsigned int)(r + 1) <= c.r2)
+            r++;
+        c.r = r;
 
         unsigned int pulse_r2 = pulse_from_time(c.t);
         c.active = (c.r2 == pulse_r2) ? 1u : 0u;
