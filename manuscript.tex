@@ -193,7 +193,7 @@ This set of variables and constants forms the mechanism for nearly perfect spher
     The squared Euclidean distance from the current wave source, propagated by a Breadth-First Search (BFS) through the 6-neighborhood. It is $\mathrm{INF}$ before the wavefront reaches the cell.
 
     \item \textbf{Dynamic radius ($r$)} \\
-    $r = \mathrm{isqrt}(r^{2})$, used in the wave equation, shell forcing, and boundary absorption.
+    $r$ is the integer radius propagated alongside $r^{2}$ during the 6-neighbor BFS and corrected by local square-boundary tests; it is used in the wave equation, shell forcing, and boundary absorption.
 
     \item \textbf{Wavefront active ($\mathit{active}$)} \\
     This bit is true when the cell currently lies on the pulsating spherical wavefront. It is computed each tick by comparing the cell's dynamic squared radius $r^{2}$ with the pulse phase; it is not precomputed.
