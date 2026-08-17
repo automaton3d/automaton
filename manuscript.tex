@@ -432,8 +432,43 @@ Before the dynamic patterns---the vectors $\boldsymbol{m}$, the charge islands, 
 
 Once the Platonic seed is fixed, the first CA ticks generate the wavefront geometry that feeds the light-frame FSM.  The subsections below describe those emergent fields; they are not additional initialization steps.
 
-\subsection{Dynamic radius}
-The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice center.  The squared radius $r^{2}$ and the radius $r$ then propagate dynamically by BFS through the 6-neighborhood from those centers.
+\subsection{Dynamic radius and the Euclidean metric}
+
+The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice center.  From each source, the wavefront expands as a sphere in the cubic lattice, so we need a local, integer-valued approximation of the Euclidean distance from every cell to its source.
+
+\paragraph{Squared distance by BFS.}
+Let the source have integer coordinates $(c_{x},c_{y},c_{z})$ and let $(x,y,z)$ be the cell coordinates, all taken modulo $L$ along each axis of the 3-torus.  The exact squared Euclidean distance is
+\[
+r^{2}=(x-c_{x})^{2}+(y-c_{y})^{2}+(z-c_{z})^{2}.
+\]
+
+In the 6-neighborhood (axis-aligned moves only), an outward step along the axis with absolute offset $a$ from the source changes $r^{2}$ by
+\[
+\Delta r^{2}=(a+1)^{2}-a^{2}=2a+1.
+\]
+Therefore the BFS update is purely local:
+\[
+r^{2}_{\text{new}}=r^{2}_{\text{old}}+2a+1,
+\]
+where $a$ is the cell's own absolute coordinate along the moved axis.  Each cell needs only its stored $r^{2}$ and its absolute offset from the source, both integers.  After one sweep, every cell holds the exact squared Euclidean distance to the nearest source center.  Before the wavefront reaches a cell, $r^{2}=\mathrm{INF}$.
+
+The same propagation can be understood as Dijkstra's algorithm with edge weights $(2a+1)$; because these weights are non-negative, the BFS order produces the true minima.
+
+\paragraph{From $r^{2}$ to $r$.}
+Several physical formulas require the ordinary radius $r$ rather than its square: the wave phase $(r\cdot 2R)\bmod\mathrm{phase\_full}$, the wave envelope $\sin(r)/r$, and the radial shell count used for the $r\cdot\sin(r)$ density all use $r$ directly.  Since the lattice is integer-valued, we compute
+\[
+r=\mathrm{isqrt}(r^{2})=\lfloor\sqrt{r^{2}}\rfloor.
+\]
+This is the largest integer not exceeding the true Euclidean distance; the discretization error is at most one lattice unit and does not accumulate, because $r^{2}$ is recomputed exactly every tick.
+
+\paragraph{Why not store $r$ directly?}
+One might try to update $r$ during the BFS instead of updating $r^{2}$.  However, incrementing $r$ at a cell is equivalent to detecting that $r^{2}$ has crossed the next perfect square $(r+1)^{2}$.  That detection is again a square-root test; it cannot be decided by comparing only $r^{2}$ against a constant.  Thus storing $r$ directly would not eliminate the need for an integer root extraction---it would merely embed it inside the propagation rule.  Keeping $r^{2}$ as the primary propagated field and extracting $r=\mathrm{isqrt}(r^{2})$ once per tick is the simplest exact formulation.
+
+\paragraph{Why the 6-neighborhood?}
+The 6-neighborhood corresponds to the three Cartesian axes and is the minimal set of edges compatible with the discrete rotation/reflection symmetries of the cubic lattice.  Edge weights $(2a+1)$ then give the correct squared Euclidean increments for those edges.  Moves along face diagonals or body diagonals would require larger neighborhoods and non-integer corrections; the 6-neighborhood together with the squared-distance update already captures the Euclidean metric without adding extra edges.
+
+\paragraph{Boundary behavior.}
+Because the lattice is a 3-torus, the BFS wraps through the periodic boundaries.  The update remains local: a step that crosses a face of the cube uses the periodic coordinate and the same $2a+1$ increment.  As long as the source center is taken modulo $L$ in each axis, the resulting $r^{2}$ is the squared distance on the torus.  Multiple source centers are handled independently, one per $W$-layer, and the BFS within each layer does not mix their fields.
 
 \subsection{The wave cloud from the seed}\label{subsec:sine-cloud}
 The cloud is generated on the fly inside each light frame.  At $t=0$ the wave field is zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$.  The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice.  As the wave propagates and the pulsating wavefront expands, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density described in Sect.~\ref{subsec:Sine}.  The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
