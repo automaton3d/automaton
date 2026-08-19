@@ -779,18 +779,14 @@ When the relocation is complete, bubble variables are prepared for the next cycl
 If the time frame completes, the $k$ counter resets to zero, preparing the system for the next iteration.  
 At the conclusion of the process, all $\boldsymbol{c}$ vectors will have a null value.
 
-A bubble can only be relocated to a point on its active surface. 
-This guarantees that the speed of light will never be violated. 
+A propeller ($P$) can only be relocated to a point on its active surface. In a $P \times K$, $P \times D$ or $P \times S$ interaction, the $P$ source is reissued from the active contact cell where the two wavefronts overlap; this contact point is already reached at the speed of light, so no superluminal signal is required.
 
-Inertia is acquired by an inertial transport mechanism. 
-When two bubbles with the same affinity interact, the momentum direction $\boldsymbol{m}$ of the active bubble is added to the partner's relocation impulse $\boldsymbol{\mathit{reloc}}$; during the next light step the source center is shifted by $\boldsymbol{\mathit{reloc}}$, while $\boldsymbol{m}$ remains a stable property of the bubble. 
-One bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
+Inertia is acquired by an inertial-transport mechanism. The propeller transfers its stable momentum direction $\boldsymbol{m}$ to the partner's consumable relocation impulse $\boldsymbol{\mathit{reloc}}$; during the next light step the partner's source center is shifted by $\boldsymbol{\mathit{reloc}}$, while its long-term $\boldsymbol{m}$ is preserved and updated by \texttt{applyMomentum()}.
+The $P$ source itself is reissued from the contact point; the partner ($K$, $D$ or $S$) keeps its source kind but receives the impulse.
 
-The propeller (see Sect. \ref{subsubsec:propeller}) naturally emerges as a pair to avoid static interaction. 
-It represents a fragment of a photon or of a graviton, where the pair exhibits symmetric charges. 
-This symmetry effectively bypasses the priority of interactions mediated by forces such as the Coulomb force. 
+Non-propeller pairs behave differently: in $K \times K$ or $D \times D$ between different tribes the source centers move one light-step away from each other, exchanging momentum through $\boldsymbol{\mathit{reloc}}$.
 
-Furthermore, when a photon blob interacts in this manner—acting as a propeller, a specific pair detaches from the photon to become a distinct propeller.
+The propeller (Sect.~\ref{subsubsec:propeller}) is a pair ($P$) that acts as a carrier of momentum. Free photon or graviton pairs may become propellers through the same $P$ source mechanism, but during interaction the source kind $P$ is treated as a single relocating source whose momentum is transferred to the non-$P$ partner.
 
 \subsection{Annihilation and collapse}
 
