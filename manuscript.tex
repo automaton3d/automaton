@@ -146,8 +146,7 @@ Rather than representing an additional physical direction or a momentum space, t
  in \(\mathbb{T}^3\), the internal dynamics continuously modifies the pairing relationships among bubbles.
 
 The internal organization in \(W\) is essential for the continuous dissociation and reconstruction of collective structures. Stable 
-three-dimensional particles emerge as coherent islands whose constituent bubbles remain simultaneously correlated in physical space and 
-in the internal dimension. During scattering or annihilation events these islands may completely dissolve into individual bubbles, which 
+three-dimensional particles emerge as coherent islands whose constituent bubbles remain correlated in physical space. During scattering or annihilation events these islands may completely dissolve into individual bubbles, which 
 subsequently reorganize through new pairing processes, allowing new collective structures to emerge while conserving the total bubble 
 population.
 
@@ -414,13 +413,13 @@ Before the dynamic patterns---the vectors $\boldsymbol{m}$, the charge islands, 
 
 \section{Phase step and emergent wave fields}\label{sec:phase-step}
 
-Once the Platonic seed is fixed, the first CA ticks generate the wavefront geometry that feeds the light-frame FSM.  The subsections below describe those emergent fields; they are not additional initialization steps.
+Once the Platonic seed is fixed, the first CA ticks generate the wavefront geometry that feeds the light-frame FSM.  The subsections below describe those emergent fields.
 
 \subsection{Dynamic radius and the Euclidean metric}
 
 The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice center.  From each source, the wavefront expands as a sphere in the cubic lattice, so we need a local, integer-valued approximation of the Euclidean distance from every cell to its source.
 
-\paragraph{CaRaSh-style squared-distance update.}
+\paragraph{Squared-distance update.}
 Let the source have integer coordinates $(c_{x},c_{y},c_{z})$ and let $(x,y,z)$ be the cell coordinates, all taken modulo $L$ along each axis of the 3-torus.  The exact squared Euclidean distance is
 \[
 r^{2}=(x-c_{x})^{2}+(y-c_{y})^{2}+(z-c_{z})^{2}.
@@ -752,7 +751,7 @@ At the same time, the relocation vector $\mathbf{c}$ diffuses through the layer:
 
 \end{tikzpicture}
 \end{center}
-\caption{The Diffusion phase is composed of several time slots.}
+\caption{The Diffusion phase is composed of several time slots. It spreads all information necessary for relocation.}
 \label{fig:diffusion}
 \end{figure}
 
