@@ -78,7 +78,6 @@ namespace automaton
     extern unsigned FLOOD;
 
     extern std::vector<Cell> lattice_curr;
-    extern unsigned int pulse_tick;
     extern std::vector<std::array<unsigned, 3>> lcenters;
 }
 
@@ -315,7 +314,10 @@ namespace sinc_overlay
         for (unsigned r = 0; r < graphSize; ++r)
             andMask[r] = (float)g_andAcc[r] / (float)maxAnd;
 
-        unsigned pulseR = static_cast<unsigned>(std::sqrt(static_cast<double>(automaton::pulse_from_time(automaton::pulse_tick))) + 0.5);
+        // The displayed radius follows the local light-frame clock of the selected
+        // source centre, which advances one cell per light frame.
+        const Cell& centreCell = automaton::getCell(automaton::lattice_curr, cx, cy, cz, selectedW);
+        unsigned pulseR = automaton::effective_t(centreCell.t);
 
         int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
         profileBufs[backIdx]     = std::move(profile);

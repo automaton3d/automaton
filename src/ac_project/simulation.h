@@ -238,30 +238,15 @@ struct NeighborResult
   extern unsigned REISSUE;
   extern unsigned FLOOD;
   extern unsigned FRAME;
-  extern unsigned int pulse_tick;
 
   #define INF_R2 0xFFFFFFFFu
 
-  // Pulsating sphere threshold (triangle wave on r²)
-  inline unsigned int pulse_from_time(unsigned int t)
-  {
-      const unsigned int min_r2 = 0;
-      const unsigned int max_r2 = (unsigned int)(RMAX * RMAX * 0.92);
-      const unsigned int step = 1;
-      unsigned int span = max_r2 - min_r2;
-      if (span == 0) return min_r2;
-      unsigned int period = 2 * span;
-      unsigned int phase = (t * step) % period;
-      if (phase < span)
-          return min_r2 + phase;
-      else
-          return max_r2 - (phase - span);
-  }
-
   void update_pulsating_wavefront();
 
-  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0)
-  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX
+  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0).
+  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX.
+  // This is the local, constant-speed light-clock: a cell is on the active
+  // shell exactly when its propagated integer radius r equals this value.
   inline unsigned effective_t(unsigned t)
   {
       unsigned cycle = 2 * RMAX;

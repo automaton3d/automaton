@@ -297,45 +297,17 @@ struct NeighborResult
 
   #define INF_R2 0xFFFFFFFFu
 
-  // Pulsating sphere threshold (triangle wave on r²), matching sine2/pulsating.h
-  inline unsigned int pulse_from_time(unsigned int t)
-  {
-      const unsigned int max_r2 = (RMAX * RMAX * 92u) / 100u;
-      const unsigned int step = (EL + 15u) / 30u;
-      if (step == 0) return 0;
-      unsigned int span = max_r2;
-      if (span == 0) return 0;
-      unsigned int period = 2 * span;
-      unsigned int phase = (t * step) % period;
-      if (phase < span)
-          return phase;
-      else
-          return max_r2 - (phase - span);
-  }
-
   void update_pulsating_wavefront();
 
-  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0)
-  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX
+  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0).
+  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX.
+  // This is the local, constant-speed light-clock: a cell is on the active
+  // shell exactly when its propagated integer radius r equals this value.
   inline unsigned effective_t(unsigned t)
   {
       unsigned cycle = 2 * RMAX;
       unsigned phase = t % cycle;
       if (phase <= RMAX)
-          return phase;
-      else
-          return cycle - phase;
-  }
-
-  // Active pulse radius used by the (u,v) wave update.  It is kept a few
-  // cells inside the processed radius R so the wavefront still carries
-  // amplitude when it reaches the absorbing boundary.
-  inline unsigned pulse_radius(unsigned t)
-  {
-      unsigned pulse_max = (RMAX > 3) ? (RMAX - 3) : 1;
-      unsigned cycle = 2 * pulse_max;
-      unsigned phase = t % cycle;
-      if (phase <= pulse_max)
           return phase;
       else
           return cycle - phase;

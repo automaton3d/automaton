@@ -95,8 +95,9 @@ void sphere_phase_step() {
             r++;
         c.r = r;
 
-        unsigned int pulse_r2 = pulse_from_time(c.t);
-        c.active = (c.r2 == pulse_r2) ? 1u : 0u;
+        // Active shell: integer radius equals the local light-frame radius.
+        unsigned int pulseR = effective_t(c.t);
+        c.active = (c.r == (int)pulseR) ? 1u : 0u;
 
         if (c.r < 0 || c.r > (int)RMAX) {
             c.u = 0;

@@ -203,22 +203,6 @@ static __device__ inline unsigned dev_effective_t(unsigned t) {
     return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
 }
 
-// Device helper: pulsating sphere threshold (triangle wave on r²)
-// Matches sine2/pulsating.h: max_r2 = 0.92 * R_MAX^2, step = (L+15)/30.
-static __device__ inline unsigned dev_pulse_from_time(unsigned t) {
-    const unsigned max_r2 = (dev_RMAX * dev_RMAX * 92u) / 100u;
-    const unsigned step = (dev_EL + 15u) / 30u;
-    if (step == 0) return 0;
-    unsigned span = max_r2;
-    if (span == 0) return 0;
-    unsigned period = 2 * span;
-    unsigned phase = (t * step) % period;
-    if (phase < span)
-        return phase;
-    else
-        return max_r2 - (phase - span);
-}
-
 // Device integer square root (table-free)
 static __device__ inline int dev_isqrt(int n)
 {
@@ -295,11 +279,11 @@ static __device__ inline void dev_phase_step_cell(
     const int DIFF_SHIFT = 4;
     const int SHELL_TARGET = 16384;
 
-    unsigned int pulseR2 = dev_pulse_from_time(pulse_tick);
-    unsigned int pulseTol = (dev_EL * dev_EL + 150u) / 300u;
-    if (pulseTol == 0u) pulseTol = 1u;
-    unsigned int r2diff = (c.r2 > pulseR2) ? (c.r2 - pulseR2) : (pulseR2 - c.r2);
-    bool active = (c.r2 != 0xFFFFFFFFu && r2diff <= pulseTol);
+    // Active wavefront: shell of integer radius pulseR moving at one cell per
+    // light frame.  c.r is corrected by square-boundary tests above, so no
+    // sqrt/isqrt is needed here.
+    unsigned int pulseR = dev_effective_t(c.t);
+    bool active = (c.r2 != 0xFFFFFFFFu && c.r >= 0 && c.r == (int)pulseR);
 
     // Hard zero on spatial boundaries and outside the processed sphere,
     // except for the source-center cell (r2 == 0) which may sit on a face.
@@ -1242,7 +1226,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 draft.a = dev_W_USED;
                 draft.leader_w = DEV_NO_LEADER_W;
             }
-            // Hunting using hB (matches CPU: pulse_from_time condition, no modulo on c[])
+            // Hunting using hB (matches CPU: active wavefront condition)
             if (curr.active) {
                 if (north.hB) { draft.c[0] = north.c[0] + 1; curr.sB = !draft.hB; }
                 else if (west.hB)  { draft.c[1] = west.c[1] + 1; curr.sB = !draft.hB; }

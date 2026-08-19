@@ -13,7 +13,7 @@
  *
  * Common gate condition (scenarios 1-5):
  *   curr.active                  — cell is on the active wavefront
- *   pulse_from_time(t) == (RMAX/2)²  — wavefront is at mid-radius
+ *   effective_t(curr.t) == RMAX / 2  — wavefront is at mid-radius
  *   x[3] == 0                 — only layer 0 (w = 0)
  *   ctrl                      — fire-once flag (prevents re-triggering)
  */

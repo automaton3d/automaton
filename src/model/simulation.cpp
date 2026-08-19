@@ -88,7 +88,12 @@ namespace automaton
   }
 
   // ============================================================
-  // PULSATING SPHERE — BFS WAVEFRONT PROPAGATION
+  // DISTANCE-FIELD UPDATE — CaRaSh-style incremental r²/r update
+  // ============================================================
+  // Maintains the integer radius r and squared radius r² from each layer's
+  // moving source center using only additions and square-boundary tests.
+  // The active wavefront is scheduled in phase_step by comparing r with
+  // effective_t(t), so no sqrt/isqrt is needed here.
   // ============================================================
 
   void update_pulsating_wavefront()
@@ -223,10 +228,6 @@ namespace automaton
     int ELi = (int)EL;
     int Wi  = (int)W_USED;
 
-    unsigned int pulseR2 = pulse_from_time(pulse_tick);
-    unsigned int pulseTol = (EL * EL + 150u) / 300u;
-    if (pulseTol < 1u) pulseTol = 1u;
-
     // First pass: compute next (u,v) and active/pB/sB into lattice_draft.
     for (int x = 0; x < ELi; ++x)
     for (int y = 0; y < ELi; ++y)
@@ -239,8 +240,11 @@ namespace automaton
         // Start from the current CA state and overwrite only the (u,v) wave fields.
         d = c;
 
-        unsigned int r2diff = (c.r2 > pulseR2) ? (c.r2 - pulseR2) : (pulseR2 - c.r2);
-        bool active = (c.r2 != INF_R2 && r2diff <= pulseTol);
+        // Active wavefront: shell of integer radius pulseR moving at one cell per
+        // light frame.  c.r is propagated/corrected by square-boundary tests in
+        // update_pulsating_wavefront, so no sqrt or isqrt is needed here.
+        int pulseR = (int)effective_t(c.t);
+        bool active = (c.r2 != INF_R2 && c.r >= 0 && c.r == pulseR);
 
         // Hard zero on spatial boundaries and outside the processed sphere,
         // except for the source-center cell (r2 == 0) which may sit on a face.
@@ -504,11 +508,13 @@ namespace automaton
 
   void update_lattice_cpu()
   {
-    // Phase 1: BFS propagation of r2 (replaces ad-hoc d initialization)
+    // Phase 1: CaRaSh-style incremental distance field (r2/r) from each
+    // moving source center using only additions and square comparisons.
     update_pulsating_wavefront();
     pulse_tick++;
 
-    // Phase 2: radial polarisation pair (u,v) and active wavefront flag
+    // Phase 2: radial polarisation pair (u,v) and active wavefront flag.
+    // The active shell is c.r == effective_t(c.t): one cell per light frame.
     phase_step();
 
     // The phase output is in lattice_draft.  Promote it to the live state so
