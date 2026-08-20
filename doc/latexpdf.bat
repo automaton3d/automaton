@@ -1,4 +1,4 @@
-cd /d E:\automaton
+cd /d E:\automaton\doc
 git fetch origin
 git reset --hard origin/devin/polar-phase
 git clean -fd
