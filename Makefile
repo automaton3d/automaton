@@ -56,7 +56,6 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\text_renderer.obj \
 	$(OBJ_DIR)\tickbox.obj \
 	$(OBJ_DIR)\tomography.obj \
-	$(OBJ_DIR)\convolutes.obj \
 	$(OBJ_DIR)\initSim.obj \
 	$(OBJ_DIR)\interaction.obj \
 	$(OBJ_DIR)\simulation.obj \
@@ -317,9 +316,6 @@ $(OBJ_DIR)\tomography.obj: src\tomography.cpp src\include\tomography.h
 	$(CC) $(CFLAGS) /c src\tomography.cpp /Fo$(OBJ_DIR)\tomography.obj
 
 # --- Model ---
-$(OBJ_DIR)\convolutes.obj: src\model\convolutes.cpp src\include\model\simulation.h
-	$(CC) $(CFLAGS) /c src\model\convolutes.cpp /Fo$(OBJ_DIR)\convolutes.obj
-
 $(OBJ_DIR)\initSim.obj: src\model\initSim.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\initSim.cpp /Fo$(OBJ_DIR)\initSim.obj
 

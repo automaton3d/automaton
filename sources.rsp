@@ -36,7 +36,6 @@ src/tickbox.cpp
 src/tomography.cpp 
 src/tinyfiledialogs.c 
 src/model/bridge.cpp 
-src/model/convolutes.cpp 
 src/model/debug.cpp 
 src/model/initSim.cpp 
 src/model/interaction.cpp 
