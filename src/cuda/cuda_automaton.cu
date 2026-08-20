@@ -301,7 +301,6 @@ static __device__ inline void dev_phase_step_cell(
 
     int u = c.u;
     int v = c.v;
-    int r = c.r;
 
     int neighbors_u = 0;
     if (x + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x + 1, (int)y, (int)z, (int)w).u;
