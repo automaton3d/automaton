@@ -109,13 +109,15 @@ INCLUDES_MSVC = \
 	/I"src\include" \
 	/I"src\include\zlib" \
 	/I"src" \
-	/I"$(VCPKG_ROOT)/include"
+	/I"$(VCPKG_ROOT)/include" \
+	/I"$(VCPKG_ROOT)/include/freetype2"
 
 INCLUDES_NVCC = \
 	-I"src\include" \
 	-I"src\include\zlib" \
 	-I"src" \
 	-I"$(VCPKG_ROOT)/include" \
+	-I"$(VCPKG_ROOT)/include/freetype2" \
 	-I"src\include\zlib\cuda" \
 	-I"src\cuda"
 
