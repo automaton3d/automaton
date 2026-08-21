@@ -189,7 +189,7 @@ Groups layers into particles, facilitating the aggregation of smaller units into
 This set of variables and constants forms the mechanism for nearly perfect spherical wave propagation (with discrete constraints).
 \begin{itemize}
     \item \textbf{Dynamic squared radius ($r^{2}$)} \\
-    The squared Euclidean distance from the current wave source, updated locally by a CaRaSh-style incremental rule through the 6-neighborhood. It is $\mathrm{INF}$ before the wavefront reaches the cell.
+    The squared Euclidean distance from the current wave source, updated locally by an incremental rule through the 6-neighborhood. It is $\mathrm{INF}$ before the wavefront reaches the cell.
 
     \item \textbf{Dynamic radius ($r$)} \\
     $r$ is the integer radius propagated alongside $r^{2}$ and corrected by local square-boundary tests; it is used in the wave equation, shell forcing, and boundary absorption.
@@ -210,11 +210,11 @@ The wave phase $f$ and the wavefront tick $t$ advance together; the test produce
  
 \subsubsection{Operational variables}
 
-The model performs operations---relocation, convolution, and wavefront propagation---that must be coordinated across the lattice and therefore may appear nonlocal. Such coordination is supported by the distinction between two clocks. The housekeeping tick $k$ is incremented synchronously in every cell (all cells share the same value) and therefore acts as an atemporal, global phase clock for the FSM. The wavefront tick $t$, on the other hand, is a local physical clock: it is reset at each source and may differ across layers and regions, carrying the actual light-step evolution. The interplay between the common $k$ and the local $t$ is what allows the framework to schedule seemingly nonlocal processes without introducing any superluminal signal.
+The model performs operations---translation, convolution, and wavefront propagation---that must be coordinated across the lattice and therefore may appear nonlocal. Such coordination is supported by the distinction between two clocks. The housekeeping tick $k$ is incremented synchronously in every cell (all cells share the same value) and therefore acts as an atemporal, global phase clock for the FSM. The wavefront tick $t$, on the other hand, is a local physical clock: it is reset at each source and may differ across layers and regions, carrying the actual light-step evolution. The interplay between the common $k$ and the local $t$ is what allows the framework to schedule seemingly nonlocal processes without introducing any superluminal signal.
 
-The variables defined below are the essential components of this two-clock scheme, managing the dynamics of relocation (this massive shift of data inside a layer is considered in Sect. \ref{subsec:relocation}), convolution (see Sect. \ref{subsec:convolution}), and wavefront propagation.
+The variables defined below are the essential components of this two-clock scheme, managing the dynamics of translation (this massive shift of data inside a layer is considered in Sect. \ref{subsec:translation}), convolution (see Sect. \ref{subsec:convolution}), and wavefront propagation.
 \begin{itemize}
-    \item \textbf{Relocation offset} ($\textbf{c}$)\\
+    \item \textbf{translation offset} ($\textbf{c}$)\\
  This integer vector determines the reissue address, guiding the position where an element is reallocated within the system. This variable controls the adjustment needed to realign or reposition bubbles in the lattice. The displacements follow the general rule
  \[
 d_i = (t_i - c_i + L) \bmod L,
@@ -288,11 +288,11 @@ wave phase & DN & $f$ & local wave phase; the sieve bit $s2B$ is computed from $
 \hline 
 \multicolumn{4}{|c|}{\textbf{Operational variables}}\tabularnewline
 \hline 
-relocation offset & V & \textbf{\emph{c}} & determines reissue address\tabularnewline
+translation offset & V & \textbf{\emph{c}} & determines reissue address\tabularnewline
 \hline
 momentum vector & V & $\boldsymbol{m}$ & stable direction of the bubble's momentum (six Cartesian directions, one per layer)\tabularnewline
 \hline
-relocation impulse & V & $\boldsymbol{\mathit{reloc}}$ & signed displacement applied to the source center after interaction; consumed in one light step\tabularnewline
+translation impulse & V & $\boldsymbol{\mathit{reloc}}$ & signed displacement applied to the source center after interaction; consumed in one light step\tabularnewline
 \hline
 housekeeping tick & DN & $k$ & timeless clocking\tabularnewline
 \hline 
@@ -336,7 +336,7 @@ Consequently, the model is not scale-invariant, but it is an $L$-parameterized f
 The distance between cells along the three spatial axes corresponds to the fundamental quantity $X$ in the real world (calculated in Appendix \ref{sec:Calculation-of-X}).
 
 The three lattices mentioned above are referred to as \textit{main}, \textit{draft}, and \textit{mirror}. 
-The main lattice is the current lattice used in interactions; draft is the modified data; and mirror is used in comparisons of information in different $W  $ addresses, it is just a snapshot for comparison - it doesn't evolve during the diffusion/relocation phases. 
+The main lattice is the current lattice used in interactions; draft is the modified data; and mirror is used in comparisons of information in different $W  $ addresses, it is just a snapshot for comparison - it doesn't evolve during the diffusion/translation phases. 
 A cell is capable of modifying its own draft cell, but not itself.
 
 The cell bit string, together with the inter-cell rules/gates, forms the basic ontological object in this model.
@@ -395,7 +395,7 @@ Among the many possible choices, we select the following deterministic Platonic 
   \item The affinity $a$ and the auxiliary leader identity $\mathit{leader\_w}$ are initialized to the island index of the $W$-island to which $w$ belongs (Sect.~\ref{subsec:w-islands}).  A true chief ($K$) emerges later through convolution, as described in Section~\ref{sec:dynamic-charge-quantization}.
   \item The housekeeping counter $k$ and the wavefront counter $t$ are set to zero; the contraction/phase vectors $\mathbf{c}$ are zero and $s2B$ is reset.
   \item The momentum-direction vector $\boldsymbol{m}$ is assigned a fixed unit step along one Cartesian axis.  Consecutive layers share the same axis and receive opposite signs according to the electric charge bit $q_{i}=w_{1}^{i}\oplus w_{0}^{i}$, so that $q=1$ points in the positive direction and $q=0$ in the negative direction.  With $W=3L^{2}$ and $L$ odd, this leaves the most perfect antipodal balance possible.
-  \item The consumable relocation impulse $\mathit{reloc}$ is zero.
+  \item The consumable translation impulse $\mathit{reloc}$ is zero.
   \item The wavefront data are seeded only at the source centers: $u=v=0$ and $r^{2}=0$, with a fixed amplitude $U_{0}$; all other cells have $r^{2}=\mathrm{INF}$ and $u=v=0$.
 \end{itemize}
 
@@ -437,17 +437,41 @@ where $a$ is the cell's own absolute coordinate along the moved axis.  Each cell
 
 The same propagation can be understood as Dijkstra's algorithm with edge weights $(2a+1)$; because these weights are non-negative, the local relaxation produces the true minima.
 
-\paragraph{From $r^{2}$ to $r$ without isqrt.}
-Several physical formulas require the ordinary radius $r$ rather than its square: the wave phase $(r\cdot 2R)\bmod\mathrm{phase\_full}$, the wave envelope $\sin(r)/r$, and the radial shell count used for the $r\cdot\sin(r)$ density all use $r$ directly.  The lattice is integer-valued, so $r$ is the largest integer not exceeding the true Euclidean distance, $r=\lfloor\sqrt{r^{2}}\rfloor$.  Rather than extracting this root with a per-cell `isqrt`, we propagate $r$ alongside $r^{2}$.  When a cell with radius $r$ passes the wavefront to a 6-neighbor, the neighbor's squared distance increases by $2a+1$, which changes the true radius by $0$ or $1$.  Hence the neighbor's integer radius is either $r$ or $r+1$, and the correct choice is the one that satisfies
+\paragraph{Radius correction method}
+Several physical formulas require the ordinary radius $r$ rather than its square: 
+the wave phase $(r\cdot 2R)\bmod\mathrm{phase\_full}$, 
+the wave envelope $\sin(r)/r$, 
+and the radial shell count used for the $r\cdot\sin(r)$ density all use $r$ directly. 
+The lattice is integer-valued, so $r$ is the largest integer not exceeding the true Euclidean distance, 
+$r=\lfloor\sqrt{r^{2}}\rfloor$. 
+We propagate $r$ alongside $r^{2}$. 
+When a cell with radius $r$ passes the wavefront to a 6-neighbor, 
+the neighbor's squared distance increases by $2a+1$, 
+which changes the true radius by $0$ or $1$. 
+Hence the neighbor's integer radius is either $r$ or $r+1$, 
+and the correct choice is the one that satisfies
+
+
 \[
 (r')^{2}\le r^{2}_{\text{new}}<((r')+1)^{2}.
 \]
-This test uses only integer additions and comparisons.  A one-step source-center motion changes any cell's radius by at most one, so a tiny correction loop around the previous $r$ is enough to keep the value exact after the source moves.
 
-The discretization error is at most one lattice unit and does not accumulate, because $r^{2}$ is re-anchored by the source center each sweep and the radius is re-corrected from the exact $r^{2}$.
 
-\paragraph{Why this is better than a direct isqrt.}
-Extracting $r=\mathrm{isqrt}(r^{2})$ once per cell per tick would require a bounded loop of bit operations.  By propagating $r$ together with $r^{2}$ we replace that generic root extraction by a single local square-boundary test: the parent cell already knows its own radius, and the child radius is either the same or one larger.  The source center re-anchors $r=0$ each sweep, so errors cannot drift.  This keeps the FSM transition small and avoids carrying a full integer square-root routine in the inner loop.
+This test uses only integer additions and comparisons. 
+A one-step source-center motion changes any cell's radius by at most one, 
+so a tiny correction loop around the previous $r$ is enough to keep the value exact after the source moves.
+
+The discretization error is at most one lattice unit and does not accumulate, 
+because $r^{2}$ is re-anchored by the source center each sweep 
+and the radius is re-corrected from the exact $r^{2}$.
+
+\paragraph{Efficiency of the method}
+Extracting $r$ once per cell per tick would require a bounded loop of bit operations. 
+By propagating $r$ together with $r^{2}$ we replace that generic root extraction 
+by a single local square-boundary test: the parent cell already knows its own radius, 
+and the child radius is either the same or one larger. 
+The source center re-anchors $r=0$ each sweep, so errors cannot drift. 
+This keeps the FSM transition small and avoids carrying a full integer square-root routine in the inner loop.
 
 \paragraph{Why the 6-neighborhood?}
 The 6-neighborhood corresponds to the three Cartesian axes and is the minimal set of edges compatible with the discrete rotation/reflection symmetries of the cubic lattice.  Edge weights $(2a+1)$ then give the correct squared Euclidean increments for those edges.  Moves along face diagonals or body diagonals would require larger neighborhoods and non-integer corrections; the 6-neighborhood together with the squared-distance update already captures the Euclidean metric without adding extra edges.
@@ -464,7 +488,7 @@ The wave cloud is not a precomputed mask. It emerges from a discrete wave field 
 \]
 sets a trigger, and the result stored in the cell is $s2B = \mathit{active} \land \mathit{trigger}$. During interactions the bit is propagated as $s2B' = s2B \land \mathit{active}$. The coincidence of \emph{active} cells whose $s2B$ bit is true forms the sieve.
 
-Because the number of cells at radius $r$ on a cubic lattice scales approximately as $r^{2}$, the radial density of active cells with $s2B$ true follows $r\cdot\sin(r)$, which is the electromagnetic coupling density (see Figure \ref{fig1}). The underlying wave amplitude per cell is $\sin(r)/r$, so the $r\cdot\sin(r)$ density is a geometric consequence of binning active $s2B$ cells over spherical shells and replaces the former static sine mask. The $s2B$ bit propagates this test between bubbles.
+Because the number of cells at radius $r$ on a cubic lattice scales approximately as $r^{2}$, the radial density of active cells with $s2B$ true follows $r\cdot\sin(r)$, which is the electromagnetic coupling density (see Figure \ref{fig1}). The underlying wave amplitude per cell is $\sin(r)/r$, so the $r\cdot\sin(r)$ density is a geometric consequence of binning active $s2B$ cells over spherical shells. The $s2B$ bit propagates this test between bubbles.
 
 The cloud is generated on the fly inside each light frame.  At $t=0$ the wave field is zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$.  The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice.  As the light-frame radius expands and contracts one cell per frame, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density.  The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
 
@@ -478,7 +502,7 @@ The cloud is generated on the fly inside each light frame.  At $t=0$ the wave fi
 \end{figure}
 
 \subsection{Emergent polarization pair $(u,v)$}
-The polarization state is not imprinted at initialization.  Each active cell carries an integer pair $(u,v)$ that represents the transverse polarization in the plane tangent to the spherical wavefront.  The pair is recomputed locally at every tick by a purely integer rule.
+Each active cell carries an integer pair $(u,v)$ that represents the transverse polarization in the plane tangent to the spherical wavefront.  The pair is recomputed locally at every tick by a purely integer rule.
 
 A full $2\pi$ turn is encoded by $\mathrm{phase\_full}=2R^{2}$ units, where $R=L/2-2$ is the emergent bubble radius.  For a cell whose wavefront radius is $r$,
 \[
@@ -497,7 +521,7 @@ Once these fields are present, the cyclic evolution described in Sect.~\ref{sec:
 
 \section{The light frame}\label{sec:light-frame}
 
-The light frame (Figure \ref{fig:light_frame}) is one complete light step of the cellular automaton. It is divided into five stages: \texttt{CONVOL} (interactions and pair formation), \texttt{DIFFUSION} (propagation of contact, collapse, and relocation information), \texttt{RELOC} (physical displacement of source centers), \texttt{REISSUE} (re-emission of the wavefront from the new source center), and \texttt{FLOOD} (final synchronization of the three lattices). The global housekeeping counter $k$ advances synchronously in every cell, marking the current stage; the wavefront counter $t$ is local and resets to zero whenever a bubble is reissued. The separation between the common $k$ and the local $t$ is what lets the finite-state machine coordinate seemingly non-local operations without introducing any superluminal signal.
+The light frame (Figure \ref{fig:light_frame}) is one complete light step of the cellular automaton. It is divided into five stages: \texttt{CONVOL} (interactions and pair formation), \texttt{DIFFUSION} (propagation of contact, collapse, and translation information), \texttt{RELOC} (physical displacement of source centers), \texttt{REISSUE} (re-emission of the wavefront from the new source center), and \texttt{FLOOD} (final synchronization of the three lattices). The global housekeeping counter $k$ advances synchronously in every cell, marking the current stage; the wavefront counter $t$ is local and resets to zero whenever a bubble is reissued. The separation between the common $k$ and the local $t$ is what lets the finite-state machine coordinate seemingly non-local operations without introducing any superluminal signal.
 
 \begin{figure}
 \begin{center}
@@ -511,22 +535,22 @@ The light frame (Figure \ref{fig:light_frame}) is one complete light step of the
 % Define the nodes for each step (3 boxes only)
 \node[process] (convolution) at (0,0) {Convolution};
 \node[process] (diffusion) at (4,0) {Diffusion};
-\node[process] (relocation) at (2,-3) {Relocation};
+\node[process] (translation) at (2,-3) {translation};
 
 % Draw arrows to indicate the cyclic process (triangle shape)
 \draw[arrow] (convolution) -- (diffusion);
-\draw[arrow] (diffusion) -- (relocation);
-\draw[arrow] (relocation) -- (convolution);
+\draw[arrow] (diffusion) -- (translation);
+\draw[arrow] (translation) -- (convolution);
 
 % Add annotations for constants
 \node[annotation, above=0.5cm of convolution] (convol-anno) {CONVOL\\ Convolution window};
 \node[annotation, right=0.5cm of diffusion] (diff-anno) {DIFFUSION\\ Interlayer diffusion};
-\node[annotation, below=0.5cm of relocation] (reloc-anno) {RELOC\\ Relative motion};
+\node[annotation, below=0.5cm of translation] (reloc-anno) {RELOC\\ Relative motion};
 
 \end{tikzpicture}
 \end{center}
 
-\caption{The light frame: Convolution, Diffusion and Relocation. Constants CONVOL, DIFFUSION and RELOC delimit the phases.}
+\caption{The light frame: Convolution, Diffusion and translation. Constants CONVOL, DIFFUSION and RELOC delimit the phases.}
 \label{fig:light_frame}
 \end{figure}
 
@@ -548,7 +572,7 @@ $2W$: convolution window.
 $CONVOL + 2W + \lfloor\sqrt{3}(L-1)/2\rfloor + 9(L-1) + 2W$: diffusion range along $W$; also alerts all layers of an imminent collapse.
 
 \item \textbf{RELOC}\\
-$DIFFUSION + 3(L-1)$: relocation phase.
+$DIFFUSION + 3(L-1)$: translation phase.
 
 \item \textbf{REISSUE}\\
 $RELOC + 1$: re-emission of the wavefront from the new source center.
@@ -658,7 +682,7 @@ One bubble is reissued from the contact point, while the other, from its active 
 Also, they become entangled ($a_1=a_2$).
 
 On the other hand, if the two bubbles share the same affinity, but have different charges, the bubble whose wavefront at the contact point has $pB=1$ is reissued from the contact point.
-The other bubble is reissued using the inertial-transported relocation impulse, accumulated in the vector $\boldsymbol{\mathit{reloc}}$; the stable momentum vector $\boldsymbol{m}$ supplies the direction of that impulse, while the relocation vector $\boldsymbol{c}$ is consumed during the reissue step.
+The other bubble is reissued using the inertial-transported translation impulse, accumulated in the vector $\boldsymbol{\mathit{reloc}}$; the stable momentum vector $\boldsymbol{m}$ supplies the direction of that impulse, while the translation vector $\boldsymbol{c}$ is consumed during the reissue step.
 That is, one bubble is reissued from $\boldsymbol{x1}$, while the other from $(\boldsymbol{x_1}-\boldsymbol{x_2})\,\boldsymbol{mod}\,L$.
 
 For color-neutral combinations there are two cases: gluon$\times$gluon and quark$\times$gluon. 
@@ -682,7 +706,7 @@ The bubbles are reissued from the contact point ($pB_{curr}=\text{true}$).
 
 \subsection{Diffusion}
 
-Diffusion propagates the information needed for relocation, ending at the \texttt{DIFFUSION} tick (Figure~\ref{fig:diffusion}). If any collapse bit $kB$ is set, it spreads to all bubbles sharing the same affinity, identifying every contributor to the collapsing particle.
+Diffusion propagates the information needed for translation, ending at the \texttt{DIFFUSION} tick (Figure~\ref{fig:diffusion}). If any collapse bit $kB$ is set, it spreads to all bubbles sharing the same affinity, identifying every contributor to the collapsing particle.
 
 The wave phase $f$ propagates as
 \[
@@ -690,7 +714,7 @@ f_{\text{draft}} = \max(f_1, f_2),
 \]
 governing photons and bosons. Phases incremented by multiples of the fundamental cycle interact with the wave-cloud sieve to form concentric bubbles; the active wavefront point ($t=d$) is forwarded to the Euclidean bubble through $s2B$.
 
-At the same time, the relocation vector $\mathbf{c}$ diffuses through the layer: each cell copies the first non-trivial $\mathbf{c}$ found among its neighbors. Finally, $sB$ hunting increments $\boldsymbol{c}$ along any axis where a neighbor has $hB=1$, but only when the local cell has $sB=0$. By the end of diffusion, $\boldsymbol{c}$ is ready for relocation.
+At the same time, the translation vector $\mathbf{c}$ diffuses through the layer: each cell copies the first non-trivial $\mathbf{c}$ found among its neighbors. Finally, $sB$ hunting increments $\boldsymbol{c}$ along any axis where a neighbor has $hB=1$, but only when the local cell has $sB=0$. By the end of diffusion, $\boldsymbol{c}$ is ready for translation.
 
 % TODO
 %\[
@@ -751,37 +775,37 @@ At the same time, the relocation vector $\mathbf{c}$ diffuses through the layer:
 
 \end{tikzpicture}
 \end{center}
-\caption{The Diffusion phase is composed of several time slots. It spreads all information necessary for relocation.}
+\caption{The Diffusion phase is composed of several time slots. It spreads all information necessary for translation.}
 \label{fig:diffusion}
 \end{figure}
 
-%%% RELOCATION %%%
-\subsection{Relocation} \label{subsec:relocation}
-This part of the light step addresses bubble relocation itself, building on the diffusion step. 
-It ends at the RELOC tick. Bubbles shift in specific directions (north, west, down) until they have completed their relocation process, including the inertial transport mechanism. 
+%%% translation %%%
+\subsection{translation} \label{subsec:translation}
+This part of the light step addresses bubble translation itself, building on the diffusion step. 
+It ends at the RELOC tick. Bubbles shift in specific directions (north, west, down) until they have completed their translation process, including the inertial transport mechanism. 
 The example rule is: if $\textbf{c}_x^{north}>0$, copy the content of the neighbor cell to the draft cell and decrement $\textbf{c}_x$ at the draft cell.
 
 Since wavefront propagation is guided by the dynamic radius $r$ propagated from the source cell, when a bubble is re-emitted due to interaction with other bubbles, all pertinent cell information must be shifted, or relocated, to the new position determined by the variable $\textbf{c}$. 
 This ensures that the bubbles are relatively displaced from each other. 
 The final operation sets $t=0$ at the center cell of the relocated pattern. 
-Relocation is the main consequence of an interaction.
+translation is the main consequence of an interaction.
 
 Bubbles are re-emitted either immediately after an interaction or through wrapping. 
 When the bubble is reissued, the previous wavefront continues to propagate until it fades through wrapping. 
 In this state, the bubble is referred to as an \textit{orphan}, meaning it has affinity disabled but is still capable of non-collapsing interactions. 
-In this case, $a=W$ for the outer cells, set during the relocation step. 
+In this case, $a=W$ for the outer cells, set during the translation step. 
 
 To complete, the diffusion of the time variable $t$ occurs here at the last tick: When a cell has a neighboring cell with a lower $t$ value, it updates its own $t$ variable to match the lower value. 
 With this rule, the relocated bubble is capable of expanding again. 
 This timing is crucial to avoid the 'clean diamond' pattern with the new values overrunning the orphaned data.
 
-When the relocation is complete, bubble variables are prepared for the next cycle. 
+When the translation is complete, bubble variables are prepared for the next cycle. 
 If the time frame completes, the $k$ counter resets to zero, preparing the system for the next iteration.  
 At the conclusion of the process, all $\boldsymbol{c}$ vectors will have a null value.
 
 A propeller ($P$) can only be relocated to a point on its active surface. In a $P \times K$, $P \times D$ or $P \times S$ interaction, the $P$ source is reissued from the active contact cell where the two wavefronts overlap; this contact point is already reached at the speed of light, so no superluminal signal is required.
 
-Inertia is acquired by an inertial-transport mechanism. The propeller transfers its stable momentum direction $\boldsymbol{m}$ to the partner's consumable relocation impulse $\boldsymbol{\mathit{reloc}}$; during the next light step the partner's source center is shifted by $\boldsymbol{\mathit{reloc}}$, while its long-term $\boldsymbol{m}$ is preserved and updated by \texttt{applyMomentum()}.
+Inertia is acquired by an inertial-transport mechanism. The propeller transfers its stable momentum direction $\boldsymbol{m}$ to the partner's consumable translation impulse $\boldsymbol{\mathit{reloc}}$; during the next light step the partner's source center is shifted by $\boldsymbol{\mathit{reloc}}$, while its long-term $\boldsymbol{m}$ is preserved and updated by \texttt{applyMomentum()}.
 The $P$ source itself is reissued from the contact point; the partner ($K$, $D$ or $S$) keeps its source kind but receives the impulse.
 
 Non-propeller pairs behave differently: in $K \times K$ or $D \times D$ between different tribes the source centers move one light-step away from each other, exchanging momentum through $\boldsymbol{\mathit{reloc}}$.
@@ -812,7 +836,7 @@ A static interaction (Coulomb or magnetic) between two distant charges $q_1$ and
 
 \subsubsection{Coulomb interaction} \label{subsec:Coulomb-interaction}
 
-Coulomb attraction and repulsion occur in two steps: (a) the wavefront of an orphan from the first charge, with $pB=1$, contacts an active cell of a graviton; if their position vectors are aligned or anti-aligned, the graviton is reissued from the contact point with the orphan's affinity; (b) the second charge's wavefront, also with $pB=1$, contacts the reissued graviton and receives a relocation impulse in the direction of its momentum vector $\boldsymbol{m}$, becoming a propeller pointing in the correct direction.
+Coulomb attraction and repulsion occur in two steps: (a) the wavefront of an orphan from the first charge, with $pB=1$, contacts an active cell of a graviton; if their position vectors are aligned or anti-aligned, the graviton is reissued from the contact point with the orphan's affinity; (b) the second charge's wavefront, also with $pB=1$, contacts the reissued graviton and receives a translation impulse in the direction of its momentum vector $\boldsymbol{m}$, becoming a propeller pointing in the correct direction.
 
 \subsubsection{Static magnetic interaction}
 
@@ -1213,6 +1237,9 @@ Bound states of protons, neutrons, and electrons are naturally expected in this 
 
 Despite the relatively small number of neutrinos observed in Table \ref{fig:color-combination}, their large cosmic abundance reflects their low mass, approximately five million times smaller than the mass of an electron. 
 This characteristic allows neutrinos to exist in enormous quantities across the universe, even if their presence appears limited.
+
+\subsection{Partons}
+The inertia mechanism adopted here implies that the collective action of a large number of identical propellers produces a high‑energy configuration. This stretches the propelled mass along the direction of motion, thereby forming a \textit{parton} structure.
 
 \subsection{Quest for qubits} \label{subsection:qubits}
 
