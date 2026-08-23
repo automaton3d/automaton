@@ -539,12 +539,6 @@ Writing $j_{2}=j-R$ for $j\ge R$, the integer pair is reconstructed by
 \end{align}
 These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle whose radius $R^{2}$ is also emergent.  The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as the broadcasted value grows, winding the polarization helix around the elected momentum axis.  No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the direction emerges from the tournament over the $W$-ledger, and the phase from the integer square-root relation applied to the arrival time.
 
-\paragraph{Ant-view broadcast.}  The arrival stamp $b(x)$, initially $0$ (meaning ``never reached''), is the same local diffusion field used in the election: as the walker stamps the current tick into each newly computed spiral point, every other tick every cell copies the greatest neighbour value that exceeds its own,
-\[
-b(x)\;\leftarrow\;\max\!\bigl(b(x),\; b(x\pm e_i)\bigr),
-\]
-with alternating sweep directions.  No cell senses beyond its six face neighbours, yet the value floods the whole lattice in finite time, giving every cell the tick at which the news of the elected momentum arrived.  Rendered as faint dust by the host visualizer, the brightness is high while $b(x)$ is within a bounded youth window of the current tick and then settles to a dim floor; the colour distinguishes \emph{which} expansion wave delivered the value.  The colour mapping is performed by the host renderer and does not enter the CA transition, but it makes visible the fact that the spiral arm itself is the only source of the broadcast.
-
 Once these fields are present, the cyclic evolution described in Sect.~\ref{sec:light-frame} begins.  Within that structured loop particles move, interact, and display emergent physical behavior.
 
 %%%%%%%% THE LIGHT FRAME %%%%%%%%%%
