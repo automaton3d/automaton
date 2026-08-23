@@ -543,12 +543,7 @@ These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle wh
 \[
 b(x)\;\leftarrow\;\max\!\bigl(b(x),\; b(x\pm e_i)\bigr),
 \]
-with alternating sweep directions.  No cell senses beyond its six face neighbours, yet the value floods the whole lattice in finite time, giving every cell the tick at which the news of the elected momentum arrived.  Rendered as faint dust, the brightness is high while $b(x)$ is within a bounded youth window of the current tick and then settles to a dim floor; the hue encodes \emph{which} expansion wave delivered the value,
-\[
-\mathrm{hue}\;=\;\Bigl\lfloor\frac{b(x)}{T_{\mathrm{half}}}\Bigr\rfloor\cdot\varphi\;\bmod\;1,
-\qquad\varphi=\tfrac{1+\sqrt{5}}{2},
-\]
-where $T_{\mathrm{half}}$ is the tick length of one expansion phase of the pulse.  The colour mapping is performed by the host renderer and does not enter the CA transition, but it makes visible the fact that the spiral arm itself is the only source of the broadcast.
+with alternating sweep directions.  No cell senses beyond its six face neighbours, yet the value floods the whole lattice in finite time, giving every cell the tick at which the news of the elected momentum arrived.  Rendered as faint dust by the host visualizer, the brightness is high while $b(x)$ is within a bounded youth window of the current tick and then settles to a dim floor; the colour distinguishes \emph{which} expansion wave delivered the value.  The colour mapping is performed by the host renderer and does not enter the CA transition, but it makes visible the fact that the spiral arm itself is the only source of the broadcast.
 
 Once these fields are present, the cyclic evolution described in Sect.~\ref{sec:light-frame} begins.  Within that structured loop particles move, interact, and display emergent physical behavior.
 
