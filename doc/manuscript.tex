@@ -179,7 +179,7 @@ Charge encompasses various discrete properties associated with the particles, de
 This bit marks the local in-phase sign of the emergent polarization pair $(u,v)$: it is true when the in-phase component $u$ is positive, i.e. $pB = (u>0)$. It is recomputed each tick from the $(u,v)$ field and triggers the electric interaction channel.
 
 	\item \textbf{sBit ($sB$)} \\
-This bit signals the emergent transverse polarization of the cell. It is derived locally from the integer pair $(u,v)$ carried by the wave field, whose phase $\operatorname{atan2}(v,u)$ rotates through a full turn along the wavefront radius. No spiral path is precomputed.
+This bit signals the emergent transverse polarization of the cell. It is derived locally from the integer pair $(u,v)$ carried by the wave field, whose phase $\operatorname{atan2}(v,u)$ is fixed by the broadcasted arrival time of the elected momentum vector (Sect.~\ref{subsec:polarization-pair}). No spiral path is precomputed.
 
 	\item \textbf{Affinity ($a$)} \\
 Groups layers into particles, facilitating the aggregation of smaller units into more complex entities. The affinity integer variable is essential for the formation of composite structures; Without it, only a holistic universe would emerge. It is also the substrate for the emergent phenomenon of entanglement and characterizes the track left by the particles in self-interference.
@@ -355,7 +355,7 @@ Let signature be $sig=c_{2}+c_{1}+c_{0}$.
 A bubble is matter $M$ if $sig<2$, or antimatter $\overline{M}$, otherwise. 
 Also, it is neutral $N$, if $sig=0$ or anti-neutral $\overline{N}$, if $sig=3$.
 
-The pBit $pB$ marks the positive in-phase half-cycle of the wave, while the sBit $sB$ records the transverse polarization derived from the emergent $(u,v)$ pair.  They are not precomputed path patterns; both emerge from the wavefront geometry.
+The pBit $pB$ marks the positive in-phase half-cycle of the wave, while the sBit $sB$ records the transverse polarization derived from the emergent $(u,v)$ pair.  They are not precomputed path patterns; both emerge from the cellular dynamics.
 
 Given the basic structure of our model, we shall now proceed to populate it with initial information.
 
@@ -501,19 +501,37 @@ The cloud is generated on the fly inside each light frame.  At $t=0$ the wave fi
 \label{fig1}
 \end{figure}
 
-\subsection{Emergent polarization pair $(u,v)$}
-Each active cell carries an integer pair $(u,v)$ that represents the transverse polarization in the plane tangent to the spherical wavefront.  The pair is recomputed locally at every tick by a purely integer rule.
+\subsection{Emergent polarization pair $(u,v)$}\label{subsec:polarization-pair}
+Each active cell carries an integer pair $(u,v)$ that represents the transverse polarization in the plane tangent to the spherical wavefront.  The pair is not a geometric function of the local radius; it is derived from the \emph{broadcasted value of an elected momentum vector}.  At every turn-around of the breathing wavefront the automaton elects one direction out of its own state, broadcasts the news of that election to the whole lattice, and every cell converts its private arrival stamp into a polarization phase.  The mechanism has three stages---election, broadcast, and reconstruction---and uses only addition, subtraction, shift, and comparison.
 
-A full $2\pi$ turn is encoded by $\mathrm{phase\_full}=2R^{2}$ units, where $R=L/2-2$ is the emergent bubble radius.  For a cell whose wavefront radius is $r$,
+\emph{Election.}  Every cell owns a predefined value $\nu\in[\,0,\,9L-1\,]$---its $W$-island index, fixed once by the internal address---and at the expansion limit of the pulse (the exact tick where the wave turns from ascending to descending) every active shell cell is seeded with the payload
 \[
-\mathrm{cell\_phase}=\bigl(r\cdot 2R\bigr)\bmod\mathrm{phase\_full}, \qquad m=\left\lfloor\frac{\mathrm{cell\_phase}}{R}\right\rfloor .
+\mathrm{payload}(x)=\bigl(\mathrm{score}(x)\ll 24\bigr)\,\big|\,\mathrm{code}(x),
+\qquad
+\mathrm{score}=H\bigl((\nu(x)+s)\bmod 9L,\;\mathrm{code}(x)\bigr),
 \]
-Writing $m_{2}=m-R$ for $m\ge R$, the integer pair is reconstructed by
+where $\mathrm{code}(x)$ is the cell's linear index, $H$ a fixed integer hash, and $s$ a global seed dial.  Because the code occupies the low bits, the payload order is a strict total order: ties are impossible, so the winner is unique and independent of any scan order.  Each pass lets every cell adopt the greatest payload among its six face neighbours,
+\[
+\mathrm{payload}(x)\;\leftarrow\;\max\bigl(\mathrm{payload}(x),\;\mathrm{payload}(x\pm e_i)\bigr),
+\]
+with alternating sweep directions; $2R+8$ passes guarantee full coverage of the lattice.  The true winner---the \emph{seeded} cell holding the greatest payload---is identified once, at sowing time, while the payloads are still unique; the diffusion flood merely transports the news and never redefines the winner.  The displacement from the lattice center to the winning cell becomes the momentum vector $\boldsymbol{m}$, of which only the direction is meaningful: it is rescaled to $|\boldsymbol{m}|=L/2$ and frozen while the helical walk lives.  The next expansion limit elects a fresh direction for the next run; nothing is prescribed, and the orientation is read off the automaton's own ledger at the instant the wave reaches its limit.
+
+\emph{Broadcast.}  As soon as $\boldsymbol{m}$ exists, a helical walker traces the spiral arm on the pulsating bubble: it advances one cell per tick around the cylinder whose axis is the elected direction, keeping the radial error within about one cell by purely local comparisons among its six neighbours.  Each newly computed spiral point stamps the current tick into its own cell of a second value lattice ($0$ = never reached).  Every other tick, with alternating sweep directions, every cell inspects only its six face neighbours and copies the greatest neighbour value whenever it exceeds its own,
+\[
+b(x)\;\leftarrow\;\max\bigl(b(x),\;b(x\pm e_i)\bigr).
+\]
+No cell ever senses beyond its neighborhood, yet these monotonic values diffuse as waves that in finite time reach every cell of the lattice---global coverage achieved purely by local moves, in lockstep with the automaton tick.  Each cell therefore ends up holding the tick $b(x)$ at which the news of the elected momentum arrived.
+
+\emph{Reconstruction.}  The arrival stamp is the phase source.  A full $2\pi$ turn is encoded by $\mathrm{phase\_full}=2R^{2}$ units, where $R=L/2-2$ is the emergent bubble radius, and the cell phase is read directly from the broadcasted value,
+\[
+\mathrm{cell\_phase}=b(x)\bmod\mathrm{phase\_full}, \qquad j=\left\lfloor\frac{\mathrm{cell\_phase}}{R}\right\rfloor .
+\]
+Writing $j_{2}=j-R$ for $j\ge R$, the integer pair is reconstructed by
 \begin{align}
-\text{if }m<R:\quad&u=R(R-2m),          &&v=2R\,\mathrm{isqrt}\bigl(m(R-m)\bigr),\\
-\text{if }m\ge R:\quad&u=R(2m-3R),       &&v=-2R\,\mathrm{isqrt}\bigl(m_{2}(R-m_{2})\bigr).
+\text{if }j<R:\quad&u=R(R-2j),          &&v=2R\,\mathrm{isqrt}\bigl(j(R-j)\bigr),\\
+\text{if }j\ge R:\quad&u=R(2j-3R),       &&v=-2R\,\mathrm{isqrt}\bigl(j_{2}(R-j_{2})\bigr).
 \end{align}
-These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle whose radius $R^{2}$ is also emergent.  The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as $r$ grows from the center to the edge, producing a radial polarization helix.  No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the phase emerges from the local radius $r$ and the integer square-root relation.
+These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle whose radius $R^{2}$ is also emergent.  The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as the broadcasted value grows, winding the polarization helix around the elected momentum axis.  No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the direction emerges from the tournament over the $W$-ledger, and the phase from the integer square-root relation applied to the arrival time.
 
 Once these fields are present, the cyclic evolution described in Sect.~\ref{sec:light-frame} begins.  Within that structured loop particles move, interact, and display emergent physical behavior.
 
