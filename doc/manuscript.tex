@@ -441,9 +441,7 @@ Therefore the local update is purely additive:
 \[
 r^{2}_{\text{new}}=r^{2}_{\text{old}}+2a+1,
 \]
-where $a$ is the cell's own absolute coordinate along the moved axis.  Each cell needs only its stored $r^{2}$ and its absolute offset from the source, both integers.  The update is iterated until the distance field converges; before the wavefront reaches a cell, $r^{2}=\mathrm{INF}$.
-
-The same propagation can be understood as Dijkstra's algorithm with edge weights $(2a+1)$; because these weights are non-negative, the local relaxation produces the true minima.
+where $a$ is the cell's own absolute coordinate along the moved axis.  Each cell needs only its stored $r^{2}$ and its absolute offset from the source, both integers.  The update is performed synchronously over the whole lattice at every tick: each cell writes its new value into a second, identical lattice ($\texttt{grid}$ and $\texttt{grid\_next}$), so the rule is a local double-buffer CA transition.  In one tick a cell can only learn from its six immediate neighbours, so the reachable region grows by one lattice layer per tick, exactly as a light-cone should; before the wavefront reaches a cell, $r^{2}=\mathrm{INF}$.  Because the edge weights are non-negative, repeated synchronous sweeps converge to the same minima a Dijkstra/BFS relaxation would produce, but without any global queue or frontier list.
 
 \paragraph{Radius correction method}
 Several physical formulas require the ordinary radius $r$ rather than its square: 
@@ -540,6 +538,17 @@ Writing $j_{2}=j-R$ for $j\ge R$, the integer pair is reconstructed by
 \text{if }j\ge R:\quad&u=R(2j-3R),       &&v=-2R\,\mathrm{isqrt}\bigl(j_{2}(R-j_{2})\bigr).
 \end{align}
 These formulas satisfy $u^{2}+v^{2}=R^{4}$, so $(u,v)$ is a point on a circle whose radius $R^{2}$ is also emergent.  The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as the broadcasted value grows, winding the polarization helix around the elected momentum axis.  No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the direction emerges from the tournament over the $W$-ledger, and the phase from the integer square-root relation applied to the arrival time.
+
+\paragraph{Ant-view broadcast.}  The arrival stamp $b(x)$, initially $0$ (meaning ``never reached''), is the same local diffusion field used in the election: as the walker stamps the current tick into each newly computed spiral point, every other tick every cell copies the greatest neighbour value that exceeds its own,
+\[
+b(x)\;\leftarrow\;\max\!\bigl(b(x),\; b(x\pm e_i)\bigr),
+\]
+with alternating sweep directions.  No cell senses beyond its six face neighbours, yet the value floods the whole lattice in finite time, giving every cell the tick at which the news of the elected momentum arrived.  Rendered as faint dust, the brightness is high while $b(x)$ is within a bounded youth window of the current tick and then settles to a dim floor; the hue encodes \emph{which} expansion wave delivered the value,
+\[
+\mathrm{hue}\;=\;\Bigl\lfloor\frac{b(x)}{T_{\mathrm{half}}}\Bigr\rfloor\cdot\varphi\;\bmod\;1,
+\qquad\varphi=\tfrac{1+\sqrt{5}}{2},
+\]
+where $T_{\mathrm{half}}$ is the tick length of one expansion phase of the pulse.  The colour mapping is performed by the host renderer and does not enter the CA transition, but it makes visible the fact that the spiral arm itself is the only source of the broadcast.
 
 Once these fields are present, the cyclic evolution described in Sect.~\ref{sec:light-frame} begins.  Within that structured loop particles move, interact, and display emergent physical behavior.
 
