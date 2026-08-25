@@ -839,6 +839,13 @@ A propeller ($P$) can only be relocated to a point on its active surface. In a $
 
 Inertia is acquired by an inertial-transport mechanism. The propeller transfers its stable momentum direction $\boldsymbol{m}$ to the partner's consumable translation impulse $\boldsymbol{\mathit{reloc}}$; during the next light step the partner's source center is shifted by $\boldsymbol{\mathit{reloc}}$, while its long-term $\boldsymbol{m}$ is preserved and updated by \texttt{applyMomentum()}.
 The $P$ source itself is reissued from the contact point; the partner ($K$, $D$ or $S$) keeps its source kind but receives the impulse.
+A single propeller kick acts on one bubble at a time: only the contacted partner source receives $\boldsymbol{\mathit{reloc}}$, while all other bubbles of the aggregate keep their centers. Let $N$ be the total number of bubbles composing the particle (the $3$D island plus its pair dressing). If $n$ bubbles receive an impulse during one light frame, the mean center of mass advances by
+\begin{equation}
+\Delta_{\mathrm{CoM}} \;=\; \frac{n}{N}
+\end{equation}
+cells per frame, with $n \leq N$. Sub-luminal motion is therefore structural: a larger population responds less to the same kick rate — the discrete counterpart of propeller contributions to mass — whereas a photon blob, whose superposed pairs share a single center, attains $n/N \to 1$. When no kick arrives ($\boldsymbol{\mathit{reloc}}=\boldsymbol{0}$) the particle merely breathes at rest.
+
+Non-propeller pairs behave differently:
 
 Non-propeller pairs behave differently: in $K \times K$ or $D \times D$ between different tribes the source centers move one light-step away from each other, exchanging momentum through $\boldsymbol{\mathit{reloc}}$.
 
