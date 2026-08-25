@@ -41,3 +41,4 @@ src/model/initSim.cpp
 src/model/interaction.cpp 
 src/model/simulation.cpp 
 src/model/utils.cpp 
+src/model/polarization.cpp 

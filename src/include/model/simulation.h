@@ -158,6 +158,10 @@ struct NeighborResult
       int r;              // Integer radius propagated/corrected from r2
       int u, v;           // Radial polarisation pair (u: in-phase, v: quadrature)
       unsigned int active; // 1 when the cell is on the pulsating wavefront
+      // Emergent polarisation broadcast (manuscript Sect. "Emergent
+      // polarization pair"): b(x) arrival stamp + reconstructed pair.
+      unsigned int bstamp; // Arrival tick of the elected-momentum news (0 = never reached)
+      int pol_u, pol_v;    // Reconstructed transverse pair (pol_u^2+pol_v^2 = R^4)
       // Spin-rev source model
       SourceKind kind;      // K (chief), S (singleton), D (delegate), P (pair)
       uint32_t parent;      // Parent source index (for D/P)
@@ -173,6 +177,7 @@ struct NeighborResult
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
           gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0),
+          bstamp(0), pol_u(0), pol_v(0),
           kind(SourceKind::S), parent(NO_PARENT), spin_target(0), pair_idx(NO_PAIR), pair_count(0)
       {
         fill(begin(x), end(x), 0);

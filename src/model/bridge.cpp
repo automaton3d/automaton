@@ -365,6 +365,9 @@ static void convertCellToCellDevice(
     dst.r     = static_cast<int32_t>(src.r);
     dst.u     = static_cast<int32_t>(src.u);
     dst.v     = static_cast<int32_t>(src.v);
+    dst.bstamp = src.bstamp;
+    dst.pol_u  = static_cast<int32_t>(src.pol_u);
+    dst.pol_v  = static_cast<int32_t>(src.pol_v);
     dst.active= src.active ? 1u : 0u;
     dst.phiB  = src.phiB ? 1 : 0;
     dst.t     = static_cast<uint32_t>(src.t);
@@ -410,6 +413,9 @@ static void convertCellDeviceToCell(
     dst.r     = static_cast<int>(src.r);
     dst.u     = static_cast<int>(src.u);
     dst.v     = static_cast<int>(src.v);
+    dst.bstamp = src.bstamp;
+    dst.pol_u  = static_cast<int>(src.pol_u);
+    dst.pol_v  = static_cast<int>(src.pol_v);
     dst.active= (src.active != 0);
     dst.phiB  = (src.phiB != 0);
     dst.t     = static_cast<unsigned>(src.t);

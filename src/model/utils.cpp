@@ -118,6 +118,11 @@ namespace automaton
             dst.hB   = src.hB;
             dst.cB   = src.cB;
 
+            // Broadcast ledger is cell-carried state: the arrival stamp
+            // shifts with its cell so a global relocation does not wipe
+            // the emergent polarisation field.
+            dst.bstamp = src.bstamp;
+
             dst.kind       = src.kind;
             dst.parent     = src.parent;
             dst.spin_target= src.spin_target;

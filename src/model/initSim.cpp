@@ -5,6 +5,7 @@
  */
 
 #include "model/simulation.h"
+#include "model/polarization.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -40,6 +41,9 @@ void initGeneral()
 
     // Reset pulsating sphere tick counter
     pulse_tick = 0;
+
+    // Reset emergent polarization broadcast state (walkers, elected axes).
+    polarization::resetAll();
     
     for (unsigned w = 0; w < W_USED; ++w)
     {
@@ -102,6 +106,11 @@ void initGeneral()
                     if (cell.r == 0)
                         cell.u = 2048;  // seed the central wave source
                     cell.active = 0;
+
+                    // Emergent polarization broadcast state
+                    cell.bstamp = 0;
+                    cell.pol_u  = 0;
+                    cell.pol_v  = 0;
 
                     // Initialize flags
                     cell.pB = false;

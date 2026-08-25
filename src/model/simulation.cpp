@@ -10,6 +10,7 @@
 #include <array>
 #include <cstring>
 #include "model/simulation.h"
+#include "model/polarization.h"
 #include "config.h"
 
 #ifdef USE_CUDA
@@ -257,6 +258,8 @@ namespace automaton
             d.v = 0;
             d.active = active ? 1u : 0u;
             d.phiB = active;
+            d.pol_u = 0;
+            d.pol_v = 0;
             d.pB = false;
             d.sB = false;
             d.s2B = false;
@@ -267,13 +270,26 @@ namespace automaton
         int v = c.v;
         int r = c.r;
 
+        // NOTE: neighbour reads must stay in-bounds.  getCell performs no
+        // wrapping here, and a negative coordinate would wrap the linear
+        // index into wild memory (this used to be a latent UB that crashed
+        // once sizeof(Cell) grew).  Outside the torus there is no flux.
+        auto uAt = [&](int xx, int yy, int zz) -> int
+        {
+            if (xx < 0 || xx >= ELi ||
+                yy < 0 || yy >= ELi ||
+                zz < 0 || zz >= ELi)
+                return 0;
+            return getCell(lattice_curr, xx, yy, zz, w).u;
+        };
+
         int neighbors_u =
-            getCell(lattice_curr, x + 1, y, z, w).u
-          + getCell(lattice_curr, x - 1, y, z, w).u
-          + getCell(lattice_curr, x, y + 1, z, w).u
-          + getCell(lattice_curr, x, y - 1, z, w).u
-          + getCell(lattice_curr, x, y, z + 1, w).u
-          + getCell(lattice_curr, x, y, z - 1, w).u;
+              uAt(x + 1, y, z)
+            + uAt(x - 1, y, z)
+            + uAt(x, y + 1, z)
+            + uAt(x, y - 1, z)
+            + uAt(x, y, z + 1)
+            + uAt(x, y, z - 1);
 
         int lap = neighbors_u - 6 * u;
 
@@ -310,39 +326,26 @@ namespace automaton
         u_new -= (u_new >> 12);
         v_new -= (v_new >> 12);
 
-        // Per-w angular offset so different W copies see distinct pB/sB patterns
-        // while the underlying (u,v) wave field stays the same for all layers.
-        int helixR = (int)RMAX;
-        unsigned int phase_full = 2u * (unsigned int)helixR * (unsigned int)helixR;
-        unsigned int w_offset = (unsigned int)(((uint64_t)w * (uint64_t)phase_full) / (uint64_t)Wi);
-        unsigned int cell_phase = w_offset % phase_full;
-        int m = (int)(cell_phase / (unsigned int)helixR);
-        int cos_w, sin_w;
-        if (m < helixR)
-        {
-            int arg = m * (helixR - m);
-            int s = isqrt(arg);
-            cos_w = helixR - 2 * m;
-            sin_w = 2 * s;
-        }
-        else
-        {
-            int m2 = m - helixR;
-            int arg = m2 * (helixR - m2);
-            int s = isqrt(arg);
-            cos_w = 2 * m - 3 * helixR;
-            sin_w = -2 * s;
-        }
-
-        int ru = (u_new * cos_w - v_new * sin_w) / helixR;
-        int rv = (u_new * sin_w + v_new * cos_w) / helixR;
+        // Emergent transverse polarisation (manuscript, Sect. "Emergent
+        // polarization pair"): the pair (pol_u, pol_v) is NOT a geometric
+        // function of the local radius — it is reconstructed from the
+        // broadcasted arrival stamp b(x) of the elected momentum vector,
+        // satisfying pol_u^2 + pol_v^2 = R^4 with R = L/2 - 2 emergent.
+        // No trigonometric tables, no precomputed spiral and no per-cell
+        // fixed constants: the direction comes from the payload tournament
+        // over the W-ledger and the phase from the isqrt relation applied
+        // to the arrival time.
+        int pol_u = 0, pol_v = 0;
+        polarization::reconstructPair(c.bstamp, (int)RMAX - 2, pol_u, pol_v);
+        d.pol_u = pol_u;
+        d.pol_v = pol_v;
 
         d.u      = u_new;
         d.v      = v_new;
         d.active = active ? 1u : 0u;
         d.phiB   = active;
-        d.pB     = (ru > 0);
-        d.sB     = (rv > 0);
+        d.pB     = (pol_u > 0);
+        d.sB     = (pol_v > 0);
 
         // Sieve trigger: probability proportional to positive wave amplitude.
         bool s2B_trigger = false;
@@ -362,6 +365,8 @@ namespace automaton
         lattice_curr[i].v      = lattice_draft[i].v;
         lattice_curr[i].active = lattice_draft[i].active;
         lattice_curr[i].phiB   = lattice_draft[i].phiB;
+        lattice_curr[i].pol_u  = lattice_draft[i].pol_u;
+        lattice_curr[i].pol_v  = lattice_draft[i].pol_v;
         lattice_curr[i].pB     = lattice_draft[i].pB;
         lattice_curr[i].sB     = lattice_draft[i].sB;
         lattice_curr[i].s2B    = lattice_draft[i].s2B;
@@ -521,11 +526,20 @@ namespace automaton
     // the FSM can read it and write its own modifications back to lattice_draft.
     std::swap(lattice_curr, lattice_draft);
 
+    // Phase 2b: emergent polarization broadcast.  At every expansion limit
+    // of the breathing wavefront a momentum direction is elected out of
+    // the automaton's own W-ledger; a helical walker then stamps arrival
+    // ticks b(x) around the elected axis, so phase_step() can reconstruct
+    // the transverse pair on the NEXT tick.  Runs on the promoted live
+    // lattice; the FSM below copies the stamps into draft/mirror.
+    polarization::tick();
+
     // DEBUG: throttle a snapshot of the central cell so we can verify (u,v) are evolving.
     if (pulse_tick % 100 == 0) {
         const Cell& c = getCell(lattice_curr, CENTER, CENTER, CENTER, 0);
-        printf("DEBUG phase tick %u: center u=%d v=%d active=%u pB=%d sB=%d\n",
-               pulse_tick, c.u, c.v, c.active, c.pB ? 1 : 0, c.sB ? 1 : 0);
+        printf("DEBUG phase tick %u: center u=%d v=%d active=%u pB=%d sB=%d pol=(%d,%d) bstamp=%u\n",
+               pulse_tick, c.u, c.v, c.active, c.pB ? 1 : 0, c.sB ? 1 : 0,
+               c.pol_u, c.pol_v, c.bstamp);
     }
 
     // Phase 3: FSM interaction loop (uses r2 instead of d)
