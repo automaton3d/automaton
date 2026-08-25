@@ -21,7 +21,7 @@ struct CellDevice
     int32_t  r;
     int32_t  u, v;        // radial polarisation pair (u in-phase, v quadrature)
     uint32_t bstamp;      // broadcast arrival tick of the elected momentum (0 = never reached)
-    int32_t  pol_u, pol_v;// reconstructed transverse polarisation (u^2+v^2=R^4)
+    int32_t  pol_u, pol_v;// reconstructed transverse polarisation (approximates u^2+v^2=R^4 via isqrt)
     uint32_t active;      // 1 when cell is on the pulsating wavefront
     uint32_t phiB;        // active wavefront marker (phiB == active)
     uint32_t t;

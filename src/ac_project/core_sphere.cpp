@@ -56,7 +56,7 @@ Cell* get_sphere_cell(vector<Cell>& lattice, int x, int y, int z) {
 }
 
 // Atualiza r2, r, (u,v), active, phiB, pB e sB a partir das coordenadas x[]
-// e do relógio local t. Sem tabelas: usa isqrt e u^2+v^2=R^4.
+// e do relógio local t. Sem tabelas: usa isqrt para aproximar u^2+v^2=R^4.
 void sphere_phase_step() {
     if (RMAX == 0 || W_USED == 0 || EL == 0) return;
 

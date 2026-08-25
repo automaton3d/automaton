@@ -161,7 +161,7 @@ struct NeighborResult
       // Emergent polarisation broadcast (manuscript Sect. "Emergent
       // polarization pair"): b(x) arrival stamp + reconstructed pair.
       unsigned int bstamp; // Arrival tick of the elected-momentum news (0 = never reached)
-      int pol_u, pol_v;    // Reconstructed transverse pair (pol_u^2+pol_v^2 = R^4)
+      int pol_u, pol_v;    // Reconstructed transverse pair (approximating pol_u^2+pol_v^2 = R^4 via isqrt)
       // Spin-rev source model
       SourceKind kind;      // K (chief), S (singleton), D (delegate), P (pair)
       uint32_t parent;      // Parent source index (for D/P)

@@ -33,10 +33,10 @@
  *
  *   3) RECONSTRUCTION — the arrival stamp is the phase source:
  *          phase_full = 2 R^2 (R = L/2 - 2 emergent bubble radius),
- *          cell_phase = b(x) mod phase_full,  j = floor(cell_phase / R),
+ *          cell_phase = (b(x)-1) mod phase_full,  j = floor(cell_phase / R),
  *          j < R : u = R(R - 2j),        v =  2R isqrt(j(R-j)),
  *          j >= R: u = R(2j - 3R),       v = -2R isqrt(j2(R-j2)), j2 = j-R.
- *      These formulas satisfy u^2 + v^2 = R^4.
+ *      These formulas approximate the circle u^2 + v^2 = R^4 (exact only when isqrt is exact).
  */
 
 #include "model/simulation.h"
@@ -61,7 +61,7 @@ namespace automaton
     const int* electedAxis(unsigned w);
 
     /// Reconstruction stage: convert an arrival stamp into the transverse
-    /// polarisation pair satisfying pol_u^2 + pol_v^2 = R^4.
+    /// polarisation pair approximating the circle pol_u^2 + pol_v^2 = R^4.
     /// Stamps store (arrival tick + 1), so 0 unambiguously means "never
     /// reached" and cannot alias with a tick congruent to 0 mod 2R^2.
     inline void reconstructPair(unsigned int bstamp_, int R, int& pu, int& pv)

@@ -330,7 +330,7 @@ namespace automaton
         // polarization pair"): the pair (pol_u, pol_v) is NOT a geometric
         // function of the local radius — it is reconstructed from the
         // broadcasted arrival stamp b(x) of the elected momentum vector,
-        // satisfying pol_u^2 + pol_v^2 = R^4 with R = L/2 - 2 emergent.
+        // approximating pol_u^2 + pol_v^2 = R^4 via isqrt (R = L/2 - 2 emergent).
         // No trigonometric tables, no precomputed spiral and no per-cell
         // fixed constants: the direction comes from the payload tournament
         // over the W-ledger and the phase from the isqrt relation applied
