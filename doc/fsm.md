@@ -189,6 +189,62 @@ Consequences:
 | Rest state | no kicks (`reloc = 0` everywhere) → pure pulsation in place, `m` preserved |
 | Mean direction | each kick steps ±1 along one Cartesian axis of that single bubble; the free electron's average motion is statistical across frames (manuscript, *Discrete to continuous transition*) |
 
+### Robustness — why localized particles do not deteriorate prematurely
+
+Coordinated transport must hold from a resting aggregate up to parton-scale
+probing. Stability is not stored in any global state; it is distributed over
+independent, redundant guards:
+
+| Guard | Mechanism | Where |
+|---|---|---|
+| Population homeostasis | the 3D island is an open object: `Γ_cap(N) > Γ_esc(N)` below the attractor, `Γ_cap < Γ_esc` above → stable population `N*` (negative feedback, no global counter) | manuscript, *Dynamic charge quantization* |
+| Immutable intrinsic identity | each bubble keeps its W address `w` forever; only the auxiliary `leader_w` converges after mergers — collisions cannot erase who a bubble is | `simulation.h` (`w` vs `leader_w`) |
+| Continuous re-identification | `reissue` re-propagates `a`/`leader_w` outward every frame — bubble identity re-expands with the shell, healing surface losses | `interaction.cpp` `reissue`, fsm §7 |
+| Cohesion rules | fermion cohesion entangles same-charge singletons (`a₁=a₂`); gluon×gluon / quark×gluon exchanges colors instead of destroying fragments | manuscript, convolution rules |
+| Gentle composite drift | `Δ_CoM = n_kicks/N`: no constituent outruns the affinity that recaptures it; `m` stays a unit axis vector between kicks, so no random walk shears the island | this section |
+| Conservation invariants | periodic reads ⇒ zero spurious amplitude flux; reciprocity; charge conjugation drives every outcome toward neutrality | fsm §10 |
+
+Premature deterioration would require breaking several of these guards
+simultaneously — e.g. saturating `Γ_esc` beyond recovery while also
+corrupting `w` addresses. Within the rule set, no single local event can do
+that: the worst a collision does is collapse-and-reissue from the contact
+point, which the island absorbs as turnover, not decay.
+
+### Empirical check — population attractor measured
+
+Headless instrumentation (`tools/attractor_main.cpp`, `src/model/attractor.cpp`;
+analysis via `tools/analyze_attractor.ps1`) samples per-island populations and
+gross capture/escape events at every light-frame boundary:
+
+| run | lattice | frames | pooled slope dN~N | N̂* | mean N | regime observed |
+|---|---|---|---|---|---|---|
+| A | EL=5, W=75 (ISLAND_SIZE=1) | 48 | **−0.866 ± 0.016** | ≈ 82 | 80.5 | settled homeostasis — excursions to N=17 recover to ~80 |
+| B | EL=7, W=147 (ISLAND_SIZE=2) | 16 | **−0.164 ± 0.012** | ≈ 706 | 543 | capture-dominated accretion toward N̂* (Γ_cap 773/fr vs Γ_esc 107/fr) |
+| C | EL=7, W=147 (ISLAND_SIZE=2) | 40 | **−0.167 ± 0.007** | **≈ 680** | 620.7 | approach phase — max observed island population (670) touches N̂*; still Γ_cap-dominated (1430 vs 198/fr) |
+
+Run C validates the short-run extrapolation: extending from 16 to 40 frames
+moved the fitted attractor only 706 → 680 while the mean population climbed
+543 → 621 and peak islands reached 670 ≈ N̂* — the extrapolated equilibrium
+was already bracketed by the data. Both runs reproduce the manuscript's
+inequalities qualitatively: the resting coefficient of ΔN on N is negative
+(restoring dynamics), and the sign of the net flux flips around the fitted N*.
+Reproduce with:
+
+```
+build\attractor.exe <EL> <W_USED> <FRAMES> <csv> [ckpt] [budget_s]
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\analyze_attractor.ps1 -Csv <csv>
+```
+
+Caveats: the symmetric Platonic seed makes all islands statistically
+identical, so pooled point counts overstate significance (autocorrelated
+series); run A's ISLAND_SIZE=1 is a degenerate single-layer island. The
+robust qualitative signals are the negative slope sign in both lattices,
+the recovery excursions in run A's time series, and the stability of N̂*
+under a 2.5× extension of run B (`build\ts_el5.csv`, `build\ts_el7.csv`,
+`build\ts_el7_long.csv`).
+
+
+
 
 
 ## 9. Lattice rotation and the mirror's role
