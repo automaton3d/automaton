@@ -251,31 +251,18 @@ void initCenters(unsigned wDim)
 {
     lcenters.resize(wDim);
 
-    // Source centers are spread isotropically around the lattice centre:
-    // each hosted bubble starts at one of the six Cartesian face positions,
-    // e.g. (CENTER +/- RMAX, CENTER, CENTER), so the initial source
-    // coordinates look like (-L/2, 0, 0) relative to the centre.
+    // Platonic seed premise: every bubble is born at the lattice centre with
+    // zero radius.  All source centers therefore start superposed at
+    // (CENTER, CENTER, CENTER); they separate only later through
+    // interaction-driven relocation (applyMomentum), never at birth.
     for (unsigned w = 0; w < wDim; ++w)
     {
-        int axis  = (int)((w / 2u) % 3u);
-        char w0   = (char)(w & 1u);
-        char w1   = (char)((w >> 1) & 1u);
-        int sign  = (w0 ^ w1) ? +1 : -1;
+        lcenters[w][0] = CENTER;
+        lcenters[w][1] = CENTER;
+        lcenters[w][2] = CENTER;
 
-        int cx = (axis == 0) ? (int)CENTER + sign * (int)RMAX : (int)CENTER;
-        int cy = (axis == 1) ? (int)CENTER + sign * (int)RMAX : (int)CENTER;
-        int cz = (axis == 2) ? (int)CENTER + sign * (int)RMAX : (int)CENTER;
-
-        cx = ((cx % (int)EL) + (int)EL) % (int)EL;
-        cy = ((cy % (int)EL) + (int)EL) % (int)EL;
-        cz = ((cz % (int)EL) + (int)EL) % (int)EL;
-
-        lcenters[w][0] = (unsigned)cx;
-        lcenters[w][1] = (unsigned)cy;
-        lcenters[w][2] = (unsigned)cz;
-
-        printf("initCenters: w=%u, center=(%u,%u,%u) axis=%d sign=%d\n",
-               w, lcenters[w][0], lcenters[w][1], lcenters[w][2], axis, sign);
+        printf("initCenters: w=%u, center=(%u,%u,%u)\n",
+               w, lcenters[w][0], lcenters[w][1], lcenters[w][2]);
     }
 }
 

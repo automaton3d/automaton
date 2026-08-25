@@ -59,26 +59,23 @@ namespace automaton
   std::vector<std::array<unsigned, 3>> lcenters;
 
   // ============================================================
-  // SPHERICAL (ANTIPODAL) WRAPPING
+  // TOROIDAL (TRANSLATION) NEIGHBOUR ADDRESSING
+  // Manuscript Sect. "Boundary behavior": the lattice is a 3-torus.
+  // A step across a face of the cube continues from the opposite face as a
+  // pure translation -- orientation preserved, nothing mirrored.
   // ============================================================
 
   inline void spherical_wrap(int& x, int& y, int& z, int& w)
   {
-    if (x < 0 || x >= (int)EL ||
-        y < 0 || y >= (int)EL ||
-        z < 0 || z >= (int)EL ||
-        w < 0 || w >= (int)W_USED)
-    {
-        x = EL - 1 - x;
-        y = EL - 1 - y;
-        z = EL - 1 - z;
-        w = W_USED - 1 - w;
+    x = ((x % (int)EL) + (int)EL) % (int)EL;
+    y = ((y % (int)EL) + (int)EL) % (int)EL;
+    z = ((z % (int)EL) + (int)EL) % (int)EL;
 
-        x = (x % (int)EL + EL) % EL;
-        y = (y % (int)EL + EL) % EL;
-        z = (z % (int)EL + EL) % EL;
-        w = (w % (int)W_USED + W_USED) % W_USED;
-    }
+    // The w slot keeps its historical edge pairing (self-loop at the first/
+    // last layer): cross-layer adjacency is owned by shiftMirror()'s
+    // rotation schedule, not by spatial geometry.
+    if (w < 0) w = 0;
+    if (w >= (int)W_USED) w = (int)W_USED - 1;
   }
 
   void trackCenter(unsigned x, unsigned y, unsigned z, unsigned w)
@@ -121,9 +118,18 @@ namespace automaton
         if (curr.r2 == INF_R2)
             continue;
 
-        int dx_ = (int)x - cx; int ax = dx_ < 0 ? -dx_ : dx_;
-        int dy_ = (int)y - cy; int ay = dy_ < 0 ? -dy_ : dy_;
-        int dz_ = (int)z - cz; int az = dz_ < 0 ? -dz_ : dz_;
+        // Toroidal axis offsets to the source centre (manuscript Sect.
+        // "Boundary behavior"): shortest wrapped distance per axis, so the
+        // squared-distance relaxation measures geodesics on the 3-torus.
+        int dx_ = (int)x - cx;
+        int dy_ = (int)y - cy;
+        int dz_ = (int)z - cz;
+        int ax = dx_ < 0 ? -dx_ : dx_;
+        int ay = dy_ < 0 ? -dy_ : dy_;
+        int az = dz_ < 0 ? -dz_ : dz_;
+        if (ax > (int)EL - ax) ax = (int)EL - ax;
+        if (ay > (int)EL - ay) ay = (int)EL - ay;
+        if (az > (int)EL - az) az = (int)EL - az;
 
         // 6-connected spatial neighbors (no w propagation)
         static const int offsets[6][3] = {
@@ -134,14 +140,11 @@ namespace automaton
 
         for (int dir = 0; dir < 6; ++dir)
         {
-            int nx = (int)x + offsets[dir][0];
-            int ny = (int)y + offsets[dir][1];
-            int nz = (int)z + offsets[dir][2];
-
-            if (nx < 0 || nx >= (int)EL ||
-                ny < 0 || ny >= (int)EL ||
-                nz < 0 || nz >= (int)EL)
-                continue;
+            // Periodic address on the 3-torus: a step across a face of the
+            // cube re-enters through the opposite face (no flux is lost).
+            int nx = ((int)x + offsets[dir][0] + (int)EL) % (int)EL;
+            int ny = ((int)y + offsets[dir][1] + (int)EL) % (int)EL;
+            int nz = ((int)z + offsets[dir][2] + (int)EL) % (int)EL;
 
             // Incremental r2 difference
             unsigned diff;
@@ -247,12 +250,10 @@ namespace automaton
         int pulseR = (int)effective_t(c.t);
         bool active = (c.r2 != INF_R2 && c.r >= 0 && c.r == pulseR);
 
-        // Hard zero on spatial boundaries and outside the processed sphere,
-        // except for the source-center cell (r2 == 0) which may sit on a face.
-        if (c.r2 != 0 && (x == 0 || x == ELi - 1 ||
-            y == 0 || y == ELi - 1 ||
-            z == 0 || z == ELi - 1 ||
-            c.r < 0 || c.r >= R))
+        // Hard zero outside the processed sphere (radial dead zone).  On the
+        // 3-torus faces are not special: the spherical cavity is enforced
+        // radially, and the source-centre cell (r2 == 0) stays exempt.
+        if (c.r2 != 0 && (c.r < 0 || c.r >= R))
         {
             d.u = 0;
             d.v = 0;
@@ -270,16 +271,16 @@ namespace automaton
         int v = c.v;
         int r = c.r;
 
-        // NOTE: neighbour reads must stay in-bounds.  getCell performs no
-        // wrapping here, and a negative coordinate would wrap the linear
-        // index into wild memory (this used to be a latent UB that crashed
-        // once sizeof(Cell) grew).  Outside the torus there is no flux.
+        // NOTE: neighbour reads are made in-bounds by periodic wrapping
+        // (3-torus, manuscript Sect. "Boundary behavior").  A wrapped image
+        // contributes flux exactly like the interior, so the wave exchanges
+        // no spurious amplitude across seams; only the explicit radial
+        // sponge, damping and shell-source terms below change the totals.
         auto uAt = [&](int xx, int yy, int zz) -> int
         {
-            if (xx < 0 || xx >= ELi ||
-                yy < 0 || yy >= ELi ||
-                zz < 0 || zz >= ELi)
-                return 0;
+            xx = ((xx % ELi) + ELi) % ELi;
+            yy = ((yy % ELi) + ELi) % ELi;
+            zz = ((zz % ELi) + ELi) % ELi;
             return getCell(lattice_curr, xx, yy, zz, w).u;
         };
 

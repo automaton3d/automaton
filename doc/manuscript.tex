@@ -404,7 +404,7 @@ The detailed dynamics of how these copies aggregate into $1K+nD$ islands, and ho
 Among the many possible choices, we select the following deterministic Platonic seed:
 
 \begin{itemize}
-  \item The spatial address $\boldsymbol{x}$ is set to the appropriate Cartesian positive coordinates ($0\ldots L-1$).  Each source center is placed on one of the six Cartesian face positions around the lattice center, e.g.~$(-L/2,0,0)$ relative to the center, so that the bubbles are spread isotropically without random numbers.
+  \item The spatial address $\boldsymbol{x}$ is set to the appropriate Cartesian positive coordinates ($0\ldots L-1$).  Every source center is placed at the single lattice centre $\mathbf{c}=((L-1)/2,(L-1)/2,(L-1)/2)$, so that all bubbles are born superposed at one point with zero radius---deterministically and without random numbers.
   \item The internal address $w$ is immutable; the charge bits $w_{0}$, $w_{1}$, electric charge $q=w_{1}\oplus w_{0}$, and color are derived from $w$ as described above.
   \item The affinity $a$ and the auxiliary leader identity $\mathit{leader\_w}$ are initialized to the island index of the $W$-island to which $w$ belongs (Sect.~\ref{subsec:w-islands}).  A true chief ($K$) emerges later through convolution, as described in Section~\ref{sec:dynamic-charge-quantization}.
   \item The housekeeping counter $k$ and the wavefront counter $t$ are set to zero; the contraction/phase vectors $\mathbf{c}$ are zero and $s2B$ is reset.
@@ -431,7 +431,7 @@ Once the Platonic seed is fixed, the first CA ticks generate the wavefront geome
 
 \subsection{Dynamic radius and the Euclidean metric}
 
-The wave field is seeded at each of the six source centers placed on the Cartesian faces around the lattice center.  From each source, the wavefront expands as a sphere in the cubic lattice, so we need a local, integer-valued approximation of the Euclidean distance from every cell to its source.
+The wave field is seeded at the source centers, all of which are born superposed at the lattice centre.  From its source, each wavefront expands as a sphere in the cubic lattice, so we need a local, integer-valued approximation of the Euclidean distance from every cell to its source.
 
 \paragraph{Squared-distance update.}
 Let the source have integer coordinates $(c_{x},c_{y},c_{z})$ and let $(x,y,z)$ be the cell coordinates, all taken modulo $L$ along each axis of the 3-torus.  The exact squared Euclidean distance is
@@ -502,7 +502,7 @@ sets a trigger, and the result stored in the cell is $s2B = \mathit{active} \lan
 
 Because the number of cells at radius $r$ on a cubic lattice scales approximately as $r^{2}$, the radial density of active cells with $s2B$ true follows $r\cdot\sin(r)$, which is the electromagnetic coupling density (see Figure \ref{fig1}). The underlying wave amplitude per cell is $\sin(r)/r$, so the $r\cdot\sin(r)$ density is a geometric consequence of binning active $s2B$ cells over spherical shells. The $s2B$ bit propagates this test between bubbles.
 
-The cloud is generated on the fly inside each light frame.  At $t=0$ the wave field is zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the six source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$.  The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice.  As the light-frame radius expands and contracts one cell per frame, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density.  The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
+The cloud is generated on the fly inside each light frame.  At $t=0$ the wave field is zero except for the excitations of fixed amplitude $U_{0}$ with $r^{2}=0$ at the source centers; all other cells have $r^{2}=\mathrm{INF}$ and $u=0$.  The constant $U_{0}$ is chosen independently of $L$ (for example, $U_{0}=2048$ in the reference implementation), so the same seed remains valid as the lattice grows; in the $L\to\infty$ limit it becomes a point excitation on an unbounded lattice.  As the light-frame radius expands and contracts one cell per frame, the normalized wave amplitude yields the $\sin(r)/r$ envelope per cell, and the active-triggered cells form the $r\cdot\sin(r)$ density.  The wave phase $f$, the Bresenham accumulator, and the active flag are therefore dynamical, not imprinted by fiat.
 
 \begin{figure}
 \begin{center}
