@@ -107,6 +107,11 @@ int main(int argc, char** argv)
   std::string ckpt   = (argc > 5) ? argv[5] : "build/attractor.ckpt";
   double      budget = (argc > 6) ? atof(argv[6]) : 22.0;
 
+  // Fatia 2 knobs — M/Mbar turnaround hook: eps / pbase / xorshift seed.
+  gConfig.simulation.mm_eps   = (argc > 7) ? atof(argv[7]) : 0.0;
+  gConfig.simulation.mm_pbase = (argc > 8) ? atof(argv[8]) : 1.0;
+  gConfig.simulation.mm_seed  = (argc > 9) ? (unsigned)atoi(argv[9]) : 1u;
+
   if (EL_in < 3 || EL_in > 31 || (EL_in % 2) == 0)
   {
     fprintf(stderr, "EL must be an odd value in [3,31]\n");

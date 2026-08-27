@@ -56,6 +56,11 @@ struct {
     // =========================
     struct {
         int scenario = -1;  // -1 = use splash selection
+
+        // Fatia 2 — M/Mbar turnaround hook (fsm.md §10), default OFF.
+        double   mm_eps   = 0.0;  // C-violating bias; 0 disables the hook
+        double   mm_pbase = 1.0;  // base conjugation probability per turnaround
+        unsigned mm_seed  = 1;    // xorshift32 seed (deterministic runs)
     } simulation;
 
     // =========================

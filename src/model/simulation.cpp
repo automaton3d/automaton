@@ -512,6 +512,109 @@ namespace automaton
     }
   }
 
+  // ============================================================
+  // Fatia 2 — M/Mbar turnaround hook (flag-gated, default OFF).
+  //
+  // Implements the fsm.md §10 "future hook for charge inversion at
+  // t == RMAX" as a controlled knob:
+  //   simulation.mm_eps    C/CP-like bias of the conjugation rate
+  //   simulation.mm_pbase  base probability per turnaround
+  //   simulation.mm_seed   xorshift32 seed (deterministic runs)
+  //
+  // At each island turnaround (draft centre t == RMAX, edge-latched) the
+  // bubble conjugates with probability
+  //     p = mm_pbase * (1 + mm_eps * bias),   bias = +1 matter, -1 anti,
+  // where matter/anti is read from the CURRENT charge word.  The
+  // current-charge feedback is the only coupling that produced a
+  // persistent excess in the virada.c ablation (birth-identity anchors
+  // and sector mirrors wash out to noise).
+  //
+  // The conjugation is sector-preserving (toy "mode 0") and stays inside
+  // the 32 valid charge words: ch ^= 0x1F flips color (c -> 7-c), q and
+  // w0 while keeping w1 — so the q = w0 ^ w1 invariant still holds and
+  // the word crosses the matter/anti threshold (popcount s -> 3-s).
+  //
+  // With mm_eps == 0 this routine is an exact no-op (bit-identical run).
+  // ============================================================
+  void applyChargeConjugation()
+  {
+    static bool inited = false;
+    static double cfgEps = 0.0, cfgPbase = 1.0;
+    static unsigned latchedSize = 0;
+    static std::vector<unsigned char> latched;   // per-island edge latch
+    static uint32_t rng = 1u;
+
+    if (lattice_draft.empty() || BLOCK == 0 || W_USED == 0)
+      return;
+
+    if (!inited)
+    {
+      inited      = true;
+      cfgEps      = gConfig.simulation.mm_eps;
+      cfgPbase    = gConfig.simulation.mm_pbase;
+      rng         = gConfig.simulation.mm_seed | 1u;
+      latched.assign(W_USED, 0);
+      latchedSize = W_USED;
+    }
+    if (cfgEps == 0.0 || latchedSize != W_USED)
+      return;                    // hook disabled (default) / lattice resized
+
+    unsigned events = 0, flips = 0;
+
+    for (unsigned w = 0; w < W_USED; ++w)
+    {
+      const unsigned cx = lcenters[w][0];
+      const unsigned cy = lcenters[w][1];
+      const unsigned cz = lcenters[w][2];
+      Cell& dc = getCell(lattice_draft, (int)cx, (int)cy, (int)cz, (int)w);
+
+      if (dc.t != RMAX) { latched[w] = 0; continue; }
+      if (latched[w])   continue;  // same turnaround already handled
+      latched[w] = 1;
+
+      if (dc.a == W_USED) continue;  // released singleton: no island left
+
+      ++events;
+
+      const bool isMatter =
+          ((dc.ch & 1u) + ((dc.ch >> 1) & 1u) + ((dc.ch >> 2) & 1u)) < 2u;
+      const double bias = isMatter ? 1.0 : -1.0;
+
+      double p = cfgPbase * (1.0 + cfgEps * bias);
+      if (p < 0.0) p = 0.0;
+      if (p > 1.0) p = 1.0;
+
+      rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5;
+      const double u = (double)(rng >> 8) / 16777216.0;    // uniform [0,1)
+      if (u >= p) continue;
+
+      const unsigned char chOld = dc.ch;
+      const unsigned char chNew = (unsigned char)(chOld ^ 0x1Fu);
+
+      // Conjugate every attached cell of the island in all three lattices,
+      // so the flip survives the swap and the boundary mirror stays coherent.
+      for (unsigned x = 0; x < EL; ++x)
+      for (unsigned y = 0; y < EL; ++y)
+      for (unsigned z = 0; z < EL; ++z)
+      {
+        Cell& d = getCell(lattice_draft, (int)x, (int)y, (int)z, (int)w);
+        if (d.a != W_USED) d.ch = chNew;
+        Cell& c2 = getCell(lattice_curr, (int)x, (int)y, (int)z, (int)w);
+        if (c2.a != W_USED) c2.ch = chNew;
+        Cell& m2 = getCell(lattice_mirror, (int)x, (int)y, (int)z, (int)w);
+        if (m2.a != W_USED) m2.ch = chNew;
+      }
+
+      ++flips;
+      printf("[mm] tick=%u w=%u %s ch=0x%02X->0x%02X p=%.3f\n",
+             pulse_tick, w, isMatter ? "M->A" : "A->M", chOld, chNew, p);
+    }
+
+    if (events > 0)
+      printf("[mm] tick=%u turnarounds=%u flips=%u\n",
+             pulse_tick, events, flips);
+  }
+
   void update_lattice_cpu()
   {
     // Phase 1: CaRaSh-style incremental distance field (r2/r) from each
@@ -610,6 +713,11 @@ namespace automaton
             }
         }
     }
+
+    // Fatia 2 — M/Mbar hook: conjugate islands at their breathing turnaround.
+    // Runs BEFORE applyMomentum() so it sees the same draft t == RMAX state
+    // the pair consumption uses.  Exact no-op when mm_eps == 0.
+    applyChargeConjugation();
 
     // Apply source-center momentum and update pulsation centers.
     applyMomentum();

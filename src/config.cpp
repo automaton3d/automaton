@@ -199,6 +199,21 @@ bool loadConfig(const std::string& path)
             gConfig.simulation.scenario = std::stoi(value);
         }
 
+        else if (key == "simulation.mm_eps")
+        {
+            gConfig.simulation.mm_eps = std::stod(value);
+        }
+
+        else if (key == "simulation.mm_pbase")
+        {
+            gConfig.simulation.mm_pbase = std::stod(value);
+        }
+
+        else if (key == "simulation.mm_seed")
+        {
+            gConfig.simulation.mm_seed = (unsigned)std::stoul(value);
+        }
+
         // =========================
         // tomography
         // =========================
