@@ -15,7 +15,7 @@
  *     before the antipode;
  *   - as the bubbles separate, the virgin fraction grows;
  *   - at the wrap (turnover) charges are inverted.
- * Question: can this produce a net matter/antimatter asymmetry in Orbits and
+ * Question: can this produce a net matter/antimatter asymmetry in Orbis and
  * (mutatis mutandis) for Umbra?
  *
  * Honest structural result this file demonstrates against a C-violating knob:
@@ -34,7 +34,7 @@
  *              (dOrb = dUmb exactly).
  *
  * The charge word matches combine.c: bit5 = q (electric), bit4 = w1
- * (sector Orissa/Umbra), bit3 = w0 (chirality), bits 2..0 = color.
+ * (sector Orbis/Umbra), bit3 = w0 (chirality), bits 2..0 = color.
  * Only q = w1 xor w0 is valid (32 of 64 words); the full complement ~c is
  * NOT a valid state, which re-derives the combine.c conservation bug.
  *
