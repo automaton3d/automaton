@@ -1030,8 +1030,9 @@ A small program (Ref. \cite{af_neto}, \emph{combine.c}) combined $6\times32768=1
 
 Since the strong force dominates, the search used probability $0.001$ for up quarks and $0.999$ for gluons, based on the smallest possible charge set. The search proceeded in four stages: gluons and up quarks (plus electrons, whose number depends on up quarks), then photons and neutrinos, then $W$ and $Z$ fragments, and finally anti-atoms.
 
-Results are in Table~\ref{combina}. Leftover bubbles that cannot form a pair or singleton indicate an ionized environment; inter-sector attenuation increases the photon count. The data roughly resemble a few simple atoms plus multiple-pair photons. Unmatched quark fragments may become mesons, virtual quarks, or contribute to dark matter (50\% + 25\%); Umbra appears to contain more antimatter than Orbis. Despite its naivety, the outcome is sensible as a toy universe.
+Results are in Table~\ref{combina}. Leftover bubbles that cannot form a pair or singleton indicate an ionized environment; inter-sector attenuation increases the photon count. The data roughly resemble a few simple atoms plus multiple-pair photons. Unmatched quark fragments may become mesons, virtual quarks, or contribute to dark matter (50\% + 25\%). Notably, the census shows no charge--conjugation preference in favour of antimatter: antimatter is scarce and balanced (antiup $2$/$2$; a single antielectron in Orbis, $1$ vs.\ $0$ in Umbra), while the only substantial sector imbalance, the complementary $W/Z$ pair, cancels out ($Z$: $24{,}592$ vs.\ $18{,}416$; $W$: $6{,}122$ vs.\ $12{,}294$; aggregate $30{,}714$ vs.\ $30{,}710$). A static charge census therefore yields no net matter--antimatter excess; despite its naivety, the outcome is sensible as a toy universe in that any asymmetry would have to emerge from the dynamical contact rules rather than from charge counts alone.
 
+Classifying the Orbis column into explicit matter and antimatter fragments (leptons and quarks with a definite electric charge), the census gives $83$ matter fragments ($42$ up + $10$ down + $31$ electrons) against $3$ antimatter fragments ($2$ antiup + $1$ antielectron; antiquarks vanish). The matter-to-antimatter ratio for the charged species is therefore $83{:}3\approx27.7{:}1$ ($\sim$96.5\% matter vs.\ $\sim$3.5\% antimatter). This apparent dominance is, however, purely kinematic and not a net excess: the overwhelmingly dominant gluon species ($36{,}760$) and every ``pair'' entry (photons, gravitons, $W$, $Z$, neutrinos) are built from a fragment plus its complement, so their matter and antimatter content cancels by construction. Only the small charged remainder is left unbalanced, and the only genuinely sector-imbalanced entries ($W/Z$) annul each other in aggregate. Thus, in the static census Orbis exhibits an explicit matter--antimatter dominance of order $\sim30:1$ among charged species, yet no $C$-asymmetric net excess emerges from the $6$-bit charge counts themselves.
 The proton-electron mass ratio comes out as $1187$ in both sectors, somewhat close to the empirical value $\approx1836$ (CODATA \cite{codata}). 
 
 \begin{table}
@@ -1046,7 +1047,7 @@ The proton-electron mass ratio comes out as $1187$ in both sectors, somewhat clo
 \textbf{\small{}Fragment} & \textbf{\small{}Type} & \textbf{\small{}Orbis} & \textbf{Umbra} & \textbf{\small{}Obs.}\tabularnewline
 \hline 
 \hline 
-{\small{}Gluon} & {\small{}Pair} & {\small{}3,6760.0} & {\small{}3,6760.0} & \tabularnewline
+{\small{}Gluon} & {\small{}Pair} & {\small{}36,760.0} & {\small{}36,760.0} & \tabularnewline
 \hline 
 {\small{}Up quark} & {\small{}Pair} & {\small{}42.0} & {\small{}42.0} & \tabularnewline
 \hline 
@@ -1072,7 +1073,7 @@ The proton-electron mass ratio comes out as $1187$ in both sectors, somewhat clo
 \hline 
 {\small{}Leftover} & {\small{}Single} & {\small{}24,624.0} & {\small{}24,620.0} & {\small{}Adds to dark matter}\tabularnewline
 \hline 
-\textbf{\small{}Total} &  & \multicolumn{2}{r|}{\textbf{\small{}196,602.0 }} & \tabularnewline
+\textbf{\small{}Total} &  & \multicolumn{2}{r|}{\textbf{\small{}196,587.0 }} & \tabularnewline
 \hline 
 \end{tabular}{\small\par}
 \par\end{centering}
@@ -1082,7 +1083,7 @@ The proton-electron mass ratio comes out as $1187$ in both sectors, somewhat clo
 \end{table}
 
 \subsection{Full implementation in a small lattice}
-A full implementation of the rules is provided in Ref.~\cite{af_neto}, including source code and an executable. The lattice size is limited to $L=11$ by available computational resources, but this still serves as a proof of concept for visualization and verification.
+A full implementation of the rules is provided in Ref.~\cite{af_neto}, including source code and an executable. The lattice size is limited by available computational resources, but this still serves as a proof of concept for visualization and verification.
 
 The next section discusses remaining challenges and limitations.
 

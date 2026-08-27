@@ -158,21 +158,6 @@ namespace automaton
    */
   bool convolute(Cell& curr, Cell &draft, Cell &mirror)
   {
-    return convolute7(curr, draft, mirror);
-  }
-
-  /*
-   * Full convolution with K/S/D/P source interactions.
-   *
-   * curr and mirror must both be on their active wavefronts.  The electric
-   * channel is triggered by pB, the magnetic channel by sB:
-   *   - both pB true  -> electric collapse (kB=1)
-   *   - both sB true  -> magnetic collapse (kB=1)
-   *   - only one pB or one sB true -> adiabatic exchange of affinity and phase
-   * The source-center cells are then updated according to K/S/D/P rules.
-   */
-  bool convolute7(Cell& curr, Cell &draft, Cell &mirror)
-  {
     if (!curr.active || !mirror.active)
       return false;
 

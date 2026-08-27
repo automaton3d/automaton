@@ -172,7 +172,6 @@ struct NeighborResult
   void replicate();
   bool simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute7(Cell& curr, Cell &draft, Cell &mirror);
   void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up);
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down);
   void reissue(Cell& curr, Cell &draft, Cell &forward,
