@@ -156,6 +156,10 @@ static double count[NSECT][NSPECIES];
 static long bag[NSECT][NCHARGES];
 static long free_in_sector[NSECT];
 
+/* per-charge leftover used only by the symmetry report (NOT the printed
+   table); lets us split leftover matter/antimatter for the vacuum-closure check */
+static long leftover_bag[NSECT][NCHARGES];
+
 /* ------------------------------------------------------------------ */
 /* deterministic small PRNG (xorshift32) -- no libc rand dependency    */
 /* ------------------------------------------------------------------ */
@@ -192,6 +196,7 @@ static void fill_bag(void)
 
     memset(bag, 0, sizeof bag);
     memset(count, 0, sizeof count);
+    memset(leftover_bag, 0, sizeof leftover_bag);
     free_in_sector[ORBIS] = free_in_sector[UMBRA] = 0;
 
     for (w1 = 0; w1 < 2; w1++)
@@ -325,8 +330,10 @@ static void classify_singles(void)
                 count[s][ANTIELECTRON] += (double) n;/* +Nbar */
             else if (Q(c) == 1 && !trivial_color(col) && !matter(col))
                 count[s][ANTIQUARK] += (double) n;   /* +Rbar, ... */
-            else
-                count[s][LEFTOVER] += (double) n;
+            else {
+                count[s][LEFTOVER] += (double) n;   /* printed table  */
+                leftover_bag[s][c] += n;            /* symmetry report */
+            }
         }
 }
 
@@ -430,9 +437,97 @@ static void report(void)
 
     printf("---------------------------------------------------------------\n");
     printf("%-14s %-8s %29.1f\n", "Total", "", total);
-    printf("(num de fragmentos usados; a Tabela original somava 196,602,\n");
-    printf("  nao fechava 196,608 -- inconsistencia interna do papel)\n");
+    printf("(tabela lista cada par 1x, como no manuscripto; a conservacao\n");
+    printf("  real de bolhas e o fechamento de simetria sao a seguir)\n");
 }
+/* ------------------------------------------------------------------ */
+/* symmetry & conservation report                                       */
+/* ------------------------------------------------------------------ */
+
+/* total bubbles really accounted for: pairs use 2 bubbles, singles use 1 */
+static double used_bubbles(void)
+{
+    int s, k;
+    double used = 0.0;
+    for (s = 0; s < NSECT; s++)
+        for (k = 0; k < NSPECIES; k++)
+            used += count[s][k] * (species_type[k][0] == 'P' ? 2.0 : 1.0);
+    return used;
+}
+
+/*
+ * The leftover is not a particle: it is the vacuum/background reservoir.
+ * We split it into a *neutral* part (the statistically pair-cancelling "sea")
+ * and an *unpaired* part (the residue that carries a net matter/antimatter
+ * signature).  The vacuo-closure test asks whether that leftover imbalance is
+ * the charge-conjugated partner of the formed matter:
+ *
+ *        closure = imbalance(particles) + imbalance(leftover)   ~  0 ?
+ *
+ * If it closes, the leftover genuinely plays the role of the vacuum.  If it
+ * does not close, the deviation is an explicit unmet residual (RNG + the
+ * bookkeeping cost of the printed table, which lists each pair only once).
+ *
+ * NOTE: the per-charge leftover is only available under `sim` (the byte-level
+ * RNG run).  The `load_reference` mode fills only the aggregated counts, so its
+ * leftover colour detail is unavailable and the closure test falls back to the
+ * bare particle imbalance.
+ */
+static void report_symmetry(void)
+{
+    int s, c;
+    double mat_p = 0.0, anti_p = 0.0;    /* particles (u,d,e^- | ubar,dbar,e^+) */
+    double mat_l = 0.0, anti_l = 0.0;    /* leftover, by colour signature       */
+    double used = 0.0;
+
+    for (s = 0; s < NSECT; s++) {
+        mat_p += count[s][UPQUARK] + count[s][DOWNQUARK] + count[s][ELECTRON];
+        anti_p += count[s][ANTIUP] + count[s][ANTIELECTRON] + count[s][ANTIQUARK];
+
+        for (c = 0; c < NCHARGES; c++) {
+            long n = leftover_bag[s][c];
+            if (n <= 0)
+                continue;
+            if (matter(COLOR(c)))   /* sig < 2 : matter-like colour */
+                mat_l += (double) n;
+            else
+                anti_l += (double) n;
+        }
+    }
+
+    used = used_bubbles();
+
+    double imp_p  = mat_p - anti_p;
+    double imp_l  = mat_l - anti_l;
+    double closure = imp_p + imp_l;
+    double leftover_total  = mat_l + anti_l;
+    double leftover_unpair = imp_l < 0 ? -imp_l : imp_l;   /* |imp_l| */
+    double leftover_neutral = leftover_total - leftover_unpair;
+
+    printf("\nSymmetry (quarks + leptons as units)\n");
+    printf("---------------------------------------------------------------\n");
+    printf("Particles  matter %12.1f  antimatter %12.1f  imbalance %8.1f\n",
+           mat_p, anti_p, imp_p);
+    printf("Leftover   matter %12.1f  antimatter %12.1f  imbalance %8.1f\n",
+           mat_l, anti_l, imp_l);
+    printf("---------------------------------------------------------------\n");
+    if (leftover_total > 0.0) {
+        printf("Closure: particle-imbalance + leftover-imbalance = %8.1f\n", closure);
+        printf("  -> %s\n",
+               (closure < 0.5 && closure > -0.5)
+                 ? "balanced: leftover closes the imbalance (vacuum-like)"
+                 : "NOT closed: an unmet residual / conservation leak remains");
+        printf("Leftover split: vacuum-sea(neutral) %9.1f  unpaired %9.1f\n",
+               leftover_neutral, leftover_unpair);
+    } else {
+        printf("(reference table: no per-charge leftover detail -> split N/A;\n");
+        printf("  closure = bare particle imbalance %8.1f)\n", imp_p);
+    }
+    printf("Conservation: pairs count 2x -> %12.1f bubbles used of %d (%+.1f unaccounted).\n",
+           used, NBUBBLES, (double) NBUBBLES - used);
+}
+
+
 
 /* ------------------------------------------------------------------ */
 /* reference reproduction (published table)                            */
@@ -469,5 +564,6 @@ int main(int argc, char **argv)
         load_reference();
     }
     report();
+    report_symmetry();
     return 0;
 }
