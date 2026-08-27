@@ -555,6 +555,8 @@ namespace automaton
       rng         = gConfig.simulation.mm_seed | 1u;
       latched.assign(W_USED, 0);
       latchedSize = W_USED;
+      fprintf(stderr, "[mm] init eps=%g pbase=%g seed=%u W_USED=%u RMAX=%u\n",
+              cfgEps, cfgPbase, rng, W_USED, RMAX);
     }
     if (cfgEps == 0.0 || latchedSize != W_USED)
       return;                    // hook disabled (default) / lattice resized
@@ -567,6 +569,11 @@ namespace automaton
       const unsigned cy = lcenters[w][1];
       const unsigned cz = lcenters[w][2];
       Cell& dc = getCell(lattice_draft, (int)cx, (int)cy, (int)cz, (int)w);
+
+      // DEBUG probe (stderr = unbuffered): what the hook actually reads.
+      if (w == 0 && (pulse_tick % 256u) == 0u)
+        fprintf(stderr, "[mm] probe tick=%u draft_t=%u RMAX=%u a=%u latched=%u\n",
+                pulse_tick, dc.t, RMAX, dc.a, latched[w]);
 
       if (dc.t != RMAX) { latched[w] = 0; continue; }
       if (latched[w])   continue;  // same turnaround already handled

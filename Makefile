@@ -348,12 +348,12 @@ $(OBJ_DIR)\glad.obj: glad\glad.c
 $(OBJ_DIR)\tinyfiledialogs.obj: src\tinyfiledialogs.c src\include\tinyfiledialogs.h
 	$(CC) $(CFLAGS) /c src\tinyfiledialogs.c /Fo$(OBJ_DIR)\tinyfiledialogs.obj
 
-# --- AC Project (Novo Núcleo Esférico) ---
-$(OBJ_DIR)\ac_project\bridge_simple.obj: src\ac_project\bridge_simple.cpp src\include\model\simulation.h src\include\ac_project\core_sphere.h
-	$(CC) $(CFLAGS) /c src\ac_project\bridge_simple.cpp /Fo$(OBJ_DIR)\ac_project\bridge_simple.obj
+# --- AC Project (Novo Núcleo Esférico) — movido para tests\ac_project ---
+$(OBJ_DIR)\ac_project\bridge_simple.obj: tests\ac_project\bridge_simple.cpp tests\ac_project\simulation.h tests\ac_project\core_sphere.h
+	$(CC) $(CFLAGS) /c tests\ac_project\bridge_simple.cpp /Fo$(OBJ_DIR)\ac_project\bridge_simple.obj
 
-$(OBJ_DIR)\ac_project\core_sphere.obj: src\ac_project\core_sphere.cpp src\include\model\simulation.h src\include\ac_project\core_sphere.h
-	$(CC) $(CFLAGS) /c src\ac_project\core_sphere.cpp /Fo$(OBJ_DIR)\ac_project\core_sphere.obj
+$(OBJ_DIR)\ac_project\core_sphere.obj: tests\ac_project\core_sphere.cpp tests\ac_project\simulation.h tests\ac_project\core_sphere.h
+	$(CC) $(CFLAGS) /c tests\ac_project\core_sphere.cpp /Fo$(OBJ_DIR)\ac_project\core_sphere.obj
 
 # ================================================
 # DLLs
