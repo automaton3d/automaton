@@ -519,6 +519,11 @@ namespace automaton
     update_pulsating_wavefront();
     pulse_tick++;
 
+    // Fatia 1 instrumentation (read-only): virgin-wrap ledger + throttled
+    // matter/antimatter census.  Never writes to the lattice.
+    chargesSampleTurnarounds();
+    chargesReport(pulse_tick);
+
     // Phase 2: radial polarisation pair (u,v) and active wavefront flag.
     // The active shell is c.r == effective_t(c.t): one cell per light frame.
     phase_step();

@@ -64,7 +64,8 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\render_pipeline.obj \
 	$(OBJ_DIR)\Renderer2D.obj \
 	$(OBJ_DIR)\geometry.obj \
-	$(OBJ_DIR)\polarization.obj
+	$(OBJ_DIR)\polarization.obj \
+	$(OBJ_DIR)\charges.obj
 
 OBJ = $(OBJ_COMMON) \
       $(OBJ_DIR)\bridge.obj
@@ -337,6 +338,9 @@ $(OBJ_DIR)\geometry.obj: src\model\geometry.cpp src\include\model\geometry.h
 
 $(OBJ_DIR)\polarization.obj: src\model\polarization.cpp src\include\model\simulation.h src\include\model\polarization.h
 	$(CC) $(CFLAGS) /c src\model\polarization.cpp /Fo$(OBJ_DIR)\polarization.obj
+
+$(OBJ_DIR)\charges.obj: src\model\charges.cpp src\include\model\simulation.h
+	$(CC) $(CFLAGS) /c src\model\charges.cpp /Fo$(OBJ_DIR)\charges.obj
 
 # --- Libraries ---
 $(OBJ_DIR)\glad.obj: glad\glad.c

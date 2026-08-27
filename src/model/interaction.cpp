@@ -97,6 +97,10 @@ namespace automaton
       srcDraft.reloc[2] += dz;
       srcDraft.t = 0;
       srcDraft.f = 0;
+      // Fatia 1: ledger the reemission — island w just had its clock reset.
+      // Every reemission path funnels through here (reemitAtContact,
+      // moveOneStep, moveOneStepAway), so this is the single hook.
+      chargesMarkInteraction((unsigned)srcDraft.x[3]);
     }
 
     // Move one light-step along the direction from 'from' to 'to'.

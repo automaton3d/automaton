@@ -42,6 +42,9 @@ void initGeneral()
     // Reset pulsating sphere tick counter
     pulse_tick = 0;
 
+    // Fatia 1: zero the charge-census / virgin-wrap ledgers.
+    chargesReset();
+
     // Reset emergent polarization broadcast state (walkers, elected axes).
     polarization::resetAll();
     

@@ -285,6 +285,18 @@ struct NeighborResult
   extern unsigned FRAME;
   extern unsigned int pulse_tick;
 
+  // ------------------------------------------------------------------
+  // Fatia 1 — charge census / virgin-wrap ledger (instrumentation only).
+  // Read-only over the lattice: these hooks never write cells, so the
+  // automaton dynamics are bit-identical with or without them.
+  // Defined in src/model/charges.cpp.  CPU path only (update_lattice_cpu);
+  // the CUDA bridge is deliberately untouched in this slice.
+  // ------------------------------------------------------------------
+  void chargesReset();                      // zero ledgers (called at sim init)
+  void chargesMarkInteraction(unsigned w);  // island w just reemitted (clock reset)
+  void chargesSampleTurnarounds();          // per-tick t==RMAX crossing detector
+  void chargesReport(unsigned tick);        // throttled matter/antimatter census
+
   // W-island topology (W = 3L^2 = (9L) * (L/3))
   extern unsigned ISLAND_SIZE;
   extern unsigned ISLAND_COUNT;
