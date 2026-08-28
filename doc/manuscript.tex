@@ -165,7 +165,7 @@ reorganization of bubbles throughout the evolution of the cellular automaton. A 
 Each cell carries the same fixed-size bit string, formatted as shown in Table~\ref{tab:Cell-structure}.
 
 Evolution progresses in uniform steps. 
-The input and output ports of each cell are conceptually linked through a Finite State Machine. 
+The input and output ports of each cell are conceptually linked through a Finite State Machine (FSM). 
 This design uses integers and simple logical rules, avoiding complex mathematical constructs.
 
 \subsubsection{Physical properties}
@@ -958,7 +958,7 @@ identical \emph{$W$-islands}, each containing
 \end{equation}
 positions. A $W$-island is not an object in physical space; it is an internal charge family. All $\ell$ copies inside one island share the same six charge bits ($q$, $w_1$, $w_0$, $c_2$, $c_1$, $c_0$), but each copy carries a distinct $pB$/$sB$ pattern. This built-in multiplicity is why identical particles are so similar, while the distinct polarizations allow the radial Hofer pattern (Sect.~\ref{subsec:hofer}) to emerge.
 
-Initially the $L/3$ copies of a $W$-island are singletons ($S$). When two copies of the same $W$-island meet in the 3-torus, one becomes the chief ($K$) and the other a delegate ($D$). Additional copies that later meet this island are captured as further delegates. A mature 3D island therefore has the form
+A given $W$-island configuration is not realized by a single object: it is instantiated by $\ell=L/3$ copies\footnote{For brevity the text speaks of \emph{the} $W$-island, but every configuration exists in many independent instances. The non-spatial dimension carries $W=3L^2$ positions partitioned into $9L$ charge families of $\ell=L/3$ identical copies, and each copy is itself a distinct bubble populating the 3-torus.}, and initially every one of these instances is a singleton ($S$). When two instances of the same $W$-island configuration meet in the 3-torus, one becomes the chief ($K$) and the other a delegate ($D$). Further instances that later meet this island are captured as additional delegates. A mature 3D island therefore has the form
 \begin{equation}
 1K + nD.
 \end{equation}

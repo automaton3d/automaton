@@ -543,6 +543,7 @@ namespace automaton
     static unsigned latchedSize = 0;
     static std::vector<unsigned char> latched;   // per-island edge latch
     static uint32_t rng = 1u;
+    static long long netCellBias = 0;  // (+) A->M - M->A over the run; D moves +2/-2
 
     if (lattice_draft.empty() || BLOCK == 0 || W_USED == 0)
       return;
@@ -555,6 +556,7 @@ namespace automaton
       rng         = gConfig.simulation.mm_seed | 1u;
       latched.assign(W_USED, 0);
       latchedSize = W_USED;
+      netCellBias = 0;
       fprintf(stderr, "[mm] init eps=%g pbase=%g seed=%u W_USED=%u RMAX=%u\n",
               cfgEps, cfgPbase, rng, W_USED, RMAX);
     }
@@ -613,13 +615,14 @@ namespace automaton
       }
 
       ++flips;
+      netCellBias += isMatter ? -1 : +1;   // M->A lowers D by 2; A->M raises by 2
       printf("[mm] tick=%u w=%u %s ch=0x%02X->0x%02X p=%.3f\n",
              pulse_tick, w, isMatter ? "M->A" : "A->M", chOld, chNew, p);
     }
 
     if (events > 0)
-      printf("[mm] tick=%u turnarounds=%u flips=%u\n",
-             pulse_tick, events, flips);
+      printf("[mm] tick=%u turnarounds=%u flips=%u netCellBias=%+lld (DeltaD = 2*netCellBias)\n",
+             pulse_tick, events, flips, netCellBias);
   }
 
   void update_lattice_cpu()
