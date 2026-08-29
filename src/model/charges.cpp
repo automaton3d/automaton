@@ -82,6 +82,8 @@ namespace automaton
     turnVirgin = 0;
     turnDirty  = 0;
     pairFormations = 0;
+    foreignAff[0] = foreignAff[1] = 0;
+    layerAttach.assign(W_USED, 0);
   }
 
   void chargesMarkInteraction(unsigned w)
