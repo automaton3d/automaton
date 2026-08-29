@@ -545,7 +545,7 @@ Writing $j_{2}=j-R$ for $j\ge R$, the integer pair is reconstructed by
 \text{if }j<R:\quad&u=R(R-2j),          &&v=2R\,\mathrm{isqrt}\bigl(j(R-j)\bigr),\\
 \text{if }j\ge R:\quad&u=R(2j-3R),       &&v=-2R\,\mathrm{isqrt}\bigl(j_{2}(R-j_{2})\bigr).
 \end{align}
-These formulas generate an integer pair $(u,v)$ that lies on the integer lattice closest to the circle $u^{2}+v^{2}=R^{4}$ of radius $R^{2}$ (the equality is exact when the integer square root is exact, and is otherwise the closest integer approximation).  The polarization angle is $\theta=\operatorname{atan2}(v,u)$; it advances from $0$ to $2\pi$ as the broadcasted value grows, winding the polarization helix around the elected momentum axis.  No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the direction emerges from the tournament over the $W$-ledger, and the phase from the integer square-root relation applied to the arrival time.
+These formulas generate an integer pair $(u,v)$ that lies on the integer lattice closest to the circle $u^{2}+v^{2}=R^{4}$ of radius $R^{2}$ (the equality is exact when the integer square root is exact, and is otherwise the closest integer approximation).  The polarization angle, defined geometrically as $\theta=\operatorname{atan2}(v,u)$, advances from $0$ to $2\pi$ as the broadcasted value grows, winding the polarization helix around the elected momentum axis.  This angle is never numerically evaluated by the automaton: it is the continuous geometric interpretation of the integer pair $(u,v)$, which encodes the direction implicitly.  No trigonometric tables, no precomputed spiral, and no per-cell fixed constants are used: the direction emerges from the tournament over the $W$-ledger, and the phase from the integer square-root relation applied to the arrival time.  Per the purity constraints (Sect.~\ref{subsec:purity}), the runtime performs no trigonometric computation whatsoever; $\operatorname{atan2}$ is introduced here only as a descriptor linking the integer pair to its emergent angular variable.
 
 Once these fields are present, the cyclic evolution described in Sect.~\ref{sec:light-frame} begins.  Within that structured loop particles move, interact, and display emergent physical behavior.
 
@@ -1418,6 +1418,8 @@ of the publication.
 Estimates for the value of \emph{X} and the distance between the cells
 and \emph{L} (see Sect. \ref{sec:space-and-time}), the granularity
 of the grid, will be developed in this appendix.
+
+Note that the calculations below are derivation-only: per the purity constraints (Sect.~\ref{subsec:purity}), real numbers serve solely as intermediaries to compute integer parameters and are never invoked inside the runtime transition rule.  The values of $X$ and $L$ obtained here are rounded to integers and used once at initialization as fixed topological data.
 
 The diameter of the observable universe \cite{halpbern} is compared
 to the diagonal of the lattice.
