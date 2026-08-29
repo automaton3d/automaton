@@ -294,6 +294,7 @@ struct NeighborResult
   // ------------------------------------------------------------------
   void chargesReset();                      // zero ledgers (called at sim init)
   void chargesMarkInteraction(unsigned w);  // island w just reemitted (clock reset)
+  void chargesMarkPair();                   // a registered P formation was created (idea B)
   void chargesSampleTurnarounds();          // per-tick t==RMAX crossing detector
   void chargesReport(unsigned tick);        // throttled matter/antimatter census
 

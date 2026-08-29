@@ -22,8 +22,51 @@ namespace automaton
       std::vector<uint64_t> pop_;    // [frame * nBuckets + g]
       std::vector<uint64_t> cap_;
       std::vector<uint64_t> esc_;
+      std::vector<uint64_t> flux_;   // per-frame sector flux, 8 slots/frame:
+                                     //   idx = (esc?4:0) + sec*2 + (mat?1:0)
+                                     //   capM_Orb capA_Orb capM_Umb capA_Umb
+                                     //   escM_Orb escA_Orb escM_Umb escA_Umb
       unsigned nBuckets_ = 0;
       unsigned frames_   = 0;
+
+      // Sector of a cell from its charge word (bit5 = w1).  Invariant under
+      // the M/Mbar hook (ch ^= 0x1F preserves w1), so a bubble's sector is
+      // a stable label throughout the run.
+      inline unsigned secOf(const Cell& c)
+      {
+        return (c.ch >> 5) & 1u;
+      }
+
+      // Matter/anti from the color weight (SIG < 2 = matter), same rule as
+      // the charge census and the virada/combine studies.
+      inline bool matOf(const Cell& c)
+      {
+        return ((c.ch & 1u) + ((c.ch >> 1) & 1u) + ((c.ch >> 2) & 1u)) < 2u;
+      }
+
+      // Series-start island charge balance per sector (series v3): the
+      // baseline the sector-flux telescoping integrates from.  While
+      // (sector, sign) per cell is invariant (eps=0 hook), the island
+      // balance obeys
+      //   D_isl(sec, t) = D0(sec) + sum_frames (capM-capA-escM+escA)(sec)
+      // so the SECTOR FLUX report can reconcile directly against the
+      // [charges] closure census (DslOrb/DslUmb).
+      long long dIslOrb0_ = 0;
+      long long dIslUmb0_ = 0;
+
+      void computeIslandD(long long& orb, long long& umb)
+      {
+        long long o = 0, u = 0;
+        for (size_t i = 0; i < static_cast<size_t>(BLOCK); ++i)
+        {
+          const Cell& c = lattice_curr[i];
+          if (c.a == W_USED || ISLAND_SIZE == 0) continue;
+          const long long d = matOf(c) ? 1 : -1;
+          if (secOf(c) == 0) o += d; else u += d;
+        }
+        orb = o;
+        umb = u;
+      }
 
       // Ordinary least squares of y ~ x over x[begin..end).
       inline void ols(const std::vector<double>& x,
@@ -68,8 +111,11 @@ namespace automaton
       if (nBuckets_ == 0) nBuckets_ = 1;
 
       prev_.assign(static_cast<size_t>(BLOCK), ORPHAN);
-      pop_.clear(); cap_.clear(); esc_.clear();
+      pop_.clear(); cap_.clear(); esc_.clear(); flux_.clear();
       frames_ = 0;
+      // Fresh start: D0 = island balance of the seed.  On resume this gets
+      // overwritten by loadSeries (v3) with the run's original baseline.
+      computeIslandD(dIslOrb0_, dIslUmb0_);
 
       printf("attractor: %u island buckets (ISLAND_SIZE=%u, W_USED=%u)\n",
              nBuckets_, ISLAND_SIZE, W_USED);
@@ -84,9 +130,13 @@ namespace automaton
       cap_.resize(off + nBuckets_, 0);
       esc_.resize(off + nBuckets_, 0);
 
+      const size_t foff = static_cast<size_t>(frame - 1) * 8;
+      flux_.resize(foff + 8, 0);
+
       std::fill(pop_.begin() + off, pop_.end(), 0ull);
       std::fill(cap_.begin() + off, cap_.end(), 0ull);
       std::fill(esc_.begin() + off, esc_.end(), 0ull);
+      std::fill(flux_.begin() + foff, flux_.end(), 0ull);
 
       for (size_t i = 0; i < static_cast<size_t>(BLOCK); ++i)
       {
@@ -104,14 +154,32 @@ namespace automaton
           ++pop_[off + now];
 
         const uint16_t pv = prev_[i];
+        if (lattice_curr[i].t >= RMAX && pv != now)
+        {
+          // Turnaround flicker: at the expansion limit (t == RMAX) the active
+          // shell reads a := W_USED for exactly one tick and is re-affiliated
+          // on the next tick with an unchanged charge word.  Hold the
+          // pre-turnaround label so the frame series measures settled
+          // membership instead of this D-neutral 1-tick flicker.
+          continue;
+        }
+
         if (pv == ORPHAN && now != ORPHAN)
+        {
           ++cap_[off + now];
+          ++flux_[foff + 0u + secOf(lattice_curr[i]) * 2u + (matOf(lattice_curr[i]) ? 1u : 0u)];
+        }
         else if (pv != ORPHAN && now == ORPHAN)
+        {
           ++esc_[off + pv];
+          ++flux_[foff + 4u + secOf(lattice_curr[i]) * 2u + (matOf(lattice_curr[i]) ? 1u : 0u)];
+        }
         else if (pv != ORPHAN && now != ORPHAN && pv != now)
         {
           ++esc_[off + pv];   // island switch = escape + capture
           ++cap_[off + now];
+          ++flux_[foff + 0u + secOf(lattice_curr[i]) * 2u + (matOf(lattice_curr[i]) ? 1u : 0u)];
+          ++flux_[foff + 4u + secOf(lattice_curr[i]) * 2u + (matOf(lattice_curr[i]) ? 1u : 0u)];
         }
 
         prev_[i] = now;
@@ -145,13 +213,16 @@ namespace automaton
     {
       FILE* f = fopen(path.c_str(), "wb");
       if (!f) return false;
-      uint32_t hdr[2] = { frames_, nBuckets_ };
+      uint32_t hdr[5] = { frames_, nBuckets_, 3,
+                          (uint32_t)(int32_t)dIslOrb0_,
+                          (uint32_t)(int32_t)dIslUmb0_ };  // v3 adds D0 per sector
       fwrite(hdr, sizeof(hdr), 1, f);
       if (frames_)
       {
         fwrite(pop_.data(), sizeof(uint64_t), pop_.size(), f);
         fwrite(cap_.data(), sizeof(uint64_t), cap_.size(), f);
         fwrite(esc_.data(), sizeof(uint64_t), esc_.size(), f);
+        fwrite(flux_.data(), sizeof(uint64_t), flux_.size(), f);
       }
       fclose(f);
       return true;
@@ -161,21 +232,54 @@ namespace automaton
     {
       FILE* f = fopen(path.c_str(), "rb");
       if (!f) return false;
-      uint32_t hdr[2] = { 0, 0 };
-      if (fread(hdr, sizeof(hdr), 1, f) != 1 ||
-          hdr[1] != nBuckets_)
+      uint32_t hdr[3] = { 0, 0, 0 };
+      size_t got = fread(hdr, sizeof(uint32_t), 3, f);
+      if (got != 3)
+      {
+        // Fallback: pre-v2 header (frames_, nBuckets_ only).
+        uint32_t hdr2[2] = { hdr[0], hdr[1] };
+        rewind(f);
+        if (fread(hdr2, sizeof(uint32_t), 2, f) != 2 ||
+            hdr2[1] != nBuckets_)
+        {
+          fclose(f);
+          return false;
+        }
+        hdr[0] = hdr2[0]; hdr[1] = hdr2[1]; hdr[2] = 0;
+      }
+      if (hdr[1] != nBuckets_)
       {
         fclose(f);
         return false;
       }
+      if (hdr[2] >= 3)
+      {
+        // v3: series-start island D per sector (telescoping baseline).
+        uint32_t d0[2] = { 0, 0 };
+        if (fread(d0, sizeof(uint32_t), 2, f) != 2)
+        {
+          fclose(f);
+          return false;
+        }
+        dIslOrb0_ = (long long)(int32_t)d0[0];
+        dIslUmb0_ = (long long)(int32_t)d0[1];
+      }
+      else
+      {
+        dIslOrb0_ = 0;
+        dIslUmb0_ = 0;
+      }
       frames_ = hdr[0];
       const size_t n = static_cast<size_t>(frames_) * nBuckets_;
       pop_.resize(n); cap_.resize(n); esc_.resize(n);
+      flux_.assign(static_cast<size_t>(frames_) * 8, 0);
       bool ok = true;
       if (n)
         ok = fread(pop_.data(), sizeof(uint64_t), n, f) == n &&
              fread(cap_.data(), sizeof(uint64_t), n, f) == n &&
              fread(esc_.data(), sizeof(uint64_t), n, f) == n;
+      if (ok && hdr[2] >= 2 && frames_)
+        ok = fread(flux_.data(), sizeof(uint64_t), frames_ * 8, f) == frames_ * 8;
       fclose(f);
       return ok;
     }
@@ -268,6 +372,74 @@ namespace automaton
       return rep;
     }
 
+    // Accumulated sector flux over all sampled frames.
+    struct SectorTotals
+    {
+      uint64_t capM_Orb = 0, capA_Orb = 0, capM_Umb = 0, capA_Umb = 0;
+      uint64_t escM_Orb = 0, escA_Orb = 0, escM_Umb = 0, escA_Umb = 0;
+    };
+
+    SectorTotals fluxTotals()
+    {
+      SectorTotals t;
+      for (unsigned fr = 0; fr < frames_; ++fr)
+      {
+        const size_t foff = static_cast<size_t>(fr) * 8;
+        t.capM_Orb += flux_[foff + 0];
+        t.capA_Orb += flux_[foff + 1];
+        t.capM_Umb += flux_[foff + 2];
+        t.capA_Umb += flux_[foff + 3];
+        t.escM_Orb += flux_[foff + 4];
+        t.escA_Orb += flux_[foff + 5];
+        t.escM_Umb += flux_[foff + 6];
+        t.escA_Umb += flux_[foff + 7];
+      }
+      return t;
+    }
+
+    void printSectorFlux(const SectorTotals& t, unsigned frames)
+    {
+      const double f = (frames > 0) ? (double)frames : 1.0;
+      // Net balance of D = mat - anti flowing INTO islands per frame, by sector.
+      //   netD_orb = (capM-capA)_orb - (escM-esA)_orb
+      //   netD_umb = (capM-capA)_umb - (escM-esA)_umb
+      const double netD_orb =
+          ((double)t.capM_Orb - (double)t.capA_Orb) - ((double)t.escM_Orb - (double)t.escA_Orb);
+      const double netD_umb =
+          ((double)t.capM_Umb - (double)t.capA_Umb) - ((double)t.escM_Umb - (double)t.escA_Umb);
+
+      printf("----------------------------------------------------------------\n");
+      printf("SECTOR FLUX  (aggregate %u frames, per-frame rates)\n", frames);
+      // Telescoping prediction: with (sector, sign) per cell invariant
+      // (eps=0), D_isl(sec, now) = D0(sec) + cumulative net flux.  Compare
+      // against the [charges] closure DslOrb/DslUmb at the census ticks.
+      const long long cumOrb = (long long)t.capM_Orb - (long long)t.capA_Orb -
+                               (long long)t.escM_Orb + (long long)t.escA_Orb;
+      const long long cumUmb = (long long)t.capM_Umb - (long long)t.capA_Umb -
+                               (long long)t.escM_Umb + (long long)t.escA_Umb;
+      printf("                capM   capA   |   escM   escA   |  netD/fr  D_isl(pred)\n");
+      printf("  Orbis (w1=0) %5.1f %6.1f | %6.1f %6.1f | %+8.2f  %+9lld\n",
+             (double)t.capM_Orb / f, (double)t.capA_Orb / f,
+             (double)t.escM_Orb / f, (double)t.escA_Orb / f, netD_orb,
+             dIslOrb0_ + cumOrb);
+      printf("  Umbra (w1=1) %5.1f %6.1f | %6.1f %6.1f | %+8.2f  %+9lld\n",
+             (double)t.capM_Umb / f, (double)t.capA_Umb / f,
+             (double)t.escM_Umb / f, (double)t.escA_Umb / f, netD_umb,
+             dIslUmb0_ + cumUmb);
+
+      // The headline question: does Umbra shed anti faster than Orbis sheds
+      // matter while Orbis keeps netting matter?
+      const double escA_Umb = (double)t.escA_Umb / f;
+      const double escM_Orb = (double)t.escM_Orb / f;
+      const double netM_Orb = ((double)t.capM_Orb - (double)t.escM_Orb) / f;
+      const double netA_Umb = ((double)t.capA_Umb - (double)t.escA_Umb) / f;
+      printf("  Umbra anti escape rate    %8.2f cells/frame\n", escA_Umb);
+      printf("  Orbis matter escape rate  %8.2f cells/frame\n", escM_Orb);
+      printf("  Umbra net anti flux to islands %+8.2f cells/frame (neg = shedding)\n", netA_Umb);
+      printf("  Orbis net matter flux to islands %+8.2f cells/frame (pos = gaining)\n", netM_Orb);
+      printf("----------------------------------------------------------------\n");
+    }
+
     void printReport(const Report& rep)
     {
       printf("\n==============================================================\n");
@@ -279,6 +451,7 @@ namespace automaton
       printf("mean total affiliated population: %.1f cells\n", rep.meanTotalPop);
       printf("gross turnover: captures/frame=%.2f  escapes/frame=%.2f\n",
              rep.meanCaptures, rep.meanEscapes);
+      printSectorFlux(fluxTotals(), frames_);
 
       printf("\nPooled dN ~ N regression (%ld points):\n", rep.pooledPoints);
       if (rep.pooledHasFit)
@@ -327,6 +500,29 @@ namespace automaton
       printf("==============================================================\n");
     }
 
+    bool sectorCSVToFile(const std::string& path)
+    {
+      FILE* f = fopen(path.c_str(), "w");
+      if (!f) return false;
+      fprintf(f, "frame,capM_Orb,capA_Orb,capM_Umb,capA_Umb,escM_Orb,escA_Orb,escM_Umb,escA_Umb\n");
+      for (unsigned fr = 0; fr < frames_; ++fr)
+      {
+        const size_t foff = static_cast<size_t>(fr) * 8;
+        fprintf(f, "%u,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu\n",
+                fr + 1,
+                (unsigned long long)flux_[foff + 0],
+                (unsigned long long)flux_[foff + 1],
+                (unsigned long long)flux_[foff + 2],
+                (unsigned long long)flux_[foff + 3],
+                (unsigned long long)flux_[foff + 4],
+                (unsigned long long)flux_[foff + 5],
+                (unsigned long long)flux_[foff + 6],
+                (unsigned long long)flux_[foff + 7]);
+      }
+      fclose(f);
+      return true;
+    }
+
     bool writeCSV(const std::string& path, const Report& rep)
     {
       (void)rep;
@@ -342,6 +538,12 @@ namespace automaton
                   (unsigned long long)esc_[t * nBuckets_ + g]);
       fclose(f);
       return true;
+    }
+
+    // Public wrapper: persist the 8-sector-flux series to its own CSV.
+    bool writeSectorCSV(const std::string& path)
+    {
+      return sectorCSVToFile(path);
     }
 
 } } // namespace automaton::attractor

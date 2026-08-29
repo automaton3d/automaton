@@ -209,6 +209,8 @@ namespace automaton
       if (alreadyPaired)
         return false;
 
+      chargesMarkPair();          // idea B: count this registered formation
+
       uint8_t newCount = 1;
       if (currSrc.kind == SourceKind::P) newCount += currSrc.pair_count;
       if (mirrorSrc.kind == SourceKind::P) newCount += mirrorSrc.pair_count;

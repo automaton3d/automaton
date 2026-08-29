@@ -602,22 +602,35 @@ namespace automaton
 
       // Conjugate every attached cell of the island in all three lattices,
       // so the flip survives the swap and the boundary mirror stays coherent.
+      // The matter/anti ledger is PER CELL: a merged island holds mixed
+      // charges, and stamping C(center) flips each cell independently of the
+      // center's own sign.  netCellBias accumulates the exact cell-level
+      // matter-count change, so DeltaD = 2*netCellBias holds identically.
+      long long eventBias = 0;
       for (unsigned x = 0; x < EL; ++x)
       for (unsigned y = 0; y < EL; ++y)
       for (unsigned z = 0; z < EL; ++z)
       {
         Cell& d = getCell(lattice_draft, (int)x, (int)y, (int)z, (int)w);
+        const unsigned char chBefore = d.ch;   // capture BEFORE overwrite
         if (d.a != W_USED) d.ch = chNew;
         Cell& c2 = getCell(lattice_curr, (int)x, (int)y, (int)z, (int)w);
         if (c2.a != W_USED) c2.ch = chNew;
         Cell& m2 = getCell(lattice_mirror, (int)x, (int)y, (int)z, (int)w);
         if (m2.a != W_USED) m2.ch = chNew;
+
+        if (d.a != W_USED)
+        {
+          const bool mBefore = ((chBefore & 1u) + ((chBefore >> 1) & 1u) + ((chBefore >> 2) & 1u)) < 2u;
+          const bool mAfter  = ((chNew & 1u) + ((chNew >> 1) & 1u) + ((chNew >> 2) & 1u)) < 2u;
+          eventBias += (mAfter ? 1 : 0) - (mBefore ? 1 : 0);
+        }
       }
 
       ++flips;
-      netCellBias += isMatter ? -1 : +1;   // M->A lowers D by 2; A->M raises by 2
-      printf("[mm] tick=%u w=%u %s ch=0x%02X->0x%02X p=%.3f\n",
-             pulse_tick, w, isMatter ? "M->A" : "A->M", chOld, chNew, p);
+      netCellBias += eventBias;   // exact cell-level matter-count delta
+      printf("[mm] tick=%u w=%u %s ch=0x%02X->0x%02X p=%.3f cellBias=%+lld\n",
+             pulse_tick, w, isMatter ? "M->A" : "A->M", chOld, chNew, p, eventBias);
     }
 
     if (events > 0)

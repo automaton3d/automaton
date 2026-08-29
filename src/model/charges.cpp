@@ -90,6 +90,11 @@ namespace automaton
       dirty[w] = 1;
   }
 
+  void chargesMarkPair()
+  {
+    ++pairFormations;
+  }
+
   void chargesSampleTurnarounds()
   {
     if (!ledgerReady() || lattice_curr.empty())
@@ -207,8 +212,15 @@ namespace automaton
     const long long dTotal   = dIslands + dOrphans;
     const long long dOrb     = (long long)sMat[0] - (long long)sAnti[0];
     const long long dUmb     = (long long)sMat[1] - (long long)sAnti[1];
-    printf("[charges] closure tick=%u Disl=%+lld Dorph=%+lld Dtot=%+lld Dorb=%+lld Dumb=%+lld | orbM=%llu orbA=%llu umbM=%llu umbA=%llu\n",
-           tick, dIslands, dOrphans, dTotal, dOrb, dUmb,
+    // Island-only balance per sector: what the attractor sector-flux
+    // telescoping predicts (D0 + cumulative net flux).  Printing both lets
+    // the log reconcile the two instruments frame by frame.
+    const long long dIslOrb  = ((long long)sMat[0] - (long long)sOrphanMat[0]) -
+                               ((long long)sAnti[0] - (long long)sOrphanAnti[0]);
+    const long long dIslUmb  = ((long long)sMat[1] - (long long)sOrphanMat[1]) -
+                               ((long long)sAnti[1] - (long long)sOrphanAnti[1]);
+    printf("[charges] closure tick=%u Disl=%+lld Dorph=%+lld Dtot=%+lld Dorb=%+lld Dumb=%+lld DslOrb=%+lld DslUmb=%+lld | orbM=%llu orbA=%llu umbM=%llu umbA=%llu\n",
+           tick, dIslands, dOrphans, dTotal, dOrb, dUmb, dIslOrb, dIslUmb,
            (unsigned long long)sMat[0], (unsigned long long)sAnti[0],
            (unsigned long long)sMat[1], (unsigned long long)sAnti[1]);
 
@@ -240,11 +252,12 @@ namespace automaton
     const long long freeA    = (long long)totAnti - (long long)pairA_all;
     const long long freeD    = freeM - freeA;               // == dTotal - dPair
     const bool retinaOk = (freeD == (dTotal - dPair));
-    printf("[charges] retina tick=%u pairM=%llu pairA=%llu dPair=%+lld freeM=%llu freeA=%llu freeD=%+lld | hidAnti orb=%llu umb=%llu | Dtot==dPair+freeD: %s\n",
+    printf("[charges] retina tick=%u pairM=%llu pairA=%llu dPair=%+lld freeM=%llu freeA=%llu freeD=%+lld | hidAnti orb=%llu umb=%llu form=%llu | Dtot==dPair+freeD: %s\n",
            tick,
            (unsigned long long)pairM_all, (unsigned long long)pairA_all, dPair,
            (unsigned long long)freeM, (unsigned long long)freeA, freeD,
            (unsigned long long)pairAnti[0], (unsigned long long)pairAnti[1],
+           (unsigned long long)pairFormations,
            retinaOk ? "OK" : "FAIL");
 
     for (unsigned w = 0; w < W_USED; ++w)

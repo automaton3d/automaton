@@ -97,6 +97,10 @@ namespace automaton
 
     /// Time-series CSV: frame,island,population,captures,escapes
     bool writeCSV(const std::string& path, const Report& rep);
+
+    /// Per-frame sector-flux CSV (8 columns: cap/esc split by Orbis/Umbra
+    /// and matter/anti).  Parallel to writeCSV.
+    bool writeSectorCSV(const std::string& path);
   }
 }
 

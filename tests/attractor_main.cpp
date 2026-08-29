@@ -138,6 +138,7 @@ int main(int argc, char** argv)
   if (resumed)
   {
     automaton::attractor::begin();
+    automaton::chargesReset();   // census ledgers are not in the checkpoint image
     if (!automaton::attractor::loadSeries(ckpt + ".series"))
     {
       fprintf(stderr, "checkpoint series missing/corrupt\n");
@@ -154,6 +155,7 @@ int main(int argc, char** argv)
     for (int step = 0; step <= 7; ++step)
       automaton::initSimulation(step);
     automaton::attractor::begin();
+    automaton::attractor::resyncPrev();  // seed affiliation is baseline, not captures
   }
 
   const auto t0 = std::chrono::steady_clock::now();
@@ -204,6 +206,23 @@ int main(int argc, char** argv)
       printf("time series written to %s\n", csv.c_str());
     else
       fprintf(stderr, "warning: could not write CSV to %s\n", csv.c_str());
+
+    // Parallel sector-flux CSV (foo_ts.csv -> foo_ts_sector.csv).
+    std::string secCsv = csv;
+    {
+      const size_t slash = secCsv.find_last_of("/\\");
+      const size_t dot   = secCsv.find_last_of('.');
+      if (dot != std::string::npos &&
+          (slash == std::string::npos || dot > slash))
+        secCsv.insert(dot, "_sector");
+      else
+        secCsv += "_sector.csv";
+    }
+    if (automaton::attractor::writeSectorCSV(secCsv))
+      printf("sector flux series written to %s\n", secCsv.c_str());
+    else
+      fprintf(stderr, "warning: could not write sector CSV to %s\n",
+              secCsv.c_str());
 
     remove(ckpt.c_str());
     remove((ckpt + ".series").c_str());
