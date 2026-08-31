@@ -93,10 +93,10 @@ One interpretive choice governs the whole model and should be stated from the ou
 Our construction extends foundational work in digital physics: Zuse's discrete universe \cite{zuse}, Fredkin's reversible computation \cite{fredkin}, and Wolfram's complex behavior from simple rules \cite{wolfram}. The novelty lies in a layered 3-torus with specific interaction rules that emulate quantum-like and relativistic effects without probabilistic superpositions. The aim is to test whether a deterministic, information-based universe can reproduce key observed phenomena.
 
 The paper is organized as follows: Section \ref{sec:related-work} begins with a review of previous work in the area, followed by Section \ref{sec:space-and-time} with the foundational stage, defining the universal fabric. 
-Section \ref{initial-state} builds the initial state. 
+Section \ref{initial-state} builds the initial state, and Section \ref{sec:phase-step} describes the phase step and the emergent wave fields. 
 The light frame is presented in Section \ref{sec:light-frame}. 
-Section \ref{sec:Particles} defines particles, followed by Section \ref{sec:Interactions} that illustrates bubble interactions and explores the role of charge conjugation. 
-Section \ref{sec:Results} provides key results. 
+Section \ref{sec:Interactions} illustrates the bubble interactions, followed by Section \ref{sec:Particles} that defines the composite particles. 
+Section \ref{sec:dynamic-charge-quantization} details the dynamic organization and quantization of the $W$-islands, and Section \ref{sec:Results} provides key results, including the charge-conjugation study of the matter--antimatter census. 
 Section \ref{sec:bridge} succinctly contemplates the bridge between the model and the QM formalism, and Section \ref{sec:Prospects-and-conjectures} outlines potential future directions. 
 Finally, Section \ref{sec:Discussion} offers a summary and a synthetic interpretation of the model.
 
@@ -315,11 +315,20 @@ sieve test result & B & $s2B$ & seeded from $u$ and $t$, propagated with the act
 \hline 
 sB hunting & B & $hB$ & flag to find the sB bit\tabularnewline
 \hline 
+contraction flag & B & $cB$ & marks a bubble in the contraction phase (consumed to reset $t$)\tabularnewline
+\hline 
 collapse flag & B & $kB$ & hints collapse\tabularnewline
 \hline 
 blob flag & B & $bB$ & marks pairs eligible for blob formation\tabularnewline
 \hline 
-
+\multicolumn{4}{|c|}{\textbf{Source model}}\tabularnewline
+\hline 
+source kind & N & $\mathrm{kind}$ & $K$ (chief), $S$ (singleton), $D$ (delegate), $P$ (pair)\tabularnewline
+\hline 
+pair index & DN & $\mathrm{pair\_idx}$ & partner layer of a $P$ source\tabularnewline
+\hline 
+pair count & N & $\mathrm{pair\_count}$ & superposed pairs of a $P$ source; photon frequency $=2\,\mathrm{pair\_count}$\tabularnewline
+\hline 
 \end{tabular}
 \par\end{centering}
 
@@ -594,7 +603,7 @@ Despite its name, the light frame is not a unit of light propagation: it is the 
 \end{tikzpicture}
 \end{center}
 
-\caption{The light frame: Convolution, Diffusion and translation. Constants CONVOL, DIFFUSION and RELOC delimit the phases.}
+\caption{The light frame---the period of the information clock, within which a wavefront advances exactly one lattice cell at the maximum information speed $v_{\max}$---has three stages: Convolution, Diffusion and translation, delimited by the constants CONVOL, DIFFUSION and RELOC.}
 \label{fig:light_frame}
 \end{figure}
 
@@ -793,7 +802,7 @@ At the same time, the translation vector $\mathbf{c}$ diffuses through the layer
 \node[phase] (t1) {
   \textbf{Time slot 1}\\
   In 3D:\\
-  Propagate orphans owtward\\
+  Propagate orphans outward\\
   Propagate cB inward\\
   Hunting sB using hB
 };
@@ -884,41 +893,47 @@ At the end of each $k$ tick, the draft lattice is transferred to main. If $k$ li
 
 \subsection{Algorithmic summary of one light frame}\label{subsec:algorithm}
 
-For reproducibility, Algorithm~\ref{alg:lightframe} gives a self-contained pseudo-code account of one complete light frame, including the exact interaction rules for the six charge bits.  The notation follows Table~\ref{tab:Cell-structure}: a charge word is written $w_{1}\,w_{0}\,q\,c_{2}\,c_{1}\,c_{0}$ (most significant first), $c_{2}c_{1}c_{0}$ is the colour, $000\mathrm{B}=N$ and $111\mathrm{B}=\bar{N}$, and $\overline{ca}$ denotes the six-bit complement of the charge word $ca$.  The pseudo-code mirrors the reference implementation (Ref.~\cite{af_neto}, \texttt{interaction.cpp} and \texttt{simulation.cpp}).
+For reproducibility, Algorithms~\ref{alg:lightframe}--\ref{alg:blob} give a self-contained account of one complete light frame: Algorithm~\ref{alg:lightframe} is the frame driver (incremental distance field, integer wave update, the six interaction stages, the charge-conjugation hook, momentum and lattice swap), and Algorithms~\ref{alg:pair}--\ref{alg:blob} give the interaction rules invoked by the \textsc{Convolute} stage.  Together they define the full transition function; the repository (Ref.~\cite{af_neto}, \texttt{simulation.cpp}, \texttt{interaction.cpp}) is not needed to reproduce the dynamics.  The notation follows Table~\ref{tab:Cell-structure}: a charge word is written $w_{1}\,w_{0}\,q\,c_{2}\,c_{1}\,c_{0}$ (most significant first), $c_{2}c_{1}c_{0}$ is the colour, $000\mathrm{B}=N$ and $111\mathrm{B}=\bar{N}$, and $\overline{ca}$ denotes the six-bit complement of the charge word $ca$.  Subscripts $a$ and $b$ label the two interacting bubbles, so $q_a$ is bit $q$ of bubble $a$, $w_{1,a}$ bit $w_{1}$ of bubble $a$, and so on.
 
 \begin{algorithm}[ht]
-\caption{One complete light frame (per-cell synchronous update).}
+\caption{One complete light frame (the full per-cell transition function, one synchronous $k$-tick).}
 \label{alg:lightframe}
 \begin{algorithmic}[1]
-\Require $L$, $W=3L^{2}$, $\mathrm{RMAX}=L/2$, $\mathrm{FRAME}$, charge word $ch$ per cell
+\Require $L$, $W=3L^{2}$, $\mathrm{RMAX}=L/2$, and the stage bounds
+  $\mathrm{CONVOL}<\mathrm{GSLOT\_Z}<\mathrm{DIFFUSION}<\mathrm{RELOC}<\mathrm{REISSUE}<\mathrm{FLOOD}=\mathrm{FRAME}$ (Sect.~\ref{subsec:Definitions});
+  the housekeeping tick $k$, the wavefront tick $t$, and the wave phase $f=\mathrm{effective\_t}(t)$ are the cell fields of Table~\ref{tab:Cell-structure}
 \Ensure the three lattices advanced by one light step
 \Procedure{LightFrame}{}
-  \State \Call{UpdatePulsatingWavefront}{} \Comment{propagate integer radii $r^{2},r$ by $\Delta{=}2a{+}1$ increments (no square roots)}
+  \State \Call{UpdatePulsatingWavefront}{} \Comment{incremental distance field: radii $r^{2},r$ from the moving source centre by $\Delta{=}2a{+}1$ increments, no square roots}
   \State $pulse\_tick \gets pulse\_tick + 1$
-  \State \Call{PhaseStep}{} \Comment{compute $(u,v)$ and $active$: $r=\mathrm{effective\_t}(t)$}
+  \State \Call{PhaseStep}{} \Comment{integer wave update $v \gets v + (\nabla^{2}u \gg s)$, $u \gets u + v$, damping $v \gets v - (v \gg s_{d})$, shifts $s,s_{d}$ radius-dependent; hard zero outside the sphere; $active \Leftrightarrow r=\mathrm{effective\_t}(t)$}
   \State swap $lattice\_curr \leftrightarrow lattice\_draft$
-  \State \Call{PolarizationTick}{} \Comment{elected-momentum broadcast, stamps $b(x)$}
-  \For{$w = 0 \ldots W{-}1$} \Comment{over the internal dimension}
+  \State \Call{PolarizationTick}{} \Comment{elected-momentum broadcast over the $W$-ledger; stamps arrival ticks $b(x)$}
+  \For{$w = 0 \ldots W{-}1$} \Comment{loop over the internal dimension}
     \For{each cell $(x,y,z)$ in the 3-torus}
-      \State $C \gets lattice\_curr(x,y,z,w)$; $D \gets$ copy of $C$; $M \gets lattice\_mirror(x,y,z,w)$
+      \State $C \gets lattice\_curr(x,y,z,w)$; $D \gets C$; $M \gets lattice\_mirror(x,y,z,w)$
       \If{$k < \mathrm{CONVOL}$}
-        \State \Call{Convolute}{$C,D,M$} \Comment{interaction rules of Algorithms~\ref{alg:pair} and \ref{alg:blob}}
+        \State \Call{Convolute}{$C,D,M$} \Comment{interaction rules R1--R6, Algorithms~\ref{alg:pair}--\ref{alg:blob}; source-kind (K/S/D/P) contact re-emission and momentum impulse}
+      \ElsIf{$k < \mathrm{GSLOT\_Z}$}
+        \State glider slots \Comment{reserved for the antipodal transport schedule; no-op in the CPU reference path}
       \ElsIf{$k < \mathrm{DIFFUSION}$}
-        \State \Call{Diffuse}{$C,D$} \Comment{propagate $f{=}\max(f_1,f_2)$, $kB$, translation vector $\boldsymbol{c}$}
+        \State \Call{Diffuse}{$C,D$} \Comment{orphan expansion ($a \gets W$ from a full neighbour); hunting $hB \to$ translation vector $\boldsymbol{c}$; $\boldsymbol{c}$ and $kB$ transport; affinity settle}
       \ElsIf{$k < \mathrm{RELOC}$}
-        \State \Call{Relocate}{$C,D$} \Comment{shift source centers along north/west/down by $\boldsymbol{\mathit{reloc}}$}
+        \State \Call{Relocate}{$C,D$} \Comment{consume the translation vector $\boldsymbol{c}$ along the three axes (north, west, down)}
       \ElsIf{$k < \mathrm{REISSUE}$}
-        \State \Call{Reissue}{$C,D$} \Comment{re-emit wavefront from the new source center}
+        \State \Call{Reissue}{$C,D$} \Comment{reset $kB,hB,bB$; propagate affinity outward from $active$ cells; consume the contraction flag $cB$ (reset $t$)}
       \Else
-        \State \Call{Flood}{$C,D$} \Comment{final synchronization of the three lattices}
+        \State \Call{Flood}{$C,D$} \Comment{synchronize the light clock: $D.t \gets \min$ of the six neighbour $t$}
       \EndIf
       \State $D.k \gets (C.k + 1) \bmod \mathrm{FRAME}$
       \If{$D.k = 0$} \Comment{a new light frame begins}
-        \State $D.t \gets (C.t + 1) \bmod (2\,\mathrm{RMAX})$
+        \State $D.t \gets (C.t + 1) \bmod (2\,\mathrm{RMAX})$ \Comment{island cells ($a{=}W$, $t \le \mathrm{RMAX}$) count without the modulus}
       \EndIf
     \EndFor
   \EndFor
-  \State \Call{ApplyMomentum}{} \Comment{advance source centers by the stable momentum $\boldsymbol{m}$}
+  \State \Call{ApplyChargeConjugation}{} \Comment{matter--antimatter turnaround hook; exact no-op when the bias $\varepsilon = 0$}
+  \State \Call{ApplyMomentum}{} \Comment{consume one photon pair at $t=\mathrm{RMAX}$, release singletons; advance source centres by $\boldsymbol{\mathit{reloc}}$; re-seed the pulsating wave at the new centre}
+  \State \Call{SwapLattices}{} \Comment{$\mathrm{draft}\to\mathrm{curr}$; at $k=0$ refresh the mirror ($M.f \gets \mathrm{effective\_t}(M.t)$); while $k<\mathrm{CONVOL}$ rotate the mirror $W$-slices (\textsc{ShiftMirror})}
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
@@ -937,13 +952,13 @@ For reproducibility, Algorithm~\ref{alg:lightframe} gives a self-contained pseud
   \ElsIf{$\overline{ca} = cb$} \Comment{R1: graviton, all six bits complementary}
     \State \Return \textbf{true}
   \EndIf
-  \State $(q_a,w1_a,w0_a) \gets$ decode bits of $ca$; $(q_b,w1_b,w0_b) \gets$ decode bits of $cb$
+  \State $(q_a,w_{1,a},w_{0,a}) \gets$ decode bits of $ca$; $(q_b,w_{1,b},w_{0,b}) \gets$ decode bits of $cb$
   \State $col_a \gets ca \& 111\mathrm{B}$; $col_b \gets cb \& 111\mathrm{B}$
-  \If{$q_a \neq q_b$ \textbf{and} $w1_a = w1_b$ \textbf{and} $w0_a \neq w0_b$ \textbf{and} $col_a \oplus col_b = 111\mathrm{B}$} \Comment{R2: gluon}
+  \If{$q_a \neq q_b$ \textbf{and} $w_{1,a} = w_{1,b}$ \textbf{and} $w_{0,a} \neq w_{0,b}$ \textbf{and} $col_a \oplus col_b = 111\mathrm{B}$} \Comment{R2: gluon}
     \State \Return \textbf{true}
-  \ElsIf{$q_a = q_b = 0$ \textbf{and} $w1_a = w1_b = 0$ \textbf{and} $w0_a = w0_b = 1$ \textbf{and} $col_a = col_b$ \textbf{and} $col_a \notin \{000,111\}\mathrm{B}$} \Comment{R5: up quark}
+  \ElsIf{$q_a = q_b = 0$ \textbf{and} $w_{1,a} = w_{1,b} = 0$ \textbf{and} $w_{0,a} = w_{0,b} = 1$ \textbf{and} $col_a = col_b$ \textbf{and} $col_a \notin \{000,111\}\mathrm{B}$} \Comment{R5: up quark}
     \State \Return \textbf{true}
-  \ElsIf{$q_a = q_b = 1$ \textbf{and} $w1_a = w1_b = 1$ \textbf{and} $w0_a = w0_b = 0$ \textbf{and} $col_a = col_b$ \textbf{and} $col_a \notin \{000,111\}\mathrm{B}$} \Comment{R6: up quark}
+  \ElsIf{$q_a = q_b = 1$ \textbf{and} $w_{1,a} = w_{1,b} = 1$ \textbf{and} $w_{0,a} = w_{0,b} = 0$ \textbf{and} $col_a = col_b$ \textbf{and} $col_a \notin \{000,111\}\mathrm{B}$} \Comment{R6: up quark}
     \State \Return \textbf{true}
   \EndIf
   \State \Return \textbf{false}
@@ -963,13 +978,13 @@ For reproducibility, Algorithm~\ref{alg:lightframe} gives a self-contained pseud
   \ElsIf{$\overline{ca} = cb$} \Comment{R1 graviton never blobs}
     \State \Return \textbf{false}
   \EndIf
-  \State decode $(q,w1,w0)$ and $col$ of $ca,cb$ as in Algorithm~\ref{alg:pair}
-  \If{$q_a = q_b$ \textbf{and} $w1_a = w1_b$ \textbf{and} $w0_a = w0_b$ \textbf{and} $col_a = col_b$ \textbf{and} $col_a \notin \{000,111\}\mathrm{B}$} \Comment{R5/R6 up quark never blobs}
+  \State decode $(q,w_{1},w_{0})$ and $col$ of $ca,cb$ as in Algorithm~\ref{alg:pair}
+  \If{$q_a = q_b$ \textbf{and} $w_{1,a} = w_{1,b}$ \textbf{and} $w_{0,a} = w_{0,b}$ \textbf{and} $col_a = col_b$ \textbf{and} $col_a \notin \{000,111\}\mathrm{B}$} \Comment{R5/R6 up quark never blobs}
     \State \Return \textbf{false}
   \ElsIf{$a.\mathit{reloc} \neq 0$ \textbf{or} $b.\mathit{reloc} \neq 0$} \Comment{propeller never blobs}
     \State \Return \textbf{false}
   \EndIf
-  \State \Return $w1_a = w1_b$ \textbf{and} $q_a \neq q_b$ \textbf{and} $w0_a \neq w0_b$ \textbf{and} $col_a \oplus col_b = 111\mathrm{B}$ \Comment{only the R2 geometry}
+  \State \Return $w_{1,a} = w_{1,b}$ \textbf{and} $q_a \neq q_b$ \textbf{and} $w_{0,a} \neq w_{0,b}$ \textbf{and} $col_a \oplus col_b = 111\mathrm{B}$ \Comment{only the R2 geometry}
 \EndFunction
 \Procedure{Convolute}{$C,D,M$}
   \State $samePos \gets C.x = M.x$; $sameT \gets C.t = M.t$
@@ -984,17 +999,17 @@ For reproducibility, Algorithm~\ref{alg:lightframe} gives a self-contained pseud
       \State $D.kB \gets D.cB \gets \textbf{true}$ \Comment{triggers reissue}
     \Else
       \State \Call{AdiabaticExchange}{$C,D,M$} \Comment{exchange affinity and phase, relocate to partner center}
-    \EndIf
+\EndIf
   \EndIf
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
 
-As given in Sect.~\ref{subsec:updating}, the draft is transferred to main at the end of each $k$ tick; the mirror is refreshed from main so the next convolution compares main and mirror along $W$.
+As given in Sect.~\ref{subsec:updating}, \textsc{SwapLattices} transfers the draft to the main lattice at the end of every $k$ tick; at $k=0$ the mirror is refreshed from main (so the next convolution compares main and mirror along $W$), and while $k<\mathrm{CONVOL}$ the mirror $W$-slices are rotated by \textsc{ShiftMirror} to schedule the cross-layer adjacency.
 
 %%%%%%%% INTERACTIONS %%%%%%%%%%
 
-\section{Interaction details\label{sec:Interactions}}
+\section{Interactions\label{sec:Interactions}}
 
 Some interaction details are now clarified.
 
@@ -1452,49 +1467,73 @@ The measurement prescriptions for time intervals, spatial separations and clock 
 
 This is precisely the sense in which the speed of light is emergent in this model. The transition rule contains a single fundamental velocity, the maximum information speed $v_{\max}$ of Sect.~\ref{sec:Results} (one cell per tick), and knows nothing of light. An Observer (Sect.~\ref{subsec:observers}) that lays down synchronized clocks and measures distances by round-trip light signals \emph{reads} the photon of Sect.~\ref{subsec:pairs}---a pair of bubbles riding the wavefront---as moving at $v_{\max}$ and names the resulting constant $c$. A different observer structure would in principle read a different value; $c$ is therefore a property of the measuring structure, not of the rule.
 
-As a purely formal, heuristic device for illustration---and only as such---the internal coordinate $W$ can be treated as a fourth spatial dimension, where the now 4D-bubbles form a thin shell, to avoid known 4D mutual passing issues (see Machotka \cite{Machotka2025}). In this case, using real quantities as an approximation, we can write a \emph{Euclidean} metric with signature $(+,+,+,+)$---not the Minkowski metric of special relativity:
+As a purely formal, heuristic device for illustration---and only as such---the internal coordinate $W$ can be treated as a fourth spatial dimension, where the now 4D-bubbles form a thin shell, to avoid known 4D mutual passing issues (see Machotka \cite{Machotka2025}).  This construction plays no role in what follows: the time-dilation formula is derived kinematically from two ingredients of the automaton, both verified or constructed in the simulator:
 
+\begin{enumerate}
+  \item \textbf{Velocity independence and isotropy of the two-way speed.}  The active shell advances exactly one cell per tick at $v_{\max}$ from its source centre, independent of the source momentum and direction (Sect.~\ref{sec:Results}).  The round-trip Michelson--Morley probe (Sect.~\ref{subsec:lorentz-probes}) measures the front advance as $1.0000\pm0.0000$ cells/frame for source speeds $V=0$, $+1$ (axes $x$, $y$, $z$, and the diagonal $x{+}y$), $+2$, and $+3$, verifying the velocity-independence condition~1 of Mansouri and Sexl \cite{mansouri-sexl}.
+  \item \textbf{Clock hypothesis.}  The bubble clock---the breathing phase $f=\mathrm{effective\_t}(t)$ of a source centre, a triangle wave of period $L$ frames---advances once per light frame for every cell, independent of its state of motion: the tick $t$ is the global frame counter, not a dynamical variable (Sect.~\ref{subsec:observers}).
+\end{enumerate}
+
+Consider a light clock: a free photon (Sect.~\ref{subsec:pairs}) bouncing between two mirrors (bubble boundaries) held at separation $D$, with the mirror axis perpendicular to the motion.  At rest, one tick is a round trip $2D$ at speed $v_{\max}$, so
 \begin{equation}
-\label{eq:metric}
-c \, \delta t = \sqrt{ \delta x^{2} + \delta y^{2} + \delta z^{2} + \delta w^{2} },
-\end{equation}
-where $\delta x$, $\delta y$, $\delta z$, and $\delta w$ are infinitesimal increments, and $\delta t$ is the infinitesimal increment of coordinate time.  The symbol $c$ here denotes the emergent, observer-measured speed of light of Sect.~\ref{subsec:observers}; it is not a constant of the transition rule.
-
-The magnitude of the 4D velocity in this bookkeeping picture is
-
-\begin{equation}
-v_{4D} = \sqrt{ v_{x}^{2} + v_{y}^{2} + v_{z}^{2} + v_{w}^{2} } = \sqrt{ v_{3D}^{2} + v_{w}^{2} },
-\end{equation}
-where $v_{x}$, $v_{y}$, $v_{z}$, and $v_{w}$ are components of the 4D velocity vector (in
-4D space) while $v_{3D}$ is the standard three-dimensional velocity (in ordinary 3D space).
-
-Squaring Equation~\eqref{eq:metric} and substituting $v_{3D} = \sqrt{\delta x^{2} + \delta y^{2} + \delta z^{2}}/\delta t$ gives
-
-\begin{equation}
-\delta w^{2} = ( c^{2} - v_{3D}^{2} ) \, \delta t^{2}.
-\label{eq:deltaW}
+\Delta\tau = \frac{2D}{v_{\max}} .
+\label{eq:tick-rest}
 \end{equation}
 
-Equation~\eqref{eq:deltaW} states how fast the internal coordinate must advance for the Euclidean constraint to hold. The special-relativistic form is obtained only by the \emph{ad hoc} bookkeeping identification $\delta w = c \, \delta \tau$, where $\delta\tau$ is read as the proper time of the bubble:
-
+Moving at speed $v$ in the lattice frame, the clock translates by $v\,\Delta t$ during the tick $\Delta t$; the photon follows the diagonal path of total length $2\sqrt{D^{2}+(v\,\Delta t/2)^{2}}$, still at speed $v_{\max}$ (ingredient~1):
 \begin{equation}
-c^{2} \, \delta \tau^{2} = c^{2} \, \delta t^{2} - v_{3D}^{2} \, \delta t^{2}.
+v_{\max}\,\Delta t \;=\; 2\sqrt{ D^{2} + \left(\frac{v\,\Delta t}{2}\right)^{2} } ,
+\label{eq:lightclock}
 \end{equation}
-Thus,
-
+which gives, for the tick interval measured by the at-rest clock network,
 \begin{equation}
-\delta \tau = \sqrt{ 1 - \frac{v_{3D}^{2}}{c^{2}} } \, \delta t,
+\Delta t \;=\; \frac{\Delta\tau}{\sqrt{1-v^{2}/v_{\max}^{2}}} \;\equiv\; \gamma\,\Delta\tau , \qquad \gamma = \left(1-\frac{v^{2}}{v_{\max}^{2}}\right)^{-1/2}.
 \label{eq:timedilation}
 \end{equation}
-which has the same algebraic form as the familiar time-dilation formula of special relativity.
 
-We emphasize that this is an analogy, not a Lorentz-invariance claim.  The metric of Eq.~\eqref{eq:metric} is Euclidean: the lattice has no Lorentzian light cone---only the information cone at $v_{\max}$---the transition rule is not invariant under Lorentz boosts, and $W$ is an internal bookkeeping coordinate, not a physical fourth dimension.  Eq.~\eqref{eq:timedilation} reproduces the formula only because $\delta w$ was \emph{set} to $c\,\delta\tau$ by hand; it is not evidence that the full particle dynamics are Lorentz invariant, which the present implementation does not test.
+The Observer reads the photon as moving at $c=v_{\max}$ (Sect.~\ref{subsec:observers}); with this identification Eq.~\eqref{eq:timedilation} is the time-dilation formula of special relativity,
+\begin{equation}
+\Delta\tau \;=\; \sqrt{1-\frac{v^{2}}{c^{2}}}\,\Delta t ,
+\label{eq:timedilation-sr}
+\end{equation}
+derived from the two ingredients above instead of from the bookkeeping identification $\delta w=c\,\delta\tau$ used in earlier versions of this work.  By the clock hypothesis (ingredient~2) the same factor applies to any bubble clock, not only to light clocks: the intrinsic tick is motion-independent, and only its round-trip light measurement dilates.
+
+The derivation uses only the round-trip convention: the light path is closed (out and back), so no one-way speed or simultaneity convention enters; the single measured input is the two-way speed, verified as $v_{\max}$ by the Michelson--Morley probe.  The dilation is therefore a \emph{reading} of the automaton output by the Observer's conventions, not a symmetry of the transition rule.
+
+We emphasize that this is a kinematic derivation, not a Lorentz-invariance claim.  The lattice has no Lorentzian light cone---only the information cone at $v_{\max}$---and the transition rule is not invariant under Lorentz boosts.  Equation~\eqref{eq:timedilation} follows from the two ingredients alone, both verified in the simulator; it does not imply that the full particle dynamics are Lorentz invariant, which the present implementation does not test.  The field substrate does not enter the light clock: its plane-wave modes travel at $v_{\mathrm{wave}}=v_{\max}/2^{s/2}<v_{\max}$ (dispersion probe, Sect.~\ref{subsec:lorentz-probes}), strictly below the causal boundary, and cannot transmit a signal faster than $v_{\max}$.
+
+\subsection{Lorentz probes in the simulator}\label{subsec:lorentz-probes}
+Two numerical probes (test programs \texttt{lorentz\_mm.cpp} and \texttt{dispersion.cpp}, this work) quantify how the lattice dynamics approach Lorentz symmetry at low energies.
+
+\paragraph{Michelson--Morley (two-way isotropy).}  The probe seeds a source centre and measures the advance of the active-shell front per light frame, exactly as the wavefront instrumentation of Sect.~\ref{sec:Results}.  For a source at rest ($V=0$), a source given constant momentum $V=+1$ along $x$, $y$, $z$ and the diagonal $x{+}y$, and sources with $V=+2$ and $+3$, the measured advance is
+\begin{equation}
+\frac{\Delta r_{\mathrm{front}}}{\Delta t} \;=\; 1.0000 \pm 0.0000 \ \mathrm{cells/frame},
+\label{eq:mm-front}
+\end{equation}
+i.e., the two-way round-trip time of the shell is isotropic and source-independent at the resolution of the probe.  This verifies the velocity-independence condition~1 of Mansouri--Sexl \cite{mansouri-sexl} and is the empirical anchor of ingredient~1 of the time-dilation derivation (Sect.~\ref{subsec:special-relativity}).
+
+\paragraph{Dispersion (linear low-energy regime).}  The probe seeds a standing plane wave $u=A\cos(kx)$ on the substrate field and counts zero crossings at the origin to measure $\omega(k)$ (integer arithmetic, $A=2^{20}$; negligible damping).  The measured relation matches the analytic dispersion of the discrete wave equation,
+\begin{equation}
+\omega(k) = \arccos\!\left(1-\frac{\lambda}{2^{s+1}}\right), \qquad \lambda = 4\sum_{i}\sin^{2}\!\frac{k_{i}}{2},
+\label{eq:dispersion}
+\end{equation}
+to four to five decimal places across the Brillouin zone.  At small $k$ the dispersion is linear,
+\begin{equation}
+\omega \;\approx\; v_{\mathrm{wave}}\,k , \qquad v_{\mathrm{wave}} = \frac{1}{2^{s/2}} ,
+\label{eq:wave-speed}
+\end{equation}
+with measured slopes $0.248$, $0.175$ and $0.125$ for integer shifts $s=4,5,6$, against the analytic $0.2500$, $0.1768$ and $0.1250$.  The lattice corrections bend the dispersion near the Brillouin boundary ($\omega/k$ falls by $\approx35\%$ at $k=\pi$ for $s=5$); the leading deviation from linearity is quadratic in $k$,
+\begin{equation}
+\frac{\Delta\omega}{\omega} \;\approx\; -\frac{k^{2}}{24},
+\label{eq:dispersion-correction}
+\end{equation}
+the generic suppression of Lorentz symmetry by the square of the lattice (Planck) scale.  The substrate wave speed $v_{\mathrm{wave}}$ is strictly subluminal with respect to $v_{\max}$: the field cannot be used to exceed the causal boundary.  In the model the integer shift varies radially ($s=\mathrm{DIFF\_SHIFT}+1-(r\gg\mathrm{diffDivShift})$, clamped), so $v_{\mathrm{wave}}$ acquires a radial profile; the probe uses a constant shift $s$ to isolate the intrinsic dispersion of a homogeneous substrate.
 
 \subsection{Emergence of gravity}\label{subsec:emergence-of-gravity}
 
-General-relativistic spacetime is here conjectured to be an effective, coarse-grained approximation of the discrete lattice (a speculative projection). Gravity is proposed to arise as a residual effect of electromagnetic interactions, mediated by gravitons that couple to both \emph{Orbis} and \emph{Umbra}. Ordinary photons are sector-specific, but gravitons provide cross-sector connectivity; their electric and weak contributions largely cancel, leaving a residual geometry-driven attraction. Under this conjecture, free objects would follow emergent timelike geodesics, and graviton redistribution of energy and charge might mimic dark-matter effects such as flat rotation curves. None of these behaviours has been observed in the implementation.
+General-relativistic spacetime is here conjectured to be an effective, coarse-grained approximation of the discrete lattice (a speculative projection). Gravity is proposed to arise as a residual effect of electromagnetic interactions, mediated by the gravitons of Sect.~\ref{subsec:specialized-pairs}---pairs with fully complementary charge words---which couple to both \emph{Orbis} and \emph{Umbra}. Ordinary photons are sector-specific, but gravitons provide cross-sector connectivity; being charge-neutral by construction, a graviton's electric and weak contributions cancel at leading order, leaving a residual geometry-driven attraction. Under this conjecture, free objects would follow emergent timelike geodesics under the Observer's round-trip reading convention (Sect.~\ref{subsec:observers}), and graviton redistribution of energy and charge might mimic dark-matter effects such as flat rotation curves. None of these behaviours has been observed in the implementation.
 
-Photons may also lose energy through minor, non-collapsing interactions with singletons and electrons as they propagate—an intrinsic \textit{aging} that would parallel cosmic redshift. Zwicky already pointed out a redshift mechanism independent of expansion \cite{zwicky1929redshift}; in principle the present model could realize it without the image-blurring problem he raised, raising the possibility of a redshift explanation that does not require dark energy. The propeller mechanism might also make acceleration equivalent across frames, in line with the equivalence principle. These are suggestions, not measured effects.
+In the same coarse-grained picture, photons may also lose energy through minor, non-collapsing interactions with singletons and electrons as they propagate---an intrinsic \textit{aging} that would parallel cosmic redshift. In the model a photon's frequency is an integer pair population (Sect.~\ref{bosons}), so each interaction that removes one pair lowers the emergent frequency read by an Observer by one quantized even step. Zwicky already proposed a redshift mechanism independent of expansion \cite{zwicky1929redshift}; in principle the model could realize it without the image-blurring problem he raised, offering a redshift explanation that does not require dark energy. The propeller mechanism of Sect.~\ref{subsubsec:propeller} might likewise make acceleration equivalent across frames, in line with the equivalence principle. These are suggestions, not measured effects.
 
 \subsection{Weak quantization}
 Because weak interactions are rare, weak quantization may appear at cosmological scales, for instance in a constant ratio between the average galaxy separation and galactic bulge size. This large-scale granularity could be reinterpreted as gravitational quantization and may eventually yield an effective cosmological constant $\Lambda$ and metric tensor $g_{\mu\nu}$.
