@@ -20,6 +20,13 @@ namespace automaton
 
   bool ctrl = true; // debug
 
+  // Diagnostic counters for the controlled-scattering study (headless runner).
+  // Exposed so tests/scatter_main.cpp can print them.
+  long long conv_calls = 0;       // convolute() invocations that passed active checks
+  long long conv_s2b   = 0;       // ... that also passed the s2B gate
+  long long conv_pair  = 0;       // ... that formed a pair (canFormPair && samePos && sameT)
+  long long conv_self  = 0;       // ... rejected by the same-W-island guard
+
   namespace
   {
     inline const std::array<unsigned, 3>& sourceCenter(const Cell& c)
@@ -84,6 +91,49 @@ namespace automaton
       // Rule 6: q=1, w1=1, w0=0, same non-neutral color
       if (qa && qb && w1a && w1b && !w0a && !w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
       return false;
+    }
+
+    // Blob-formation test (manuscript "Blob" and "Superposing bubbles").
+    // A blob is a group of superposed equal-status pairs.  Only the R2
+    // charge geometry qualifies (same sector w1 with q/w0/color
+    // complementary -- gluon/photon).  The specialized pairs never blob:
+    // neutrino/antineutrino (R3/R4), up quark (R5/R6), graviton (R1,
+    // fully complementary charges) and propeller (a pair currently acting
+    // as a momentum carrier -- one with a pending relocation impulse).
+    bool canFormBlob(const Cell& a, const Cell& b)
+    {
+      const unsigned char ca = a.ch;
+      const unsigned char cb = b.ch;
+
+      // R3 / R4: fully neutral words are neutrinos / antineutrinos.
+      if (ca == 0x00 && cb == 0x00) return false;
+      if (ca == 0x3F && cb == 0x3F) return false;
+
+      // R1: fully complementary charges are gravitons.
+      if ((ca ^ cb) == 0x3F) return false;
+
+      const bool qa  = (ca & 0x08) != 0, qb  = (cb & 0x08) != 0;
+      const bool w1a = (ca & 0x20) != 0, w1b = (cb & 0x20) != 0;
+      const bool w0a = (ca & 0x10) != 0, w0b = (cb & 0x10) != 0;
+      const unsigned char cola = ca & 0x07u, colb = cb & 0x07u;
+
+      // R5 / R6: same weak bits and the same non-trivial color -> up quark.
+      if (qa == qb && w1a == w1b && w0a == w0b &&
+          cola == colb && cola != 0x00u && cola != 0x07u)
+        return false;
+
+      // Propeller: a pair with a pending relocation impulse reloc (nonzero)
+      // is currently transferring momentum and cannot join a blob.  The
+      // intrinsic direction m is ignored here: every source centre carries
+      // a fixed unit step (initSim.cpp), so it cannot identify the
+      // transient propeller role.
+      if ((a.reloc[0] | a.reloc[1] | a.reloc[2]) != 0 ||
+          (b.reloc[0] | b.reloc[1] | b.reloc[2]) != 0)
+        return false;
+
+      // Remaining allowed geometry: same sector w1, complementary q/w0/color.
+      return (w1a == w1b) && (qa ^ qb) && (w0a ^ w0b) &&
+             ((cola ^ colb) == 0x07u);
     }
 
     // Add an impulse (dx, dy, dz) to the source-center cell and reemit phase 0.
@@ -167,11 +217,16 @@ namespace automaton
 
     // A source does not interact with itself (same W-island).
     if (curr.x[3] == mirror.x[3])
+    {
+      ++conv_self;
       return false;
+    }
 
     // Sieve: the electroweak interaction channel is only active where s2B is set.
+    ++conv_calls;
     if (!curr.s2B)
       return false;
+    ++conv_s2b;
 
     // Source state is stored in the source-center cell of each W-layer.
     Cell& currSrc  = sourceCenterCurr(curr);
@@ -195,6 +250,7 @@ namespace automaton
     // ---------------------------------------------------------------
     if (samePos && sameT && canFormPair(currSrc, mirrorSrc))
     {
+      ++conv_pair;
       bool dressing = (currSrc.leader_w != NO_LEADER_W &&
                        currSrc.leader_w == mirrorSrc.leader_w);
       WIndex newLeader = dressing ? currSrc.leader_w : NO_LEADER_W;
@@ -231,6 +287,27 @@ namespace automaton
       // Move both source centers to the contact point and reset their clocks.
       reemitAtContact(currDraft, curr);
       reemitAtContact(mirrorDraft, mirror);
+
+      // -----------------------------------------------------------------
+      // Blob formation (manuscript "Blob" and "Superposing bubbles"): a
+      // group of superposed equal-status pairs aggregates into a blob when
+      // the charge geometry is R2 (gluon/photon, see canFormBlob) and both
+      // halves carry the same (active) polarization bits pB/sB and the same
+      // bB flag.  The common affinity is already enforced by newA above.
+      // Specialized pairs (neutrino/antineutrino, up quark, graviton,
+      // propeller) never blob; a single fresh pair (newCount == 1) is not
+      // yet a group.
+      // -----------------------------------------------------------------
+      if (newCount > 1 && canFormBlob(currSrc, mirrorSrc) &&
+          currSrc.pB == mirrorSrc.pB &&
+          currSrc.sB == mirrorSrc.sB &&
+          currSrc.bB == mirrorSrc.bB)
+      {
+        currDraft.bB  = true;
+        mirrorDraft.bB = true;
+        chargesMarkBlob();
+      }
+
       return false;
     }
 
@@ -459,8 +536,8 @@ namespace automaton
         draft.c[2] = down.c[2];
         if (down.kB) draft.kB = down.kB;
       }
-      draft.f = max(down.f, max(west.f, max(north.f,
-                  max(south.f, max(east.f, up.f)))));
+      // f is the local triangular breathing phase f = effective_t(t)
+      // (manuscript Sect. "The light frame"); it is not diffused.
       // Diffuse CB toward center (r2=0)
       if (!curr.cB)
       {
@@ -523,7 +600,7 @@ namespace automaton
         draft.kB = forward.kB;
         draft.cB = forward.cB;
       }
-      draft.f = max(forward.f, curr.f);
+      // f is the local triangular breathing phase; it is not diffused.
     }
     /****** SLOT V ******/
     else if (curr.k < SLOT5)

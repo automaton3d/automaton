@@ -172,7 +172,7 @@ LDFLAGS = /link \
 # Targets principais
 # ================================================
 
-all: dirs $(BUILD_DIR)\$(TARGET) dlls copy_config
+all: dirs $(BUILD_DIR)\$(TARGET) dlls assets copy_config
 
 dirs:
 	if not exist "$(BUILD_DIR)" mkdir "$(BUILD_DIR)"
@@ -368,6 +368,17 @@ dlls:
 	copy "$(VCPKG_ROOT)\bin\brotlicommon.dll" $(BUILD_DIR)
 	copy "$(VCPKG_ROOT)\bin\brotlienc.dll" $(BUILD_DIR)
 	copy "$(VCPKG_ROOT)\bin\libpng16.dll" $(BUILD_DIR)
+
+# Runtime assets (fonts, logos): copied next to the executable so the
+# program runs from the build directory (nmake run) without relying on
+# relative-path fallbacks.  The font search in TextRenderer/Logo also
+# tolerates missing assets by trying several candidate locations.
+assets:
+	if exist "bin\fonts" xcopy /E /I /Y "bin\fonts" "$(BUILD_DIR)\fonts"
+	if exist "logo.png"      copy /Y "logo.png"      "$(BUILD_DIR)"
+	if exist "logo_bar.png"  copy /Y "logo_bar.png"  "$(BUILD_DIR)"
+	if exist "bin\logo.png"      copy /Y "bin\logo.png"      "$(BUILD_DIR)"
+	if exist "bin\logo_bar.png"  copy /Y "bin\logo_bar.png"  "$(BUILD_DIR)"
 
 # ================================================
 # Limpeza

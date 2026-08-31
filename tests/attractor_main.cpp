@@ -24,6 +24,7 @@
 
 #include "model/simulation.h"
 #include "model/attractor.h"
+#include "model/wavefront.h"
 #include "config.h"                        // Config / gConfig stub below
 
 
@@ -89,7 +90,7 @@ static bool loadCheckpoint(const std::string& path, unsigned& frame)
               automaton::lattice_mirror, static_cast<int>(x),
               static_cast<int>(y), static_cast<int>(z), static_cast<int>(w));
           m = c;
-          m.f = c.t;
+          m.f = automaton::effective_t(c.t);
         }
   // draft must hold valid k values before the next tick's FSM dispatch.
   std::copy(automaton::lattice_curr.begin(),
@@ -138,6 +139,7 @@ int main(int argc, char** argv)
   if (resumed)
   {
     automaton::attractor::begin();
+    automaton::wavefront::begin();
     automaton::chargesReset();   // census ledgers are not in the checkpoint image
     if (!automaton::attractor::loadSeries(ckpt + ".series"))
     {
@@ -155,6 +157,7 @@ int main(int argc, char** argv)
     for (int step = 0; step <= 7; ++step)
       automaton::initSimulation(step);
     automaton::attractor::begin();
+    automaton::wavefront::begin();
     automaton::attractor::resyncPrev();  // seed affiliation is baseline, not captures
   }
 
@@ -172,6 +175,7 @@ int main(int argc, char** argv)
     {
       ++frame;
       automaton::attractor::sampleFrame(frame);
+      automaton::wavefront::sampleFrame(frame);
 
       const double secs = std::chrono::duration<double>(
           std::chrono::steady_clock::now() - t0).count();
@@ -201,6 +205,7 @@ int main(int argc, char** argv)
     const automaton::attractor::Report rep =
         automaton::attractor::summarize();
     automaton::attractor::printReport(rep);
+    automaton::wavefront::report();
 
     if (automaton::attractor::writeCSV(csv, rep))
       printf("time series written to %s\n", csv.c_str());

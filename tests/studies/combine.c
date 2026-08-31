@@ -76,14 +76,17 @@
 /* ------------------------------------------------------------------ */
 /* charge bit helpers                                                  */
 /* ------------------------------------------------------------------ */
+/* Bit layout matches the automaton (initSim.cpp:79):
+ *   ch = color | q<<3 | w0<<4 | w1<<5
+ *     bit 5 = w1 (sector Orbis/Umbra), bit 4 = w0 (chirality),
+ *     bit 3 = q (electric charge), bits 2..0 = color.                */
+#define CH(q, w1, w0, col)  (((w1) << 5) | ((w0) << 4) | ((q) << 3) | (col))
 
-#define CH(q, w1, w0, col)  (((q) << 5) | ((w1) << 4) | ((w0) << 3) | (col))
-
-#define Q(c)      (((c) >> 5) & 1)
-#define W1(c)     (((c) >> 4) & 1)
-#define W0(c)     (((c) >> 3) & 1)
+#define Q(c)      (((c) >> 3) & 1)
+#define W1(c)     (((c) >> 5) & 1)
+#define W0(c)     (((c) >> 4) & 1)
 #define COLOR(c)  ((c) & 7)
-#define WEAK(c)   ((((c) >> 4) & 1) * 2 + (((c) >> 3) & 1))   /* 2*w1 + w0 */
+#define WEAK(c)   ((((c) >> 5) & 1) * 2 + (((c) >> 4) & 1))   /* 2*w1 + w0 */
 #define COMPL(c)  ((~(c)) & 0x3F)
 
 static int sig(int color)

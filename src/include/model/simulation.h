@@ -140,7 +140,7 @@ struct NeighborResult
       unsigned d;         // Euclidean distance
       bool phiB;          // Active wavefront marker (phiB = active)
       unsigned t;         // Light frame counter
-      unsigned f;         // Sine phase parameter
+      unsigned f;         // Triangular breathing phase f = effective_t(t)
       // Operational variables
       unsigned c[3] = { 0, 0, 0 }; // Relocation offset
       unsigned k;         // Tick counter
@@ -243,6 +243,13 @@ struct NeighborResult
   unsigned int getRandomUnsigned(unsigned int modulus);
   void relocateGlobal(unsigned dx, unsigned dy, unsigned dz);
 
+  // Convolution diagnostics (interaction.cpp), for the headless scattering
+  // runner (tests/scatter_main.cpp).
+  extern long long conv_calls;
+  extern long long conv_s2b;
+  extern long long conv_pair;
+  extern long long conv_self;
+
   // Tests
 
   void printParams();
@@ -295,6 +302,7 @@ struct NeighborResult
   void chargesReset();                      // zero ledgers (called at sim init)
   void chargesMarkInteraction(unsigned w);  // island w just reemitted (clock reset)
   void chargesMarkPair();                   // a registered P formation was created (idea B)
+  void chargesMarkBlob();                   // a superposed-pair group formed a blob
   void chargesSampleTurnarounds();          // per-tick t==RMAX crossing detector
   void chargesReport(unsigned tick);        // throttled matter/antimatter census
 

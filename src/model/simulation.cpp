@@ -249,6 +249,9 @@ namespace automaton
         // update_pulsating_wavefront, so no sqrt or isqrt is needed here.
         int pulseR = (int)effective_t(c.t);
         bool active = (c.r2 != INF_R2 && c.r >= 0 && c.r == pulseR);
+        // The cell wave phase is the triangular breathing phase f = effective_t(t):
+        // it rises 0 -> L/2 on the ascending branch and falls back on the descending.
+        d.f = (unsigned)pulseR;
 
         // Hard zero outside the processed sphere (radial dead zone).  On the
         // 3-torus faces are not special: the spherical cavity is enforced
@@ -781,7 +784,7 @@ namespace automaton
           Cell &curr = getCell(lattice_curr, x, y, z, w);
           Cell &mirror = getCell(lattice_mirror, x, y, z, w);
           mirror = curr;
-          mirror.f = mirror.t;
+          mirror.f = effective_t(mirror.t);
       }
       newLightFrame = true;
     }
