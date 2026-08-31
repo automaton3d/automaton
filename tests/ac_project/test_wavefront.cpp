@@ -44,7 +44,7 @@ int main() {
     int cz = CENTER;
 
     // Ativar centro com r2 = 0 e t = 1
-    size_t centerIdx = ((size_t)cx * EL + cy) * EL + cz;
+    size_t centerIdx = (((size_t)cx * EL + cy) * EL + cz) * W_USED;
     lattice_curr[centerIdx].r2 = 0;
     lattice_curr[centerIdx].t = 1;
     lattice_curr[centerIdx].kB = true; // Marca como ativa para propagação
@@ -56,18 +56,15 @@ int main() {
     int steps = 5;
     
     for (int step = 1; step <= steps; ++step) {
-        // Copiar estado atual para draft (resetando r2 para infinito exceto onde propagar)
-        for (auto& c : lattice_draft) {
-            c.r2 = 0xFFFFFFFFu; 
-            c.t = 0;
-        }
+        // Copiar estado atual para draft; apenas melhores (menores) r2 serão aceitos.
+        lattice_draft = lattice_curr;
 
         // Varredura simples para propagação (apenas vizinhos imediatos para demonstração)
         // Em um cenário real, isso usaria a lógica completa de vizinhança
         for (int x = 0; x < EL; ++x) {
             for (int y = 0; y < EL; ++y) {
                 for (int z = 0; z < EL; ++z) {
-                    size_t idx = ((size_t)x * EL + y) * EL + z;
+                    size_t idx = (((size_t)x * EL + y) * EL + z) * W_USED;
                     Cell& curr = lattice_curr[idx];
 
                     // Se esta célula tem uma frente ativa (r2 válido e t > 0)
@@ -118,7 +115,7 @@ int main() {
                                     if (safe_z < 0) safe_z += EL; if (safe_z >= EL) safe_z -= EL;
                                 }
 
-                                size_t nIdx = ((size_t)safe_x * EL + safe_y) * EL + safe_z;
+                                size_t nIdx = (((size_t)safe_x * EL + safe_y) * EL + safe_z) * W_USED;
                                 Cell& neighborDraft = lattice_draft[nIdx];
 
                                 // Regra de propagação: atualiza se o novo r2 for menor
@@ -153,7 +150,7 @@ int main() {
              // Verificar ponto na borda (ex: cx + step)
              int bx = cx + step;
              if (bx >= EL) bx = EL - 1;
-             size_t bIdx = ((size_t)bx * EL + cy) * EL + cz;
+             size_t bIdx = (((size_t)bx * EL + cy) * EL + cz) * W_USED;
              print_status("Borda (aprox)", bx, cy, cz, lattice_curr[bIdx]);
         }
     }

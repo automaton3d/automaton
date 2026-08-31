@@ -69,7 +69,7 @@ namespace framework
 	 */
 	void saveReplay()
 	{
-	    if (currentMode == SIMULATION && !recordFrames && !replayFrames && !pause)
+	    if (currentMode == SIMULATION && !recordFrames && !replayFrames && !paused)
 	    {
 	        std::string filename = getSaveFileName();
 	        if (!filename.empty())
@@ -94,7 +94,7 @@ namespace framework
 	{
 	    if (currentMode == REPLAY)
 	    {
-	        if (!recordFrames && !replayFrames && !pause)
+	        if (!recordFrames && !replayFrames && !paused)
 	        {
 	            std::string filename = getOpenFileName();
 	            if (!filename.empty())

@@ -22,6 +22,7 @@
 #include <map>
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 #include <mutex>
 
 extern AppContext ctx;
@@ -134,40 +135,61 @@ namespace framework {
     glDeleteVertexArrays(1, &vao);
   }
 
+  // Locate the source-center cell of a layer by its conserved momentum m.
+  static Cell* findSourceCell(unsigned w)
+  {
+    for (unsigned x = 0; x < EL; ++x)
+    for (unsigned y = 0; y < EL; ++y)
+    for (unsigned z = 0; z < EL; ++z)
+    {
+      Cell& c = getCell(lattice_curr, x, y, z, w);
+      if (c.m[0] != 0 || c.m[1] != 0 || c.m[2] != 0)
+        return &c;
+    }
+    return nullptr;
+  }
+
   void renderMomentum(AppContext& ctx)
   {
     const float GRID_SIZE = 0.5f / EL;
     const int CENTER_INT = EL / 2;
-    std::vector<glm::vec3> pts;
 
-    for (unsigned x=0;x<EL;x++)
-      for (unsigned y=0;y<EL;y++)
-        for (unsigned z=0;z<EL;z++) {
-          int wx=(x+gConfig.view.vis_dx+EL)%EL;
-          int wy=(y+gConfig.view.vis_dy+EL)%EL;
-          int wz=(z+gConfig.view.vis_dz+EL)%EL;
-          if (getCell(lattice_curr,wx,wy,wz,layerList->getSelected()).pB) {
-            float px,py,pz;
-            if (currentMode==REPLAY) {
-              auto& c=lcenters[layerList->getSelected()];
-              px=(int)(x-c[0])*GRID_SIZE;
-              py=(int)(y-c[1])*GRID_SIZE;
-              pz=(int)(z-c[2])*GRID_SIZE;
-            } else {
-              px=(int)(x-CENTER_INT)*GRID_SIZE;
-              py=(int)(y-CENTER_INT)*GRID_SIZE;
-              pz=(int)(z-CENTER_INT)*GRID_SIZE;
-            }
-            pts.emplace_back(px,py,pz);
-          }
-        }
+    unsigned selectedW = layerList->getSelected();
+    if (selectedW >= W_USED)
+      return;
+
+    Cell* pCell = findSourceCell(selectedW);
+    if (!pCell)
+      return;
+
+    Cell& cell = *pCell;
+    int mx = cell.m[0];
+    int my = cell.m[1];
+    int mz = cell.m[2];
+
+    // Start at the source center; the arrow points in the direction of m.
+    glm::vec3 start(
+        ((int)(((int)cell.x[0] + gConfig.view.vis_dx) % (int)EL) - CENTER_INT) * GRID_SIZE,
+        ((int)(((int)cell.x[1] + gConfig.view.vis_dy) % (int)EL) - CENTER_INT) * GRID_SIZE,
+        ((int)(((int)cell.x[2] + gConfig.view.vis_dz) % (int)EL) - CENTER_INT) * GRID_SIZE);
+
+    glm::vec3 dir((float)mx, (float)my, (float)mz);
+    float mag = glm::length(dir);
+    if (mag == 0.0f) return;
+
+    int arrowCells = std::max((int)EL / 4, 1);
+    glm::vec3 end = start + dir * ((float)arrowCells / mag) * GRID_SIZE;
+
+    std::vector<glm::vec3> verts;
+    verts.emplace_back(start);
+    verts.emplace_back(end);
 
     glm::mat4 view = ctx.camera.GetViewMatrix();
     glm::mat4 projection = framework::mProjection_;
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 mvp = projection * view * model;
 
-    drawPoints(pts, glm::vec3(1.0f,1.0f,0.0f), mvp, 4.0f);
+    drawLines(verts, glm::vec3(1.0f,1.0f,0.0f), mvp, 2.0f);
   }
 
   void renderSpin()
@@ -823,7 +845,7 @@ void renderGizmo()
       if (data3D[1].getState()) renderMomentum(ctx);
       if (data3D[2].getState()) renderSpin();
       if (data3D[3].getState()) renderSineMask();
-      if (data3D[4].getState()) renderHunting();
+      // data3D[4] now toggles polarisation colouring (handled in bridge.cpp)
       if (data3D[5].getState()) renderCenters();
     }
     if (data3D.size() > 6 && data3D[6].getState())

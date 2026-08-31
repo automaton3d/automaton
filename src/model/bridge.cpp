@@ -9,13 +9,21 @@
 #include "voxel.h"
 #include "tomography.h"
 #include "render_pipeline.h"
+#include "sinc_overlay.h"
 
 #include <vector>
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
+#include <cstdio>
 #include <iostream>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <chrono>
 
 #if defined(USE_CUDA) && !defined(CUDA_BRIDGE_CU)
 #include "cuda_sim_optimized.h"
@@ -24,6 +32,36 @@ static bool useCuda = false;
 #endif
 
 void updateBufferSimple();
+
+namespace
+{
+    constexpr double PI = 3.14159265358979323846;
+
+    // Convert polarisation angle atan2(v,u) to an RGB colour.
+    inline unsigned int polarisationColor(int u, int v)
+    {
+        double theta = std::atan2((double)v, (double)u);
+        double hue = (theta + PI) * 360.0 / (2.0 * PI);
+        if (hue >= 360.0) hue -= 360.0;
+        if (hue < 0.0)   hue += 360.0;
+
+        double c = 1.0;
+        double x = c * (1.0 - std::fabs(std::fmod(hue / 60.0, 2.0) - 1.0));
+        double rp = 0.0, gp = 0.0, bp = 0.0;
+
+        if      (hue < 60.0)   { rp = c;  gp = x;  bp = 0; }
+        else if (hue < 120.0)  { rp = x;  gp = c;  bp = 0; }
+        else if (hue < 180.0)  { rp = 0;  gp = c;  bp = x; }
+        else if (hue < 240.0)  { rp = 0;  gp = x;  bp = c; }
+        else if (hue < 300.0)  { rp = x;  gp = 0;  bp = c; }
+        else                   { rp = c;  gp = 0;  bp = x; }
+
+        unsigned char r = (unsigned char)(rp * 255.0 + 0.5);
+        unsigned char g = (unsigned char)(gp * 255.0 + 0.5);
+        unsigned char b = (unsigned char)(bp * 255.0 + 0.5);
+        return makeColor(r, g, b, 255);
+    }
+}
 
 namespace automaton
 {
@@ -40,6 +78,7 @@ namespace automaton
     extern unsigned FLOOD;
 
     extern std::vector<Cell> lattice_curr;
+    extern std::vector<std::array<unsigned, 3>> lcenters;
 }
 
 // ============================================================
@@ -118,6 +157,193 @@ bool isVisibleInTomogram(unsigned x, unsigned y, unsigned z)
     return true;
 }
 
+// ============================================================
+// Sinc / r·sin(r) overlay profile
+//
+// The 2-D HUD overlay is a pure read-out of automaton::lattice_curr.
+// The self-contained SincWave simulation and background thread were removed;
+// only the main CA dynamics drives the display.
+// ============================================================
+
+namespace sinc_overlay
+{
+    // Double buffers for the HUD overlay.
+    static std::array<std::vector<float>, 2> profileBufs;
+    static std::array<std::vector<float>, 2> triggerRateBufs;
+    static std::array<std::vector<float>, 2> peakHistoryBufs;
+    static std::array<std::vector<float>, 2> andMaskBufs;
+
+    static std::atomic<int>      frontIdx{0};
+    static std::atomic<unsigned> pulseRadius{0};
+    static std::atomic<unsigned> gGraphSize{0};
+    static std::atomic<bool>     readyFlag{false};
+
+    // Persistent histograms for the red r·sin(r) accumulation.
+    static std::vector<int64_t> g_andAcc;
+    static std::vector<int64_t> g_activeCount;
+
+    // Running peak of the signed |u| profile, used as the per-frame
+    // display reference so the overlay stays visible at every grid size.
+    static int64_t g_uPeak = 1;
+
+    // Sliding window for the yellow peak-history curve.
+    static std::vector<float> g_peakHistory;
+    constexpr size_t PEAK_HIST_SIZE = 128;
+
+    const std::vector<float>& profile()     { return profileBufs[frontIdx.load(std::memory_order_acquire)]; }
+    const std::vector<float>& triggerRate() { return triggerRateBufs[frontIdx.load(std::memory_order_acquire)]; }
+    const std::vector<float>& peakHistory() { return peakHistoryBufs[frontIdx.load(std::memory_order_acquire)]; }
+    const std::vector<float>& andMask()     { return andMaskBufs[frontIdx.load(std::memory_order_acquire)]; }
+    unsigned currentRadius() { return pulseRadius.load(std::memory_order_acquire); }
+    unsigned graphSize()     { return gGraphSize.load(std::memory_order_acquire); }
+    bool ready()             { return readyFlag.load(std::memory_order_acquire); }
+
+    void update(unsigned selectedW)
+    {
+        using automaton::Cell;
+        using automaton::getCell;
+
+        if (automaton::EL == 0 || automaton::lattice_curr.empty())
+            return;
+
+        unsigned graphSize = automaton::RMAX + 1;
+        if (graphSize < 2)
+            return;
+
+        if (g_andAcc.size() != graphSize)
+        {
+            g_andAcc.assign(graphSize, 0);
+            g_activeCount.assign(graphSize, 0);
+            g_uPeak = 1;
+            g_peakHistory.assign(PEAK_HIST_SIZE, 0.0f);
+        }
+
+        unsigned cx = automaton::CENTER;
+        unsigned cy = automaton::CENTER;
+        unsigned cz = automaton::CENTER;
+        if (selectedW < (unsigned)automaton::lcenters.size())
+        {
+            cx = automaton::lcenters[selectedW][0];
+            cy = automaton::lcenters[selectedW][1];
+            cz = automaton::lcenters[selectedW][2];
+        }
+
+        std::vector<int64_t> sumU(graphSize, 0);
+        std::vector<int64_t> cntU(graphSize, 0);
+
+        for (unsigned x = 0; x < automaton::EL; ++x)
+        for (unsigned y = 0; y < automaton::EL; ++y)
+        for (unsigned z = 0; z < automaton::EL; ++z)
+        {
+            const Cell& c = getCell(automaton::lattice_curr, x, y, z, selectedW);
+            if (c.r < 0 || c.r > (int)automaton::RMAX)
+                continue;
+            unsigned r = (unsigned)c.r;
+            if (r >= graphSize)
+                continue;
+
+            sumU[r] += (int64_t)c.u;
+            cntU[r]++;
+
+            if (c.active)
+            {
+                g_activeCount[r]++;
+                if (c.s2B)
+                    g_andAcc[r]++;
+            }
+        }
+
+        // Per-shell average of u(r) (signed) and running peak.
+        std::vector<int64_t> avgU(graphSize, 0);
+        for (unsigned r = 0; r < graphSize; ++r)
+        {
+            if (cntU[r] > 0)
+            {
+                avgU[r] = sumU[r] / cntU[r];
+                int64_t a = avgU[r];
+                if (a < 0) a = -a;
+                if (a > g_uPeak) g_uPeak = a;
+            }
+        }
+        if (g_uPeak < 1) g_uPeak = 1;
+
+        // Cyan: signed profile / running peak (trigger rate).
+        float peakRef = (float)std::max<int64_t>(1, g_uPeak);
+
+        // Green: envelope |u(r)| / fixed target reference scaled by grid size.
+        // This makes the green profile grow from zero as the wave builds up,
+        // instead of being instantly auto-gained to full height.
+        constexpr int64_t SHELL_TARGET = 16384;
+        float greenPeakRef = (float)(SHELL_TARGET * 3) * (float)automaton::EL / 221.0f;
+        if (greenPeakRef < 1.0f) greenPeakRef = 1.0f;
+
+        std::vector<float> profile(graphSize, 0.0f);
+        std::vector<float> triggerRate(graphSize, 0.0f);
+        for (unsigned r = 0; r < graphSize; ++r)
+        {
+            int64_t au = avgU[r];
+            if (au < 0) au = -au;
+            profile[r]     = (float)au / greenPeakRef;
+            triggerRate[r] = (float)avgU[r] / peakRef;
+        }
+
+        // Yellow: raw running-peak history, auto-normalized like mytry.c.
+        float peakLevelRaw = (float)g_uPeak;
+        for (size_t i = 0; i + 1 < g_peakHistory.size(); ++i)
+            g_peakHistory[i] = g_peakHistory[i + 1];
+        if (!g_peakHistory.empty())
+            g_peakHistory.back() = peakLevelRaw;
+
+        // Build a normalized copy for display without overwriting the raw window.
+        std::vector<float> peakHistoryNorm = g_peakHistory;
+        float maxRaw = 1.0f;
+        for (float v : peakHistoryNorm)
+            if (v > maxRaw) maxRaw = v;
+        maxRaw += maxRaw / 8.0f;
+        for (float& v : peakHistoryNorm)
+            v /= maxRaw;
+
+        // Red: accumulated AND counts per shell (r·sin(r) mask), absolute counts.
+        std::vector<float> andMask(graphSize, 0.0f);
+        int64_t maxAnd = 1;
+        for (unsigned r = 0; r < graphSize; ++r)
+        {
+            if (g_andAcc[r] > maxAnd) maxAnd = g_andAcc[r];
+        }
+        if (maxAnd < 1) maxAnd = 1;
+        for (unsigned r = 0; r < graphSize; ++r)
+            andMask[r] = (float)g_andAcc[r] / (float)maxAnd;
+
+        // The displayed radius follows the local light-frame clock of the selected
+        // source centre, which advances one cell per light frame.
+        const Cell& centreCell = automaton::getCell(automaton::lattice_curr, cx, cy, cz, selectedW);
+        unsigned pulseR = automaton::effective_t(centreCell.t);
+
+        int backIdx = 1 - frontIdx.load(std::memory_order_relaxed);
+        profileBufs[backIdx]     = std::move(profile);
+        andMaskBufs[backIdx]     = std::move(andMask);
+        triggerRateBufs[backIdx] = std::move(triggerRate);
+        peakHistoryBufs[backIdx] = std::move(peakHistoryNorm);
+
+        pulseRadius.store(pulseR, std::memory_order_release);
+        gGraphSize.store(graphSize, std::memory_order_release);
+        frontIdx.store(backIdx, std::memory_order_release);
+        readyFlag.store(true, std::memory_order_release);
+
+        // DEBUG: throttle a snapshot of the overlay read-out.
+        static int overlayReport = 0;
+        if (++overlayReport % 60 == 0) {
+            const Cell& c = automaton::getCell(automaton::lattice_curr, automaton::CENTER, automaton::CENTER, automaton::CENTER, selectedW);
+            const auto& prBuf = profileBufs[backIdx];
+            float pr0   = prBuf.empty() ? -1.0f : prBuf[0];
+            float prMid = prBuf.empty() ? -1.0f : prBuf[graphSize / 2];
+            printf("DEBUG overlay #%d selectedW=%u g_uPeak=%lld center u=%d v=%d active=%u profile[0]=%.3f profile[mid]=%.3f pulseR=%u\n",
+                   overlayReport, selectedW, g_uPeak, c.u, c.v, c.active,
+                   pr0, prMid, pulseR);
+        }
+    }
+} // namespace sinc_overlay
+
 #if defined(USE_CUDA) && !defined(CUDA_BRIDGE_CU)
 
 // ============================================================
@@ -129,17 +355,23 @@ static void convertCellToCellDevice(
     ::CellDevice& dst)
 {
     dst.ch  = static_cast<uint8_t>(src.ch);
-    dst.pB  = src.pB ? 1 : 0;
-    dst.sB  = src.sB ? 1 : 0;
+    dst.pB  = src.pB ? 1 : 0;    dst.sB  = src.sB ? 1 : 0;
     dst.a   = static_cast<uint32_t>(src.a);
 
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<uint32_t>(src.x[i]);
 
-    dst.r2   = static_cast<uint32_t>(src.r2);
-    dst.phiB = src.phiB ? 1 : 0;
-    dst.t    = static_cast<uint32_t>(src.t);
-    dst.f    = static_cast<uint32_t>(src.f);
+    dst.r2    = static_cast<uint32_t>(src.r2);
+    dst.r     = static_cast<int32_t>(src.r);
+    dst.u     = static_cast<int32_t>(src.u);
+    dst.v     = static_cast<int32_t>(src.v);
+    dst.bstamp = src.bstamp;
+    dst.pol_u  = static_cast<int32_t>(src.pol_u);
+    dst.pol_v  = static_cast<int32_t>(src.pol_v);
+    dst.active= src.active ? 1u : 0u;
+    dst.phiB  = src.phiB ? 1 : 0;
+    dst.t     = static_cast<uint32_t>(src.t);
+    dst.f     = static_cast<uint32_t>(src.f);
 
     for (int i = 0; i < 3; ++i)
         dst.c[i] = static_cast<uint32_t>(src.c[i]);
@@ -151,6 +383,18 @@ static void convertCellToCellDevice(
     dst.bB  = src.bB ? 1 : 0;
     dst.hB  = src.hB ? 1 : 0;
     dst.cB  = src.cB ? 1 : 0;
+
+    dst.kind       = static_cast<uint8_t>(src.kind);
+    dst.parent     = src.parent;
+    dst.spin_target= static_cast<int32_t>(src.spin_target);
+    dst.pair_idx   = src.pair_idx;
+    dst.leader_w   = src.leader_w;
+    dst.pair_count = static_cast<uint32_t>(src.pair_count);
+    for (int i = 0; i < 3; ++i)
+    {
+        dst.m[i]     = static_cast<int32_t>(src.m[i]);
+        dst.reloc[i] = static_cast<int32_t>(src.reloc[i]);
+    }
 }
 
 static void convertCellDeviceToCell(
@@ -165,10 +409,17 @@ static void convertCellDeviceToCell(
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<unsigned>(src.x[i]);
 
-    dst.r2   = static_cast<unsigned>(src.r2);
-    dst.phiB = (src.phiB != 0);
-    dst.t    = static_cast<unsigned>(src.t);
-    dst.f    = static_cast<unsigned>(src.f);
+    dst.r2    = static_cast<unsigned>(src.r2);
+    dst.r     = static_cast<int>(src.r);
+    dst.u     = static_cast<int>(src.u);
+    dst.v     = static_cast<int>(src.v);
+    dst.bstamp = src.bstamp;
+    dst.pol_u  = static_cast<int>(src.pol_u);
+    dst.pol_v  = static_cast<int>(src.pol_v);
+    dst.active= (src.active != 0);
+    dst.phiB  = (src.phiB != 0);
+    dst.t     = static_cast<unsigned>(src.t);
+    dst.f     = static_cast<unsigned>(src.f);
 
     for (int i = 0; i < 3; ++i)
         dst.c[i] = static_cast<unsigned>(src.c[i]);
@@ -180,6 +431,18 @@ static void convertCellDeviceToCell(
     dst.bB  = (src.bB != 0);
     dst.hB  = (src.hB != 0);
     dst.cB  = (src.cB != 0);
+
+    dst.kind       = static_cast<automaton::SourceKind>(src.kind);
+    dst.parent     = src.parent;
+    dst.spin_target= static_cast<int8_t>(src.spin_target);
+    dst.pair_idx   = src.pair_idx;
+    dst.leader_w   = src.leader_w;
+    dst.pair_count = static_cast<uint8_t>(src.pair_count);
+    for (int i = 0; i < 3; ++i)
+    {
+        dst.m[i]     = static_cast<int>(src.m[i]);
+        dst.reloc[i] = static_cast<int>(src.reloc[i]);
+    }
 }
 
 // ============================================================
@@ -239,6 +502,7 @@ bool initializeCudaSimulation()
 
 void cudaSimulationStepWrapper()
 {
+    automaton::pulse_tick++;
     cudaSimulationStep(
         automaton::CONVOL,
         automaton::SLOT1,
@@ -255,7 +519,8 @@ void cudaSimulationStepWrapper()
         automaton::FLOOD,
         automaton::FRAME,
         automaton::RMAX,
-        scenario
+        scenario,
+        automaton::pulse_tick
     );
 
     size_t totalCells =
@@ -316,6 +581,8 @@ void updateBufferCuda()
                     automaton::EL + z];
         }
     }
+
+    sinc_overlay::update(selectedW);
 }
 
 #endif // USE_CUDA && !CUDA_BRIDGE_CU
@@ -338,6 +605,14 @@ void updateBufferCPU()
 
     size_t idx = 0;
 
+    // Marker follows the pulse radius of the centre cell for the selected layer.
+    const automaton::Cell& centreCell =
+        automaton::getCell(
+            automaton::lattice_curr,
+            automaton::CENTER, automaton::CENTER, automaton::CENTER,
+            selectedW);
+    unsigned int pulse_r = automaton::effective_t(centreCell.t);
+
     for (unsigned x = 0; x < automaton::EL; ++x)
     for (unsigned y = 0; y < automaton::EL; ++y)
     for (unsigned z = 0; z < automaton::EL; ++z)
@@ -356,12 +631,25 @@ void updateBufferCPU()
 
         uint32_t color = 0x00000000u;
 
-        // Pulsating sphere visualization
-        unsigned int pulse_r2 =
-            automaton::pulse_from_time(automaton::pulse_tick);
+        if (gConfig.data3D[4] && cell.r2 != INF_R2 && (cell.u != 0 || cell.v != 0))
+        {
+            // Colour cells inside the bubble by their polarisation angle.
+            color = polarisationColor(cell.u, cell.v);
+        }
+
+        if (cell.active)
+        {
+            // Highlight the current pulse wavefront in white.
+            color = makeColor(255, 255, 255, 255);
+        }
+
+        if (cell.r2 == 0)
+        {
+            // Center cell
+            color = makeColor(80, 255, 80, 255);   // Green
+        }
 
         // Current radius marker on X axis (red dot)
-        unsigned int pulse_r = (unsigned int)sqrt((double)pulse_r2);
         unsigned int markerX = automaton::CENTER + pulse_r;
         if (x == markerX &&
             y == automaton::CENTER &&
@@ -369,20 +657,11 @@ void updateBufferCPU()
         {
             color = makeColor(255, 80, 80, 255);   // Red
         }
-        else if (cell.r2 != INF_R2 && cell.r2 == pulse_r2)
-        {
-            // Shell at current pulsation threshold
-            color = makeColor(255, 255, 80, 255);  // Yellow
-        }
-        else if (cell.r2 == 0)
-        {
-            // Center cell
-            color = makeColor(80, 255, 80, 255);   // Green
-        }
 
         voxels[idx++] = color;
     }
 
+    sinc_overlay::update(selectedW);
 }
 
 // ============================================================

@@ -102,7 +102,7 @@ namespace framework
             Tickbox(50, d3Dpos + 1*RAD_SEP, "Momentum"),
             Tickbox(50, d3Dpos + 2*RAD_SEP, "Spin"),
             Tickbox(50, d3Dpos + 3*RAD_SEP, "Sine mask"),
-            Tickbox(50, d3Dpos + 4*RAD_SEP, "Hunting"),
+            Tickbox(50, d3Dpos + 4*RAD_SEP, "Polarization"),
             Tickbox(50, d3Dpos + 5*RAD_SEP, "Centers"),
             Tickbox(50, d3Dpos + 6*RAD_SEP, "Lattice"),
             Tickbox(50, d3Dpos + 7*RAD_SEP, "Axes"),
@@ -116,6 +116,7 @@ namespace framework
         
         for (int i = 0; i < 9; ++i)
         {
+            data3D[i].onToggle = [i](bool state) { gConfig.data3D[i] = state; };
             data3D[i].setState(gConfig.data3D[i]);
         }
 

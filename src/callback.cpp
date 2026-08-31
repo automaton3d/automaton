@@ -106,7 +106,7 @@ namespace framework {
                         }
 
                         // Gizmo thumb detection (highest priority)
-                        if (showGizmo && (pause || currentMode == REPLAY)) {
+                        if (showGizmo && (paused || currentMode == REPLAY)) {
                             float mx = (float)xpos, my = (float)ypos;
                             const float hitRadius = 15.0f;
                             int bestAxis = -1;
@@ -294,7 +294,7 @@ namespace framework {
         }
 
         // Gizmo dragging
-        if ((pause || currentMode == REPLAY) && thumb.active && thumb.dragging && showGizmo) {
+        if ((paused || currentMode == REPLAY) && thumb.active && thumb.dragging && showGizmo) {
             float mx = (float)xpos, my = (float)ypos;
             float dMx = mx - (float)thumb.startMouseX;
             float dMy = my - (float)thumb.startMouseY;
@@ -316,7 +316,7 @@ namespace framework {
             gizmoHoverAxis = thumb.axis;
         } else {
             // Hover detection for gizmo
-            if (showGizmo && (pause || currentMode == REPLAY)) {
+            if (showGizmo && (paused || currentMode == REPLAY)) {
                 float mx = (float)xpos, my = (float)ypos;
                 const float hoverRadius = 14.0f;
                 int bestAxis = -1;
@@ -438,9 +438,9 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
                     sound(true);
                     break;
                 case GLFW_KEY_P:
-                    pause = !pause;
+                    paused = !paused;
                     showGizmo = !showGizmo;
-                    if (!pause && currentMode == SIMULATION) {
+                    if (!paused && currentMode == SIMULATION) {
                         gConfig.view.vis_dx = 0;
                         gConfig.view.vis_dy = 0;
                         gConfig.view.vis_dz = 0;

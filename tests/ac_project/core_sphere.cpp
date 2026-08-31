@@ -11,18 +11,10 @@ inline Cell* get_cell_safe(vector<Cell>& lattice, int x, int y, int z) {
     if (x < 0 || x >= (int)EL || y < 0 || y >= (int)EL || z < 0 || z >= (int)EL) {
         return nullptr;
     }
-    // Cálculo de índice: ((x * EL) + y) * EL + z
-    // Como EL é potência de 2 (64), podemos usar shift se necessário, mas o compilador otimiza.
-    // Restrição: Sem multiplicação explícita no código fonte? 
-    // Se EL for constante constexpr, o compilador faz shift. Se não, usamos adição repetida ou assumimos que o compilador lida com constantes.
-    // Para estrita aderência "sem multiplicação", faríamos: x<<12 + y<<6 + z (se EL=64).
-    size_t idx = ((size_t)x << 6) + ((size_t)y << 6) + (size_t)z; // Assumindo EL=64 (2^6)
-    // Nota: Se EL variar, precisamos de uma função de indexação genérica sem mul.
-    // Mas no integrated, EL é fixo em tempo de compilação ou calculado uma vez.
-    // Vamos usar a fórmula padrão pois o compilador otimiza multiplicações por constantes.
-    // Se a restrição for estrita em tempo de execução para variáveis, avise.
-    idx = ((size_t)x * EL + y) * EL + z; 
-    
+    // Índice linear para célula (x,y,z) na camada w=0.
+    // O armazenamento intercala w: i = (((x*EL)+y)*EL + z) * W_USED + w
+    size_t idx = (((size_t)x * EL + y) * EL + z) * W_USED;
+
     if (idx >= lattice.size()) return nullptr;
     return &lattice[idx];
 }
@@ -31,18 +23,6 @@ inline Cell* get_cell_safe(vector<Cell>& lattice, int x, int y, int z) {
 // Se (x,y,z) estiver fora da esfera definida por RMAX centrada em CENTER,
 // mapeia para o antípoda dentro da esfera.
 Cell* get_sphere_cell(vector<Cell>& lattice, int x, int y, int z) {
-    int dx = x - CENTER;
-    int dy = y - CENTER;
-    int dz = z - CENTER;
-
-    // Verificação de limite esférico simples (usando valor absoluto e soma, sem quadrados para performance crítica se necessário)
-    // Ou usamos a lógica integrada de "se saiu, antípoda".
-    // A regra antipodal toroidal: se coord > L-1, volta em 0. 
-    // Mas aqui temos uma esfera embutida.
-    
-    // Lógica simplificada para o teste: se estiver fora dos limites do array, retorna null.
-    // A lógica de "antípoda" será aplicada se a coordenada sair da região ativa.
-    
     // Tratamento de borda toroidal padrão primeiro (para garantir acesso válido ao array)
     if (x < 0) x += EL;
     if (x >= (int)EL) x -= EL;
@@ -51,15 +31,114 @@ Cell* get_sphere_cell(vector<Cell>& lattice, int x, int y, int z) {
     if (z < 0) z += EL;
     if (z >= (int)EL) z -= EL;
 
-    // Agora verifica se está dentro da esfera lógica (opcional, dependendo da estratégia)
-    // Se a estratégia é "tudo é toro, mas a física só ocorre na esfera", então apenas retornamos a célula.
-    // Se a estratégia é "esfera com fechamento antipodal próprio", precisamos mapear.
-    
-    // Vamos assumir a abordagem do integrated: o grid é o universo.
+    // Verifica se está dentro da esfera lógica. Se estiver fora, mapeia para o antípoda.
+    int dx = x - CENTER;
+    int dy = y - CENTER;
+    int dz = z - CENTER;
+    int r2_int = dx*dx + dy*dy + dz*dz;
+    int rmax2 = (int)RMAX * (int)RMAX;
+
+    if (r2_int > rmax2) {
+        // Mapeia para o antípoda e garante que fique dentro do array
+        x = 2 * (int)CENTER - x;
+        y = 2 * (int)CENTER - y;
+        z = 2 * (int)CENTER - z;
+
+        if (x < 0) x += EL;
+        if (x >= (int)EL) x -= EL;
+        if (y < 0) y += EL;
+        if (y >= (int)EL) y -= EL;
+        if (z < 0) z += EL;
+        if (z >= (int)EL) z -= EL;
+    }
+
     return get_cell_safe(lattice, x, y, z);
 }
 
+// Atualiza r2, r, (u,v), active, phiB, pB e sB a partir das coordenadas x[]
+// e do relógio local t. Sem tabelas: usa isqrt para aproximar u^2+v^2=R^4.
+void sphere_phase_step() {
+    if (RMAX == 0 || W_USED == 0 || EL == 0) return;
+
+    unsigned int phase_full = 2u * RMAX * RMAX;
+    size_t total = lattice_curr.size();
+
+    for (size_t i = 0; i < total; ++i) {
+        Cell& c = lattice_curr[i];
+
+        // Reconstrói as coordenadas a partir do índice linear (robusto a cópias)
+        unsigned int w = (unsigned int)(i % W_USED);
+        size_t idx3d = i / W_USED;
+        unsigned int z = (unsigned int)(idx3d % EL);
+        unsigned int y = (unsigned int)((idx3d / EL) % EL);
+        unsigned int x = (unsigned int)(idx3d / (EL * EL));
+
+        c.x[0] = x;
+        c.x[1] = y;
+        c.x[2] = z;
+        c.x[3] = w;
+
+        int dx = (int)x - (int)CENTER;
+        int dy = (int)y - (int)CENTER;
+        int dz = (int)z - (int)CENTER;
+        int r2_int = dx*dx + dy*dy + dz*dz;
+        if (r2_int < 0) r2_int = 0;
+        c.r2 = (unsigned int)r2_int;
+
+        // Update integer radius from exact r^2 without isqrt.
+        // The previous radius is an excellent starting estimate.
+        int r = c.r;
+        if (r < 0) r = 0;
+        while (r > 0 && (unsigned int)r * (unsigned int)r > c.r2)
+            r--;
+        while ((unsigned int)(r + 1) * (unsigned int)(r + 1) <= c.r2)
+            r++;
+        c.r = r;
+
+        // Active shell: integer radius equals the local light-frame radius.
+        unsigned int pulseR = effective_t(c.t);
+        c.active = (c.r == (int)pulseR) ? 1u : 0u;
+
+        if (c.r < 0 || c.r > (int)RMAX) {
+            c.u = 0;
+            c.v = 0;
+            c.phiB = false;
+            c.pB = false;
+            c.sB = false;
+            continue;
+        }
+
+        unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)W_USED);
+        unsigned int cell_phase = (((unsigned int)c.r * 2u * RMAX) + w_offset) % phase_full;
+        int m = (int)(cell_phase / (unsigned int)RMAX);
+        int R = (int)RMAX;
+        int u, v;
+
+        if (m < R) {
+            int arg = m * (R - m);
+            int s = isqrt(arg);
+            u = R * (R - 2 * m);
+            v = 2 * R * s;
+        } else {
+            int m2 = m - R;
+            int arg = m2 * (R - m2);
+            int s = isqrt(arg);
+            u = R * (2 * m - 3 * R);
+            v = -2 * R * s;
+        }
+
+        c.u = u;
+        c.v = v;
+        c.phiB = (c.active != 0);
+        c.pB   = (u > 0);
+        c.sB   = (v > 0);
+    }
+}
+
 void sphere_convolution_step() {
+    // Atualiza polarização e active antes de aplicar regras de interação
+    sphere_phase_step();
+
     // Varredura sobre a região de interesse (caixa delimitadora da esfera)
     int range = RMAX + 2;
     int min_x = CENTER - range;
@@ -72,25 +151,31 @@ void sphere_convolution_step() {
     for (int x = min_x; x <= max_x; ++x) {
         for (int y = min_y; y <= max_y; ++y) {
             for (int z = min_z; z <= max_z; ++z) {
-                
+
                 Cell* pCurr = get_sphere_cell(lattice_curr, x, y, z);
                 if (!pCurr) continue;
 
-                // Regra 1: Detecção de Superfície (t != d)
+                // Base do double buffer: copia Curr para Draft antes de modificar
+                Cell* pDraft = get_sphere_cell(lattice_draft, x, y, z);
+                if (pDraft) {
+                    *pDraft = *pCurr;
+                }
+
+                // Regra 1: Detecção de Superfície
                 // Apenas células na frente de onda interagem fortemente
-                bool is_surface = (pCurr->t != 0 && pCurr->t == pCurr->d);
-                
+                bool is_surface = (pCurr->active != 0);
+
                 // Regra 2: Interação de Pares (Simplificada do integrated)
                 // Se é superfície, procura vizinho com afinidade compatível
-                if (is_surface) {
+                if (is_surface && pDraft) {
                     // Exemplo: verificar vizinhos imediatos
                     // No integrated, isso é feito com máscaras e checks de carga
                     // Aqui vamos simular a detecção de colisão de frentes
                     bool collision = false;
-                    
+
                     // Check vizinho X+
                     Cell* pNx = get_sphere_cell(lattice_curr, x+1, y, z);
-                    if (pNx && pNx->t != 0 && pNx->d == pNx->t) {
+                    if (pNx && pNx->active != 0) {
                          // Condição de interação: cargas opostas ou mesma afinidade?
                          // No integrated: neutralColor ou neutralWeak
                          if ((pCurr->ch & COLOR_MASK) != 0 && (pNx->ch & COLOR_MASK) != 0) {
@@ -100,30 +185,24 @@ void sphere_convolution_step() {
 
                     if (collision) {
                         // Ativa colapso
-                        Cell* pDraft = get_sphere_cell(lattice_draft, x, y, z);
-                        if (pDraft) {
-                            pDraft->kB = true;
-                            // Atualiza frequência: f = f + t (emergência de harmônicos)
-                            pDraft->f = pDraft->f + pDraft->t; 
-                            
-                            // Teste Sine Mask: se f >= d (ou condição similar), ativa s2B
-                            if (pDraft->f >= pDraft->d && pDraft->d > 0) {
-                                pDraft->s2B = true;
-                            }
+                        pDraft->kB = true;
+                        // Atualiza frequência: f = f + t (emergência de harmônicos)
+                        pDraft->f = pDraft->f + pDraft->t;
+
+                        // Teste Sine Mask: se f >= d (ou condição similar), ativa s2B
+                        if (pDraft->f >= pDraft->d && pDraft->d > 0) {
+                            pDraft->s2B = true;
                         }
                     }
-                }
 
-                // Regra 3: Propagação de Fase (f) mesmo sem colisão (opcional, depende do modelo exato)
-                // No integrated, f pode ser transportado ou acumulado de outra forma.
-                // Vamos garantir que o Draft receba o estado base do Curr antes de modificações
-                Cell* pDraft = get_sphere_cell(lattice_draft, x, y, z);
-                if (pDraft) {
-                    // Copia estados base se ainda não foram tocados
-                    // (Em uma implementação real de double buffer, isso é feito pelo swap ou copy inicial)
-                    // Aqui assumimos que lattice_draft começa zerado ou precisa ser preenchido
-                    if (pDraft->t == 0 && pCurr->t != 0) {
-                        *pDraft = *pCurr; // Copy inicial
+                    // Propagação antipodal: uma frente ativa na superfície
+                    // também aparece no ponto antípoda (dentro da esfera).
+                    int ax = 2 * (int)CENTER - x;
+                    int ay = 2 * (int)CENTER - y;
+                    int az = 2 * (int)CENTER - z;
+                    Cell* pAnt = get_sphere_cell(lattice_draft, ax, ay, az);
+                    if (pAnt && pAnt != pDraft) {
+                        *pAnt = *pCurr;
                     }
                 }
             }

@@ -87,6 +87,24 @@ void drawLineLoop2D(
     glBindVertexArray(0);
 }
 
+void drawLineStrip2D(
+    const std::vector<glm::vec2>& pts,
+    const glm::vec3& color,
+    const glm::mat4& proj,
+    float thickness)
+{
+    if (pts.size() < 2) return;
+    init();
+    Renderer2D::use();
+    Renderer2D::setMVP(ProjectionManager::instance().get2DOrtho());
+    Renderer2D::setColor(color);
+    glLineWidth(thickness);
+    glBindVertexArray(vao);
+    upload(pts);
+    glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)pts.size());
+    glBindVertexArray(0);
+}
+
 void drawLine2D_new(
     float x1, float y1,
     float x2, float y2,

@@ -55,6 +55,12 @@ void drawLine2D(float x1, float y1, float x2, float y2,
                 const glm::mat4& proj,
                 float thickness = 1.0f);
 
+// Polyline (connected line segments)
+void drawLineStrip2D(const std::vector<glm::vec2>& points,
+                     const glm::vec3& color,
+                     const glm::mat4& proj,
+                     float thickness = 1.0f);
+
 // Optional: clean shutdown (call on exit if you like)
 void draw2DShutdown();
 

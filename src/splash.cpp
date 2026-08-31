@@ -439,7 +439,7 @@ void keyCallback(GLFWwindow*, int key, int, int action, int)
             framework::updateProjection();
             
             gConfig.simulation.scenario = splash::scenarioDropdown ? splash::scenarioDropdown->getSelectedIndex() : gConfig.simulation.scenario;
-            pause = splash::startPausedBox ? splash::startPausedBox->getState() : false;
+            paused = splash::startPausedBox ? splash::startPausedBox->getState() : false;
             splash::shouldExit = true;
         }
     }

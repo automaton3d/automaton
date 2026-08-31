@@ -8,6 +8,8 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <vector>
+#include <string>
 #include "text_renderer.h"
 
 bool TextRenderer::init(const std::string& fontPath, int fontSize, unsigned int shader)
@@ -20,9 +22,30 @@ bool TextRenderer::init(const std::string& fontPath, int fontSize, unsigned int 
 	        return false;
 	    }
 
-	    FT_Face face;
-	    if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-	        std::cerr << "ERROR::FREETYPE: Failed to load font '" << fontPath << "'\n";
+	    // The font path is relative to the current working directory, but the
+	    // executable may be launched from the project root, from build\, or
+	    // from bin\.  Mirroring the search list of Logo::Logo, try a small
+	    // set of candidate locations and use the first one that loads.
+	    std::vector<std::string> candidates;
+	    candidates.push_back(fontPath);                 // as given (e.g. fonts/arial.ttf)
+	    candidates.push_back("bin/" + fontPath);        // bin\fonts\arial.ttf
+	    candidates.push_back("../" + fontPath);         // parent dir
+	    candidates.push_back("../bin/" + fontPath);     // project root's bin\
+	    candidates.push_back("../../bin/" + fontPath);  // two levels up
+	    candidates.push_back("fonts/arial.ttf");        // canonical name anywhere
+
+	    FT_Face face = nullptr;
+	    for (const auto& p : candidates)
+	    {
+	        face = nullptr;
+	        if (FT_New_Face(ft, p.c_str(), 0, &face) == 0)
+	            break;
+	    }
+
+	    if (!face) {
+	        std::cerr << "ERROR::FREETYPE: Failed to load font '" << fontPath << "' from any location\n";
+	        for (const auto& p : candidates)
+	            std::cerr << "  - " << p << "\n";
 	        FT_Done_FreeType(ft);
 	        return false;
 	    }

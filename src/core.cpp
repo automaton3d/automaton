@@ -5,7 +5,9 @@
 #include <GLFW/glfw3.h>
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
-    #define NOMINMAX
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
     #include <windows.h>
 
 #endif
@@ -191,7 +193,7 @@ void SimulateThread()
 
     while (!framework::stopSimThread.load(std::memory_order_acquire))
     {
-        if (!pause)
+        if (!paused)
         {
             if (framework::replayFrames)
             {
@@ -238,7 +240,7 @@ void SimulateThread()
         }
         else
         {
-            // If tomography changes during pause, update once
+            // If tomography changes while paused, update once
             static bool prevTomoState = false;
             bool currentTomoState = (tomoEnable && tomoEnable->getState());
             if (currentTomoState != prevTomoState)

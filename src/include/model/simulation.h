@@ -38,6 +38,29 @@
 #define WEAK_MASK   (W0_MASK | W1_MASK)
 #define CHARGE_MASK (W0_MASK | W1_MASK | C0_MASK | C1_MASK | C2_MASK | Q_MASK)
 
+/// Integer square root (binary method, table-free).
+inline int isqrt(int n)
+{
+    if (n <= 0) return 0;
+    int result = 0;
+    int bit = 1 << 30;
+    while (bit > n) bit >>= 2;
+    while (bit != 0)
+    {
+        if (n >= result + bit)
+        {
+            n -= result + bit;
+            result = (result >> 1) + bit;
+        }
+        else
+        {
+            result >>= 1;
+        }
+        bit >>= 2;
+    }
+    return result;
+}
+
 // Platform-independent color type (RGBA)
 struct Color {
   uint8_t r, g, b, a;
@@ -77,27 +100,17 @@ namespace automaton
   using WIndex = uint32_t;
   inline constexpr WIndex NO_LEADER_W = std::numeric_limits<WIndex>::max();
 
+  // Source kinds for the spin-rev source model (K/S/D/P)
+  enum class SourceKind : uint8_t { K = 0, S = 1, D = 2, P = 3 };
+  inline constexpr uint32_t NO_PARENT = std::numeric_limits<uint32_t>::max();
+  inline constexpr uint32_t NO_PAIR   = std::numeric_limits<uint32_t>::max();
+
   extern unsigned EL;
   extern unsigned W_USED;
   extern bool convol_delay;
   extern bool diffuse_delay;
   extern bool reloc_delay;
   extern std::vector<std::array<unsigned, 3>> lcenters;
-
-  struct Point
-  {
-    unsigned x, y, z;
-    bool operator==(const Point& other) const
-    {
-      return x == other.x && y == other.y && z == other.z;
-    }
-  };
-
-  // Define the outer structure
-  struct WPoint
-  {
-    Point p;
-  };
 
 
 struct NeighborResult
@@ -119,15 +132,15 @@ struct NeighborResult
       WIndex leader_w;    // Auxiliary W identity copied from the core
       bool is_core;       // Winding core flag
       unsigned char ch;   // Charge bits q, w1, w0, c2, c1, c0
-      bool pB;            // Linear motion direction bit
-      bool sB;            // Rotation spiral bit
+      bool pB;            // local in-phase wave sign (pB = (u>0)); electric channel trigger
+      bool sB;            // emergent transverse polarisation (sB = (v>0)); magnetic channel trigger
       unsigned a;         // Affinity
       unsigned x[4];      // Relative position
       // Wavefront
       unsigned d;         // Euclidean distance
-      bool phiB;          // Fixed period mask bit
+      bool phiB;          // Active wavefront marker (phiB = active)
       unsigned t;         // Light frame counter
-      unsigned f;         // Sine phase parameter
+      unsigned f;         // Triangular breathing phase f = effective_t(t)
       // Operational variables
       unsigned c[3] = { 0, 0, 0 }; // Relocation offset
       unsigned k;         // Tick counter
@@ -142,17 +155,36 @@ struct NeighborResult
       int  g[3] = {0,0,0}; // Signed displacement to antipodal
       // Pulsating sphere
       unsigned int r2;    // Squared distance from center (BFS-propagated)
+      int r;              // Integer radius propagated/corrected from r2
+      int u, v;           // Radial polarisation pair (u: in-phase, v: quadrature)
+      unsigned int active; // 1 when the cell is on the pulsating wavefront
+      // Emergent polarisation broadcast (manuscript Sect. "Emergent
+      // polarization pair"): b(x) arrival stamp + reconstructed pair.
+      unsigned int bstamp; // Arrival tick of the elected-momentum news (0 = never reached)
+      int pol_u, pol_v;    // Reconstructed transverse pair (approximating pol_u^2+pol_v^2 = R^4 via isqrt)
+      // Spin-rev source model
+      SourceKind kind;      // K (chief), S (singleton), D (delegate), P (pair)
+      uint32_t parent;      // Parent source index (for D/P)
+      int8_t spin_target;   // +1 outward / -1 inward / 0 neutral
+      uint32_t pair_idx;    // Pair partner index for P sources
+      uint8_t pair_count;   // Number of overlapping pairs in a P source (frequency = 2 * pair_count)
+      int m[3];             // Momentum direction vector (long-term stable)
+      int reloc[3];         // Consumable relocation offset / impulse
       // Default constructor
       Cell()
         : w(0), leader_w(NO_LEADER_W), is_core(false),
           ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
-          gB(false), r2(0xFFFFFFFFu)
+          gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0),
+          bstamp(0), pol_u(0), pol_v(0),
+          kind(SourceKind::S), parent(NO_PARENT), spin_target(0), pair_idx(NO_PAIR), pair_count(0)
       {
         fill(begin(x), end(x), 0);
         fill(begin(c), end(c), 0);
         fill(begin(g), end(g), 0);
+        fill(begin(m), end(m), 0);
+        fill(begin(reloc), end(reloc), 0);
       }
       // Serialization functions
       void serialize(ofstream& out) const;
@@ -189,18 +221,9 @@ struct NeighborResult
   bool swap_lattices();
   void update();
   bool initSimulation(int step);
-  void initSpirals();
   void replicate();
-  void markPoints(unsigned p[3], int w);
   bool simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute0(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute1(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute2(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute3(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute4(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute5(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute6(Cell& curr, Cell &draft, Cell &mirror);
   bool convolute7(Cell& curr, Cell &draft, Cell &mirror);
   void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up);
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down);
@@ -211,9 +234,6 @@ struct NeighborResult
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up);
   void updateBuffer();
-  vector<tuple<int, int, int>> generateShell(int L);
-  void normalize(double vec[3]);
-  void cross_product(double result[3], const double a[3], const double b[3]);
   void printLattice(int w);
   bool neutralColor(Cell &a, Cell &b);
   bool neutralWeak(Cell &a, Cell &b);
@@ -222,6 +242,13 @@ struct NeighborResult
   bool tryAllocate(int EL, int W);
   unsigned int getRandomUnsigned(unsigned int modulus);
   void relocateGlobal(unsigned dx, unsigned dy, unsigned dz);
+
+  // Convolution diagnostics (interaction.cpp), for the headless scattering
+  // runner (tests/scatter_main.cpp).
+  extern long long conv_calls;
+  extern long long conv_s2b;
+  extern long long conv_pair;
+  extern long long conv_self;
 
   // Tests
 
@@ -265,28 +292,36 @@ struct NeighborResult
   extern unsigned FRAME;
   extern unsigned int pulse_tick;
 
-  #define INF_R2 0xFFFFFFFFu
+  // ------------------------------------------------------------------
+  // Fatia 1 — charge census / virgin-wrap ledger (instrumentation only).
+  // Read-only over the lattice: these hooks never write cells, so the
+  // automaton dynamics are bit-identical with or without them.
+  // Defined in src/model/charges.cpp.  CPU path only (update_lattice_cpu);
+  // the CUDA bridge is deliberately untouched in this slice.
+  // ------------------------------------------------------------------
+  void chargesReset();                      // zero ledgers (called at sim init)
+  void chargesMarkInteraction(unsigned w);  // island w just reemitted (clock reset)
+  void chargesMarkPair();                   // a registered P formation was created (idea B)
+  void chargesMarkBlob();                   // a superposed-pair group formed a blob
+  void chargesSampleTurnarounds();          // per-tick t==RMAX crossing detector
+  void chargesReport(unsigned tick);        // throttled matter/antimatter census
 
-  // Pulsating sphere threshold (triangle wave on r²)
-  inline unsigned int pulse_from_time(unsigned int t)
-  {
-      const unsigned int min_r2 = 0;
-      const unsigned int max_r2 = (unsigned int)(RMAX * RMAX * 0.92);
-      const unsigned int step = 1;
-      unsigned int span = max_r2 - min_r2;
-      if (span == 0) return min_r2;
-      unsigned int period = 2 * span;
-      unsigned int phase = (t * step) % period;
-      if (phase < span)
-          return min_r2 + phase;
-      else
-          return max_r2 - (phase - span);
-  }
+  // W-island topology (W = 3L^2 = (9L) * (L/3))
+  extern unsigned ISLAND_SIZE;
+  extern unsigned ISLAND_COUNT;
+
+  inline unsigned islandOf(WIndex w)       { return (ISLAND_SIZE > 0) ? (unsigned)(w / ISLAND_SIZE) : 0; }
+  inline WIndex firstWOfIsland(unsigned i) { return (WIndex)(i * ISLAND_SIZE); }
+  inline bool   isIslandChief(WIndex w)    { return (ISLAND_SIZE > 0) && ((w % ISLAND_SIZE) == 0); }
+
+  #define INF_R2 0xFFFFFFFFu
 
   void update_pulsating_wavefront();
 
-  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0)
-  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX
+  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0).
+  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX.
+  // This is the local, constant-speed light-clock: a cell is on the active
+  // shell exactly when its propagated integer radius r equals this value.
   inline unsigned effective_t(unsigned t)
   {
       unsigned cycle = 2 * RMAX;
@@ -332,15 +367,8 @@ extern std::vector<Cell> lattice_mirror; // Add or verify
 #ifdef USE_CUDA
   // Internal GPU wrapper functions - only declared when CUDA is enabled
   // Implementations are in cuda_automaton.cu
-  void ca_update_gpu_wrapper();
-  void ca_update_gpu_wrapper(
-      unsigned CONVOL, unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-      unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-      unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-      unsigned FLOOD, unsigned FRAME, unsigned RMAX
-  );
   bool swap_lattices_gpu();
-  
+
   // Pointers for Device (GPU) memory
   extern Cell* d_lattice_curr;
   extern Cell* d_lattice_draft;

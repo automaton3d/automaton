@@ -56,7 +56,6 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\text_renderer.obj \
 	$(OBJ_DIR)\tickbox.obj \
 	$(OBJ_DIR)\tomography.obj \
-	$(OBJ_DIR)\convolutes.obj \
 	$(OBJ_DIR)\initSim.obj \
 	$(OBJ_DIR)\interaction.obj \
 	$(OBJ_DIR)\simulation.obj \
@@ -64,7 +63,9 @@ OBJ_COMMON = \
 	$(OBJ_DIR)\config.obj \
 	$(OBJ_DIR)\render_pipeline.obj \
 	$(OBJ_DIR)\Renderer2D.obj \
-	$(OBJ_DIR)\geometry.obj
+	$(OBJ_DIR)\geometry.obj \
+	$(OBJ_DIR)\polarization.obj \
+	$(OBJ_DIR)\charges.obj
 
 OBJ = $(OBJ_COMMON) \
       $(OBJ_DIR)\bridge.obj
@@ -96,27 +97,34 @@ EXTRA_NVCCFLAGS =
 CC = cl
 NVCC = nvcc
 
+!IFNDEF VCPKG_ROOT
 VCPKG_ROOT = E:/vcpkg/installed/x64-windows
+!ENDIF
+
+!IFNDEF CUDA_PATH
 CUDA_PATH = C:\PROGRA~1\NVIDIA~2\CUDA\v13.2
+!ENDIF
 CUDA_LIB = "$(CUDA_PATH)/lib/x64"
 
 INCLUDES_MSVC = \
 	/I"src\include" \
 	/I"src\include\zlib" \
 	/I"src" \
-	/I"$(VCPKG_ROOT)/include"
+	/I"$(VCPKG_ROOT)/include" \
+	/I"$(VCPKG_ROOT)/include/freetype2"
 
 INCLUDES_NVCC = \
 	-I"src\include" \
 	-I"src\include\zlib" \
 	-I"src" \
 	-I"$(VCPKG_ROOT)/include" \
+	-I"$(VCPKG_ROOT)/include/freetype2" \
 	-I"src\include\zlib\cuda" \
 	-I"src\cuda"
 
-CFLAGS = /nologo /std:c++20 /O2 /EHsc /MD $(INCLUDES_MSVC) $(EXTRA_CPPFLAGS)
+CFLAGS = /nologo /std:c++20 /O2 /EHsc /MD /D "NOMINMAX" $(INCLUDES_MSVC) $(EXTRA_CPPFLAGS)
 
-NVCC_FLAGS = -c -std=c++20 -O2 $(INCLUDES_NVCC) $(EXTRA_NVCCFLAGS) --compiler-options /MD
+NVCC_FLAGS = -allow-unsupported-compiler -c -std=c++17 -O2 -DNOMINMAX -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH=1 $(INCLUDES_NVCC) $(EXTRA_NVCCFLAGS) --compiler-options /MD,/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH=1
 
 !IF $(ENABLE_CUDA)
 
@@ -164,7 +172,7 @@ LDFLAGS = /link \
 # Targets principais
 # ================================================
 
-all: dirs $(BUILD_DIR)\$(TARGET) dlls copy_config
+all: dirs $(BUILD_DIR)\$(TARGET) dlls assets copy_config
 
 dirs:
 	if not exist "$(BUILD_DIR)" mkdir "$(BUILD_DIR)"
@@ -179,14 +187,14 @@ $(BUILD_DIR)\$(TARGET): $(OBJ)
 
 !IF $(ENABLE_CUDA)
 
-$(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu src\cuda\cuda_sim_optimized.h
-	$(NVCC) $(NVCC_FLAGS) -o $@ $**
+$(OBJ_DIR)\bridge_cuda.obj: src\cuda\bridge_cuda.cu src\include\zlib\cuda\cuda_sim_optimized.h
+	$(NVCC) $(NVCC_FLAGS) -o $@ src\cuda\bridge_cuda.cu
 
-$(OBJ_DIR)\cuda_automaton.obj: src\cuda\cuda_automaton.cu src\cuda\cuda_sim_optimized.h
-	$(NVCC) $(NVCC_FLAGS) -o $@ $**
+$(OBJ_DIR)\cuda_automaton.obj: src\cuda\cuda_automaton.cu src\include\zlib\cuda\cuda_sim_optimized.h
+	$(NVCC) $(NVCC_FLAGS) -o $@ src\cuda\cuda_automaton.cu
 
 $(OBJ_DIR)\cuda_constants.obj: src\cuda\cuda_constants.cu
-	$(NVCC) $(NVCC_FLAGS) -o $@ $**
+	$(NVCC) $(NVCC_FLAGS) -o $@ src\cuda\cuda_constants.cu
 
 !ENDIF
 
@@ -310,9 +318,6 @@ $(OBJ_DIR)\tomography.obj: src\tomography.cpp src\include\tomography.h
 	$(CC) $(CFLAGS) /c src\tomography.cpp /Fo$(OBJ_DIR)\tomography.obj
 
 # --- Model ---
-$(OBJ_DIR)\convolutes.obj: src\model\convolutes.cpp src\include\model\simulation.h
-	$(CC) $(CFLAGS) /c src\model\convolutes.cpp /Fo$(OBJ_DIR)\convolutes.obj
-
 $(OBJ_DIR)\initSim.obj: src\model\initSim.cpp src\include\model\simulation.h
 	$(CC) $(CFLAGS) /c src\model\initSim.cpp /Fo$(OBJ_DIR)\initSim.obj
 
@@ -331,18 +336,24 @@ $(OBJ_DIR)\bridge.obj: src\model\bridge.cpp src\include\model\simulation.h src\i
 $(OBJ_DIR)\geometry.obj: src\model\geometry.cpp src\include\model\geometry.h
 	$(CC) $(CFLAGS) /c src\model\geometry.cpp /Fo$(OBJ_DIR)\geometry.obj
 
+$(OBJ_DIR)\polarization.obj: src\model\polarization.cpp src\include\model\simulation.h src\include\model\polarization.h
+	$(CC) $(CFLAGS) /c src\model\polarization.cpp /Fo$(OBJ_DIR)\polarization.obj
+
+$(OBJ_DIR)\charges.obj: src\model\charges.cpp src\include\model\simulation.h
+	$(CC) $(CFLAGS) /c src\model\charges.cpp /Fo$(OBJ_DIR)\charges.obj
+
 # --- Libraries ---
 $(OBJ_DIR)\glad.obj: glad\glad.c
 	$(CC) $(CFLAGS) /c glad\glad.c /Fo$(OBJ_DIR)\glad.obj
 $(OBJ_DIR)\tinyfiledialogs.obj: src\tinyfiledialogs.c src\include\tinyfiledialogs.h
 	$(CC) $(CFLAGS) /c src\tinyfiledialogs.c /Fo$(OBJ_DIR)\tinyfiledialogs.obj
 
-# --- AC Project (Novo Núcleo Esférico) ---
-$(OBJ_DIR)\ac_project\bridge_simple.obj: src\ac_project\bridge_simple.cpp src\include\model\simulation.h src\include\ac_project\core_sphere.h
-	$(CC) $(CFLAGS) /c src\ac_project\bridge_simple.cpp /Fo$(OBJ_DIR)\ac_project\bridge_simple.obj
+# --- AC Project (Novo Núcleo Esférico) — movido para tests\ac_project ---
+$(OBJ_DIR)\ac_project\bridge_simple.obj: tests\ac_project\bridge_simple.cpp tests\ac_project\simulation.h tests\ac_project\core_sphere.h
+	$(CC) $(CFLAGS) /c tests\ac_project\bridge_simple.cpp /Fo$(OBJ_DIR)\ac_project\bridge_simple.obj
 
-$(OBJ_DIR)\ac_project\core_sphere.obj: src\ac_project\core_sphere.cpp src\include\model\simulation.h src\include\ac_project\core_sphere.h
-	$(CC) $(CFLAGS) /c src\ac_project\core_sphere.cpp /Fo$(OBJ_DIR)\ac_project\core_sphere.obj
+$(OBJ_DIR)\ac_project\core_sphere.obj: tests\ac_project\core_sphere.cpp tests\ac_project\simulation.h tests\ac_project\core_sphere.h
+	$(CC) $(CFLAGS) /c tests\ac_project\core_sphere.cpp /Fo$(OBJ_DIR)\ac_project\core_sphere.obj
 
 # ================================================
 # DLLs
@@ -357,6 +368,17 @@ dlls:
 	copy "$(VCPKG_ROOT)\bin\brotlicommon.dll" $(BUILD_DIR)
 	copy "$(VCPKG_ROOT)\bin\brotlienc.dll" $(BUILD_DIR)
 	copy "$(VCPKG_ROOT)\bin\libpng16.dll" $(BUILD_DIR)
+
+# Runtime assets (fonts, logos): copied next to the executable so the
+# program runs from the build directory (nmake run) without relying on
+# relative-path fallbacks.  The font search in TextRenderer/Logo also
+# tolerates missing assets by trying several candidate locations.
+assets:
+	if exist "bin\fonts" xcopy /E /I /Y "bin\fonts" "$(BUILD_DIR)\fonts"
+	if exist "logo.png"      copy /Y "logo.png"      "$(BUILD_DIR)"
+	if exist "logo_bar.png"  copy /Y "logo_bar.png"  "$(BUILD_DIR)"
+	if exist "bin\logo.png"      copy /Y "bin\logo.png"      "$(BUILD_DIR)"
+	if exist "bin\logo_bar.png"  copy /Y "bin\logo_bar.png"  "$(BUILD_DIR)"
 
 # ================================================
 # Limpeza

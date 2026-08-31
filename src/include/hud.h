@@ -3,6 +3,7 @@
 #include <string>
 #include "button.h"
 #include <atomic>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "app_context.h"
 

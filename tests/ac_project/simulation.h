@@ -6,6 +6,7 @@
 #define SIMULATION_H_
 
 #include <vector>
+#include <array>
 #include <iostream>
 #include <cstdint>
 
@@ -79,21 +80,6 @@ namespace automaton
   extern bool reloc_delay;
   extern std::vector<std::array<unsigned, 3>> lcenters;
 
-  struct Point
-  {
-    unsigned x, y, z;
-    bool operator==(const Point& other) const
-    {
-      return x == other.x && y == other.y && z == other.z;
-    }
-  };
-
-  // Define the outer structure
-  struct WPoint
-  {
-    Point p;
-  };
-
 
 struct NeighborResult
 {
@@ -134,12 +120,15 @@ struct NeighborResult
       int  g[3] = {0,0,0}; // Signed displacement to antipodal
       // Pulsating sphere
       unsigned int r2;    // Squared distance from center (BFS-propagated)
+      int r;              // Integer radius propagated/corrected from r2
+      int u, v;           // Transverse polarisation pair
+      unsigned int active; // 1 if cell is on the current pulse wavefront
       // Default constructor
       Cell()
         : ch(0), pB(false), sB(false), a(0),
           d(0), phiB(false), t(0), f(0),
           k(0), s2B(false), kB(false), bB(false), hB(false), cB(false),
-          gB(false), r2(0xFFFFFFFFu)
+          gB(false), r2(0xFFFFFFFFu), r(-1), u(0), v(0), active(0)
       {
         fill(begin(x), end(x), 0);
         fill(begin(c), end(c), 0);
@@ -180,19 +169,9 @@ struct NeighborResult
   bool swap_lattices();
   void update();
   bool initSimulation(int step);
-  void initSpirals();
   void replicate();
-  void markPoints(unsigned p[3], int w);
   bool simulation();
   bool convolute(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute0(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute1(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute2(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute3(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute4(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute5(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute6(Cell& curr, Cell &draft, Cell &mirror);
-  bool convolute7(Cell& curr, Cell &draft, Cell &mirror);
   void diffuse(Cell& curr, Cell &draft, Cell &forward, Cell &north, Cell &west, Cell &down, Cell &south, Cell &east, Cell &up);
   void relocate(Cell& curr, Cell &draft, Cell &north, Cell &west, Cell &down);
   void reissue(Cell& curr, Cell &draft, Cell &forward,
@@ -202,9 +181,6 @@ struct NeighborResult
                Cell &north, Cell &west, Cell &down,
                Cell &south, Cell &east, Cell &up);
   void updateBuffer();
-  vector<tuple<int, int, int>> generateShell(int L);
-  void normalize(double vec[3]);
-  void cross_product(double result[3], const double a[3], const double b[3]);
   void printLattice(int w);
   bool neutralColor(Cell &a, Cell &b);
   bool neutralWeak(Cell &a, Cell &b);
@@ -254,30 +230,15 @@ struct NeighborResult
   extern unsigned REISSUE;
   extern unsigned FLOOD;
   extern unsigned FRAME;
-  extern unsigned int pulse_tick;
 
   #define INF_R2 0xFFFFFFFFu
 
-  // Pulsating sphere threshold (triangle wave on r²)
-  inline unsigned int pulse_from_time(unsigned int t)
-  {
-      const unsigned int min_r2 = 0;
-      const unsigned int max_r2 = (unsigned int)(RMAX * RMAX * 0.92);
-      const unsigned int step = 1;
-      unsigned int span = max_r2 - min_r2;
-      if (span == 0) return min_r2;
-      unsigned int period = 2 * span;
-      unsigned int phase = (t * step) % period;
-      if (phase < span)
-          return min_r2 + phase;
-      else
-          return max_r2 - (phase - span);
-  }
-
   void update_pulsating_wavefront();
 
-  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0)
-  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX
+  // Effective wavefront radius (triangle wave: expands 0→RMAX, contracts RMAX→0).
+  // Period = 2*RMAX (= L in physics terms), amplitude = RMAX.
+  // This is the local, constant-speed light-clock: a cell is on the active
+  // shell exactly when its propagated integer radius r equals this value.
   inline unsigned effective_t(unsigned t)
   {
       unsigned cycle = 2 * RMAX;
@@ -286,6 +247,29 @@ struct NeighborResult
           return phase;
       else
           return cycle - phase;
+  }
+
+  // Integer square root (table-free, used to compute r = isqrt(r2))
+  inline int isqrt(int n)
+  {
+      if (n <= 0) return 0;
+      int result = 0;
+      int bit = 1 << 30;
+      while (bit > n) bit >>= 2;
+      while (bit != 0)
+      {
+          if (n >= result + bit)
+          {
+              n -= result + bit;
+              result = (result >> 1) + bit;
+          }
+          else
+          {
+              result >>= 1;
+          }
+          bit >>= 2;
+      }
+      return result;
   }
 
 

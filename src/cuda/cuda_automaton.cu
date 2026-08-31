@@ -19,6 +19,7 @@ __constant__ unsigned dev_EL;
 __constant__ unsigned dev_W_USED;
 __constant__ unsigned dev_RMAX;
 __constant__ unsigned dev_CENTER;
+__constant__ unsigned dev_lcenters[32][3]; // per-W source centers (host copies each frame)
 __device__   int      dev_ctrl;
 
 // Global device pointers (defined here, used by bridge)
@@ -57,52 +58,66 @@ static __device__ inline ::CellDevice& d_getCell(::CellDevice* lattice, int x, i
     return lattice[(((x * dev_EL + y) * dev_EL + z) * dev_W_USED) + w];
 }
 
-// Spherical antipodal wrap for spatial coordinates — matches CPU's spherical_wrap()
+// Per-source center lookup (read from constant-memory copy of host lcenters).
+static __device__ inline void dev_source_center(unsigned w, int& cx, int& cy, int& cz)
+{
+    cx = (int)dev_lcenters[w][0];
+    cy = (int)dev_lcenters[w][1];
+    cz = (int)dev_lcenters[w][2];
+}
+
+static __device__ inline int dev_shortest_delta(int a, int b, int mod)
+{
+    int d = b - a;
+    int half = mod / 2;
+    if (d > half) d -= mod;
+    else if (d < -half) d += mod;
+    return d;
+}
+
+static __device__ inline int dev_sign(int v)
+{
+    return (v > 0) - (v < 0);
+}
+
+static __device__ inline unsigned dev_wrap(int v, int mod)
+{
+    int r = v % mod;
+    if (r < 0) r += mod;
+    return (unsigned)r;
+}
+
+// Spherical antipodal wrap for spatial coordinates — matches CPU's get_sphere_cell()
 static __device__ void dev_spherical_wrap(int& x, int& y, int& z)
 {
-    double R = dev_EL / 2.0;
-    double C = (dev_EL - 1) / 2.0;
+    // Toroidal wrap into [0, dev_EL)
+    if (x < 0) x += (int)dev_EL;
+    if (x >= (int)dev_EL) x -= (int)dev_EL;
+    if (y < 0) y += (int)dev_EL;
+    if (y >= (int)dev_EL) y -= (int)dev_EL;
+    if (z < 0) z += (int)dev_EL;
+    if (z >= (int)dev_EL) z -= (int)dev_EL;
 
-    double dx = x - C;
-    double dy = y - C;
-    double dz = z - C;
+    int dx = x - (int)dev_CENTER;
+    int dy = y - (int)dev_CENTER;
+    int dz = z - (int)dev_CENTER;
+    int r2 = dx*dx + dy*dy + dz*dz;
+    int rmax2 = (int)dev_RMAX * (int)dev_RMAX;
 
-    double r = sqrt(dx*dx + dy*dy + dz*dz);
+    if (r2 > rmax2) {
+        // Antipodal mapping through the centre
+        x = 2 * (int)dev_CENTER - x;
+        y = 2 * (int)dev_CENTER - y;
+        z = 2 * (int)dev_CENTER - z;
 
-    // Inside or on surface: just clamp
-    if (r <= R + 0.5) {
-        if (x < 0) x = 0;
-        if (x >= (int)dev_EL) x = (int)dev_EL - 1;
-        if (y < 0) y = 0;
-        if (y >= (int)dev_EL) y = (int)dev_EL - 1;
-        if (z < 0) z = 0;
-        if (z >= (int)dev_EL) z = (int)dev_EL - 1;
-        return;
+        // Wrap again in case the antipode lands outside the array
+        if (x < 0) x += (int)dev_EL;
+        if (x >= (int)dev_EL) x -= (int)dev_EL;
+        if (y < 0) y += (int)dev_EL;
+        if (y >= (int)dev_EL) y -= (int)dev_EL;
+        if (z < 0) z += (int)dev_EL;
+        if (z >= (int)dev_EL) z -= (int)dev_EL;
     }
-
-    // Outside sphere: project to surface then invert (antipodal)
-    double scale = R / r;
-
-    int anx = (int)round(dx * scale);
-    int any = (int)round(dy * scale);
-    int anz = (int)round(dz * scale);
-
-    // Antipodal inversion (through the center)
-    anx = -anx;
-    any = -any;
-    anz = -anz;
-
-    x = anx + (int)round(C);
-    y = any + (int)round(C);
-    z = anz + (int)round(C);
-
-    // Final bounds clamping
-    if (x < 0) x = 0;
-    if (x >= (int)dev_EL) x = (int)dev_EL - 1;
-    if (y < 0) y = 0;
-    if (y >= (int)dev_EL) y = (int)dev_EL - 1;
-    if (z < 0) z = 0;
-    if (z >= (int)dev_EL) z = (int)dev_EL - 1;
 }
 
 // Neighbor with spherical antipodal wrapping for spatial + periodic for W
@@ -188,19 +203,213 @@ static __device__ inline unsigned dev_effective_t(unsigned t) {
     return (raw <= dev_RMAX) ? raw : (2 * dev_RMAX - raw);
 }
 
-// Device helper: pulsating sphere threshold (triangle wave on r², no multiplication)
-static __device__ inline unsigned dev_pulse_from_time(unsigned t) {
-    const unsigned min_r2 = 0;
-    const unsigned max_r2 = (unsigned)(dev_RMAX * dev_RMAX * 0.92);
-    const unsigned step = 1;
-    unsigned span = max_r2 - min_r2;
-    if (span == 0) return min_r2;
-    unsigned period = 2 * span;
-    unsigned phase = (t * step) % period;
-    if (phase < span)
-        return min_r2 + phase;
+// Device integer square root (table-free)
+static __device__ inline int dev_isqrt(int n)
+{
+    if (n <= 0) return 0;
+    int result = 0;
+    int bit = 1 << 30;
+    while (bit > n) bit >>= 2;
+    while (bit != 0)
+    {
+        if (n >= result + bit)
+        {
+            n -= result + bit;
+            result = (result >> 1) + bit;
+        }
+        else
+        {
+            result >>= 1;
+        }
+        bit >>= 2;
+    }
+    return result;
+}
+
+// Compute the next (u,v) for one cell using the 3-D integer wave equation.
+static __device__ inline void dev_phase_step_cell(
+    ::CellDevice& c,
+    unsigned w,
+    ::CellDevice* src,
+    unsigned x, unsigned y, unsigned z,
+    unsigned pulse_tick)
+{
+    if (dev_RMAX == 0)
+    {
+        c.u = 0; c.v = 0; c.active = 0;
+        c.phiB = 0; c.pB = 0; c.sB = 0; c.s2B = 0;
+        return;
+    }
+
+    int cx, cy, cz;
+    dev_source_center(w, cx, cy, cz);
+    int dx = (int)c.x[0] - cx;
+    int dy = (int)c.x[1] - cy;
+    int dz = (int)c.x[2] - cz;
+    int r2_int = dx*dx + dy*dy + dz*dz;
+    if (r2_int < 0) r2_int = 0;
+    c.r2 = (uint32_t)r2_int;
+
+    // Update integer radius from exact r^2 without isqrt.
+    // Source centers move at most one cell per frame, so the previous r
+    // is an excellent starting estimate; correct it with at most a few
+    // square comparisons.
+    int r = c.r;
+    if (r < 0) r = 0;
+    while (r > 0 && (uint32_t)r * (uint32_t)r > c.r2)
+        r--;
+    while ((uint32_t)(r + 1) * (uint32_t)(r + 1) <= c.r2)
+        r++;
+    c.r = r;
+
+    // Wave parameters (same scaling as the former SincWave test).
+    int R = (dev_RMAX > 0u) ? (int)dev_RMAX : 1;
+    int shellR = (int)((dev_RMAX * 24u) / 100u);
+    int shellW = (int)(dev_RMAX / 5u);
+    if (shellW < 1) shellW = 1;
+    int absorbW = (R / 27 > 2) ? (R / 27) : 2;
+
+    int diffDivShift = 2;
+    if (R >= 384)       diffDivShift = 6;
+    else if (R >= 192)  diffDivShift = 5;
+    else if (R >= 96)   diffDivShift = 4;
+    else if (R >= 40)   diffDivShift = 3;
+
+    int velDampShift = diffDivShift + 3;
+    const int DIFF_SHIFT = 4;
+    const int SHELL_TARGET = 16384;
+
+    // Active wavefront: shell of integer radius pulseR moving at one cell per
+    // light frame.  c.r is corrected by square-boundary tests above, so no
+    // sqrt/isqrt is needed here.
+    unsigned int pulseR = dev_effective_t(c.t);
+    bool active = (c.r2 != 0xFFFFFFFFu && c.r >= 0 && c.r == (int)pulseR);
+
+    // Hard zero on spatial boundaries and outside the processed sphere,
+    // except for the source-center cell (r2 == 0) which may sit on a face.
+    if (c.r2 != 0 && (x == 0 || x == dev_EL - 1 ||
+        y == 0 || y == dev_EL - 1 ||
+        z == 0 || z == dev_EL - 1 ||
+        c.r < 0 || c.r >= R))
+    {
+        c.u = 0; c.v = 0;
+        c.active = active ? 1u : 0u;
+        c.phiB   = c.active;
+        c.pB = 0; c.sB = 0; c.s2B = 0;
+        return;
+    }
+
+    int u = c.u;
+    int v = c.v;
+
+    int neighbors_u = 0;
+    if (x + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x + 1, (int)y, (int)z, (int)w).u;
+    if (x > 0)          neighbors_u += d_getCell(src, (int)x - 1, (int)y, (int)z, (int)w).u;
+    if (y + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x, (int)y + 1, (int)z, (int)w).u;
+    if (y > 0)          neighbors_u += d_getCell(src, (int)x, (int)y - 1, (int)z, (int)w).u;
+    if (z + 1 < dev_EL) neighbors_u += d_getCell(src, (int)x, (int)y, (int)z + 1, (int)w).u;
+    if (z > 0)          neighbors_u += d_getCell(src, (int)x, (int)y, (int)z - 1, (int)w).u;
+
+    int lap = neighbors_u - 6 * u;
+
+    int diffShift = DIFF_SHIFT + 1 - (r >> diffDivShift);
+    if (diffShift < DIFF_SHIFT - 1)
+        diffShift = DIFF_SHIFT - 1;
+
+    int v_new = v + (lap >> diffShift);
+    int u_new = u + v_new;
+    v_new -= (v_new >> velDampShift);
+
+    // Spherical-shell source forcing.
+    int dr = r - shellR;
+    if (dr < 0) dr = -dr;
+    if (dr <= shellW)
+    {
+        if (u > SHELL_TARGET)
+            v_new -= (u - SHELL_TARGET) >> 4;
+        else if ((pulse_tick & 3u) == 0u)
+            v_new += ((SHELL_TARGET - u) >> 10) + 1;
+    }
+
+    // Absorbing outer boundary.
+    if (R > absorbW && r > R - absorbW)
+    {
+        int dist = r - (R - absorbW);
+        if (dist >= absorbW)
+            u_new = 0;
+        else if (dist > 0)
+            u_new /= (1 << dist);
+    }
+
+    // Global damping.
+    u_new -= (u_new >> 12);
+    v_new -= (v_new >> 12);
+
+    // Per-w angular offset so different W copies see distinct pB/sB patterns
+    // while the underlying (u,v) wave field stays the same for all layers.
+    int helixR = (int)dev_RMAX;
+    unsigned int phase_full = 2u * (unsigned int)helixR * (unsigned int)helixR;
+    unsigned int w_offset = (unsigned int)(((unsigned long long)w * (unsigned long long)phase_full) / (unsigned long long)dev_W_USED);
+    unsigned int cell_phase = w_offset % phase_full;
+    int m = (int)(cell_phase / (unsigned int)helixR);
+    int cos_w, sin_w;
+    if (m < helixR)
+    {
+        int arg = m * (helixR - m);
+        int s = dev_isqrt(arg);
+        cos_w = helixR - 2 * m;
+        sin_w = 2 * s;
+    }
     else
-        return max_r2 - (phase - span);
+    {
+        int m2 = m - helixR;
+        int arg = m2 * (helixR - m2);
+        int s = dev_isqrt(arg);
+        cos_w = 2 * m - 3 * helixR;
+        sin_w = -2 * s;
+    }
+
+    int ru = (u_new * cos_w - v_new * sin_w) / helixR;
+    int rv = (u_new * sin_w + v_new * cos_w) / helixR;
+
+    c.u      = u_new;
+    c.v      = v_new;
+    c.active = active ? 1u : 0u;
+    c.phiB   = c.active;
+    c.pB     = (ru > 0) ? 1 : 0;
+    c.sB     = (rv > 0) ? 1 : 0;
+
+    // Sieve trigger: probability proportional to positive wave amplitude.
+    bool s2B_trigger = false;
+    if (u_new > 0)
+    {
+        int64_t prod = (int64_t)u_new * (int64_t)(pulse_tick + 1);
+        int64_t mod = prod % (int64_t)SHELL_TARGET;
+        if (mod < (int64_t)u_new) s2B_trigger = true;
+    }
+    c.s2B    = (active && s2B_trigger) ? 1u : 0u;
+}
+
+// ===================================================================
+// PHASE STEP KERNEL — run before ca_update_kernel each tick
+// ===================================================================
+__global__ void phase_step_kernel(::CellDevice* src, ::CellDevice* dst, unsigned pulse_tick)
+{
+    unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (dev_EL == 0 || dev_W_USED == 0) return;
+
+    unsigned total = dev_EL * dev_EL * dev_EL * dev_W_USED;
+    if (tid >= total) return;
+
+    unsigned w = tid % dev_W_USED;
+    unsigned idx3d = tid / dev_W_USED;
+    unsigned z = idx3d % dev_EL;
+    unsigned y = (idx3d / dev_EL) % dev_EL;
+    unsigned x = idx3d / (dev_EL * dev_EL);
+
+    ::CellDevice c = d_getCell(src, (int)x, (int)y, (int)z, (int)w);
+    dev_phase_step_cell(c, w, src, x, y, z, pulse_tick);
+    d_getCell(dst, (int)x, (int)y, (int)z, (int)w) = c;
 }
 
 // ===================================================================
@@ -216,7 +425,7 @@ __device__ inline void dev_convolute0(::CellDevice& /*curr*/, ::CellDevice& /*dr
 __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned tid)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
@@ -231,7 +440,7 @@ __device__ inline void dev_convolute1(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.a = dev_W_USED;
@@ -241,12 +450,13 @@ __device__ inline void dev_convolute2(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1)
         {
             draft.a = dev_W_USED;
+            draft.leader_w = DEV_NO_LEADER_W;
             draft.cB = 1;
         }
     }
@@ -255,7 +465,7 @@ __device__ inline void dev_convolute3(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.sB && w == 0)
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && curr.sB && w == 0)
     {
         int old = atomicExch(&dev_ctrl, 0);
         if (old == 1) draft.hB = 1;
@@ -265,7 +475,7 @@ __device__ inline void dev_convolute4(::CellDevice& curr, ::CellDevice& draft,
 __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& /*mirror*/, unsigned w, unsigned /*tid*/)
 {
-    if (curr.r2 == dev_pulse_from_time(curr.t) && dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) && curr.pB && w == 0 &&
+    if (curr.active && dev_effective_t(curr.t) == dev_RMAX / 2 && curr.pB && w == 0 &&
         !curr.cB && curr.a != dev_W_USED)
     {
         int old = atomicExch(&dev_ctrl, 0);
@@ -276,6 +486,7 @@ __device__ inline void dev_convolute5(::CellDevice& curr, ::CellDevice& draft,
             draft.c[2] = curr.x[2];
             draft.cB = 1;
             draft.a = dev_W_USED;
+            draft.leader_w = DEV_NO_LEADER_W;
         }
     }
 }
@@ -284,7 +495,7 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
                                       ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
 {
     // Cells awaken?
-    if (curr.r2 == dev_pulse_from_time(curr.t) && mirror.r2 == dev_pulse_from_time(mirror.t))
+    if (curr.active && mirror.active)
     {
         // Test superposition
         if (curr.x[0] == mirror.x[0] &&
@@ -295,7 +506,7 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
             if (curr.a != dev_W_USED &&
                 DEV_W1(curr) != DEV_W1(mirror) &&
                 !curr.cB &&
-                dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2))
+                dev_effective_t(curr.t) == dev_RMAX / 2)
             {
                 if (curr.pB && mirror.sB)
                 {
@@ -304,23 +515,26 @@ __device__ inline void dev_convolute6(::CellDevice& curr, ::CellDevice& draft,
                     draft.c[2] = curr.x[2];
                     draft.cB = 1;
                     draft.a = dev_W_USED;
+                    draft.leader_w = DEV_NO_LEADER_W;
                 }
                 else if (curr.sB && !mirror.pB)
                 {
                     draft.hB = 1;
                     draft.cB = 1;
                     draft.a = dev_W_USED;
+                    draft.leader_w = DEV_NO_LEADER_W;
                 }
             }
         }
     }
 }
 
-__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
-                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/)
+__device__ inline void dev_convolute7_legacy(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/,
+                                      ::CellDevice* /*d_curr*/, ::CellDevice* /*d_draft*/)
 {
     // Cells awaken?
-    if (curr.r2 == dev_pulse_from_time(curr.t) && mirror.r2 == dev_pulse_from_time(mirror.t))
+    if (curr.active && mirror.active)
     {
         // --- A) SAME POSITION (superposition) ---
         if (curr.x[0] == mirror.x[0] &&
@@ -329,7 +543,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
         {
             // Test dispersion
             if (DEV_W1(curr) != DEV_W1(mirror) &&
-                dev_pulse_from_time(curr.t) == (dev_RMAX / 2) * (dev_RMAX / 2) &&
+                dev_effective_t(curr.t) == dev_RMAX / 2 &&
                 !curr.cB && curr.a != dev_W_USED)
             {
                 // Who has the pB true interacts once
@@ -445,6 +659,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                     draft.c[2] = curr.x[2];
                     draft.kB = 1;
                     draft.a = curr.x[3];
+                    draft.leader_w = curr.x[3];
                 }
                 // Fermion cohesion?
                 else if (curr.ch == mirror.ch &&
@@ -527,6 +742,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                         else
                         {
                             draft.a = mirror.a;
+                            draft.leader_w = (mirror.a == dev_W_USED ? DEV_NO_LEADER_W : mirror.a);
                             draft.t = mirror.t;
                             draft.c[0] = mirror.x[0];
                             draft.c[1] = mirror.x[1];
@@ -546,6 +762,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
                         else
                         {
                             draft.a = mirror.a;
+                            draft.leader_w = (mirror.a == dev_W_USED ? DEV_NO_LEADER_W : mirror.a);
                             draft.t = mirror.t;
                             draft.c[0] = mirror.x[0];
                             draft.c[1] = mirror.x[1];
@@ -566,6 +783,7 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
             draft.c[1] = curr.x[1];
             draft.c[2] = curr.x[2];
             draft.a = curr.x[3];
+            draft.leader_w = curr.x[3];
         }
         // Electroweak interaction: Harmonic?
         else if (curr.phiB && mirror.phiB)
@@ -605,6 +823,319 @@ __device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
             }
         }
     }
+}
+
+// ===================================================================
+// K/S/D/P SOURCE-INTERACTION HELPERS
+// ===================================================================
+
+static __device__ inline int dev_Q(const ::CellDevice& c)
+{
+    return (c.ch & 0x08) ? 1 : 0;
+}
+
+static __device__ inline ::CellDevice& dev_source_center_cell(::CellDevice* lattice, int w)
+{
+    int cx, cy, cz;
+    dev_source_center((unsigned)w, cx, cy, cz);
+    return d_getCell(lattice, cx, cy, cz, w);
+}
+
+static __device__ inline void dev_reemitSourceAt(::CellDevice& srcDraft,
+                                                  int dx, int dy, int dz,
+                                                  ::CellDevice* /*d_draft*/)
+{
+    // Preserve the long-term momentum direction m; accumulate the pending
+    // displacement in the consumable relocation vector reloc.
+    srcDraft.reloc[0] += dx;
+    srcDraft.reloc[1] += dy;
+    srcDraft.reloc[2] += dz;
+    srcDraft.t = 0;
+    srcDraft.f = 0;
+}
+
+static __device__ inline void dev_moveOneStep(::CellDevice& srcDraft,
+                                              int fromCx, int fromCy, int fromCz,
+                                              int toCx, int toCy, int toCz,
+                                              ::CellDevice* d_draft)
+{
+    int M = (int)dev_EL;
+    int dx = dev_sign(dev_shortest_delta(fromCx, toCx, M));
+    int dy = dev_sign(dev_shortest_delta(fromCy, toCy, M));
+    int dz = dev_sign(dev_shortest_delta(fromCz, toCz, M));
+    dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
+}
+
+static __device__ inline void dev_moveOneStepAway(::CellDevice& srcDraft,
+                                                  int selfCx, int selfCy, int selfCz,
+                                                  int otherCx, int otherCy, int otherCz,
+                                                  ::CellDevice* d_draft)
+{
+    int M = (int)dev_EL;
+    int dx = dev_sign(dev_shortest_delta(otherCx, selfCx, M));
+    int dy = dev_sign(dev_shortest_delta(otherCy, selfCy, M));
+    int dz = dev_sign(dev_shortest_delta(otherCz, selfCz, M));
+    dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
+}
+
+static __device__ inline void dev_reemitAtContact(::CellDevice& srcDraft,
+                                                  const ::CellDevice& contact,
+                                                  ::CellDevice* d_draft)
+{
+    int M = (int)dev_EL;
+    int dx = dev_shortest_delta((int)srcDraft.x[0], (int)contact.x[0], M);
+    int dy = dev_shortest_delta((int)srcDraft.x[1], (int)contact.x[1], M);
+    int dz = dev_shortest_delta((int)srcDraft.x[2], (int)contact.x[2], M);
+    dev_reemitSourceAt(srcDraft, dx, dy, dz, d_draft);
+}
+
+static __device__ inline bool dev_canFormPair(const ::CellDevice& a, const ::CellDevice& b)
+{
+    uint8_t ca = a.ch;
+    uint8_t cb = b.ch;
+    if (ca == 0x00 && cb == 0x00) return true;
+    if (ca == 0x3F && cb == 0x3F) return true;
+    if ((ca ^ cb) == 0x3F) return true;
+
+    bool qa = (ca & 0x08) != 0;
+    bool qb = (cb & 0x08) != 0;
+    bool w1a = (ca & 0x20) != 0;
+    bool w1b = (cb & 0x20) != 0;
+    bool w0a = (ca & 0x10) != 0;
+    bool w0b = (cb & 0x10) != 0;
+    uint8_t cola = ca & 0x07;
+    uint8_t colb = cb & 0x07;
+
+    if ((qa ^ qb) && (w1a == w1b) && (w0a ^ w0b) && ((cola ^ colb) == 0x07)) return true;
+    if (!qa && !qb && !w1a && !w1b && w0a && w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
+    if (qa && qb && w1a && w1b && !w0a && !w0b && cola == colb && cola != 0x00 && cola != 0x07) return true;
+    return false;
+}
+
+static __device__ inline void dev_adoptLeader(::CellDevice& dst, uint32_t leader)
+{
+    dst.leader_w = leader;
+    dst.a = leader;
+}
+
+static __device__ inline uint32_t dev_dominantLeader(const ::CellDevice& a, const ::CellDevice& b)
+{
+    uint32_t leader = (a.leader_w < b.leader_w) ? a.leader_w : b.leader_w;
+    if (leader == DEV_NO_LEADER_W)
+        leader = (a.x[3] < b.x[3]) ? a.x[3] : b.x[3];
+    return leader;
+}
+
+__device__ inline void dev_convolute7(::CellDevice& curr, ::CellDevice& draft,
+                                      ::CellDevice& mirror, unsigned /*w*/, unsigned /*tid*/,
+                                      ::CellDevice* d_curr, ::CellDevice* d_draft)
+{
+    if (!curr.active || !mirror.active)
+        return;
+    if (curr.x[3] == mirror.x[3])
+        return;
+
+    // Sieve: the electroweak interaction channel is only active where s2B is set.
+    if (curr.s2B == 0)
+        return;
+
+    int currW   = (int)curr.x[3];
+    int mirrorW = (int)mirror.x[3];
+
+    ::CellDevice& currSrc   = dev_source_center_cell(d_curr, currW);
+    ::CellDevice& mirrorSrc = dev_source_center_cell(d_curr, mirrorW);
+    ::CellDevice& currDraft = dev_source_center_cell(d_draft, currW);
+    ::CellDevice& mirrorDraft = dev_source_center_cell(d_draft, mirrorW);
+
+    int currCx, currCy, currCz;
+    dev_source_center((unsigned)currW, currCx, currCy, currCz);
+    int mirrorCx, mirrorCy, mirrorCz;
+    dev_source_center((unsigned)mirrorW, mirrorCx, mirrorCy, mirrorCz);
+
+    bool samePos = (curr.x[0] == mirror.x[0] &&
+                    curr.x[1] == mirror.x[1] &&
+                    curr.x[2] == mirror.x[2]);
+    bool sameT   = (curr.t == mirror.t);
+
+    // Pair formation (photon-like P sources).
+    if (samePos && sameT && dev_canFormPair(currSrc, mirrorSrc))
+    {
+        bool dressing = (currSrc.leader_w != DEV_NO_LEADER_W &&
+                         currSrc.leader_w == mirrorSrc.leader_w);
+        uint32_t newLeader = dressing ? currSrc.leader_w : DEV_NO_LEADER_W;
+        uint32_t newA      = dressing ? newLeader : dev_W_USED;
+        uint32_t parent    = dressing ? currSrc.leader_w : DEV_NO_PARENT;
+
+        bool alreadyPaired = (currSrc.kind == SRC_P &&
+                              mirrorSrc.kind == SRC_P &&
+                              currSrc.pair_idx == (uint32_t)mirrorW &&
+                              mirrorSrc.pair_idx == (uint32_t)currW);
+        if (alreadyPaired)
+            return;
+
+        uint32_t newCount = 1;
+        if (currSrc.kind == SRC_P) newCount += currSrc.pair_count;
+        if (mirrorSrc.kind == SRC_P) newCount += mirrorSrc.pair_count;
+
+        currDraft.kind  = SRC_P;
+        mirrorDraft.kind = SRC_P;
+        currDraft.pair_idx   = (uint32_t)mirrorW;
+        mirrorDraft.pair_idx = (uint32_t)currW;
+        currDraft.pair_count = newCount;
+        mirrorDraft.pair_count = newCount;
+        currDraft.leader_w  = newLeader;
+        mirrorDraft.leader_w = newLeader;
+        currDraft.a  = newA;
+        mirrorDraft.a = newA;
+        currDraft.parent  = parent;
+        mirrorDraft.parent = parent;
+
+        dev_reemitAtContact(currDraft, curr, d_draft);
+        dev_reemitAtContact(mirrorDraft, mirror, d_draft);
+        return;
+    }
+
+    // pB triggers the electric channel, sB the magnetic channel.
+    bool electricContact  = curr.pB || mirror.pB;
+    bool magneticContact  = curr.sB || mirror.sB;
+    bool electricCollapse = curr.pB && mirror.pB;
+    bool magneticCollapse = curr.sB && mirror.sB;
+    bool collapse         = electricCollapse || magneticCollapse;
+
+    if (!electricContact && !magneticContact)
+        return;
+
+    if (collapse)
+    {
+        draft.kB = 1;
+        draft.cB = 1;
+    }
+    else
+    {
+        uint32_t minLeader = dev_dominantLeader(currSrc, mirrorSrc);
+        dev_adoptLeader(currDraft, minLeader);
+        dev_adoptLeader(mirrorDraft, minLeader);
+        uint32_t tmpT = currDraft.t;
+        currDraft.t  = mirrorDraft.t;
+        mirrorDraft.t = tmpT;
+
+        dev_moveOneStep(currDraft,  currCx,  currCy,  currCz,
+                        mirrorCx, mirrorCy, mirrorCz, d_draft);
+        dev_moveOneStep(mirrorDraft, mirrorCx, mirrorCy, mirrorCz,
+                        currCx,  currCy,  currCz, d_draft);
+        return;
+    }
+
+    // 1. K x K
+    if (currSrc.kind == SRC_K && mirrorSrc.kind == SRC_K)
+    {
+        dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
+                            mirrorCx, mirrorCy, mirrorCz, d_draft);
+        return;
+    }
+
+    // 2. S x K (current = S, mirror = K)
+    if (currSrc.kind == SRC_S && mirrorSrc.kind == SRC_K)
+    {
+        currDraft.kind = SRC_D;
+        currDraft.parent = (uint32_t)mirrorW;
+        dev_adoptLeader(currDraft, mirrorSrc.leader_w == DEV_NO_LEADER_W ? (uint32_t)mirrorW : mirrorSrc.leader_w);
+        currDraft.spin_target = 1;
+        dev_moveOneStep(currDraft, currCx, currCy, currCz,
+                        mirrorCx, mirrorCy, mirrorCz, d_draft);
+        return;
+    }
+
+    // 3. S x S
+    if (currSrc.kind == SRC_S && mirrorSrc.kind == SRC_S)
+    {
+        if (dev_Q(currSrc) == dev_Q(mirrorSrc))
+        {
+            dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
+                                mirrorCx, mirrorCy, mirrorCz, d_draft);
+        }
+        else
+        {
+            uint32_t leader = dev_dominantLeader(currSrc, mirrorSrc);
+            currDraft.kind  = SRC_D;
+            mirrorDraft.kind = SRC_D;
+            currDraft.parent  = leader;
+            mirrorDraft.parent = leader;
+            dev_adoptLeader(currDraft, leader);
+            dev_adoptLeader(mirrorDraft, leader);
+        }
+        return;
+    }
+
+    // 4. S x D / D x S
+    if ((currSrc.kind == SRC_S && mirrorSrc.kind == SRC_D) ||
+        (currSrc.kind == SRC_D && mirrorSrc.kind == SRC_S))
+    {
+        ::CellDevice* sDraft  = (currSrc.kind == SRC_S ? &currDraft : &mirrorDraft);
+        ::CellDevice* dDraft  = (currSrc.kind == SRC_S ? &mirrorDraft : &currDraft);
+        ::CellDevice* dSrc    = (currSrc.kind == SRC_S ? &mirrorSrc : &currSrc);
+
+        int sCx = (currSrc.kind == SRC_S ? currCx : mirrorCx);
+        int sCy = (currSrc.kind == SRC_S ? currCy : mirrorCy);
+        int sCz = (currSrc.kind == SRC_S ? currCz : mirrorCz);
+        int dCx = (currSrc.kind == SRC_S ? mirrorCx : currCx);
+        int dCy = (currSrc.kind == SRC_S ? mirrorCy : currCy);
+        int dCz = (currSrc.kind == SRC_S ? mirrorCz : currCz);
+
+        uint32_t leader = (dSrc->leader_w == DEV_NO_LEADER_W ? dSrc->parent : dSrc->leader_w);
+        if (leader == DEV_NO_LEADER_W) leader = dSrc->x[3];
+        sDraft->kind = SRC_D;
+        sDraft->parent = (dSrc->parent == DEV_NO_PARENT ? leader : dSrc->parent);
+        dev_adoptLeader(*sDraft, leader);
+
+        dev_moveOneStep(*sDraft, sCx, sCy, sCz, dCx, dCy, dCz, d_draft);
+        dev_moveOneStep(*dDraft, dCx, dCy, dCz, sCx, sCy, sCz, d_draft);
+        return;
+    }
+
+    // 5. D x D
+    if (currSrc.kind == SRC_D && mirrorSrc.kind == SRC_D)
+    {
+        if (currSrc.parent != mirrorSrc.parent)
+        {
+            dev_moveOneStepAway(currDraft, currCx, currCy, currCz,
+                                mirrorCx, mirrorCy, mirrorCz, d_draft);
+            currDraft.reloc[0] += mirrorSrc.m[0];
+            currDraft.reloc[1] += mirrorSrc.m[1];
+            currDraft.reloc[2] += mirrorSrc.m[2];
+        }
+        else
+        {
+            currDraft.spin_target = mirrorSrc.spin_target;
+            uint32_t leader = dev_dominantLeader(currSrc, mirrorSrc);
+            dev_adoptLeader(currDraft, leader);
+        }
+        return;
+    }
+
+    // 6. P x K / P x D / P x S
+    if (currSrc.kind == SRC_P &&
+        (mirrorSrc.kind == SRC_K || mirrorSrc.kind == SRC_S || mirrorSrc.kind == SRC_D))
+    {
+        dev_reemitAtContact(currDraft, curr, d_draft);
+        mirrorDraft.reloc[0] += currSrc.m[0];
+        mirrorDraft.reloc[1] += currSrc.m[1];
+        mirrorDraft.reloc[2] += currSrc.m[2];
+        return;
+    }
+
+    // 7. K/D/S x P
+    if ((currSrc.kind == SRC_K || currSrc.kind == SRC_S || currSrc.kind == SRC_D) &&
+        mirrorSrc.kind == SRC_P)
+    {
+        dev_reemitAtContact(currDraft, curr, d_draft);
+        currDraft.reloc[0] += mirrorSrc.m[0];
+        currDraft.reloc[1] += mirrorSrc.m[1];
+        currDraft.reloc[2] += mirrorSrc.m[2];
+        return;
+    }
+
+    // P x P is suppressed.
 }
 
 // ===================================================================
@@ -657,7 +1188,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             case 4: dev_convolute4(curr, draft, mirror, w, idx); break;
             case 5: dev_convolute5(curr, draft, mirror, w, idx); break;
             case 6: dev_convolute6(curr, draft, mirror, w, idx); break;
-            case 7: dev_convolute7(curr, draft, mirror, w, idx); break;
+            case 7: dev_convolute7(curr, draft, mirror, w, idx, d_curr, d_draft); break;
             default: break;
         }
     }
@@ -680,6 +1211,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (east.a  == dev_W_USED && curr.r2 >= east.r2)  ||
                 (up.a    == dev_W_USED && curr.r2 >= up.r2)) {
                 draft.a = dev_W_USED;
+                draft.leader_w = DEV_NO_LEADER_W;
             }
         }
         // SLOT II
@@ -691,9 +1223,10 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
                 (east.a  == dev_W_USED && curr.r2 >= east.r2)  ||
                 (up.a    == dev_W_USED && curr.r2 >= up.r2)) {
                 draft.a = dev_W_USED;
+                draft.leader_w = DEV_NO_LEADER_W;
             }
-            // Hunting using hB (matches CPU: pulse_from_time condition, no modulo on c[])
-            if (curr.r2 == dev_pulse_from_time(curr.t)) {
+            // Hunting using hB (matches CPU: active wavefront condition)
+            if (curr.active) {
                 if (north.hB) { draft.c[0] = north.c[0] + 1; curr.sB = !draft.hB; }
                 else if (west.hB)  { draft.c[1] = west.c[1] + 1; curr.sB = !draft.hB; }
                 else if (down.hB)  { draft.c[2] = down.c[2] + 1; curr.sB = !draft.hB; }
@@ -733,22 +1266,22 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
             if (!curr.cB) {
                 if (north.cB && north.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (north.a != dev_W_USED) draft.a = north.a;
+                    if (north.a != dev_W_USED) { draft.a = north.a; draft.leader_w = north.a; }
                 } else if (south.cB && south.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (south.a != dev_W_USED) draft.a = south.a;
+                    if (south.a != dev_W_USED) { draft.a = south.a; draft.leader_w = south.a; }
                 } else if (east.cB && east.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (east.a != dev_W_USED) draft.a = east.a;
+                    if (east.a != dev_W_USED) { draft.a = east.a; draft.leader_w = east.a; }
                 } else if (west.cB && west.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (west.a != dev_W_USED) draft.a = west.a;
+                    if (west.a != dev_W_USED) { draft.a = west.a; draft.leader_w = west.a; }
                 } else if (down.cB && down.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (down.a != dev_W_USED) draft.a = down.a;
+                    if (down.a != dev_W_USED) { draft.a = down.a; draft.leader_w = down.a; }
                 } else if (up.cB && up.r2 > curr.r2) {
                     draft.cB = 1;
-                    if (up.a != dev_W_USED) draft.a = up.a;
+                    if (up.a != dev_W_USED) { draft.a = up.a; draft.leader_w = up.a; }
                 }
             }
         }
@@ -783,6 +1316,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         else if (curr.k < SLOT5) {
             if (curr.a == dev_W_USED && curr.r2 < curr.t * curr.t) {
                 draft.a = curr.x[3];
+                draft.leader_w = curr.x[3];
             }
         }
     }
@@ -827,13 +1361,13 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         draft.kB = 0;
         draft.hB = 0;
         draft.bB = 0;
-        if (curr.r2 == dev_pulse_from_time(curr.t)) {
-            if (north.r2 > curr.r2) draft.a = north.a;
-            if (south.r2 > curr.r2) draft.a = south.a;
-            if (east.r2  > curr.r2) draft.a = east.a;
-            if (west.r2  > curr.r2) draft.a = west.a;
-            if (up.r2    > curr.r2) draft.a = up.a;
-            if (down.r2  > curr.r2) draft.a = down.a;
+        if (curr.active) {
+            if (north.r2 > curr.r2) { draft.a = north.a; draft.leader_w = (north.a == dev_W_USED ? DEV_NO_LEADER_W : north.a); }
+            if (south.r2 > curr.r2) { draft.a = south.a; draft.leader_w = (south.a == dev_W_USED ? DEV_NO_LEADER_W : south.a); }
+            if (east.r2 > curr.r2) { draft.a = east.a; draft.leader_w = (east.a == dev_W_USED ? DEV_NO_LEADER_W : east.a); }
+            if (west.r2 > curr.r2) { draft.a = west.a; draft.leader_w = (west.a == dev_W_USED ? DEV_NO_LEADER_W : west.a); }
+            if (up.r2 > curr.r2) { draft.a = up.a; draft.leader_w = (up.a == dev_W_USED ? DEV_NO_LEADER_W : up.a); }
+            if (down.r2 > curr.r2) { draft.a = down.a; draft.leader_w = (down.a == dev_W_USED ? DEV_NO_LEADER_W : down.a); }
         }
         if (curr.cB) {
             draft.cB = 0;
@@ -858,7 +1392,7 @@ __global__ void ca_update_kernel(::CellDevice* d_curr, ::CellDevice* d_draft, ::
         if (curr.a == dev_W_USED && curr.t <= dev_RMAX) {
             draft.t++;
         } else {
-            draft.t = (curr.t + 1) % (dev_RMAX + 1);
+            draft.t = (curr.t + 1) % (2 * dev_RMAX);
         }
     }
 
@@ -944,6 +1478,17 @@ extern "C" void setCudaConstants(unsigned EL, unsigned W_USED, unsigned RMAX)
     }
 
     printf("All constants set successfully\n");
+}
+
+extern "C" void setCudaSourceCenters(const unsigned* centers, unsigned W)
+{
+    if (W > 32) W = 32;
+    if (W == 0) return;
+    cudaError_t err = cudaMemcpyToSymbol(dev_lcenters, centers, W * 3 * sizeof(unsigned));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error setting dev_lcenters: %s (code %d)\n",
+                cudaGetErrorString(err), err);
+    }
 }
 
 extern "C" void resetCudaCtrl()
@@ -1061,10 +1606,11 @@ bool downloadLatticeFromCuda(::CellDevice* hostCells, size_t totalCells)
 
 void cudaSimulationStep(
     unsigned CONVOL, unsigned GSLOT_Z,
-    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-    unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-    unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-    unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario)
+    unsigned SLOT1, unsigned SLOT2, unsigned SLOT3,
+    unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6,
+    unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE,
+    unsigned FLOOD, unsigned FRAME, unsigned RMAX, int scenario,
+    unsigned pulse_tick)
 {
     if (!g_cuda_initialized) {
         fprintf(stderr, "ERROR: CUDA not initialized\n");
@@ -1090,7 +1636,30 @@ void cudaSimulationStep(
     // printf("Launching kernel: total_cells=%zu, GRID=%d, BLOCK=%d, EL=%u, W_USED=%u, RMAX=%u\n",
     //        total_cells, GRID, BLOCK_SIZE, L, W, RMAX);
 
-    // Launch kernel
+    // Upload current source centers before the phase step uses them.
+    if (W > 0 && !automaton::lcenters.empty())
+        setCudaSourceCenters(automaton::lcenters[0].data(), W);
+
+    // Phase step: update r2/r, (u,v), active and emergent pB/sB/phiB into d_lattice_draft,
+    // then swap so the main CA kernel reads the updated phase.
+    phase_step_kernel<<<GRID, BLOCK_SIZE>>>(d_lattice_curr, d_lattice_draft, pulse_tick);
+
+    cudaError_t phaseErr = cudaGetLastError();
+    if (phaseErr != cudaSuccess) {
+        fprintf(stderr, "phase_step_kernel launch failed: %s\n", cudaGetErrorString(phaseErr));
+        return;
+    }
+    phaseErr = cudaDeviceSynchronize();
+    if (phaseErr != cudaSuccess) {
+        fprintf(stderr, "phase_step_kernel execution failed: %s\n", cudaGetErrorString(phaseErr));
+        return;
+    }
+
+    ::CellDevice* phaseTmp = d_lattice_curr;
+    d_lattice_curr = d_lattice_draft;
+    d_lattice_draft = phaseTmp;
+
+    // Launch main CA kernel
     ca_update_kernel<<<GRID, BLOCK_SIZE>>>(
         d_lattice_curr, d_lattice_draft, d_lattice_mirror,
         CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION,
@@ -1114,6 +1683,143 @@ void cudaSimulationStep(
     ::CellDevice* temp = d_lattice_curr;
     d_lattice_curr = d_lattice_draft;
     d_lattice_draft = temp;
+
+    // Apply per-source relocation impulse: move the source center, preserve the
+    // long-term momentum direction m, and clear the old center.  This mirrors
+    // CPU applyMomentum().
+    for (unsigned iw = 0; iw < W; ++iw)
+    {
+        int cx = (int)automaton::lcenters[iw][0];
+        int cy = (int)automaton::lcenters[iw][1];
+        int cz = (int)automaton::lcenters[iw][2];
+        size_t idx = (size_t)((((cx * (int)L) + cy) * (int)L) + cz) * (int)W + iw;
+        ::CellDevice centerCell;
+        err = cudaMemcpy(&centerCell, d_lattice_curr + idx, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess)
+            continue;
+
+        // Free photon pairs expand and are gradually consumed. At maximum
+        // radius (t == RMAX) one pair is consumed; when the stack empties the
+        // two partner source centers are released as singletons moving apart.
+        if (centerCell.kind == SRC_P &&
+            centerCell.a == (uint32_t)W &&
+            centerCell.pair_idx != DEV_NO_PAIR &&
+            centerCell.pair_idx < (uint32_t)W &&
+            centerCell.t == (uint32_t)RMAX &&
+            centerCell.x[3] < centerCell.pair_idx)
+        {
+            if (centerCell.pair_count > 0)
+                centerCell.pair_count--;
+
+            uint32_t pw = centerCell.pair_idx;
+            int pcx = (int)automaton::lcenters[pw][0];
+            int pcy = (int)automaton::lcenters[pw][1];
+            int pcz = (int)automaton::lcenters[pw][2];
+            size_t idxPartner = (size_t)((((pcx * (int)L) + pcy) * (int)L) + pcz) * (int)W + (size_t)pw;
+            ::CellDevice partner;
+            err = cudaMemcpy(&partner, d_lattice_curr + idxPartner, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
+            if (err == cudaSuccess)
+            {
+                if (centerCell.pair_count == 0)
+                {
+                    centerCell.kind       = SRC_S;
+                    centerCell.pair_idx   = DEV_NO_PAIR;
+                    centerCell.pair_count = 0;
+                    centerCell.leader_w   = DEV_NO_LEADER_W;
+                    centerCell.a          = (uint32_t)W;
+
+                    partner.kind       = SRC_S;
+                    partner.pair_idx   = DEV_NO_PAIR;
+                    partner.pair_count = 0;
+                    partner.leader_w   = DEV_NO_LEADER_W;
+                    partner.a          = (uint32_t)W;
+
+                    int axis = (int)(centerCell.x[3] % 3u);
+                    int sign = ((centerCell.x[3] & 1u) ? +1 : -1);
+                    centerCell.reloc[axis] += sign;
+                    partner.reloc[axis]    -= sign;
+                }
+                else
+                {
+                    partner.pair_count = centerCell.pair_count;
+                }
+                cudaMemcpy(d_lattice_curr + idxPartner, &partner, sizeof(::CellDevice), cudaMemcpyHostToDevice);
+            }
+        }
+
+        int dx = centerCell.reloc[0];
+        int dy = centerCell.reloc[1];
+        int dz = centerCell.reloc[2];
+        if (dx == 0 && dy == 0 && dz == 0)
+            continue;
+
+        // Update the long-term momentum direction from the consumed impulse.
+        int new_m[3] = { centerCell.m[0], centerCell.m[1], centerCell.m[2] };
+        {
+            int abs_dx = (dx < 0) ? -dx : dx;
+            int abs_dy = (dy < 0) ? -dy : dy;
+            int abs_dz = (dz < 0) ? -dz : dz;
+            int axis = 0, best = abs_dx;
+            if (abs_dy > best) { axis = 1; best = abs_dy; }
+            if (abs_dz > best) { axis = 2; }
+            int val = (axis == 0 ? dx : (axis == 1 ? dy : dz));
+            new_m[0] = new_m[1] = new_m[2] = 0;
+            new_m[axis] = (val < 0) ? -1 : +1;
+        }
+
+        int M = (int)L;
+        int nx = (cx + dx) % M;
+        int ny = (cy + dy) % M;
+        int nz = (cz + dz) % M;
+        if (nx < 0) nx += M;
+        if (ny < 0) ny += M;
+        if (nz < 0) nz += M;
+
+        size_t idxNew = (size_t)((((nx * (int)L) + ny) * (int)L) + nz) * (int)W + iw;
+        ::CellDevice newCell;
+        err = cudaMemcpy(&newCell, d_lattice_curr + idxNew, sizeof(::CellDevice), cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess)
+            continue;
+
+        // Carry source identity, momentum direction, and re-seed the wave.
+        newCell.kind        = centerCell.kind;
+        newCell.parent      = centerCell.parent;
+        newCell.spin_target = centerCell.spin_target;
+        newCell.pair_idx    = centerCell.pair_idx;
+        newCell.pair_count  = centerCell.pair_count;
+        newCell.leader_w    = centerCell.leader_w;
+        newCell.a           = centerCell.a;
+        newCell.t           = 0;
+        newCell.f           = 0;
+        newCell.u           = 2048;
+        newCell.v           = 0;
+        newCell.m[0]        = new_m[0];
+        newCell.m[1]        = new_m[1];
+        newCell.m[2]        = new_m[2];
+        newCell.reloc[0]    = newCell.reloc[1] = newCell.reloc[2] = 0;
+
+        // Old cell is no longer a source center.
+        centerCell.kind        = SRC_S;
+        centerCell.parent      = DEV_NO_PARENT;
+        centerCell.spin_target = 0;
+        centerCell.pair_idx    = DEV_NO_PAIR;
+        centerCell.pair_count  = 0;
+        centerCell.leader_w    = DEV_NO_LEADER_W;
+        centerCell.a           = (uint32_t)W;
+        centerCell.t           = 0;
+        centerCell.f           = 0;
+        centerCell.u           = 0;
+        centerCell.v           = 0;
+        centerCell.m[0]        = centerCell.m[1] = centerCell.m[2] = 0;
+        centerCell.reloc[0]    = centerCell.reloc[1] = centerCell.reloc[2] = 0;
+
+        cudaMemcpy(d_lattice_curr + idxNew, &newCell, sizeof(::CellDevice), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_lattice_curr + idx, &centerCell, sizeof(::CellDevice), cudaMemcpyHostToDevice);
+
+        automaton::lcenters[iw][0] = (unsigned)nx;
+        automaton::lcenters[iw][1] = (unsigned)ny;
+        automaton::lcenters[iw][2] = (unsigned)nz;
+    }
 
     // Read new k from first cell (only after successful kernel execution)
     unsigned new_k = 0;
@@ -1163,6 +1869,10 @@ namespace automaton
         dst.a = src.a;
         for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
         dst.r2 = src.r2;
+        dst.r = src.r;
+        dst.u = src.u;
+        dst.v = src.v;
+        dst.active = src.active ? 1u : 0u;
         dst.phiB = src.phiB ? 1 : 0;
         dst.t = src.t;
         dst.f = src.f;
@@ -1175,6 +1885,15 @@ namespace automaton
         dst.cB = src.cB ? 1 : 0;
         dst.gB = src.gB ? 1 : 0;
         for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int32_t>(src.g[i]);
+
+        dst.kind = static_cast<uint8_t>(src.kind);
+        dst.parent = src.parent;
+        dst.spin_target = static_cast<int32_t>(src.spin_target);
+        dst.pair_idx = src.pair_idx;
+        dst.leader_w = src.leader_w;
+        dst.pair_count = static_cast<uint32_t>(src.pair_count);
+        for (int i = 0; i < 3; ++i) dst.m[i] = static_cast<int32_t>(src.m[i]);
+        for (int i = 0; i < 3; ++i) dst.reloc[i] = static_cast<int32_t>(src.reloc[i]);
         return dst;
     }
 
@@ -1185,6 +1904,10 @@ namespace automaton
         dst.a = src.a;
         for (int i = 0; i < 4; ++i) dst.x[i] = src.x[i];
         dst.r2 = src.r2;
+        dst.r = src.r;
+        dst.u = src.u;
+        dst.v = src.v;
+        dst.active = src.active != 0;
         dst.phiB = src.phiB != 0;
         dst.t = src.t;
         dst.f = src.f;
@@ -1197,31 +1920,18 @@ namespace automaton
         dst.cB = src.cB != 0;
         dst.gB = src.gB != 0;
         for (int i = 0; i < 3; ++i) dst.g[i] = static_cast<int>(src.g[i]);
+
+        dst.kind = static_cast<SourceKind>(src.kind);
+        dst.parent = src.parent;
+        dst.spin_target = static_cast<int8_t>(src.spin_target);
+        dst.pair_idx = src.pair_idx;
+        dst.leader_w = src.leader_w;
+        dst.pair_count = static_cast<uint8_t>(src.pair_count);
+        for (int i = 0; i < 3; ++i) dst.m[i] = static_cast<int>(src.m[i]);
+        for (int i = 0; i < 3; ++i) dst.reloc[i] = static_cast<int>(src.reloc[i]);
     }
 
     bool swap_lattices_gpu() { return true; }
-
-    void ca_update_gpu_wrapper(
-        unsigned CONVOL, unsigned GSLOT_Z,
-        unsigned SLOT1, unsigned SLOT2, unsigned SLOT3, 
-        unsigned SLOT4, unsigned DIFFUSION, unsigned SLOT5, unsigned SLOT6, 
-        unsigned SLOT7, unsigned SLOT8, unsigned RELOC, unsigned REISSUE, 
-        unsigned FLOOD, unsigned FRAME, unsigned RMAX)
-    {
-        cudaSimulationStep(
-            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
-            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-            FLOOD, FRAME, RMAX, gConfig.simulation.scenario
-        );
-    }
-
-    void ca_update_gpu_wrapper() {
-        ca_update_gpu_wrapper(
-            CONVOL, GSLOT_Z, SLOT1, SLOT2, SLOT3, SLOT4, DIFFUSION, 
-            SLOT5, SLOT6, SLOT7, SLOT8, RELOC, REISSUE, 
-            FLOOD, FRAME, RMAX
-        );
-    }
 
     void free_cuda_memory() { ::free_cuda_memory(); }
 }

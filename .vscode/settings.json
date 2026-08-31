@@ -4,7 +4,7 @@
         "vector": "cpp"
     },
     "git.path": "C:\\Program Files\\Git\\bin\\git.exe",
-    "terminal.integrated.defaultProfile.windows": "Command Prompt", // Alterado de "Git Bash"
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
     "terminal.integrated.profiles.windows": {
         "Command Prompt": {
             "path": "C:\\Windows\\System32\\cmd.exe"
@@ -15,5 +15,11 @@
         }
     },
     "search.useIgnoreFiles": false,
-    "cmake.sourceDirectory": "E:/automaton/src/include/glm"
+    "cmake.sourceDirectory": "E:/automaton/src/include/glm",
+
+    // ===== CONFIGURAÇÕES DO CLINE =====
+    "cline.apiKey": "sk-f3972516b55a483eb7ef71a9aa99140a",
+    "cline.model": "deepseek-v4-flash",
+    "cline.provider": "deepseek"
 }
+

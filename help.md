@@ -87,7 +87,7 @@ Start small (`EL=11`, `W_DIM=4`) to validate your setup, then scale gradually.
 - Implements a **3-torus topology** and **binary-string state representation** per point.  
 - Constants like `EL` and `W_DIM` are defined in `simulation.h`.  
 - For theoretical and implementation details, see:
-  - `manuscript.pdf` (in project root)
+  - `doc/manuscript.pdf`
   - [Online Help](https://github.com/automaton3d/automaton/blob/master/help.html)
 
 ---

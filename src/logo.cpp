@@ -28,7 +28,10 @@ namespace framework
     std::vector<std::string> searchPaths = {
         path,
         "fonts/" + path,
+        "bin/" + path,
         "../" + path,
+        "../bin/" + path,
+        "../../bin/" + path,
         "../../assets/" + path,
         "../assets/" + path
     };

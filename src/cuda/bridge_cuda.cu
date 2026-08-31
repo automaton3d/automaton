@@ -21,10 +21,11 @@
  */
 
 #include "cuda_runtime.h"
-#include "cuda_sim_optimized.h"   // isCudaAvailable, cudaSimulationStep, …
-#include "cuda/cuda_common.h"     // CellDevice
+#include "cuda_sim_optimized.h"   // isCudaAvailable, cudaSimulationStep, CellDevice, …
+#include "cuda_common.h"          // CellDevice
 #include "model/simulation.h"     // automaton::Cell, getCell (no OpenGL)
 #include "config.h"
+#include "sinc_overlay.h"
 
 #include <cstdio>
 #include <vector>
@@ -109,10 +110,14 @@ static void convertCellToCellDevice(const automaton::Cell& src,
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<uint32_t>(src.x[i]);
 
-    dst.r2   = static_cast<uint32_t>(src.r2);
-    dst.phiB = src.phiB ? 1 : 0;
-    dst.t    = static_cast<uint32_t>(src.t);
-    dst.f    = static_cast<uint32_t>(src.f);
+    dst.r2    = static_cast<uint32_t>(src.r2);
+    dst.r     = static_cast<int32_t>(src.r);
+    dst.u     = static_cast<int32_t>(src.u);
+    dst.v     = static_cast<int32_t>(src.v);
+    dst.active= src.active ? 1u : 0u;
+    dst.phiB  = src.phiB ? 1 : 0;
+    dst.t     = static_cast<uint32_t>(src.t);
+    dst.f     = static_cast<uint32_t>(src.f);
 
     for (int i = 0; i < 3; ++i)
         dst.c[i] = static_cast<uint32_t>(src.c[i]);
@@ -128,6 +133,13 @@ static void convertCellToCellDevice(const automaton::Cell& src,
     dst.gB  = src.gB  ? 1 : 0;
     for (int i = 0; i < 3; ++i)
         dst.g[i] = static_cast<int32_t>(src.g[i]);
+
+    dst.kind       = static_cast<uint8_t>(src.kind);
+    dst.parent     = src.parent;
+    dst.spin_target= static_cast<int32_t>(src.spin_target);
+    dst.pair_idx   = src.pair_idx;
+    for (int i = 0; i < 3; ++i)
+        dst.m[i]   = static_cast<int32_t>(src.m[i]);
 }
 
 static void convertCellDeviceToCell(const CellDevice& src,
@@ -141,10 +153,14 @@ static void convertCellDeviceToCell(const CellDevice& src,
     for (int i = 0; i < 4; ++i)
         dst.x[i] = static_cast<unsigned>(src.x[i]);
 
-    dst.r2   = static_cast<unsigned>(src.r2);
-    dst.phiB = (src.phiB != 0);
-    dst.t    = static_cast<unsigned>(src.t);
-    dst.f    = static_cast<unsigned>(src.f);
+    dst.r2    = static_cast<unsigned>(src.r2);
+    dst.r     = static_cast<int>(src.r);
+    dst.u     = static_cast<int>(src.u);
+    dst.v     = static_cast<int>(src.v);
+    dst.active= (src.active != 0);
+    dst.phiB  = (src.phiB != 0);
+    dst.t     = static_cast<unsigned>(src.t);
+    dst.f     = static_cast<unsigned>(src.f);
 
     for (int i = 0; i < 3; ++i)
         dst.c[i] = static_cast<unsigned>(src.c[i]);
@@ -159,6 +175,13 @@ static void convertCellDeviceToCell(const CellDevice& src,
     dst.gB  = (src.gB != 0);
     for (int i = 0; i < 3; ++i)
         dst.g[i] = static_cast<int>(src.g[i]);
+
+    dst.kind       = static_cast<automaton::SourceKind>(src.kind);
+    dst.parent     = src.parent;
+    dst.spin_target= static_cast<int8_t>(src.spin_target);
+    dst.pair_idx   = src.pair_idx;
+    for (int i = 0; i < 3; ++i)
+        dst.m[i]   = static_cast<int>(src.m[i]);
 }
 
 // -----------------------------------------------------------------
@@ -198,7 +221,8 @@ bool initializeCudaSimulation()
 }
 
 // -----------------------------------------------------------------
-// Helper: download GPU lattice → lattice_curr + update lcenters
+// Helper: download GPU lattice → lattice_curr.
+// lcenters is authoritative on the host (updated from the conserved m vector).
 // -----------------------------------------------------------------
 static void downloadAndSync()
 {
@@ -209,16 +233,6 @@ static void downloadAndSync()
     if (downloadLatticeFromCuda(deviceCells.data(), totalCells)) {
         for (size_t i = 0; i < totalCells; i++)
             convertCellDeviceToCell(deviceCells[i], automaton::lattice_curr[i]);
-
-        for (unsigned w = 0; w < automaton::W_USED; ++w)
-        for (unsigned x = 0; x < automaton::EL; ++x)
-        for (unsigned y = 0; y < automaton::EL; ++y)
-        for (unsigned z = 0; z < automaton::EL; ++z) {
-            const automaton::Cell& cell =
-                automaton::getCell(automaton::lattice_curr, x, y, z, w);
-            if (cell.r2 == 0)
-                updateLCenter(w, x, y, z);
-        }
     } else {
         fprintf(stderr, "Warning: Failed to download lattice from CUDA\n");
     }
@@ -258,7 +272,8 @@ void cudaSimulationStepWrapper()
             automaton::FLOOD,
             automaton::FRAME,
             automaton::RMAX,
-            gConfig.simulation.scenario
+            gConfig.simulation.scenario,
+            automaton::pulse_tick + tick
         );
 
         if (wantDelay) {
@@ -278,8 +293,8 @@ void cudaSimulationStepWrapper()
         }
     }
 
-    // Advance pulsation tick (mirrors CPU's pulse_tick++ in update_lattice_cpu)
-    automaton::pulse_tick++;
+    // Advance pulsation tick (one per tick inside this light-frame loop)
+    automaton::pulse_tick += automaton::FRAME;
 
     // Final download (always needed)
     downloadAndSync();
@@ -291,8 +306,8 @@ void cudaSimulationStepWrapper()
                                automaton::CENTER, automaton::CENTER,
                                automaton::CENTER, 0);
         unsigned eff = automaton::effective_t(center.t);
-        printf("[GPU] t=%u  eff_t=%u  RMAX=%u  center.gB=%d\n",
-               center.t, eff, automaton::RMAX, (int)center.gB);
+        // printf("[GPU] t=%u  eff_t=%u  RMAX=%u  center.gB=%d\n",
+        //        center.t, eff, automaton::RMAX, (int)center.gB);
     }
 }
 
@@ -319,8 +334,10 @@ void updateBufferCuda()
             else
                 voxels[idx++] = gpuVoxels[(x * automaton::EL + y) * automaton::EL + z];
         }
+
+        sinc_overlay::update(selectedW);
     } else {
-        // Fallback to CPU rendering
+        // Fallback to CPU rendering (also updates the sinc overlay)
         updateBufferCPU();
     }
 }

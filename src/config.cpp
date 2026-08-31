@@ -109,7 +109,7 @@ bool loadConfig(const std::string& path)
         else if (key == "data3D.sine_mask")
             gConfig.data3D[3] = parseBool(value);
 
-        else if (key == "data3D.hunting")
+        else if (key == "data3D.polarization" || key == "data3D.hunting")
             gConfig.data3D[4] = parseBool(value);
 
         else if (key == "data3D.centers")
@@ -197,6 +197,21 @@ bool loadConfig(const std::string& path)
         else if (key == "simulation.scenario" || key == "scenario")
         {
             gConfig.simulation.scenario = std::stoi(value);
+        }
+
+        else if (key == "simulation.mm_eps")
+        {
+            gConfig.simulation.mm_eps = std::stod(value);
+        }
+
+        else if (key == "simulation.mm_pbase")
+        {
+            gConfig.simulation.mm_pbase = std::stod(value);
+        }
+
+        else if (key == "simulation.mm_seed")
+        {
+            gConfig.simulation.mm_seed = (unsigned)std::stoul(value);
         }
 
         // =========================

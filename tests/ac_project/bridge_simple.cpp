@@ -17,8 +17,7 @@ namespace automaton {
     extern unsigned CENTER;
     extern unsigned RMAX;
     extern std::vector<Cell> lattice_curr;
-    extern unsigned int pulse_tick;
-    
+
     // Variáveis de controle de camada (para compatibilidade com UI)
     extern std::vector<std::array<unsigned, 3>> lcenters;
 }
@@ -56,13 +55,13 @@ bool isVisibleInTomogramSimple(unsigned x, unsigned y, unsigned z)
 void updateBufferSimple()
 {
     size_t idx = 0;
-    unsigned int pulse_r2 = pulse_from_time(pulse_tick);
-    
-    // Pré-cálculo do raio atual para o marcador
-    unsigned int current_r = 0;
-    if (pulse_r2 > 0) {
-        current_r = (unsigned int)sqrt((double)pulse_r2);
-    }
+
+    // The marker radius follows the centre cell's light-frame clock,
+    // which advances one cell per light frame.
+    size_t centerIdx = (((size_t)CENTER * EL + CENTER) * EL + CENTER) * W_USED;
+    unsigned int current_r = (centerIdx < lattice_curr.size())
+        ? effective_t(lattice_curr[centerIdx].t)
+        : 0;
     unsigned int markerX = CENTER + current_r;
 
     // Varredura sobre todo o volume cúbico
@@ -81,7 +80,7 @@ void updateBufferSimple()
 
                 // Acesso seguro à célula (Camada 0 por padrão para visualização simples)
                 // Ajuste o índice se estiver usando W_USED > 1 explicitamente
-                size_t linearIdx = ((size_t)x * EL + y) * EL + z; 
+                size_t linearIdx = (((size_t)x * EL + y) * EL + z) * W_USED;
                 const Cell& cell = lattice_curr[linearIdx]; 
 
                 // ---------------------------------------------------------
@@ -104,8 +103,8 @@ void updateBufferSimple()
                 else if (cell.c[0] != 0 || cell.c[1] != 0 || cell.c[2] != 0) {
                     color = 0x00FFFFFFu; // Ciano
                 }
-                // 5. Frente de Onda Pulsante (Amarelo) - Baseado em r2
-                else if (cell.r2 != INF_R2 && cell.r2 == pulse_r2) {
+                // 5. Frente de Onda Pulsante (Amarelo) - Usa active do phase_step
+                else if (cell.active) {
                     color = 0xFFFF50FFu; // Amarelo
                 }
                 // 6. Interior da Esfera / Carga (Branco/Azulado)
@@ -129,7 +128,7 @@ void updateBufferSimple()
                 int dist_manhattan = adx + ady + adz;
 
                 // Se estiver na casca externa e ainda não tiver cor
-                if (color == 0x00000000u && cell.r2 != INF_R2) {
+                if (color == 0x00000000u && cell.r2 != INF_R2 && cell.r2 <= RMAX * RMAX) {
                      if (dist_manhattan >= RMAX - 1 && dist_manhattan <= RMAX + 1) {
                          color = 0x40FF8000u; // Laranja fraco (Alpha=64)
                      }

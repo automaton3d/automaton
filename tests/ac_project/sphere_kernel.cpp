@@ -6,6 +6,9 @@
 using namespace automaton;
 using namespace std;
 
+// Declaração da função de inicialização (definida em globals.cpp)
+extern void InitBuffers();
+
 int main() {
     cout << "=== Teste de Integracao Sphere Kernel (C++) ===" << endl;
 
@@ -13,21 +16,15 @@ int main() {
     EL = 64;
     RMAX = 30;
     W_USED = 1; // Simplificação para o teste
-    
-    // Aloca os vetores globais
-    try {
-        lattice_curr.resize(EL * EL * EL * W_USED);
-        lattice_draft.resize(EL * EL * EL * W_USED);
-        lattice_mirror.resize(EL * EL * EL * W_USED);
-    } catch (...) {
-        cerr << "Erro ao alocar memoria." << endl;
-        return 1;
-    }
+    CENTER = EL / 2;
+
+    // Aloca e inicializa os vetores globais (x, r2, r)
+    InitBuffers();
 
     cout << "Grid " << EL << "^3 alocado com sucesso." << endl;
 
-    // Configura um centro de teste
-    unsigned int center[3] = { EL/2, EL/2, EL/2 };
+    // Configura um centro de teste (usa CENTER global)
+    cout << "Centro de teste: (" << CENTER << "," << CENTER << "," << CENTER << ")" << endl;
 
     // 1. Teste de Escrita na Esfera
     cout << "\n1. Criando padrao na esfera..." << endl;
@@ -35,7 +32,7 @@ int main() {
     for (int x = 0; x < (int)EL; ++x) {
         for (int y = 0; y < (int)EL; ++y) {
             for (int z = 0; z < (int)EL; ++z) {
-                Cell* cell = get_sphere_cell(lattice_curr, x, y, z, center);
+                Cell* cell = get_sphere_cell(lattice_curr, x, y, z);
                 if (cell) {
                     cell->ch = 1; // Marca como ativa
                     cell->t = 1;
@@ -48,11 +45,11 @@ int main() {
 
     // 2. Teste de Mapeamento Antipodal
     cout << "\n2. Testando mapeamento antipodal..." << endl;
-    int tx = center[0] + RMAX + 2; // Ponto fora da esfera
-    int ty = center[1];
-    int tz = center[2];
+    int tx = CENTER + RMAX + 2; // Ponto fora da esfera
+    int ty = CENTER;
+    int tz = CENTER;
     
-    Cell* outside = get_sphere_cell(lattice_curr, tx, ty, tz, center);
+    Cell* outside = get_sphere_cell(lattice_curr, tx, ty, tz);
     if (outside) {
         cout << "   Acesso fora da esfera foi mapeado para (" 
              << (outside - &lattice_curr[0]) % EL << ", ..., ...)" << endl;
@@ -63,10 +60,10 @@ int main() {
 
     // 3. Simulação de Passo
     cout << "\n3. Executando passo de Convolution..." << endl;
-    step_sphere_convolution();
+    sphere_convolution_step();
     
-    cout << "4. Executando Commit..." << endl;
-    step_sphere_commit();
+    cout << "4. Executando Commit (copia Draft -> Curr)..." << endl;
+    lattice_curr = lattice_draft;
 
     cout << "\n=== Teste Concluido ===" << endl;
 

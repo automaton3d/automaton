@@ -5,14 +5,12 @@
  */
 
 #include "model/simulation.h"
-#include "model/geometry.h"
+#include "model/polarization.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
 #include <algorithm>
-#include <random>
 #include <cassert>
-#include <array>
 #include "globals.h"
 #include "layers.h"
 
@@ -20,20 +18,10 @@ namespace automaton
 {
   using namespace std;
 
-  // DEBUG
-  void relocateAllWRandom();
-
-  constexpr double PI =
-    3.14159265358979323846264338327950288;
-
   // Global variables for lattice
   extern std::vector<Cell> lattice_curr;
   extern std::vector<Cell> lattice_draft;
   extern std::vector<Cell> lattice_mirror;
-
-  // Global dimensions
-  vector<unsigned> dirs;
-  vector<WPoint> wpoints;
 
   extern std::vector<std::array<unsigned, 3>> lcenters;
 
@@ -53,6 +41,12 @@ void initGeneral()
 
     // Reset pulsating sphere tick counter
     pulse_tick = 0;
+
+    // Fatia 1: zero the charge-census / virgin-wrap ledgers.
+    chargesReset();
+
+    // Reset emergent polarization broadcast state (walkers, elected axes).
+    polarization::resetAll();
     
     for (unsigned w = 0; w < W_USED; ++w)
     {
@@ -70,11 +64,13 @@ void initGeneral()
                 for (unsigned z = 0; z < EL; ++z)
                 {
                     Cell& cell = getCell(lattice_curr, x, y, z, w);
-                    
+
                     // Basic configuration
                     cell.w = static_cast<WIndex>(w);
-                    cell.leader_w = NO_LEADER_W;
                     cell.is_core = false;
+
+                    unsigned island = islandOf(cell.w);
+                    WIndex chiefW   = firstWOfIsland(island);
 
                     char w0 = w % 2;
                     char w1 = (w >> 1) % 2;
@@ -94,13 +90,30 @@ void initGeneral()
                     unsigned int R2 = RMAX * RMAX;
                     
                     if (dist_r2 <= R2) {
-                        cell.a = w;
+                        // Affinity and leader identity are shared by the W-island.
+                        cell.leader_w = chiefW;
+                        cell.a = (unsigned)chiefW;
                     } else {
-                        cell.a = W_USED;  // Orphan outside sphere
+                        cell.a = W_USED;            // Orphan outside sphere
+                        cell.leader_w = NO_LEADER_W;
                     }
                     
                     // Initialize r2 (squared distance from center, integer only)
                     cell.r2 = dist_r2;
+                    unsigned int r = 0;
+                    while ((uint32_t)(r + 1u) * (uint32_t)(r + 1u) <= dist_r2)
+                        r++;
+                    cell.r = (int)r;
+                    cell.u = 0;
+                    cell.v = 0;
+                    if (cell.r == 0)
+                        cell.u = 2048;  // seed the central wave source
+                    cell.active = 0;
+
+                    // Emergent polarization broadcast state
+                    cell.bstamp = 0;
+                    cell.pol_u  = 0;
+                    cell.pol_v  = 0;
 
                     // Initialize flags
                     cell.pB = false;
@@ -116,6 +129,32 @@ void initGeneral()
                     cell.c[0] = 0;
                     cell.c[1] = 0;
                     cell.c[2] = 0;
+
+                    // Spin-rev source model: default to singleton,
+                    // the first copy of each W-island is the seed chief (K).
+                    cell.kind       = (isIslandChief(cell.w) ? SourceKind::K : SourceKind::S);
+                    cell.parent     = NO_PARENT;
+                    cell.spin_target= 0;
+                    cell.pair_idx   = NO_PAIR;
+                    cell.pair_count = 0;
+
+                    // Each hosted bubble has a stable momentum-direction vector m and a
+                    // consumable relocation/impulse vector reloc.
+                    // The six Cartesian directions are distributed across layers in pairs:
+                    // two consecutive layers share the same axis and get opposite signs,
+                    // so the electric charge q = w0 ^ w1 determines the sign of m.
+                    // At t=0 the relocation impulse is zero; m is the long-term direction.
+                    if (cell.r == 0) {
+                        int axis  = (int)((w / 2u) % 3u);
+                        int sign  = q ? +1 : -1;
+                        cell.m[0] = (axis == 0) ? sign : 0;
+                        cell.m[1] = (axis == 1) ? sign : 0;
+                        cell.m[2] = (axis == 2) ? sign : 0;
+                        cell.reloc[0] = cell.reloc[1] = cell.reloc[2] = 0;
+                    } else {
+                        cell.m[0] = cell.m[1] = cell.m[2] = 0;
+                        cell.reloc[0] = cell.reloc[1] = cell.reloc[2] = 0;
+                    }
                 }
             }
         }
@@ -123,242 +162,6 @@ void initGeneral()
     
     puts("initGeneral ok.");
 }
-
-  /*
-   * Initialize momentum directions
-   */
-  void initMomentum()
-  {
-    const unsigned cx = CENTER;
-    const unsigned cy = CENTER;
-    const unsigned cz = CENTER;
-    
-    printf("initMomentum: looking for shell points with R=%u\n", RMAX);
-
-    auto tuples = generateShell(static_cast<int>(EL));
-    
-    printf("initMomentum: found %zu shell points\n", tuples.size());
-    
-    unsigned n = static_cast<unsigned>(std::floor(1 / 0.10483));
-    unsigned w = 0;
-    
-    dirs.clear();
-    
-    for (unsigned i = 0; i < n; i++)
-    {
-      for (auto& t : tuples)
-      {
-        if (w >= W_USED)
-          break;
-          
-        int xx, yy, zz;
-        std::tie(xx, yy, zz) = t;
-        
-        unsigned ux = (unsigned)xx;
-        unsigned uy = (unsigned)yy;
-        unsigned uz = (unsigned)zz;
-        
-        // Ensure point is inside sphere
-        if (!isInsideSphere((int)ux, (int)uy, (int)uz))
-          continue;
-          
-        dirs.push_back(ux);
-        dirs.push_back(uy);
-        dirs.push_back(uz);
-        
-        unsigned p[3] = { ux, uy, uz };
-        markPoints(p, static_cast<unsigned>(w));
-        
-        w++;
-      }
-    }
-    
-    printf("initMomentum: requested W_USED=%u, actually initialized w=%u\n", W_USED, w);
-    printf("initMomentum: dirs.size()=%zu\n", dirs.size());
-    
-    puts("initMomentum ok.");
-  }
-
-  /*
-   * Initialize sine² density (phiB)
-   */
-  void initSine2()
-  {
-    const double cx = (EL - 1) / 2.0;
-    const double cy = cx;
-    const double cz = cx;
-    const double R = EL / 2.0;
-    
-    std::mt19937 gen(42);
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
-    
-    int phiB_count = 0;
-    
-    for (unsigned w = 0; w < W_USED; w++)
-    {
-      for (unsigned i = 0; i < EL; ++i)
-      {
-        double dx = i - cx;
-        
-        for (unsigned j = 0; j < EL; ++j)
-        {
-          double dy = j - cy;
-          
-          for (unsigned k = 0; k < EL; ++k)
-          {
-            // Skip cells outside sphere
-            if (!isInsideSphere((int)i, (int)j, (int)k))
-              continue;
-              
-            double dz = k - cz;
-            double r = sqrt(dx*dx + dy*dy + dz*dz);
-            
-            if (r <= R) {
-              double theta = PI * r / R;
-              double prob = sin(theta) * sin(theta);
-              
-              if (dis(gen) < prob)
-              {
-                getCell(lattice_curr, i, j, k, w).phiB = true;
-                phiB_count++;
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    printf("initSine2: %d cells with phiB=true\n", phiB_count);
-    puts("initSine2 ok.");
-  }
-
-  /*
-   * Rodrigues rotation
-   */
-  void rotateAroundAxis(
-      const double p[3],
-      const double k[3],
-      double theta,
-      double result[3])
-  {
-    double cosT = cos(theta);
-    double sinT = sin(theta);
-    
-    double cross[3] =
-    {
-      k[1]*p[2] - k[2]*p[1],
-      k[2]*p[0] - k[0]*p[2],
-      k[0]*p[1] - k[1]*p[0]
-    };
-    
-    double dot = k[0]*p[0] + k[1]*p[1] + k[2]*p[2];
-    
-    for (int i = 0; i < 3; ++i)
-    {
-      result[i] = p[i]*cosT + cross[i]*sinT + k[i]*dot*(1 - cosT);
-    }
-  }
-
-  /*
-   * Initialize spirals (sB)
-   */
-  void initSpirals()
-  {
-    if (dirs.size() < 3 * W_USED)
-    {
-      fprintf(stderr, "FATAL: dirs[] has only %zu elements\n", dirs.size());
-      return;
-    }
-    
-    const int num_points = 10 * EL;
-    
-    std::vector<double> theta(num_points);
-    std::vector<double> r(num_points);
-    std::vector<double> x_curve(num_points);
-    std::vector<double> y_curve(num_points);
-    std::vector<double> z_curve(num_points);
-    
-    // Generate 3D spiral (helix)
-    for (int i = 0; i < num_points; ++i)
-    {
-      theta[i] = 2 * PI * i / num_points;
-      r[i] = (double)EL / (4 * PI) * theta[i];
-      x_curve[i] = r[i] * cos(theta[i]);
-      y_curve[i] = r[i] * sin(theta[i]);
-      z_curve[i] = r[i];
-    }
-    
-    const double cx = EL / 2.0;
-    const double cy = EL / 2.0;
-    const double cz = EL / 2.0;
-    
-    int sB_count = 0;
-    
-    for (unsigned w = 0; w < W_USED; ++w)
-    {
-      size_t base = w * 3;
-      
-      double k[3] =
-      {
-        static_cast<double>(dirs[base]) - cx,
-        static_cast<double>(dirs[base + 1]) - cy,
-        static_cast<double>(dirs[base + 2]) - cz
-      };
-      
-      normalize(k);
-      
-      double z_axis[3] = { 0.0, 0.0, 1.0 };
-      
-      double axis[3] =
-      {
-        z_axis[1]*k[2] - z_axis[2]*k[1],
-        z_axis[2]*k[0] - z_axis[0]*k[2],
-        z_axis[0]*k[1] - z_axis[1]*k[0]
-      };
-      
-      double axis_len = sqrt(axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]);
-      
-      if (axis_len < 1e-12)
-      {
-        axis[0] = 1.0;
-        axis[1] = 0.0;
-        axis[2] = 0.0;
-        axis_len = 1.0;
-      }
-      
-      axis[0] /= axis_len;
-      axis[1] /= axis_len;
-      axis[2] /= axis_len;
-      
-      double dot = z_axis[0]*k[0] + z_axis[1]*k[1] + z_axis[2]*k[2];
-      dot = max(-1.0, min(1.0, dot));
-      double angle = acos(dot);
-      
-      for (int i = 0; i < num_points; ++i)
-      {
-        double p[3] = { x_curve[i], y_curve[i], z_curve[i] };
-        double pr[3];
-        
-        rotateAroundAxis(p, axis, angle, pr);
-        
-        int x = (int)round(pr[0] + cx);
-        int y = (int)round(pr[1] + cy);
-        int z = (int)round(pr[2] + cz);
-        
-        if (x >= 0 && x < (int)EL &&
-            y >= 0 && y < (int)EL &&
-            z >= 0 && z < (int)EL &&
-            isInsideSphere(x, y, z))
-        {
-          getCell(lattice_curr, (unsigned)x, (unsigned)y, (unsigned)z, w).sB = true;
-          sB_count++;
-        }
-      }
-    }
-    
-    printf("initSpirals: %d cells with sB=true\n", sB_count);
-    printf("initSpirals ok - %u spirals mapped\n", W_USED);
-  }
 
   /*
    * Replicate data to draft and mirror
@@ -382,15 +185,10 @@ void initGeneral()
         break;
         
       case 1:
-        initMomentum();
-        break;
-        
       case 2:
-        initSpirals();
-        break;
-        
       case 3:
-        initSine2();
+        // Deprecated: static momentum/spiral/sine initialisation removed;
+        // polarisation and active wavefront now emerge from phase_step().
         break;
         
       case 4:
@@ -398,7 +196,7 @@ void initGeneral()
         break;
         
       case 5:
-        relocateAllWRandom();
+        // Previously used for debug topological relocation; removed.
         break;
         
       case 6:
@@ -455,15 +253,19 @@ void initGeneral()
 void initCenters(unsigned wDim)
 {
     lcenters.resize(wDim);
-    
-    // All bubbles centered at lattice center in all layers
+
+    // Platonic seed premise: every bubble is born at the lattice centre with
+    // zero radius.  All source centers therefore start superposed at
+    // (CENTER, CENTER, CENTER); they separate only later through
+    // interaction-driven relocation (applyMomentum), never at birth.
     for (unsigned w = 0; w < wDim; ++w)
     {
         lcenters[w][0] = CENTER;
         lcenters[w][1] = CENTER;
         lcenters[w][2] = CENTER;
-        
-        printf("initCenters: w=%u, center=(%u,%u,%u)\n", w, CENTER, CENTER, CENTER);
+
+        printf("initCenters: w=%u, center=(%u,%u,%u)\n",
+               w, lcenters[w][0], lcenters[w][1], lcenters[w][2]);
     }
 }
 
@@ -509,10 +311,15 @@ void initCenters(unsigned wDim)
     FLOOD     = REISSUE + 3 * (L - 1);
     
     FRAME     = FLOOD;
-    
-    printf("calculateParameters: EL=%u, W_USED=%u, RMAX=%u, CENTER=%u, FRAME=%u\n", 
-           EL, W_USED, RMAX, CENTER, FRAME);
-    
+
+    // W-island topology: W = 3L^2 is partitioned into 9L islands of L/3 copies.
+    ISLAND_COUNT = 9 * EL;
+    ISLAND_SIZE  = (ISLAND_COUNT > 0) ? (W_USED / ISLAND_COUNT) : 0;
+    if (ISLAND_SIZE == 0) ISLAND_SIZE = 1;
+
+    printf("calculateParameters: EL=%u, W_USED=%u, RMAX=%u, CENTER=%u, FRAME=%u, ISLAND_SIZE=%u, ISLAND_COUNT=%u\n",
+           EL, W_USED, RMAX, CENTER, FRAME, ISLAND_SIZE, ISLAND_COUNT);
+
     initCenters(W_USED);
   }
 

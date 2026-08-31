@@ -39,18 +39,18 @@ int main() {
     int cy = CENTER;
     int cz = CENTER;
     
-    // Ponto de origem: Na borda da esfera
-    int src_x = cx + RMAX + 2; 
+    // Ponto de origem: perto da borda da esfera, mas dentro do raio ativo
+    int src_x = cx + 28; 
     int src_y = cy;
     int src_z = cz;
     
-    if (src_x >= EL) src_x = EL - 1; // Segurança para não estourar o array
-
+    // t e d iguais a r^2 para que phase_step marque a célula como active
+    int dx = src_x - cx;
+    unsigned int test_dist = (unsigned int)(dx * dx);
+    unsigned int test_time = test_dist;
     unsigned char test_charge = 0xAB;
-    unsigned int test_time = 999;
-    unsigned int test_dist = 888;
 
-    size_t linear_idx = ((size_t)src_x * EL + src_y) * EL + src_z;
+    size_t linear_idx = (((size_t)src_x * EL + src_y) * EL + src_z) * W_USED;
     
     // Plantar a célula
     lattice_curr[linear_idx].ch = test_charge;
@@ -72,7 +72,7 @@ int main() {
     if (dst_x < 0) dst_x += EL;
     if (dst_x >= EL) dst_x -= EL;
 
-    size_t dst_idx = ((size_t)dst_x * EL + dst_y) * EL + dst_z;
+    size_t dst_idx = (((size_t)dst_x * EL + dst_y) * EL + dst_z) * W_USED;
     const Cell& result_cell = lattice_draft[dst_idx];
 
     print_cell_info("Destino Esperado (Antípoda)", dst_x, dst_y, dst_z, result_cell);
